@@ -184,6 +184,16 @@ export function RecordClientForm({
         </label>
       </div>
 
+      <label className="block text-xs text-muted">
+        Примечание
+        <textarea
+          name="note"
+          rows={2}
+          placeholder="Что важно помнить про это занятие"
+          className={`mt-1 ${inputClass}`}
+        />
+      </label>
+
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
 
       <button

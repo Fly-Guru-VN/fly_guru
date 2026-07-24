@@ -9,6 +9,7 @@ import {
   togglePaidAction,
 } from "../actions";
 import { ConfirmSubmit } from "../ConfirmSubmit";
+import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
 import {
   SellSubscriptionForm,
@@ -100,6 +101,9 @@ function SubscriptionCard({
           <p className="truncate text-xs text-muted">
             {fmtDay(s.sold_at)} · {vnd(s.price)} · продал {s.seller?.name ?? "—"}
           </p>
+          {/* Когда абонемент реально внесли в базу — с точностью до минуты.
+              По дате продажи «24.07» не понять, кто из смены его оформил. */}
+          <EnteredBadge at={s.sold_at} className="mt-1" />
         </div>
         {/* У отменённого отметки оплаты нет по определению — не пугаем
             «ожидает оплаты» там, где платить уже нечего. */}

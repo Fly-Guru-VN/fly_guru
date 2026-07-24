@@ -118,6 +118,20 @@ export function vnTimeLabel(iso: string | Date | null): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
+// «23.07 в 14:32» по Нячангу — момент, когда запись реально внесли в CRM
+// (sessions.created_at, subscriptions.sold_at). Это НЕ дата занятия: сессию
+// заводят и задним числом, и именно поэтому время внесения показываем
+// отдельной строкой — иначе непонятно, кто и когда что-то добавил в базу
+// (пачка №9, пак 3, п.4).
+export function vnEnteredLabel(iso: string | Date | null): string {
+  if (!iso) return "—";
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  const local = new Date(d.getTime() + VN_OFFSET_MS);
+  const day = String(local.getUTCDate()).padStart(2, "0");
+  const month = String(local.getUTCMonth() + 1).padStart(2, "0");
+  return `${day}.${month} в ${vnTimeLabel(iso)}`;
+}
+
 // Текущий час по Нячангу — крону надо понять, утро сейчас или вечер.
 export function vnHourNow(): number {
   return vnClock(new Date()).hour;

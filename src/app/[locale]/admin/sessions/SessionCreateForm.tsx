@@ -114,12 +114,22 @@ export function SessionCreateForm({
       {clientId === "" && (
         <div className="grid grid-cols-2 gap-2">
           <label className="text-xs text-muted">
-            Имя нового клиента
-            <input type="text" name="newName" className={`mt-1 ${inputClass}`} />
+            Имя нового клиента *
+            <input
+              type="text"
+              name="newName"
+              required
+              className={`mt-1 ${inputClass}`}
+            />
           </label>
           <label className="text-xs text-muted">
-            Телефон
-            <input type="tel" name="newPhone" className={`mt-1 ${inputClass}`} />
+            Телефон *
+            <input
+              type="tel"
+              name="newPhone"
+              required
+              className={`mt-1 ${inputClass}`}
+            />
           </label>
         </div>
       )}
@@ -151,6 +161,16 @@ export function SessionCreateForm({
           />
         </label>
       </div>
+
+      <label className="block text-xs text-muted">
+        Примечание
+        <textarea
+          name="note"
+          rows={2}
+          placeholder="Что важно помнить про это занятие"
+          className={`mt-1 ${inputClass}`}
+        />
+      </label>
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
 

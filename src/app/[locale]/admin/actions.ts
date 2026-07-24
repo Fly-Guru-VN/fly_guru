@@ -387,6 +387,7 @@ export async function createSessionAction(
     amount,
     agent_commission: rewarded ? agent!.commission_fixed : 0,
     payment_method_id: paymentMethodId,
+    note: String(formData.get("note") ?? "").trim() || null,
     created_by: admin.id,
   });
   if (insError) return { error: `Не удалось создать сессию: ${insError.message}` };
@@ -449,6 +450,11 @@ export async function updateSessionAction(formData: FormData) {
   // отличить одно от другого можно по наличию ключа в самой форме.
   if (formData.has("paymentMethodId")) {
     patch.payment_method_id = String(formData.get("paymentMethodId") ?? "") || null;
+  }
+  // Примечание, как и способ оплаты, разрешаем стирать: пустое поле здесь —
+  // «убрать текст», а не «не трогать».
+  if (formData.has("note")) {
+    patch.note = String(formData.get("note") ?? "").trim() || null;
   }
 
   const supabase = await createClient();
@@ -831,7 +837,11 @@ export async function updateClientAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!id || !name) return;
 
+  // Телефон обязателен (пачка №9, пак 4, п.2): по нему клиента ищут в записи,
+  // списании и в базе — карточка без номера бесполезна. Проверяем на сервере,
+  // а не только required в разметке: форму отправляют и мимо браузера.
   const phoneRaw = String(formData.get("phone") ?? "").trim();
+  if (!isValidPhone(phoneRaw)) throw new Error(PHONE_ERROR);
 
   // Ник в телеге: пусто — очистить, валидный — сохранить, кривой — отказать.
   // Молча превращать опечатку в null нельзя: админ правил бы заметку, а ник
@@ -851,7 +861,7 @@ export async function updateClientAction(formData: FormData) {
     .from("clients")
     .update({
       name,
-      phone: phoneRaw ? phoneDigits(phoneRaw) || phoneRaw : null,
+      phone: phoneDigits(phoneRaw) || phoneRaw,
       age: Number.isFinite(ageNum) && ageNum > 0 ? ageNum : null,
       city: String(formData.get("city") ?? "").trim() || null,
       internal_note: String(formData.get("note") ?? "").trim() || null,
@@ -934,13 +944,15 @@ export async function createAgentAction(
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   if (!name) return { error: "Укажите имя агента." };
+  // Агенту платят комиссию — без телефона его потом не найти (пак 4, п.2).
+  if (!isValidPhone(phone)) return { error: PHONE_ERROR };
 
   const { data: user, error: userError } = await supabase
     .from("users")
     .insert({
       role: "agent",
       name,
-      phone: phone ? phoneDigits(phone) || phone : null,
+      phone: phoneDigits(phone) || phone,
     })
     .select("id")
     .single();

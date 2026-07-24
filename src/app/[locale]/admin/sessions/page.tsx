@@ -8,6 +8,7 @@ import { SaveForm } from "../SaveForm";
 import { getActiveDict } from "@/lib/dictionaries";
 import { SessionCreateForm } from "./SessionCreateForm";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 
 export const metadata: Metadata = { title: "Админка · Сессии" };
 
@@ -24,6 +25,8 @@ interface SessionRow {
   service_id: string | null;
   instructor_id: string | null;
   payment_method_id: string | null;
+  note: string | null;
+  created_at: string;
   clients: { name: string } | null;
   services: { name: string } | null;
   instructor: { name: string } | null;
@@ -73,17 +76,25 @@ function SessionCard({
               У списания минут чека нет — там платить нечем. Пустую оплату
               показываем жёлтым, а не прячем: иначе «ничего не написано»
               читается как «такого поля нет», хотя данные просто не внесли. */}
-          {!isWriteoff && (
-            <p
-              className={`mt-1 inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-bold ${
-                s.payment
-                  ? "bg-emerald-500/10 text-emerald-600"
-                  : "bg-amber-500/10 text-amber-600"
-              }`}
-            >
-              <span aria-hidden>💵</span>
-              {s.payment?.name ?? "оплата не указана"}
-            </p>
+          {/* Плашки в одну строку: чем платили и когда запись реально внесли.
+              Второе — не дата занятия: сессию заводят и задним числом. */}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            {!isWriteoff && (
+              <span
+                className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-bold ${
+                  s.payment
+                    ? "bg-emerald-500/10 text-emerald-600"
+                    : "bg-amber-500/10 text-amber-600"
+                }`}
+              >
+                <span aria-hidden>💵</span>
+                {s.payment?.name ?? "оплата не указана"}
+              </span>
+            )}
+            <EnteredBadge at={s.created_at} />
+          </div>
+          {s.note && (
+            <p className="mt-1 truncate text-xs italic text-muted">📝 {s.note}</p>
           )}
         </div>
         <span
@@ -186,6 +197,15 @@ function SessionCard({
             </select>
           </label>
         )}
+        <label className="mt-2 block text-xs text-muted">
+          Примечание
+          <textarea
+            name="note"
+            rows={2}
+            defaultValue={s.note ?? ""}
+            className={`mt-1 ${inputClass}`}
+          />
+        </label>
         {isWriteoff && (
           <p className="mt-2 text-xs text-muted">
             Списание {s.minutes_used ?? 0} мин с абонемента. Минуты правятся
@@ -239,7 +259,7 @@ export default async function AdminSessionsPage({
     supabase
       .from("sessions")
       .select(
-        "id, date, amount, minutes_used, subscription_id, service_id, instructor_id, payment_method_id, clients(name), services(name), instructor:users!instructor_id(name), payment:payment_methods(name)",
+        "id, date, amount, minutes_used, subscription_id, service_id, instructor_id, payment_method_id, note, created_at, clients(name), services(name), instructor:users!instructor_id(name), payment:payment_methods(name)",
       )
       .gte("date", range.fromDay)
       .lt("date", range.toDay)

@@ -164,11 +164,12 @@ function ClientCard({ c, stats }: { c: ClientRow; stats: ClientStats }) {
               />
             </label>
             <label className="text-xs text-muted">
-              Телефон
+              Телефон *
               <input
                 type="tel"
                 name="phone"
                 defaultValue={c.phone ?? ""}
+                required
                 className={`mt-1 ${inputClass}`}
               />
             </label>

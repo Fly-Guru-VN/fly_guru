@@ -2,6 +2,7 @@ import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { phoneDigits } from "@/lib/phone";
 import { minutesLeft } from "@/lib/subscriptions";
+import { PaidBadge } from "@/components/cabinet/PaidBadge";
 import { WriteOffForm } from "./WriteOffForm";
 
 // Списание минут: поиск клиента → остаток крупно → внести каталку.
@@ -111,11 +112,12 @@ export default async function WriteOffPage({
     id: string;
     total_minutes: number;
     expires_at: string | null;
+    paid_at: string | null;
     client: { id: string; name: string; phone: string | null } | null;
   }
   const { data: activeSubsRaw } = await supabase
     .from("subscriptions")
-    .select("id, total_minutes, expires_at, client:clients(id, name, phone)")
+    .select("id, total_minutes, expires_at, paid_at, client:clients(id, name, phone)")
     .eq("status", "active")
     .order("sold_at", { ascending: false });
   const activeSubs = (activeSubsRaw ?? []) as unknown as ActiveSubRow[];
@@ -124,6 +126,7 @@ export default async function WriteOffPage({
       activeSubs.map(async (s) => ({
         client: s.client,
         expiresAt: s.expires_at,
+        paidAt: s.paid_at,
         left: await minutesLeft(supabase, s),
       })),
     )
@@ -167,6 +170,9 @@ export default async function WriteOffPage({
                   {r.client!.phone && (
                     <p className="truncate text-sm text-muted">{r.client!.phone}</p>
                   )}
+                  {/* Оплачен абонемент или нет — инструктор должен видеть до
+                      того, как спишет минуты (пачка №9, пак 4). */}
+                  <PaidBadge paidAt={r.paidAt} className="mt-1" />
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-lg font-bold text-primary">{r.left}</p>

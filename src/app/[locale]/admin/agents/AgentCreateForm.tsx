@@ -22,8 +22,8 @@ export function AgentCreateForm() {
           <input type="text" name="name" required className={`mt-1 ${inputClass}`} />
         </label>
         <label className="text-xs text-muted">
-          Телефон
-          <input type="tel" name="phone" className={`mt-1 ${inputClass}`} />
+          Телефон *
+          <input type="tel" name="phone" required className={`mt-1 ${inputClass}`} />
         </label>
       </div>
 

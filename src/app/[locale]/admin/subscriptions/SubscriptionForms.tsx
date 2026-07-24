@@ -83,19 +83,21 @@ export function SellSubscriptionForm({
         <>
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs text-muted">
-              Имя нового клиента
+              Имя нового клиента *
               <input
                 type="text"
                 name="newName"
+                required
                 defaultValue={prefill?.name ?? ""}
                 className={`mt-1 ${inputClass}`}
               />
             </label>
             <label className="text-xs text-muted">
-              Телефон
+              Телефон *
               <input
                 type="tel"
                 name="newPhone"
+                required
                 defaultValue={prefill?.phone ?? ""}
                 className={`mt-1 ${inputClass}`}
               />

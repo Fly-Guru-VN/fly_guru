@@ -253,6 +253,7 @@ export async function recordClientAction(
     amount,
     agent_commission: rewarded ? agent!.commission_fixed : 0,
     payment_method_id: paymentMethodId,
+    note: String(formData.get("note") ?? "").trim() || null,
     created_by: user.id,
   });
   if (sessionError) return { error: `Не удалось записать: ${sessionError.message}` };
@@ -612,6 +613,11 @@ export async function updateMySessionAction(formData: FormData) {
   const patch: Record<string, unknown> = {};
   const date = String(formData.get("date") ?? "").trim();
   if (DAY_RE.test(date)) patch.date = date;
+  // Примечание правится и у списания: «списал 20 мин, доска барахлила» — тот
+  // же полезный контекст. Пустое поле стирает текст, а не «не трогаем».
+  if (formData.has("note")) {
+    patch.note = String(formData.get("note") ?? "").trim() || null;
+  }
 
   // Списание минут с абонемента — тоже сессия, но без чека: сумму, услугу и
   // способ оплаты у неё править нечем, а минуты правит админ корректировкой.
@@ -653,7 +659,10 @@ export async function updateClientFromInstructorAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!id || !name) return;
 
+  // Телефон обязателен и проверяется на сервере — как в админской карточке
+  // (пачка №9, пак 4, п.2): по номеру клиента находят в записи и списании.
   const phoneRaw = String(formData.get("phone") ?? "").trim();
+  if (!isValidPhone(phoneRaw)) throw new Error(PHONE_ERROR);
 
   // Ник в телеге: пусто — очистить, валидный — сохранить, кривой — отказать.
   // Молча превращать опечатку в null нельзя (та же логика, что в админке).
@@ -669,7 +678,7 @@ export async function updateClientFromInstructorAction(formData: FormData) {
     .from("clients")
     .update({
       name,
-      phone: phoneRaw ? phoneDigits(phoneRaw) || phoneRaw : null,
+      phone: phoneDigits(phoneRaw) || phoneRaw,
       age: Number.isFinite(ageNum) && ageNum > 0 ? ageNum : null,
       city: String(formData.get("city") ?? "").trim() || null,
       internal_note: String(formData.get("note") ?? "").trim() || null,
