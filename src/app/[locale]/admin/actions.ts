@@ -33,6 +33,19 @@ async function requireAdmin() {
   return user;
 }
 
+// Два действия админки делает и механик — он такой же человек на пляже:
+// заводит заявку на подошедшего гостя и снимает премию за выход, если смену
+// отработали не по-людски (оборудование после этого чинит он). Обе проверки
+// живут в коде, а не в RLS: премию пишем service_role-клиентом (см. 0020 —
+// политика не умеет ограничивать набор колонок).
+async function requireAdminOrMechanic() {
+  const user = await getAppUser();
+  if (!user || (user.role !== "admin" && user.role !== "mechanic")) {
+    redirect("/login?next=/admin");
+  }
+  return user;
+}
+
 // Числовое поле формы → integer или null (пустое/мусор не пишем в базу).
 function intOrNull(value: FormDataEntryValue | null): number | null {
   const n = Math.floor(Number(value));
@@ -123,7 +136,7 @@ export async function createBookingAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireAdmin();
+  const author = await requireAdminOrMechanic();
 
   const clientName = String(formData.get("clientName") ?? "").trim();
   if (!clientName) return { error: "Укажите имя клиента." };
@@ -162,7 +175,9 @@ export async function createBookingAction(
   if (confirmed) await notifyInstructors(created.id as string).catch(() => {});
 
   revalidatePath("/", "layout");
-  redirect("/admin/bookings");
+  // У механика ленты заявок нет — возвращаем его на ту же форму с плашкой
+  // «заявка ушла инструкторам», чтобы он мог записать следующего.
+  redirect(author.role === "mechanic" ? "/mechanic/record?created=1" : "/admin/bookings");
 }
 
 // «Подтвердить»: сохранить данные созвона и опубликовать запись инструкторам.
@@ -1323,7 +1338,7 @@ export async function assignShiftAction(formData: FormData) {
 // значением 0. Автоматический вердикт при этом не меняется: если смена открыта
 // после 9:00, снятие «обратно» её не оплатит.
 export async function setShiftBonusAction(formData: FormData) {
-  await requireAdmin();
+  await requireAdminOrMechanic();
   const instructorId = String(formData.get("instructorId") ?? "");
   const date = String(formData.get("date") ?? "");
   if (!instructorId || !DAY_RE.test(date)) return;
@@ -1331,7 +1346,10 @@ export async function setShiftBonusAction(formData: FormData) {
   const cancelled = formData.get("cancelled") === "1";
   const comment = String(formData.get("comment") ?? "").trim();
 
-  const supabase = await createClient();
+  // service_role: у механика прав на запись в shifts нет и не будет (0020 —
+  // иначе он смог бы править и время открытия своей смены). Какие именно
+  // колонки меняются, решает этот код.
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("shifts")
     .update({

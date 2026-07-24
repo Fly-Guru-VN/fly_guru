@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 // в middleware) и в таблице users (источник правды). Здесь читаем users:
 // кабинетам нужны и id, и имя.
 
-export type AppRole = "admin" | "instructor" | "member" | "agent";
+export type AppRole = "admin" | "instructor" | "mechanic" | "member" | "agent";
 
 export interface AppUser {
   id: string; // users.id — им подписываются sessions/subscriptions
@@ -25,6 +25,7 @@ export interface AppUser {
 export const ROLE_HOME: Record<AppRole, string> = {
   admin: "/admin",
   instructor: "/instructor",
+  mechanic: "/mechanic",
   member: "/member",
   agent: "/agent",
 };

@@ -69,6 +69,8 @@ export interface StaffMember {
   name: string;
   // Смену можно поставить и админу, но премия за выход — только наёмным
   // инструкторам (пачка №9, пак 2), поэтому роль нужна экрану календаря.
+  // Ею же календарь отличает механика: регламент 9:00/18:00 не про него,
+  // у его смены показываем голое время без «вовремя/поздно».
   role: string;
 }
 
@@ -124,13 +126,38 @@ async function loadMonthShifts(
   return { data: (plain.data ?? []) as unknown as MonthShiftRow[] };
 }
 
+// Кому можно ставить смену и чьи выходы показывать в карточке дня.
+//
+// Механик здесь ради админа: смену тот открывает себе сам, но босс должен
+// видеть, во сколько человек пришёл, ушёл и что снял.
+//
+// Роль 'mechanic' добавляет миграция 0028, а деплой у David едет раньше наката
+// — и до него фильтр по несуществующему значению enum роняет ЗАПРОС ЦЕЛИКОМ
+// (22P02 «invalid input value for enum user_role»), то есть календарь остаётся
+// вообще без списка людей. Поэтому при ошибке перечитываем без механика — та
+// же страховка, что у колонок премии в loadMonthShifts.
+async function loadStaff(supabase: Supabase): Promise<StaffMember[]> {
+  const query = (roles: string[]) =>
+    supabase.from("users").select("id, name, role").in("role", roles).order("name");
+
+  const res = await query(["instructor", "admin", "mechanic"]);
+  if (!res.error) return (res.data ?? []) as StaffMember[];
+
+  const plain = await query(["instructor", "admin"]);
+  if (plain.error) {
+    console.error("[shifts] staff load error:", plain.error.message);
+    return [];
+  }
+  return (plain.data ?? []) as StaffMember[];
+}
+
 export async function getMonthCalendar(
   supabase: Supabase,
   ym: string,
 ): Promise<MonthCalendar> {
   const { fromDay, toDay } = vnMonth(ym);
 
-  const [shiftsRes, bookingsRes, staffRes] = await Promise.all([
+  const [shiftsRes, bookingsRes, staff] = await Promise.all([
     loadMonthShifts(supabase, fromDay, toDay),
     supabase
       .from("bookings")
@@ -140,11 +167,7 @@ export async function getMonthCalendar(
       .eq("status", "confirmed")
       .gte("preferred_date", fromDay)
       .lt("preferred_date", toDay),
-    supabase
-      .from("users")
-      .select("id, name, role")
-      .in("role", ["instructor", "admin"])
-      .order("name"),
+    loadStaff(supabase),
   ]);
 
   const days = new Map<string, CalendarDay>();
@@ -191,7 +214,7 @@ export async function getMonthCalendar(
     d.bookings.sort((a, b) => (a.time ?? "99").localeCompare(b.time ?? "99"));
   }
 
-  return { days, staff: (staffRes.data ?? []) as StaffMember[] };
+  return { days, staff };
 }
 
 // Фотографии смен по списку id — одним запросом (панель дня у админа

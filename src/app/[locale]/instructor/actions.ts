@@ -38,6 +38,29 @@ async function requireStaff(): Promise<AppUser> {
   return user;
 }
 
+// Часть экранов кабинета один в один переиспользует механик: смена с
+// фотофиксацией, свои расходы, настройки профиля. Отдельная проверка (а не
+// «пустить механика в requireStaff») намеренно: денежные действия — запись
+// клиента, продажа абонемента, списание минут, правка сессии — остаются за
+// инструктором, и RLS это подтверждает второй раз.
+async function requireFieldStaff(): Promise<AppUser> {
+  const user = await getAppUser();
+  if (
+    !user ||
+    (user.role !== "instructor" && user.role !== "mechanic" && user.role !== "admin")
+  ) {
+    redirect("/login?next=/instructor");
+  }
+  return user;
+}
+
+// Тот же экран лежит по двум адресам (/instructor/... и /mechanic/...) —
+// revalidatePath должен указывать на кабинет того, кто нажал кнопку, иначе
+// человек увидит старые данные.
+function cabinetBase(user: AppUser): string {
+  return user.role === "mechanic" ? "/mechanic" : "/instructor";
+}
+
 // Найти клиента по телефону (гибкое сравнение цифр) или создать нового.
 // Телефоны в заявках с сайта лежат «как ввёл гость», поэтому сравниваем в JS.
 // Клиентов у школы сотни, не миллионы — выборка дешёвая; если база вырастет,
@@ -463,7 +486,7 @@ export async function updateProfileAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const user = await requireStaff();
+  const user = await requireFieldStaff();
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Имя не может быть пустым." };
@@ -740,7 +763,7 @@ export async function addInstructorExpenseAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const user = await requireStaff();
+  const user = await requireFieldStaff();
 
   const amount = parseVnd(formData.get("amount"));
   if (!amount || amount <= 0) return { error: "Сумма — число в донгах." };
@@ -766,7 +789,7 @@ export async function addInstructorExpenseAction(
 // защита (её держит RLS), сколько честный ноль строк вместо тихого успеха,
 // если id прилетел чужой.
 export async function deleteInstructorExpenseAction(formData: FormData) {
-  const user = await requireStaff();
+  const user = await requireFieldStaff();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
@@ -944,9 +967,9 @@ export async function addShiftPhotoAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const user = await requireStaff();
-  if (user.role !== "instructor") {
-    return { error: "Смены открывают инструкторы." };
+  const user = await requireFieldStaff();
+  if (user.role === "admin") {
+    return { error: "Смены открывают инструкторы и механик." };
   }
 
   const phase = String(formData.get("phase") ?? "") as PhotoPhase;
@@ -1011,14 +1034,14 @@ export async function addShiftPhotoAction(
     return { error: `Не удалось сохранить снимок: ${rowError.message}` };
   }
 
-  revalidatePath("/instructor/shift");
+  revalidatePath(`${cabinetBase(user)}/shift`);
   return { error: null };
 }
 
 // Убрать неудачный кадр (смазал — переснял). Только пока фаза не завершена.
 export async function deleteShiftPhotoAction(formData: FormData) {
-  const user = await requireStaff();
-  if (user.role !== "instructor") return;
+  const user = await requireFieldStaff();
+  if (user.role === "admin") return;
 
   const id = String(formData.get("id") ?? "");
   if (!id) return;
@@ -1051,7 +1074,7 @@ export async function deleteShiftPhotoAction(formData: FormData) {
   const admin = createAdminClient();
   await admin.storage.from("shifts").remove([photo.path as string]);
 
-  revalidatePath("/instructor/shift");
+  revalidatePath(`${cabinetBase(user)}/shift`);
 }
 
 // Открытие смены обязательно требует пары «доска + крыло»: без них фотофиксация
@@ -1077,8 +1100,10 @@ export async function openShiftAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const user = await requireStaff();
-  if (user.role !== "instructor") return { error: "Смены открывают инструкторы." };
+  const user = await requireFieldStaff();
+  if (user.role === "admin") {
+    return { error: "Смены открывают инструкторы и механик." };
+  }
 
   const supabase = await createClient();
   const shift = await ensureTodayShift(user);
@@ -1099,7 +1124,7 @@ export async function openShiftAction(
     .eq("instructor_id", user.id);
   if (error) return { error: `Не удалось открыть смену: ${error.message}` };
 
-  revalidatePath("/instructor/shift");
+  revalidatePath(`${cabinetBase(user)}/shift`);
   return { error: null };
 }
 
@@ -1107,8 +1132,10 @@ export async function closeShiftAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const user = await requireStaff();
-  if (user.role !== "instructor") return { error: "Смены закрывают инструкторы." };
+  const user = await requireFieldStaff();
+  if (user.role === "admin") {
+    return { error: "Смены закрывают инструкторы и механик." };
+  }
 
   const supabase = await createClient();
   const date = vnToday();
@@ -1135,6 +1162,6 @@ export async function closeShiftAction(
     .eq("instructor_id", user.id);
   if (error) return { error: `Не удалось закрыть смену: ${error.message}` };
 
-  revalidatePath("/instructor/shift");
+  revalidatePath(`${cabinetBase(user)}/shift`);
   return { error: null };
 }

@@ -55,10 +55,10 @@ const { values: args } = parseArgs({
   },
 });
 
-const ROLES = ["admin", "instructor", "member", "agent"];
+const ROLES = ["admin", "instructor", "mechanic", "member", "agent"];
 if (!args.role || !ROLES.includes(args.role) || !args.name || !args.password) {
   console.error(
-    "Обязательно: --role (admin|instructor|member|agent), --name, --password.\n" +
+    "Обязательно: --role (admin|instructor|mechanic|member|agent), --name, --password.\n" +
       "И хотя бы одно из: --email, --phone.",
   );
   process.exit(1);

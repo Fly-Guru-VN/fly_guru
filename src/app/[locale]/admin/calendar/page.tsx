@@ -1,24 +1,19 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { vnToday, vnTimeLabel } from "@/lib/dates";
+import { vnToday } from "@/lib/dates";
 import {
   getMonthCalendar,
   loadShiftPhotos,
   type ShiftEntry,
   type ShiftPhoto,
 } from "@/lib/shifts";
-import {
-  shiftStatus,
-  OPEN_LABEL,
-  CLOSE_LABEL,
-  statusClass,
-} from "@/lib/shiftRules";
 import { SHIFT_PAY, SHIFT_PAY_LABEL, shiftPayStatus } from "@/lib/salary";
 import { vnd } from "@/lib/stats";
 import { MonthGrid } from "@/components/cabinet/MonthGrid";
 import { CalMonthNav, resolveCalYm } from "@/components/cabinet/CalMonthNav";
 import { DayModal } from "@/components/cabinet/DayModal";
 import { ShiftPhotos } from "@/components/cabinet/ShiftPhotos";
+import { ShiftTimes } from "@/components/cabinet/ShiftTimes";
 import {
   assignShiftAction,
   removeShiftAction,
@@ -185,9 +180,6 @@ export default async function AdminCalendarPage({
           <div className="mt-2 space-y-2">
             {cal.staff.map((u) => {
               const shift = shiftByInstr.get(u.id);
-              const status = shift
-                ? shiftStatus(shift.openedAt, shift.closedAt)
-                : null;
               const photos = shift
                 ? (photosByShift.get(shift.id) ?? [])
                 : [];
@@ -240,36 +232,15 @@ export default async function AdminCalendarPage({
                     )}
                   </div>
 
-                  {/* Факт выхода: во сколько открыл и закрыл смену */}
-                  {status && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {shift!.openedAt ? (
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(
-                            status.open === "late",
-                          )}`}
-                        >
-                          Открыл {vnTimeLabel(shift!.openedAt)} · {OPEN_LABEL[status.open]}
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-line/40 px-2.5 py-1 text-xs font-semibold text-muted">
-                          Не открыл
-                        </span>
-                      )}
-                      {shift!.closedAt ? (
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(
-                            status.close === "early",
-                          )}`}
-                        >
-                          Закрыл {vnTimeLabel(shift!.closedAt)} · {CLOSE_LABEL[status.close]}
-                        </span>
-                      ) : shift!.openedAt ? (
-                        <span className="rounded-full bg-line/40 px-2.5 py-1 text-xs font-semibold text-muted">
-                          Не закрыл
-                        </span>
-                      ) : null}
-                    </div>
+                  {/* Факт выхода: во сколько открыл и закрыл смену. Регламент
+                      9:00/18:00 — только для инструкторов и админа; у механика
+                      его нет, поэтому там голое время (см. ShiftTimes). */}
+                  {shift && (
+                    <ShiftTimes
+                      openedAt={shift.openedAt}
+                      closedAt={shift.closedAt}
+                      strict={u.role !== "mechanic"}
+                    />
                   )}
 
                   {(shift?.openComment || shift?.closeComment) && (

@@ -5,7 +5,7 @@ import { routing } from "./i18n/routing";
 
 // Middleware делает две вещи:
 // 1. next-intl: разбирает язык из URL и переписывает путь на сегмент [locale];
-// 2. защита кабинетов: /admin, /instructor, /member, /agent доступны только
+// 2. защита кабинетов: /admin, /instructor, /mechanic, /member, /agent доступны только
 //    залогиненным пользователям с подходящей ролью (роль читается из JWT —
 //    app_metadata.role, без запроса в базу). Админ может заходить в любой кабинет.
 //
@@ -15,7 +15,7 @@ import { routing } from "./i18n/routing";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
-const PROTECTED = new Set(["admin", "instructor", "member", "agent"]);
+const PROTECTED = new Set(["admin", "instructor", "mechanic", "member", "agent"]);
 
 // Убирает языковой префикс: '/en/instructor' → '/instructor', '/instructor' → как есть.
 function stripLocale(pathname: string): string {
@@ -102,6 +102,10 @@ export default async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(`${prefix}/admin/bookings`, request.url));
   if (path === "/instructor")
     return NextResponse.redirect(new URL(`${prefix}/instructor/bookings`, request.url));
+  // У механика заявок нет — его рабочий экран календарь (кто на смене, какие
+  // записи на день).
+  if (path === "/mechanic")
+    return NextResponse.redirect(new URL(`${prefix}/mechanic/calendar`, request.url));
 
   return response;
 }
