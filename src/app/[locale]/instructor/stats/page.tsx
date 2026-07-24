@@ -8,7 +8,9 @@ import {
   vnShiftDays,
   vnToday,
 } from "@/lib/dates";
-import { SHIFT_PAY, getInstructorStats, vnd, type StatsRange } from "@/lib/stats";
+import { getInstructorStats, vnd, type StatsRange } from "@/lib/stats";
+import { SHIFT_PAY, SHIFT_PAY_LABEL } from "@/lib/salary";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { setTourApprovedAction } from "../actions";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 
@@ -27,6 +29,16 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// «24 июля, чт» — дата смены в списке выходов.
+function fmtShiftDay(day: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    weekday: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${day}T00:00:00Z`));
+}
 
 const presetClass = (active: boolean) =>
   `rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
@@ -58,11 +70,16 @@ export default async function StatsPage({
   const supabase = await createClient();
   // В кабинет инструктора пускают и админа (requireRole — админ суперюзер),
   // но ЗП у него нет: роль решает, начислять слагаемые или показать нули.
+  //
+  // Пятым аргументом — service-role: с 2026-07-24 доля 15% зависит от ЧУЖИХ
+  // сессий и смен того же дня, а их RLS инструктору не отдаёт. Наружу уходит
+  // только его собственная доля, чужие суммы на экран не попадают.
   const stats = await getInstructorStats(
     supabase,
     user.id,
     range,
     user.role === "admin" ? "admin" : "instructor",
+    createAdminClient(),
   );
 
   const maxAmount = Math.max(...stats.clientBars.map((b) => b.amount), 1);
@@ -156,12 +173,12 @@ export default async function StatsPage({
         </div>
       </div>
 
-      {/* ЗП: 15% сессий + 200к за выход + подушевая доля абонементного котла */}
+      {/* ЗП: доля 15% по сменам дня + 300к за зачтённый выход + доля котла */}
       <div className="mt-3 rounded-2xl border-2 border-primary bg-surface p-5">
         <p className="text-sm text-muted">Моя ЗП за период</p>
         <p className="mt-1 text-3xl font-bold text-primary">{vnd(stats.salary)}</p>
         <div className="mt-3 space-y-1 text-sm text-muted">
-          <p>15% от моих сессий: {vnd(stats.salaryFromSessions)}</p>
+          <p>15% с занятий — моя доля: {vnd(stats.salaryFromSessions)}</p>
           <p>
             Выходы ({stats.shiftsCount} × {vnd(SHIFT_PAY)}):{" "}
             {vnd(stats.salaryFromShifts)}
@@ -172,10 +189,49 @@ export default async function StatsPage({
           </p>
         </div>
         <p className="mt-3 text-xs text-muted">
-          Абонементный котёл общий: неважно, кто из инструкторов продал — доля
-          у всех одинаковая. Сам продал {stats.paidSubsCount} шт. за период.
+          15% с занятий дня делятся поровну между теми, у кого в этот день смена
+          — неважно, кто оформил запись ({stats.sharedDays} дн. в этом периоде).
+          В дни без смен 15% идут тому, кто записал ({stats.ownDays} дн.).
+          Абонементный котёл общий: сам продал {stats.paidSubsCount} шт. за период.
         </p>
       </div>
+
+      {/* Почему выход не оплачен. Инструктору важнее всего именно это: 300к за
+          смену — самая крупная строка его ЗП, и «почему не начислили» он
+          должен видеть сам, а не спрашивать админа. */}
+      {stats.shiftRows.length > 0 && (
+        <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
+          <p className="font-bold">Выходы за период</p>
+          <p className="mt-1 text-xs text-muted">
+            Премия {vnd(SHIFT_PAY)} — за смену, открытую до 9:00 и закрытую
+            после 18:00. Не уложился — за этот выход не платят.
+          </p>
+          <div className="mt-2 space-y-1 text-sm">
+            {stats.shiftRows.map((s) => (
+              <div key={s.date} className="flex items-baseline justify-between gap-2">
+                <span className="text-muted">{fmtShiftDay(s.date)}</span>
+                <span
+                  className={
+                    s.status === "paid"
+                      ? "font-semibold text-primary"
+                      : "text-right text-xs text-muted"
+                  }
+                >
+                  {s.status === "paid"
+                    ? vnd(SHIFT_PAY)
+                    : `${SHIFT_PAY_LABEL[s.status]}${s.comment ? ` · ${s.comment}` : ""}`}
+                </span>
+              </div>
+            ))}
+          </div>
+          {stats.shiftsUnpaidCount > 0 && (
+            <p className="mt-2 text-xs text-muted">
+              Не зачтено выходов: {stats.shiftsUnpaidCount}. Считаете, что это
+              ошибка — скажите админу, премию можно вернуть.
+            </p>
+          )}
+        </div>
+      )}
 
       {stats.unpaidSubsCount > 0 && (
         <div className="mt-3 rounded-2xl border border-dashed border-line bg-surface p-4 text-sm text-muted">

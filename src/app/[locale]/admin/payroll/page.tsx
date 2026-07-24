@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { vnMonth } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
+import { SHIFT_PAY } from "@/lib/salary";
 import { getMonthlyPayroll } from "@/lib/payroll";
 import { MonthSwitcher, resolveYm } from "../MonthSwitcher";
 
@@ -58,11 +59,14 @@ export default async function AdminPayrollPage({
 
       <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-bold">
-          Инструкторы · 200 000 ₫ за выход + 15% сессий + доля абонементов
+          Инструкторы · {vnd(SHIFT_PAY)} за выход + 15% занятий + доля абонементов
         </h2>
         <p className="mt-1 text-xs text-muted">
-          15% с абонементов, проданных инструкторами, делится между ними поровну —
-          неважно, кто продал. Ваши сессии и абонементы в расчёт не идут.
+          За выход платим, если смена закрыта, открыта до 9:00 и закрыта после
+          18:00 (премию можно снять руками в календаре). 15% с занятий дня
+          делятся поровну между теми, у кого в этот день смена; в дни без смен
+          идут тому, кто записал. 15% с абонементов, проданных инструкторами,
+          делится между ними поровну. Ваши сессии и абонементы в расчёт не идут.
         </p>
         <div className="mt-3 space-y-4">
           {payroll.instructors.map((i) => (
@@ -73,11 +77,17 @@ export default async function AdminPayrollPage({
               </div>
               <div className="mt-1 space-y-1">
                 <Row
-                  label={`Сессии (${i.sessionsCount}) · ${vnd(i.sessionsRevenue)}`}
+                  label={`Занятия (${i.sessionsCount}) · ${vnd(i.sessionsRevenue)}`}
                   value={vnd(i.salaryFromSessions)}
                 />
                 <Row
-                  label={`Выходы (${i.shiftsCount})`}
+                  label={
+                    // Незачтённые выходы показываем прямо в подписи: иначе
+                    // «выходов 3» при 11 отработанных днях выглядит как сбой.
+                    i.shiftsUnpaidCount > 0
+                      ? `Выходы (${i.shiftsCount}) · не зачтено ${i.shiftsUnpaidCount}`
+                      : `Выходы (${i.shiftsCount})`
+                  }
                   value={vnd(i.salaryFromShifts)}
                 />
                 <Row

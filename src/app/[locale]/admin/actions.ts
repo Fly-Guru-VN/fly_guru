@@ -1301,6 +1301,38 @@ export async function assignShiftAction(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
+// Премия за выход (пачка №9, пак 2). Регламент считает машина: открыл до 9:00,
+// закрыл после 18:00, смена закрыта — 300 000 ₫. Но живую смену машина не
+// видит: шторм, поломка, подмена напарника. Поэтому последнее слово за админом
+// — он снимает премию руками и пишет причину, чтобы через месяц при разборе
+// «почему у него на 300к меньше» был внятный ответ.
+//
+// Ставить премию обратно тоже можно (снял по ошибке) — та же кнопка со
+// значением 0. Автоматический вердикт при этом не меняется: если смена открыта
+// после 9:00, снятие «обратно» её не оплатит.
+export async function setShiftBonusAction(formData: FormData) {
+  await requireAdmin();
+  const instructorId = String(formData.get("instructorId") ?? "");
+  const date = String(formData.get("date") ?? "");
+  if (!instructorId || !DAY_RE.test(date)) return;
+
+  const cancelled = formData.get("cancelled") === "1";
+  const comment = String(formData.get("comment") ?? "").trim();
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("shifts")
+    .update({
+      bonus_cancelled: cancelled,
+      // Вернули премию — причина больше не описывает реальность, стираем.
+      bonus_comment: cancelled ? comment || null : null,
+    })
+    .eq("instructor_id", instructorId)
+    .eq("date", date);
+  failIfError(error, "не удалось изменить премию за смену");
+  revalidatePath("/", "layout");
+}
+
 export async function removeShiftAction(formData: FormData) {
   await requireAdmin();
   const instructorId = String(formData.get("instructorId") ?? "");

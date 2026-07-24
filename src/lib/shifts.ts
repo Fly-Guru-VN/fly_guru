@@ -20,6 +20,9 @@ export interface ShiftEntry {
   closedAt: string | null;
   openComment: string | null;
   closeComment: string | null;
+  // Премия за выход снята админом вручную и почему (пачка №9, пак 2).
+  bonusCancelled: boolean;
+  bonusComment: string | null;
 }
 
 export type PhotoPhase = "open" | "close";
@@ -64,6 +67,9 @@ export interface CalendarDay {
 export interface StaffMember {
   id: string;
   name: string;
+  // Смену можно поставить и админу, но премия за выход — только наёмным
+  // инструкторам (пачка №9, пак 2), поэтому роль нужна экрану календаря.
+  role: string;
 }
 
 export interface MonthCalendar {
@@ -73,6 +79,51 @@ export interface MonthCalendar {
   staff: StaffMember[];
 }
 
+// Смены месяца. Колонки премии добавила миграция 0027, а деплой у David едет
+// раньше наката — без этой страховки календарь падал бы целиком из-за двух
+// колонок, которых ещё нет (тот же приём, что в lib/salary и у 0025).
+interface MonthShiftRow {
+  id: string;
+  instructor_id: string;
+  date: string;
+  note: string | null;
+  planned: boolean | null;
+  opened_at: string | null;
+  closed_at: string | null;
+  open_comment: string | null;
+  close_comment: string | null;
+  bonus_cancelled?: boolean | null;
+  bonus_comment?: string | null;
+  instructor: { name: string } | null;
+}
+
+async function loadMonthShifts(
+  supabase: Supabase,
+  fromDay: string,
+  toDay: string,
+): Promise<{ data: MonthShiftRow[] }> {
+  const base =
+    "id, instructor_id, date, note, planned, opened_at, closed_at, open_comment, close_comment, instructor:users!instructor_id(name)";
+  const withBonus = `${base}, bonus_cancelled, bonus_comment`;
+
+  const query = (columns: string) =>
+    supabase
+      .from("shifts")
+      .select(columns)
+      .gte("date", fromDay)
+      .lt("date", toDay);
+
+  const res = await query(withBonus);
+  if (!res.error) return { data: (res.data ?? []) as unknown as MonthShiftRow[] };
+
+  const plain = await query(base);
+  if (plain.error) {
+    console.error("[shifts] month load error:", plain.error.message);
+    return { data: [] };
+  }
+  return { data: (plain.data ?? []) as unknown as MonthShiftRow[] };
+}
+
 export async function getMonthCalendar(
   supabase: Supabase,
   ym: string,
@@ -80,13 +131,7 @@ export async function getMonthCalendar(
   const { fromDay, toDay } = vnMonth(ym);
 
   const [shiftsRes, bookingsRes, staffRes] = await Promise.all([
-    supabase
-      .from("shifts")
-      .select(
-        "id, instructor_id, date, note, planned, opened_at, closed_at, open_comment, close_comment, instructor:users!instructor_id(name)",
-      )
-      .gte("date", fromDay)
-      .lt("date", toDay),
+    loadMonthShifts(supabase, fromDay, toDay),
     supabase
       .from("bookings")
       .select(
@@ -97,7 +142,7 @@ export async function getMonthCalendar(
       .lt("preferred_date", toDay),
     supabase
       .from("users")
-      .select("id, name")
+      .select("id, name, role")
       .in("role", ["instructor", "admin"])
       .order("name"),
   ]);
@@ -124,6 +169,8 @@ export async function getMonthCalendar(
       closedAt: (s.closed_at as string | null) ?? null,
       openComment: (s.open_comment as string | null) ?? null,
       closeComment: (s.close_comment as string | null) ?? null,
+      bonusCancelled: Boolean(s.bonus_cancelled),
+      bonusComment: (s.bonus_comment as string | null) ?? null,
     });
   }
 

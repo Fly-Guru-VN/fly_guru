@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { vnCurrentMonth } from "@/lib/dates";
 import { getInstructorStats, vnd } from "@/lib/stats";
 import { BookingsBadgeRefresh } from "@/components/BookingsBadgeRefresh";
@@ -29,6 +30,10 @@ export default async function InstructorLayout({
       user.id,
       month,
       user.role === "admin" ? "admin" : "instructor",
+      // Доля 15% считается по чужим сессиям и сменам того же дня — их RLS
+      // инструктору не отдаёт, поэтому расчёт идёт под service-role (наружу
+      // уходит только итоговая сумма). Та же цифра, что на «Статистике».
+      createAdminClient(),
     ),
     supabase
       .from("bookings")

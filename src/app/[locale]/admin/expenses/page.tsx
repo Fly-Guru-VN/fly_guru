@@ -97,7 +97,11 @@ export default async function AdminExpensesPage({
           <Row label="Marina Beach" hint="35% выручки" value={vnd(fin.marina)} />
           <Row
             label="ЗП инструкторов"
-            hint={`15% их сессий (−комиссия агента) + ${fin.instructorShifts} выходов + 15% их абонементов`}
+            hint={`15% их сессий (−комиссия агента) + ${fin.instructorShifts} зачтённых выходов${
+              fin.instructorShiftsUnpaid > 0
+                ? ` (не зачтено ${fin.instructorShiftsUnpaid})`
+                : ""
+            } + 15% их абонементов`}
             value={vnd(fin.instructorPay)}
           />
           {fin.agentCommissions > 0 && (

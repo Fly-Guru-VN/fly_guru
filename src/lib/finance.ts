@@ -1,19 +1,17 @@
 import type { createClient } from "@/lib/supabase/server";
-import {
-  SESSION_RATE,
-  SHIFT_PAY,
-  SUBS_RATE,
-  getInstructorIds,
-  type StatsRange,
-} from "@/lib/stats";
+import { getInstructorIds, type StatsRange } from "@/lib/stats";
+import { SESSION_RATE, SUBS_RATE, getShiftPay } from "@/lib/salary";
 
 // Финансовая модель школы за период — питает вкладку «Расходы».
 // Как делятся деньги (пачка правок №3, паки E + H2):
 //  • Marina Beach — 35% со ВСЕЙ выручки (сессии + оплаченные абонементы),
 //    комиссия площадки.
-//  • ЗП инструкторов — 15% с чеков ИХ сессий + 200 000 ₫ за каждый их выход
-//    + 15% с абонементов, проданных ИМИ (тот же котёл, что в «Расчёте месяца»
-//    и в кабинете инструктора, только целиком, а не подушевой долей).
+//  • ЗП инструкторов — 15% с чеков ИХ сессий + 300 000 ₫ за каждый ЗАЧТЁННЫЙ
+//    выход + 15% с абонементов, проданных ИМИ (тот же котёл, что в «Расчёте
+//    месяца» и в кабинете инструктора, только целиком, а не подушевой долей).
+//    Дележ 15% между сменщиками дня (пачка №9) на школу не влияет: сумма та
+//    же, меняются только адресаты. А вот выходы теперь считаем по регламенту —
+//    смена, открытая после 9:00, школе ничего не стоит (см. lib/salary).
 //  • Дэвид + Ромчик (СММ) — 2% пополам (по 1%) со всего, что прошло через CRM:
 //    сессии + оплаченные абонементы.
 //  • Остаток — чистая прибыль, деньги босса, из неё вычитаем ручные расходы
@@ -45,9 +43,10 @@ export interface Finance {
   marina: number; // 35% от всей выручки
   instructorPay: number; // вся ЗП инструкторов (три слагаемых ниже)
   instructorSessionPay: number; // 15% с чеков сессий инструкторов
-  instructorShiftPay: number; // 200 000 ₫ × выходы инструкторов
+  instructorShiftPay: number; // 300 000 ₫ × зачтённые выходы инструкторов
   instructorSubsPay: number; // 15% с абонементов, проданных инструкторами
   instructorShifts: number; // сколько выходов оплачиваем
+  instructorShiftsUnpaid: number; // выходы, срезанные регламентом (справка)
   agentCommissions: number; // комиссии агентов по сессиям периода (пак D)
   crmCut: number; // 2% с сессий + абонементов
   crmEach: number; // доля одного (Дэвид / Ромчик) — половина crmCut
@@ -61,7 +60,7 @@ export async function getFinance(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<Finance> {
-  const [sessionsRes, subsRes, expensesRes, shiftsRes, instructorIds] =
+  const [sessionsRes, subsRes, expensesRes, instructorIds] =
     await Promise.all([
       supabase
         .from("sessions")
@@ -82,13 +81,12 @@ export async function getFinance(
         .gte("date", range.fromDay)
         .lt("date", range.toDay)
         .order("amount", { ascending: false }),
-      supabase
-        .from("shifts")
-        .select("instructor_id")
-        .gte("date", range.fromDay)
-        .lt("date", range.toDay),
       getInstructorIds(supabase),
     ]);
+
+  // Выходы считает lib/salary — те же правила, что в кабинете инструктора и в
+  // «Расчёте месяца». Здесь нужен только итог по школе.
+  const shiftPay = await getShiftPay(supabase, range, instructorIds);
 
   const sessions = sessionsRes.data ?? [];
   const subs = subsRes.data ?? [];
@@ -102,13 +100,13 @@ export async function getFinance(
   const instructorSessions = sessions.filter(
     (r) => r.instructor_id && isInstructor.has(r.instructor_id as string),
   );
-  const instructorSessionsRevenue = instructorSessions.reduce(
-    (s, r) => s + Number(r.amount ?? 0),
-    0,
-  );
-  // Комиссия агентов по сессиям инструкторов — вычитается из базы их 15% (пак D).
-  const instructorSessionsCommission = instructorSessions.reduce(
-    (s, r) => s + Number(r.agent_commission ?? 0),
+  // База 15%: чек минус комиссия агента по КАЖДОЙ сессии (пак D — агент
+  // забирает свои 300к сверху). Считаем по одной, а не разностью двух сумм:
+  // так цифра сходится с дележом по дням в lib/salary, где отрицательный
+  // остаток одной сессии не съедает чужие чеки.
+  const instructorSessionsBase = instructorSessions.reduce(
+    (s, r) =>
+      s + Math.max(0, Number(r.amount ?? 0) - Number(r.agent_commission ?? 0)),
     0,
   );
   // Все комиссии агентов за период — отдельная статья расхода школы: агент
@@ -120,15 +118,17 @@ export async function getFinance(
   const instructorSubsRevenue = subs
     .filter((r) => r.sold_by && isInstructor.has(r.sold_by as string))
     .reduce((s, r) => s + Number(r.price ?? 0), 0);
-  const instructorShifts = (shiftsRes.data ?? []).filter(
-    (r) => r.instructor_id && isInstructor.has(r.instructor_id as string),
-  ).length;
+  let instructorShifts = 0;
+  let instructorShiftsUnpaid = 0;
+  let instructorShiftPay = 0;
+  for (const info of shiftPay.values()) {
+    instructorShifts += info.paidCount;
+    instructorShiftsUnpaid += info.unpaidCount;
+    instructorShiftPay += info.amount;
+  }
 
   const marina = revenue * MARINA_RATE;
-  const instructorSessionPay =
-    Math.max(0, instructorSessionsRevenue - instructorSessionsCommission) *
-    SESSION_RATE;
-  const instructorShiftPay = instructorShifts * SHIFT_PAY;
+  const instructorSessionPay = instructorSessionsBase * SESSION_RATE;
   const instructorSubsPay = instructorSubsRevenue * SUBS_RATE;
   const instructorPay = instructorSessionPay + instructorShiftPay + instructorSubsPay;
   const crmCut = revenue * CRM_RATE;
@@ -159,6 +159,7 @@ export async function getFinance(
     instructorShiftPay,
     instructorSubsPay,
     instructorShifts,
+    instructorShiftsUnpaid,
     agentCommissions,
     crmCut,
     crmEach,

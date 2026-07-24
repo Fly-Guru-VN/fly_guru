@@ -1,11 +1,21 @@
 import type { createClient } from "@/lib/supabase/server";
+import {
+  SESSION_RATE,
+  SHIFT_PAY,
+  SUBS_RATE,
+  getSessionShare,
+  getShiftPay,
+  type ShiftPayRow,
+} from "@/lib/salary";
 
 // Общий расчёт статистики инструктора — им пользуются главный экран кабинета
 // (цифры за текущий месяц) и экран «Статистика» (произвольный период).
 //
-// Формула ЗП инструктора (архитектура, раздел 7) — три слагаемых:
-//   • 15% от чеков МОИХ сессий;
-//   • 200 000 ₫ × число моих выходов (смен из календаря) за период;
+// Формула ЗП инструктора — три слагаемых (правила от 2026-07-24, пачка №9):
+//   • 15% с сессий дня, ПОДЕЛЁННЫЕ между теми, у кого в этот день смена
+//     (день без смен — 15% со своих чеков); подробности в lib/salary;
+//   • 300 000 ₫ за каждый выход, отработанный по регламенту (открыл до 9:00,
+//     закрыл после 18:00, смена закрыта) и не снятый админом вручную;
 //   • доля абонементного котла: 15% от абонементов, ПРОДАННЫХ ИНСТРУКТОРАМИ
 //     и оплаченных в периоде (paid_at не пуст), поделённые ПОРОВНУ между
 //     всеми инструкторами — неважно, кто именно продал.
@@ -16,9 +26,9 @@ import type { createClient } from "@/lib/supabase/server";
 // Поэтому для роли admin все три слагаемых — нули, а его продажи абонементов
 // в котёл инструкторов не идут.
 
-export const SESSION_RATE = 0.15; // доля инструктора с чека занятия
-export const SUBS_RATE = 0.15; // доля с абонемента — в общий котёл инструкторов
-export const SHIFT_PAY = 200_000; // ₫ за один выход (смену), независимо от клиентов
+// Ставки живут в lib/salary (там же правила дележа), здесь — реэкспорт, чтобы
+// не переписывать импорты по всему проекту.
+export { SESSION_RATE, SHIFT_PAY, SUBS_RATE };
 
 export type StaffRole = "instructor" | "admin";
 
@@ -48,10 +58,14 @@ export interface InstructorStats {
   avgCheck: number; // средний чек по сессиям с деньгами (списания не считаем)
   minutesWrittenOff: number;
   salary: number;
-  salaryFromSessions: number;
-  salaryFromShifts: number; // 200 000 ₫ × мои выходы
+  salaryFromSessions: number; // моя доля 15% после дележа по сменам дня
+  salaryFromShifts: number; // 300 000 ₫ × зачтённые выходы
   salaryFromSubs: number; // моя доля котла (не зависит от того, кто продал)
-  shiftsCount: number; // мои смены за период
+  shiftsCount: number; // выходы, за которые заплатят
+  shiftsUnpaidCount: number; // выходы, срезанные регламентом или админом
+  shiftRows: ShiftPayRow[]; // каждый выход с вердиктом — объяснить любой ноль
+  sharedDays: number; // дней, где 15% делились со сменщиками
+  ownDays: number; // дней без смен — 15% достались мне целиком
   subsPool: number; // весь котёл за период (15% продаж инструкторов) — справка
   instructorsCount: number; // на скольких делится котёл
   paidSubsCount: number; // абонементы, проданные мной и оплаченные в периоде
@@ -78,11 +92,16 @@ interface SessionRow {
   services: { category: string } | null;
 }
 
+// payClient — клиент для расчёта ЗП. Дележ 15% по дням и чужие смены нужны
+// целиком, а инструктору RLS отдаёт только свои сессии: кабинет передаёт сюда
+// service-role, админские экраны — обычный клиент (у админа доступ и так есть).
+// Наружу инструктору всё равно уходит только его доля, не чужие суммы.
 export async function getInstructorStats(
   supabase: Supabase,
   instructorId: string,
   range: StatsRange,
   role: StaffRole = "instructor",
+  payClient: Supabase = supabase,
 ): Promise<InstructorStats> {
   // Мои сессии за период. RLS отдаёт ещё и чужие списания — фильтруем явно.
   const { data } = await supabase
@@ -95,10 +114,10 @@ export async function getInstructorStats(
     .lt("date", range.toDay);
   const rows = (data ?? []) as unknown as SessionRow[];
 
+  // Выручка по МОИМ сессиям — это по-прежнему «сколько я накатал», а не база
+  // ЗП: с 2026-07-24 15% делятся по сменам дня и считаются в lib/salary
+  // (комиссия агента вычитается там же).
   const revenue = rows.reduce((s, r) => s + Number(r.amount ?? 0), 0);
-  // Комиссия агентов по моим сессиям: её вычитаем из базы 15% (пак D). Агент
-  // забирает свои 300к «сверху» — инструктору с них ничего не идёт.
-  const agentCommission = rows.reduce((s, r) => s + Number(r.agent_commission ?? 0), 0);
   const minutesWrittenOff = rows.reduce((s, r) => s + (r.minutes_used ?? 0), 0);
   const paidSessions = rows.filter((r) => Number(r.amount ?? 0) > 0);
 
@@ -132,25 +151,36 @@ export async function getInstructorStats(
     .map(([category, amount]) => ({ category, amount }))
     .sort((a, b) => b.amount - a.amount);
 
-  const [{ data: subs }, { data: poolSubs }, { count: shiftsRaw }, instructorIds] =
-    await Promise.all([
-      // Проданные мной — для справки «продал N» и строки «ждут оплату».
-      supabase.from("subscriptions").select("price, paid_at").eq("sold_by", instructorId),
-      // Котёл: всё, что оплатили в периоде (чьё именно — отсеем ниже по sold_by).
-      supabase
-        .from("subscriptions")
-        .select("price, sold_by")
-        .not("paid_at", "is", null)
-        .gte("paid_at", range.fromIso)
-        .lt("paid_at", range.toIso),
-      supabase
-        .from("shifts")
-        .select("id", { count: "exact", head: true })
-        .eq("instructor_id", instructorId)
-        .gte("date", range.fromDay)
-        .lt("date", range.toDay),
-      getInstructorIds(supabase),
-    ]);
+  const [{ data: subs }, { data: poolSubs }, instructorIds] = await Promise.all([
+    // Проданные мной — для справки «продал N» и строки «ждут оплату».
+    supabase.from("subscriptions").select("price, paid_at").eq("sold_by", instructorId),
+    // Котёл: всё, что оплатили в периоде (чьё именно — отсеем ниже по sold_by).
+    supabase
+      .from("subscriptions")
+      .select("price, sold_by")
+      .not("paid_at", "is", null)
+      .gte("paid_at", range.fromIso)
+      .lt("paid_at", range.toIso),
+    getInstructorIds(supabase),
+  ]);
+
+  // Выходы и дележ 15% — через payClient: обе величины считаются по ВСЕМ
+  // сменам и сессиям дня, а не только по моим (см. lib/salary).
+  const [shiftPay, sessionShare] = await Promise.all([
+    getShiftPay(payClient, range, instructorIds),
+    getSessionShare(payClient, range, instructorIds),
+  ]);
+  const myShifts = shiftPay.get(instructorId) ?? {
+    paidCount: 0,
+    unpaidCount: 0,
+    amount: 0,
+    rows: [],
+  };
+  const myShare = sessionShare.get(instructorId) ?? {
+    amount: 0,
+    sharedDays: 0,
+    ownDays: 0,
+  };
 
   const subRows = subs ?? [];
   const paidInRange = subRows.filter(
@@ -166,13 +196,11 @@ export async function getInstructorStats(
     .reduce((s, r) => s + Number(r.price ?? 0), 0);
   const subsPool = poolBase * SUBS_RATE;
 
-  const shiftsCount = shiftsRaw ?? 0;
   const isInstructor = role === "instructor"; // у босса ЗП нет — все слагаемые нули
-  // База = чеки моих сессий МИНУС комиссии агентов по ним (пак D).
-  const salaryFromSessions = isInstructor
-    ? Math.max(0, revenue - agentCommission) * SESSION_RATE
-    : 0;
-  const salaryFromShifts = isInstructor ? shiftsCount * SHIFT_PAY : 0;
+  // Моя доля 15% за период. Считает lib/salary: база дня делится между сменой,
+  // в дни без смен остаётся тому, кто записал.
+  const salaryFromSessions = isInstructor ? myShare.amount : 0;
+  const salaryFromShifts = isInstructor ? myShifts.amount : 0;
   const salaryFromSubs =
     isInstructor && instructorIds.length > 0 ? subsPool / instructorIds.length : 0;
 
@@ -186,7 +214,11 @@ export async function getInstructorStats(
     salaryFromSessions,
     salaryFromShifts,
     salaryFromSubs,
-    shiftsCount,
+    shiftsCount: myShifts.paidCount,
+    shiftsUnpaidCount: myShifts.unpaidCount,
+    shiftRows: myShifts.rows,
+    sharedDays: myShare.sharedDays,
+    ownDays: myShare.ownDays,
     subsPool,
     instructorsCount: instructorIds.length,
     paidSubsCount: paidInRange.length,

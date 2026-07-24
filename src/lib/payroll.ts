@@ -5,8 +5,9 @@ import { getInstructorStats, type StatsRange } from "@/lib/stats";
 // Одна функция на страницу /admin/payroll и на CSV-выгрузку — цифры в файле
 // и на экране не могут разойтись.
 //
-// Инструкторы: 15% чеков своих сессий + 200 000 ₫ за выход + доля абонементного
-// котла (через getInstructorStats — те же цифры инструктор видит у себя).
+// Инструкторы: доля 15% с сессий (делится по сменам дня) + 300 000 ₫ за каждый
+// выход, отработанный по регламенту, + доля абонементного котла — всё через
+// getInstructorStats, те же цифры инструктор видит у себя в кабинете.
 // Агенты: подтверждённые в этом месяце награды (клиент дошёл до услуги).
 // Админа тут нет намеренно: он босс, а не наёмный — школа сама себе не платит.
 // Его деньги (сессия минус 35% Marina и 2% CRM) видны как прибыль в lib/finance.
@@ -19,7 +20,8 @@ export interface InstructorPayout {
   sessionsCount: number;
   sessionsRevenue: number;
   salaryFromSessions: number;
-  shiftsCount: number;
+  shiftsCount: number; // зачтённые выходы
+  shiftsUnpaidCount: number; // выходы, срезанные регламентом или снятые админом
   salaryFromShifts: number;
   paidSubsCount: number; // продал сам — справка, на сумму не влияет
   salaryFromSubs: number; // доля котла
@@ -61,6 +63,7 @@ export async function getMonthlyPayroll(
         sessionsRevenue: s.revenue,
         salaryFromSessions: s.salaryFromSessions,
         shiftsCount: s.shiftsCount,
+        shiftsUnpaidCount: s.shiftsUnpaidCount,
         salaryFromShifts: s.salaryFromShifts,
         paidSubsCount: s.paidSubsCount,
         salaryFromSubs: s.salaryFromSubs,
