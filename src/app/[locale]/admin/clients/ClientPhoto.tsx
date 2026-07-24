@@ -4,24 +4,30 @@ import Image from "next/image";
 import { useActionState } from "react";
 import { uploadClientPhotoAction } from "../actions";
 import { PHOTO_ACCEPT } from "@/lib/photos";
+import type { ActionState } from "@/app/[locale]/instructor/actions";
 
 // Фото клиента (пак B, пункт 7). Отдельная форма от карточки: та сохраняется
 // без файлов, и тащить фото через каждое сохранение заметки незачем.
 //
-// capture не ставим намеренно: админ работает за компьютером и выбирает уже
-// сделанный снимок. Съёмка «прямо сейчас» появится там, где она нужна, — на
-// телефоне инструктора (пак C).
+// Один компонент на оба кабинета: в админке экшен по умолчанию, у инструктора
+// (пачка №9, пак 1) — свой, с проверкой роли вместо requireAdmin. capture у
+// админа не ставим намеренно: он за компьютером и выбирает готовый снимок, а
+// инструктор стоит рядом с клиентом — ему открываем камеру сразу.
 
 export function ClientPhoto({
   clientId,
   photoUrl,
   name,
+  action = uploadClientPhotoAction,
+  capture = false,
 }: {
   clientId: string;
   photoUrl: string | null;
   name: string;
+  action?: (prev: ActionState, formData: FormData) => Promise<ActionState>;
+  capture?: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(uploadClientPhotoAction, {
+  const [state, formAction, pending] = useActionState(action, {
     error: null,
   });
 
@@ -48,6 +54,7 @@ export function ClientPhoto({
             type="file"
             name="photo"
             accept={PHOTO_ACCEPT}
+            capture={capture ? "environment" : undefined}
             required
             className="mt-1 block w-full text-xs text-muted file:mr-3 file:rounded-full file:border-0 file:bg-line/50 file:px-3 file:py-1.5 file:text-xs file:font-semibold"
           />

@@ -575,6 +575,152 @@ export async function setTourApprovedAction(formData: FormData) {
   revalidatePath("/instructor/stats");
 }
 
+// ── Свои сессии и клиенты (пачка №9, пак 1) ──────────────────────────────────
+// Инструктор оформляет записи весь день и до сих пор не мог проверить, что
+// именно записалось: список сессий был только у админа. Теперь список свой
+// (/instructor/sessions), и правится прямо в нём — без «позвони админу».
+//
+// Пишем под service_role: у инструктора нет update-политики на sessions, и
+// открывать её значило бы дать право менять ЛЮБУЮ сессию (RLS-условия на
+// update проверяются и по новой строке — чужой instructor_id туда протащить
+// можно). Вместо этого сначала читаем сессию и убеждаемся, что она его.
+function failIfError(error: { message: string } | null, what: string): void {
+  if (!error) return;
+  console.error(`[instructor] ${what}:`, error.message);
+  throw new Error(`${what}: ${error.message}`);
+}
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function updateMySessionAction(formData: FormData) {
+  const user = await requireStaff();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const admin = createAdminClient();
+  const { data: session } = await admin
+    .from("sessions")
+    .select("id, instructor_id, subscription_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!session) throw new Error("сессия не найдена");
+  // Админ ходит в кабинет как суперюзер (см. requireRole) — ему любую.
+  if (user.role !== "admin" && session.instructor_id !== user.id) {
+    throw new Error("это не ваша сессия");
+  }
+
+  const patch: Record<string, unknown> = {};
+  const date = String(formData.get("date") ?? "").trim();
+  if (DAY_RE.test(date)) patch.date = date;
+
+  // Списание минут с абонемента — тоже сессия, но без чека: сумму, услугу и
+  // способ оплаты у неё править нечем, а минуты правит админ корректировкой.
+  if (!session.subscription_id) {
+    const amount = parseVnd(formData.get("amount"));
+    if (amount !== null) patch.amount = amount;
+
+    const serviceId = String(formData.get("serviceId") ?? "");
+    if (serviceId) {
+      // Сессию нельзя переделать в абонемент: у него своя форма с минутами.
+      const { data: svc } = await admin
+        .from("services")
+        .select("category")
+        .eq("id", serviceId)
+        .maybeSingle();
+      if (svc && svc.category !== "subscription") patch.service_id = serviceId;
+    }
+
+    // Способ оплаты, в отличие от остальных полей, разрешаем и СТИРАТЬ: пустое
+    // значение — это осознанный выбор «— не указан —», а не «не трогаем».
+    if (formData.has("paymentMethodId")) {
+      patch.payment_method_id =
+        String(formData.get("paymentMethodId") ?? "") || null;
+    }
+  }
+
+  if (Object.keys(patch).length === 0) return;
+  const { error } = await admin.from("sessions").update(patch).eq("id", id);
+  failIfError(error, "не удалось сохранить сессию");
+  revalidatePath("/", "layout");
+}
+
+// Карточка клиента из кабинета инструктора: те же поля, что у админа. Клиентов
+// заводит сам инструктор (в записи и списании), опечатку в телефоне или имени
+// чинить ему же. Пишем под service_role — update-политики на clients у него нет.
+export async function updateClientFromInstructorAction(formData: FormData) {
+  await requireStaff();
+  const id = String(formData.get("id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  if (!id || !name) return;
+
+  const phoneRaw = String(formData.get("phone") ?? "").trim();
+
+  // Ник в телеге: пусто — очистить, валидный — сохранить, кривой — отказать.
+  // Молча превращать опечатку в null нельзя (та же логика, что в админке).
+  const tgRaw = String(formData.get("telegramUsername") ?? "").trim();
+  const telegram = tgRaw ? normalizeTelegram(tgRaw) : null;
+  if (tgRaw && !telegram) {
+    throw new Error("ник в Telegram: 5–32 символа — буквы, цифры, подчёркивание");
+  }
+
+  const ageNum = Math.floor(Number(formData.get("age")));
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("clients")
+    .update({
+      name,
+      phone: phoneRaw ? phoneDigits(phoneRaw) || phoneRaw : null,
+      age: Number.isFinite(ageNum) && ageNum > 0 ? ageNum : null,
+      city: String(formData.get("city") ?? "").trim() || null,
+      internal_note: String(formData.get("note") ?? "").trim() || null,
+      tour_approved: formData.get("tour_approved") === "1",
+      telegram_username: telegram,
+    })
+    .eq("id", id);
+  failIfError(error, "не удалось сохранить карточку клиента");
+  revalidatePath("/", "layout");
+}
+
+// Фото клиента с телефона инструктора — он и стоит рядом с человеком. Отдельный
+// экшен от карточки: та сохраняется без файлов (см. uploadClientPhotoAction).
+export async function uploadClientPhotoFromInstructorAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireStaff();
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Клиент не найден." };
+
+  const photo = formData.get("photo");
+  if (!(photo instanceof File) || photo.size === 0) {
+    return { error: "Выберите фото." };
+  }
+  const checked = checkPhoto(photo);
+  if (checked.error) return { error: checked.error };
+
+  const admin = createAdminClient();
+  // Путь стабильный (одно фото на клиента, upsert перезаписывает старое),
+  // а ?v= в сохранённом URL сбрасывает кеш браузера и next/image.
+  const path = `${id}.${checked.ext}`;
+  const { error: uploadError } = await admin.storage
+    .from("clients")
+    .upload(path, photo, { upsert: true, contentType: photo.type });
+  if (uploadError) {
+    return { error: `Не удалось загрузить фото: ${uploadError.message}` };
+  }
+
+  const { data: pub } = admin.storage.from("clients").getPublicUrl(path);
+  const { error } = await admin
+    .from("clients")
+    .update({ photo_url: `${pub.publicUrl}?v=${Date.now()}` })
+    .eq("id", id);
+  if (error) return { error: `Не удалось сохранить фото: ${error.message}` };
+
+  revalidatePath("/", "layout");
+  return { error: null };
+}
+
 // ── Расходы инструктора (пачка №4, пак A, пункт 3) ───────────────────────────
 // Инструктор тратит свои деньги по работе (топливо, мелкий ремонт) и вносит
 // это сам. created_by берётся из сессии — RLS (expenses_instructor_*_own в
