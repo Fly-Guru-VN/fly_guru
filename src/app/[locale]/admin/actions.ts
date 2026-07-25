@@ -500,7 +500,7 @@ export async function deleteSessionAction(formData: FormData) {
   const supabase = await createClient();
   const { data: s } = await supabase
     .from("sessions")
-    .select("subscription_id")
+    .select("subscription_id, client_id, agent_commission")
     .eq("id", id)
     .maybeSingle();
   const { error } = await supabase.from("sessions").delete().eq("id", id);
@@ -508,7 +508,47 @@ export async function deleteSessionAction(formData: FormData) {
   if (s?.subscription_id) {
     await recalcSubscriptionStatus(supabase, s.subscription_id);
   }
+  // Занятия больше нет — значит и награда агенту за него не заработана.
+  // Раньше строка в referral_rewards оставалась, и агент получал 300 000 ₫ за
+  // сессию, которой нет в базе (комиссия из расходов ушла, выплата осталась).
+  await removeSessionReward(supabase, s);
   revalidatePath("/", "layout");
+}
+
+// Снять награду агента, начисленную за удалённую сессию.
+//
+// Прямой ссылки «награда → сессия» в схеме нет: referral_rewards привязана к
+// КЛИЕНТУ (см. 0021). Поэтому ищем по трём приметам разом — тот же клиент, тот
+// же размер, что зафиксирован на сессии, и статус confirmed — и снимаем ОДНУ,
+// самую свежую. Награда пишется только за первое базовое обучение клиента,
+// поэтому подходящая строка практически всегда единственная. Не нашли —
+// молчим: значит удаляют обычную сессию без агента.
+async function removeSessionReward(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  session: { client_id?: string | null; agent_commission?: number | null } | null,
+) {
+  const commission = Number(session?.agent_commission ?? 0);
+  if (!session?.client_id || commission <= 0) return;
+
+  const { data: reward } = await supabase
+    .from("referral_rewards")
+    .select("id")
+    .eq("referrer_type", "agent")
+    .eq("client_id", session.client_id)
+    .eq("amount", commission)
+    .eq("status", "confirmed")
+    .order("confirmed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!reward) return;
+
+  const { error } = await supabase
+    .from("referral_rewards")
+    .delete()
+    .eq("id", reward.id);
+  // Сессия уже удалена — не роняем страницу, но проговариваем в лог: награду
+  // админ снимет руками, а вот падение здесь выглядело бы как «не удалилось».
+  if (error) console.error("[admin] reward delete error:", error.message);
 }
 
 // ── Абонементы (подэтап 4.3) ─────────────────────────────────────────────────
