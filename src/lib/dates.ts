@@ -131,8 +131,3 @@ export function vnEnteredLabel(iso: string | Date | null): string {
   const month = String(local.getUTCMonth() + 1).padStart(2, "0");
   return `${day}.${month} в ${vnTimeLabel(iso)}`;
 }
-
-// Текущий час по Нячангу — крону надо понять, утро сейчас или вечер.
-export function vnHourNow(): number {
-  return vnClock(new Date()).hour;
-}

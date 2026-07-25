@@ -1141,14 +1141,6 @@ export async function togglePinAction(formData: FormData) {
   await updateBooking(id, { pinned: formData.get("pinned") !== "1" });
 }
 
-// «Отменить»: клиент не придёт. Запись пропадает у инструкторов.
-export async function cancelBookingAction(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-  await updateBooking(id, { status: "cancelled", pinned: false });
-}
-
 // ── Услуги (подэтап 4.10) ────────────────────────────────────────────────────
 // Справочник services — источник для форм записи, сессий и статистики.
 // Удаления нет: на услуги ссылаются bookings и sessions, вместо этого тумблер

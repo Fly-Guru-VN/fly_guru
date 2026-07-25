@@ -44,34 +44,6 @@ export function IconClub(props: IconProps) {
   );
 }
 
-export function IconShield(props: IconProps) {
-  return (
-    <svg {...base} {...props}>
-      <path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
-  );
-}
-
-export function IconRadio(props: IconProps) {
-  return (
-    <svg {...base} {...props}>
-      <circle cx="12" cy="12" r="2" />
-      <path d="M8 8a5.6 5.6 0 0 0 0 8M16 8a5.6 5.6 0 0 1 0 8" />
-      <path d="M5.5 5.5a9 9 0 0 0 0 13M18.5 5.5a9 9 0 0 1 0 13" />
-    </svg>
-  );
-}
-
-export function IconTeacher(props: IconProps) {
-  return (
-    <svg {...base} {...props}>
-      <circle cx="12" cy="7" r="3" />
-      <path d="M5 20c0-3.9 3.1-6 7-6s7 2.1 7 6" />
-    </svg>
-  );
-}
-
 export function IconWaves(props: IconProps) {
   return (
     <svg {...base} {...props}>

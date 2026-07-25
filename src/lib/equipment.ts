@@ -18,15 +18,11 @@ export interface EquipmentItem {
 
 export const EQUIPMENT_KINDS: EquipmentKind[] = ["board", "wing"];
 
-// Человеческие подписи (единственное/множественное) — рядом с типом, чтобы
-// «доска/крыло» не разъехались по экранам.
+// Человеческие подписи — рядом с типом, чтобы «доска/крыло» не разъехались
+// по экранам.
 export const KIND_LABEL: Record<EquipmentKind, string> = {
   board: "Доска",
   wing: "Крыло",
-};
-export const KIND_PLURAL: Record<EquipmentKind, string> = {
-  board: "Доски",
-  wing: "Крылья",
 };
 
 // Только активные — для выпадашек при съёмке смены.
