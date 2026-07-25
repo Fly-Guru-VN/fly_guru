@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { sendBookingNotification } from "@/lib/telegram";
 import { isValidPhone, normalizeTelegram, phoneDigits } from "@/lib/phone";
-import { resolveRefOwners, refOwnerLabel } from "@/lib/refOwner";
+import { resolveRefOwners, refOwnerLabel, type RefOwner } from "@/lib/refOwner";
 import { firstBasicTrainingByPhone } from "@/lib/agentReward";
 
 // «Серверная дверь» для заявок с форм. Форма шлёт сюда данные, а здесь мы их
@@ -95,7 +95,19 @@ export async function POST(req: NextRequest) {
 
   const supabase = createAdminClient();
 
-  // 4. Запись заявки. status по умолчанию 'new' (задан в схеме).
+  // 4. Реф-код проверяем ДО записи заявки. Раньше он писался в базу как есть:
+  //    ссылка с опечаткой или код давно удалённого агента оседали в заявке
+  //    навсегда, админ видел «владелец не найден», а сам код жил ещё 30 дней в
+  //    браузере гостя и лез в каждую следующую заявку с того же устройства.
+  //    Не нашли владельца — код не сохраняем; src и utm при этом остаются,
+  //    откуда пришёл гость, мы всё равно знаем.
+  let refOwner: RefOwner | undefined;
+  if (refCode) {
+    refOwner = (await resolveRefOwners(supabase, [refCode])).get(refCode);
+  }
+  const storedRefCode = refOwner ? refCode : null;
+
+  // 5. Запись заявки. status по умолчанию 'new' (задан в схеме).
   // Сразу забираем присвоенный номер — покажем его клиенту на /thanks.
   const { data: created, error } = await supabase
     .from("bookings")
@@ -107,7 +119,7 @@ export async function POST(req: NextRequest) {
       telegram_username: normalizeTelegram(body.telegram),
       service_id: serviceId,
       preferred_date: preferredDate,
-      ref_code: refCode,
+      ref_code: storedRefCode,
       src,
       utm,
       internal_note: internalNote,
@@ -120,7 +132,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "db_error" }, { status: 500 });
   }
 
-  // 5. Уведомление в Telegram. Для красивого текста подтянем название услуги.
+  // 6. Уведомление в Telegram. Для красивого текста подтянем название услуги.
   let serviceName: string | null = null;
   if (serviceId) {
     const { data } = await supabase
@@ -132,18 +144,17 @@ export async function POST(req: NextRequest) {
   }
 
   // Реф-код расшифровываем в имя: в чате нужно сразу видеть, агент это (тогда
-  // будет скидка и награда) или личная ссылка инструктора.
+  // будет скидка и награда) или личная ссылка инструктора. Владельца уже нашли
+  // выше — непринятый код в чате не упоминаем вовсе, это шум для админа.
   let refLine: string | null = null;
-  if (refCode) {
-    const owners = await resolveRefOwners(supabase, [refCode]);
-    const owner = owners.get(refCode);
+  if (storedRefCode && refOwner) {
     // Скидку обещаем в чате, только если она действительно будет: повторному
     // гостю по той же ссылке её уже не дадут (скидка — за первое обучение).
     const discount =
-      owner?.kind === "agent" && owner.active
+      refOwner.kind === "agent" && refOwner.active
         ? (await firstBasicTrainingByPhone(supabase, [contact])).get(contact)
         : undefined;
-    refLine = refOwnerLabel(refCode, owner, discount);
+    refLine = refOwnerLabel(storedRefCode, refOwner, discount);
   }
 
   await sendBookingNotification({
@@ -157,5 +168,11 @@ export async function POST(req: NextRequest) {
     comment,
   });
 
-  return NextResponse.json({ ok: true, bookingNo: created?.booking_no ?? null });
+  // refAccepted говорит форме, что делать с кодом в браузере гостя: false —
+  // код мусорный, форма его забудет, чтобы он не тащился в следующие заявки.
+  return NextResponse.json({
+    ok: true,
+    bookingNo: created?.booking_no ?? null,
+    refAccepted: refCode ? Boolean(refOwner) : true,
+  });
 }

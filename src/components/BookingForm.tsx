@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "@/i18n/navigation";
-import { getAttributionForBooking } from "@/lib/attribution";
+import { forgetRefCode, getAttributionForBooking } from "@/lib/attribution";
 import { isValidPhone, PHONE_ERROR } from "@/lib/phone";
 
 // Услуга в том минимальном виде, что нужен форме: id (для базы) + название.
@@ -84,7 +84,13 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
       if (!res.ok) throw new Error("request failed");
       // Успех — уводим на страницу «спасибо» (с номером заявки, если сервер
       // его вернул: клиент сможет назвать номер при созвоне).
-      const { bookingNo } = (await res.json()) as { bookingNo?: number | null };
+      const { bookingNo, refAccepted } = (await res.json()) as {
+        bookingNo?: number | null;
+        refAccepted?: boolean;
+      };
+      // Сервер не нашёл владельца кода — стираем его из браузера, иначе он
+      // будет цепляться к заявкам ещё 30 дней (см. forgetRefCode).
+      if (refAccepted === false) forgetRefCode();
       // Сначала закрываем модалку (если форма в ней): иначе панель с «Отправляем…»
       // и заблокированный скролл висят поверх /thanks — форма будто зависла,
       // хотя заявка ушла (пачка №5, п.1/3).

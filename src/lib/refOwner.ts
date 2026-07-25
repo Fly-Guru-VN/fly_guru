@@ -83,7 +83,11 @@ export function refOwnerLabel(
   owner: RefOwner | undefined,
   discount?: boolean,
 ): string {
-  if (!owner) return `Реф-ссылка: владелец не найден (${code})`;
+  // Нерезолвленный код бывает только у СТАРЫХ заявок: с тех пор /api/bookings
+  // проверяет владельца до вставки и мусорный код в базу не пишет вовсе.
+  // Отключённый агент здесь не появится — он резолвится с active=false ниже.
+  // Поэтому текст объясняющий, а не тревожный: чинить тут нечего.
+  if (!owner) return `Реф-ссылка: код ${code} неизвестен — владельца больше нет`;
   if (owner.kind === "instructor") return `Личная ссылка инструктора: ${owner.name} · скидки нет`;
   if (!owner.active) return `Агент: ${owner.name} (отключён — скидки нет)`;
   if (discount === true) return `Агент: ${owner.name} · скидка 10% на первое обучение`;

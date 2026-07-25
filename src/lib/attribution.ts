@@ -93,6 +93,19 @@ export function captureRefCode(code: string): void {
   writeStored(merged);
 }
 
+// Забыть реф-код, оставив остальные метки. Нужно, когда сервер ответил, что
+// код не принят (владельца нет: ссылка с опечаткой, агента давно удалили).
+// Без этого мусорный код лежал бы в браузере все 30 дней и лез в каждую
+// следующую заявку с этого устройства — так и появлялись «сиротские» коды
+// в базе. Источник (src/utm) при этом честный, его сохраняем.
+export function forgetRefCode(): void {
+  const stored = readStored();
+  if (!stored.ref) return;
+  const rest = { ...stored };
+  delete rest.ref;
+  writeStored(rest);
+}
+
 // Собрать метки в том виде, в каком их ждёт заявка (booking):
 //   ref → ref_code, src → src, всё остальное (utm_*, gclid, fbclid) → utm (jsonb).
 export function getAttributionForBooking(): {
