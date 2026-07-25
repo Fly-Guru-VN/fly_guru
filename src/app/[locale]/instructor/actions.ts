@@ -94,8 +94,13 @@ async function findOrCreateClient(
     // Ник в телеге дописываем, только если его ещё нет: у постоянного клиента
     // в карточке может стоять выверенный контакт, и затирать его случайной
     // опечаткой из сегодняшней формы нельзя.
+    //
+    // Пишем service_role-клиентом (0031). Update-политики на clients у
+    // инструктора нет и не было: этот дописанный ник МОЛЧА не сохранялся —
+    // RLS отбрасывал update без единой ошибки (0 строк = успех). Заодно это
+    // позволило снять clients_insert_instructor: набор колонок задаёт код.
     if (input.telegram && !match.telegram_username) {
-      await supabase
+      await createAdminClient()
         .from("clients")
         .update({ telegram_username: input.telegram })
         .eq("id", match.id);
@@ -103,7 +108,7 @@ async function findOrCreateClient(
     return { id: match.id, existingName: match.name ?? undefined };
   }
 
-  const { data: created, error: insError } = await supabase
+  const { data: created, error: insError } = await createAdminClient()
     .from("clients")
     .insert({
       name: input.name,
