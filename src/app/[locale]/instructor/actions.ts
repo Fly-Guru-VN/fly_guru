@@ -18,6 +18,7 @@ import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
 import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
+import { claimBooking, releaseBooking, type BookingClaimState } from "@/lib/bookingClaim";
 
 // Server actions кабинета инструктора. Общий принцип безопасности:
 // instructor_id / sold_by / created_by берутся из СЕССИИ на сервере (user.id),
@@ -207,19 +208,28 @@ export async function recordClientAction(
 
   // Реф-код берём из ЗАЯВКИ на сервере (не из формы — там его можно подменить).
   let refCode: string | null = null;
+  // Прежнее состояние заявки — чтобы вернуть его, если после захвата занятие
+  // не запишется (см. lib/bookingClaim).
+  let bookingBefore: BookingClaimState | null = null;
   if (bookingId) {
     const { data: booking } = await supabase
       .from("bookings")
-      .select("id, status, ref_code, services(category)")
+      .select("id, status, client_id, payment_method_id, ref_code, services(category)")
       .eq("id", bookingId)
       .maybeSingle();
     if (!booking) return { error: "Заявка не найдена." };
     // Уже оформленную заявку вторично не проводим: повторный сабмит (кнопка
     // «Назад», зависшая вкладка) записывал второе занятие и вторую награду
-    // агенту — чек задваивался в выручке и в ЗП.
+    // агенту — чек задваивался в выручке и в ЗП. Это ранняя проверка «по-
+    // хорошему»: настоящая защита от двух устройств сразу — захват ниже.
     if (booking.status === "done") {
       return { error: "Эта заявка уже оформлена — занятие записано." };
     }
+    bookingBefore = {
+      status: booking.status as string,
+      client_id: (booking.client_id as string | null) ?? null,
+      payment_method_id: (booking.payment_method_id as string | null) ?? null,
+    };
     // Заявку на абонемент сессией не проводим: список услуг здесь без
     // абонемента, и она молча падала бы на базовое обучение, а абонемент не
     // создавался (пачка №5, п.11). Отправляем на «Продать абонемент».
@@ -284,6 +294,21 @@ export async function recordClientAction(
   const amount = applyRefDiscount(Number(service.price ?? 0), rewarded);
   const discounted = rewarded;
 
+  // Заявку занимаем ДО записи занятия: пометка «выполнена» ставится одним
+  // запросом с условием «если ещё не выполнена», поэтому из двух одновременных
+  // оформлений (админ и инструктор с разных устройств) проходит ровно одно.
+  // См. lib/bookingClaim — там же почему прежней проверки статуса мало.
+  if (bookingId && bookingBefore) {
+    const claim = await claimBooking(createAdminClient(), bookingId, {
+      client_id: clientId,
+      payment_method_id: paymentMethodId,
+    });
+    if (claim.error) return { error: `Не удалось записать: ${claim.error}` };
+    if (!claim.claimed) {
+      return { error: "Эта заявка уже оформлена — занятие записано." };
+    }
+  }
+
   // Комиссию агента фиксируем на сессии: из неё вычтется база инструктора
   // (15% с чека минус комиссия). См. миграцию 0021.
   const { error: sessionError } = await supabase.from("sessions").insert({
@@ -297,7 +322,13 @@ export async function recordClientAction(
     note: String(formData.get("note") ?? "").trim() || null,
     created_by: user.id,
   });
-  if (sessionError) return { error: `Не удалось записать: ${sessionError.message}` };
+  if (sessionError) {
+    // Занятие не записалось — заявка не должна остаться «выполненной».
+    if (bookingId && bookingBefore) {
+      await releaseBooking(createAdminClient(), bookingId, bookingBefore);
+    }
+    return { error: `Не удалось записать: ${sessionError.message}` };
+  }
 
   // Награда агенту — за первое базовое обучение приведённого клиента. Занятие
   // проведено и оплачено прямо сейчас — это и есть подтверждение, поэтому
@@ -327,20 +358,8 @@ export async function recordClientAction(
     }
   }
 
-  // Заявка доведена до занятия → закрываем её и привязываем клиента. Заодно
-  // возвращаем в заявку способ оплаты, которым клиент расплатился: админу
-  // видно это прямо в ленте заявок, не открывая сессии.
-  // service_role — см. acceptBookingAction (0030).
-  if (bookingId) {
-    await createAdminClient()
-      .from("bookings")
-      .update({
-        status: "done",
-        client_id: clientId,
-        payment_method_id: paymentMethodId,
-      })
-      .eq("id", bookingId);
-  }
+  // Заявка уже закрыта захватом выше — там же ей проставлены клиент и способ
+  // оплаты, которым он расплатился (админу видно прямо в ленте заявок).
 
   // Сбрасываем кэш страниц перед уходом на экран «Готово» (пачка №6, п.3).
   // Без этого инструктор, вернувшийся со страницы «Готово» назад к «Записям»,
@@ -387,16 +406,23 @@ export async function sellSubscriptionAction(
   // сабмит (кнопка «Назад», зависшая вкладка со старым ?booking=id) создавал
   // ВТОРОЙ абонемент на 6 млн: он задваивался и в выручке, и в котле 15%,
   // а у клиента появлялись лишние 300 минут.
+  // Настоящая защита от двух устройств сразу — захват заявки ниже.
+  let bookingBefore: BookingClaimState | null = null;
   if (bookingId) {
     const { data: booking } = await supabase
       .from("bookings")
-      .select("status")
+      .select("status, client_id, payment_method_id")
       .eq("id", bookingId)
       .maybeSingle();
     if (!booking) return { error: "Заявка не найдена." };
     if (booking.status === "done") {
       return { error: "Эта заявка уже оформлена — абонемент продан." };
     }
+    bookingBefore = {
+      status: booking.status as string,
+      client_id: (booking.client_id as string | null) ?? null,
+      payment_method_id: (booking.payment_method_id as string | null) ?? null,
+    };
   }
 
   const clientResult = await findOrCreateClient(supabase, user, {
@@ -419,6 +445,22 @@ export async function sellSubscriptionAction(
   // котёл 15%. Здесь цену и минуты по-прежнему ставит база (default'ы),
   // sold_by берётся из сессии, а не из формы.
   const admin = createAdminClient();
+
+  // Заявку занимаем ДО создания абонемента — одним запросом с условием «если
+  // ещё не выполнена» (см. lib/bookingClaim). Иначе два одновременных
+  // оформления заводят клиенту два абонемента по 6 млн: задвоенная выручка,
+  // задвоенный котёл 15% и лишние 300 минут.
+  if (bookingId && bookingBefore) {
+    const claim = await claimBooking(admin, bookingId, {
+      client_id: clientId,
+      payment_method_id: paymentMethodId,
+    });
+    if (claim.error) return { error: `Не удалось создать абонемент: ${claim.error}` };
+    if (!claim.claimed) {
+      return { error: "Эта заявка уже оформлена — абонемент продан." };
+    }
+  }
+
   const row = {
     client_id: clientId,
     sold_by: user.id,
@@ -435,21 +477,14 @@ export async function sellSubscriptionAction(
     delete legacy.payment_method_id;
     ({ error: subError } = await admin.from("subscriptions").insert(legacy));
   }
-  if (subError) return { error: `Не удалось создать абонемент: ${subError.message}` };
-
-  // Заявка доведена до продажи → закрываем её и привязываем клиента. Способ
-  // оплаты уезжает в заявку: админ видит его прямо в ленте, а не выбирает
-  // заново руками. service_role — см. acceptBookingAction (0030).
-  if (bookingId) {
-    await createAdminClient()
-      .from("bookings")
-      .update({
-        status: "done",
-        client_id: clientId,
-        payment_method_id: paymentMethodId,
-      })
-      .eq("id", bookingId);
+  if (subError) {
+    // Абонемент не создался — заявка не должна остаться «выполненной».
+    if (bookingId && bookingBefore) await releaseBooking(admin, bookingId, bookingBefore);
+    return { error: `Не удалось создать абонемент: ${subError.message}` };
   }
+
+  // Заявка уже закрыта захватом выше — там же ей проставлены клиент и способ
+  // оплаты, чтобы админ видел его прямо в ленте, а не выбирал заново руками.
 
   // Клуб пока не запускаем: продажа абонемента НЕ делает клиента членом клуба.
   // Членство добавляется вручную на вкладке «Члены клуба» (вернём авто-выдачу,
@@ -514,18 +549,46 @@ export async function writeOffAction(
     };
   }
 
-  const { error: sessionError } = await supabase.from("sessions").insert({
-    client_id: clientId,
-    subscription_id: sub.id,
-    minutes_used: minutes,
-    amount: 0, // списание с абонемента — чека нет, комиссия не начисляется
-    instructor_id: user.id,
-    created_by: user.id,
-    date: vnToday(),
-  });
+  const { data: written, error: sessionError } = await supabase
+    .from("sessions")
+    .insert({
+      client_id: clientId,
+      subscription_id: sub.id,
+      minutes_used: minutes,
+      amount: 0, // списание с абонемента — чека нет, комиссия не начисляется
+      instructor_id: user.id,
+      created_by: user.id,
+      date: vnToday(),
+    })
+    .select("id")
+    .single();
   if (sessionError) return { error: `Не удалось списать: ${sessionError.message}` };
 
-  if (left - minutes === 0) {
+  // Проверка «хватает ли минут» выше сделана ДО записи, и между ними успевает
+  // влезть второй инструктор: оба видят остаток 60, оба списывают по 40 — и на
+  // абонементе минус 20. Поэтому пересчитываем остаток уже ПОСЛЕ записи и, если
+  // ушли в минус, убираем собственную строку. Удаляем именно свою (по id), а не
+  // «последнюю»: чужое списание — не наше дело.
+  //
+  // Удаляем service_role-клиентом: у инструктора политики delete на sessions
+  // нет вовсе (0005 даёт ему только insert и select), поэтому его же клиент
+  // снёс бы ноль строк молча — без ошибки, но и без отката.
+  const leftAfter = await minutesLeft(supabase, sub);
+  if (leftAfter < 0) {
+    const { error: rollbackError } = await createAdminClient()
+      .from("sessions")
+      .delete()
+      .eq("id", written.id);
+    if (rollbackError) {
+      console.error("[instructor] writeoff rollback error:", rollbackError.message);
+    }
+    return {
+      error:
+        "Пока вы заполняли форму, минуты списал кто-то ещё — остаток изменился. Откройте списание заново.",
+    };
+  }
+
+  if (leftAfter === 0) {
     await createAdminClient()
       .from("subscriptions")
       .update({ status: "used_up" })

@@ -22,6 +22,7 @@ import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
 import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
+import { claimBooking, releaseBooking, type BookingClaimState } from "@/lib/bookingClaim";
 import type { ActionState } from "../instructor/actions";
 
 // Server actions админки: полный цикл заявки. Админ созванивается с гостем,
@@ -301,16 +302,25 @@ export async function createSessionAction(
   // Проверяем ДО создания клиента: иначе отказ ниже оставил бы клиента-сироту.
   const bookingId = String(formData.get("bookingId") ?? "") || null;
   let agent: { id: string; commission_fixed: number } | null = null;
+  // Прежнее состояние заявки — для отката, если после захвата занятие не
+  // запишется (см. lib/bookingClaim).
+  let bookingBefore: BookingClaimState | null = null;
   if (bookingId) {
     const { data: booking } = await supabase
       .from("bookings")
-      .select("status, ref_code, services(category)")
+      .select("status, client_id, payment_method_id, ref_code, services(category)")
       .eq("id", bookingId)
       .maybeSingle();
     if (!booking) return { error: "Заявка не найдена." };
+    bookingBefore = {
+      status: booking.status as string,
+      client_id: (booking.client_id as string | null) ?? null,
+      payment_method_id: (booking.payment_method_id as string | null) ?? null,
+    };
     // Уже проведённую заявку вторично не оформляем: кнопка «Назад», повторный
     // сабмит или забытая вкладка со старым ?booking=id записывали ВТОРОЕ
     // занятие и ВТОРУЮ награду агенту — чек задваивался в выручке и ЗП.
+    // От двух устройств сразу это не спасает — для этого захват ниже.
     if (booking.status === "done") {
       return {
         error: "Эта заявка уже проведена — занятие записано. Смотрите вкладку «Сессии».",
@@ -374,6 +384,24 @@ export async function createSessionAction(
   const paymentMethodId = String(formData.get("paymentMethodId") ?? "").trim();
   if (!paymentMethodId) return { error: "Укажите формат оплаты." };
 
+  // Заявку занимаем ДО записи занятия: пометка «выполнена» ставится одним
+  // запросом с условием «если ещё не выполнена», поэтому из двух одновременных
+  // оформлений (админ и инструктор с разных устройств) проходит ровно одно.
+  // Способ оплаты уезжает в заявку заодно: в ленте сразу видно, чем клиент
+  // расплатился, без похода в сессии. См. lib/bookingClaim.
+  if (bookingId && bookingBefore) {
+    const claim = await claimBooking(supabase, bookingId, {
+      client_id: clientId,
+      payment_method_id: paymentMethodId,
+    });
+    if (claim.error) return { error: `Не удалось создать сессию: ${claim.error}` };
+    if (!claim.claimed) {
+      return {
+        error: "Эта заявка уже проведена — занятие записано. Смотрите вкладку «Сессии».",
+      };
+    }
+  }
+
   // Комиссию агента фиксируем на сессии — из неё вычтется база инструктора
   // (15% с чека минус комиссия). Ставим её там же, где положена награда, даже
   // если сумму админ ввёл руками: агент привёл клиента независимо от чека.
@@ -388,7 +416,11 @@ export async function createSessionAction(
     note: String(formData.get("note") ?? "").trim() || null,
     created_by: admin.id,
   });
-  if (insError) return { error: `Не удалось создать сессию: ${insError.message}` };
+  if (insError) {
+    // Занятие не записалось — заявка не должна остаться «проведённой».
+    if (bookingId && bookingBefore) await releaseBooking(supabase, bookingId, bookingBefore);
+    return { error: `Не удалось создать сессию: ${insError.message}` };
+  }
 
   // Награда агенту (за первое базовое обучение клиента) и закрытие заявки:
   // запись доведена до оплаченного занятия. Оплата состоялась (сессия
@@ -410,18 +442,7 @@ export async function createSessionAction(
     // Награду в крайнем случае восстановит админ, дубль денег — нет.
     if (rewardError) console.error("[admin] reward insert error:", rewardError.message);
   }
-  if (bookingId) {
-    // Способ оплаты возвращаем в заявку: в ленте заявок сразу видно, чем
-    // клиент расплатился, без похода в сессии.
-    await supabase
-      .from("bookings")
-      .update({
-        status: "done",
-        client_id: clientId,
-        payment_method_id: paymentMethodId,
-      })
-      .eq("id", bookingId);
-  }
+  // Заявка уже закрыта захватом выше.
 
   // Сессия влияет на выручку, статистику и ЗП — перерисовываем всё.
   revalidatePath("/", "layout");
@@ -582,11 +603,13 @@ export async function adminSellSubscriptionAction(
   // вкладка со старым ?booking=id) создавал ВТОРОЙ абонемент на 6 млн: он
   // задваивался и в выручке, и в котле 15% инструкторов.
   // Проверяем ДО создания клиента: иначе отказ ниже оставил бы клиента-сироту.
+  // От двух устройств сразу это не спасает — для этого захват ниже.
   const bookingId = String(formData.get("bookingId") ?? "") || null;
+  let bookingBefore: BookingClaimState | null = null;
   if (bookingId) {
     const { data: booking } = await supabase
       .from("bookings")
-      .select("status")
+      .select("status, client_id, payment_method_id")
       .eq("id", bookingId)
       .maybeSingle();
     if (!booking) return { error: "Заявка не найдена." };
@@ -596,6 +619,11 @@ export async function adminSellSubscriptionAction(
           "Эта заявка уже проведена — абонемент продан. Смотрите вкладку «Абонементы».",
       };
     }
+    bookingBefore = {
+      status: booking.status as string,
+      client_id: (booking.client_id as string | null) ?? null,
+      payment_method_id: (booking.payment_method_id as string | null) ?? null,
+    };
   }
 
   // created_at клиента = дате продажи: абонемент, проданный задним числом, не
@@ -611,6 +639,26 @@ export async function adminSellSubscriptionAction(
   const paymentMethodId =
     String(formData.get("paymentMethodId") ?? "").trim() || null;
   if (paid && !paymentMethodId) return { error: "Укажите формат оплаты." };
+
+  // Заявку занимаем ДО создания абонемента — иначе два одновременных
+  // оформления заводят клиенту два абонемента по 6 млн (см. lib/bookingClaim).
+  // Продажа из заявки на абонемент — это кнопка «Продать абонемент» в ленте
+  // заявок: раньше заявка-абонемент шла на «Запись клиента», где список услуг
+  // без абонемента → молча писалась сессия базового обучения, а абонемент не
+  // создавался вовсе (пачка №5, п.11).
+  if (bookingId && bookingBefore) {
+    const claim = await claimBooking(supabase, bookingId, {
+      client_id: clientId,
+      payment_method_id: paymentMethodId,
+    });
+    if (claim.error) return { error: `Не удалось создать абонемент: ${claim.error}` };
+    if (!claim.claimed) {
+      return {
+        error:
+          "Эта заявка уже проведена — абонемент продан. Смотрите вкладку «Абонементы».",
+      };
+    }
+  }
 
   const row = {
     client_id: clientId,
@@ -629,22 +677,13 @@ export async function adminSellSubscriptionAction(
     delete legacy.payment_method_id;
     ({ error: subError } = await supabase.from("subscriptions").insert(legacy));
   }
-  if (subError) return { error: `Не удалось создать абонемент: ${subError.message}` };
-
-  // Продажа из заявки на абонемент (кнопка «Продать абонемент» в ленте заявок):
-  // закрываем заявку и привязываем клиента. Раньше заявка-абонемент шла на
-  // «Запись клиента», где список услуг без абонемента → молча писалась сессия
-  // базового обучения, а абонемент не создавался вовсе (пачка №5, п.11).
-  if (bookingId) {
-    await supabase
-      .from("bookings")
-      .update({
-        status: "done",
-        client_id: clientId,
-        payment_method_id: paymentMethodId,
-      })
-      .eq("id", bookingId);
+  if (subError) {
+    // Абонемент не создался — заявка не должна остаться «проведённой».
+    if (bookingId && bookingBefore) await releaseBooking(supabase, bookingId, bookingBefore);
+    return { error: `Не удалось создать абонемент: ${subError.message}` };
   }
+
+  // Заявка уже закрыта захватом выше.
 
   // Клуб пока не запускаем: продажа абонемента НЕ делает клиента членом клуба
   // (как и у инструктора). Членство добавляется руками на вкладке «Члены клуба».
