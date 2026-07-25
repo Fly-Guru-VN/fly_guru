@@ -9,18 +9,50 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { Attribution } from "@/components/Attribution";
 import { BookingProvider } from "@/components/BookingProvider";
 import { getActiveServices } from "@/lib/services";
+import { SITE_URL } from "@/lib/site";
 import "../globals.css";
 
 // Self-hosted шрифт (грузится с нашего домена, без обращения к Google на клиенте).
 const font = Manrope({ subsets: ["latin", "cyrillic"], variable: "--font-app" });
 
+const TITLE = "FlyGuru — школа электрофойлов в Нячанге";
+const DESCRIPTION =
+  "Обучение полёту на электрофойле в Нячанге. 90% учеников едут уже на первом занятии.";
+
 export const metadata: Metadata = {
+  // metadataBase превращает относительные пути ниже (/og.jpg) в абсолютные.
+  // Без него Next не может собрать og:image, а мессенджеры показывают ссылку
+  // голым текстом — именно так flyguru.pro и уходила клиентам в WhatsApp.
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "FlyGuru — школа электрофойлов в Нячанге",
+    default: TITLE,
     template: "%s · FlyGuru",
   },
-  description:
-    "Обучение полёту на электрофойле в Нячанге. 90% учеников едут уже на первом занятии.",
+  description: DESCRIPTION,
+  // Превью ссылки: картинка 1200×630 (собрана из фото на воде) + подпись.
+  // Тот же набор читают WhatsApp, Telegram, Facebook и Instagram.
+  openGraph: {
+    type: "website",
+    siteName: "FlyGuru",
+    locale: "ru_RU",
+    url: SITE_URL,
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [
+      {
+        url: "/og.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Гость FlyGuru едет на электрофойле в Нячанге",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/og.jpg"],
+  },
 };
 
 export function generateStaticParams() {
