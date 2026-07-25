@@ -125,13 +125,19 @@ async function findOrCreateClient(
 // «Принять»: запись закрепляется за мной. Условия .is("accepted_by", null) и
 // .eq("status", "confirmed") защищают от гонки — если двое нажали одновременно,
 // база возьмёт только первого, у второго update просто не найдёт строку.
+//
+// Пишем service_role-клиентом (миграция 0030). Политика bookings_update_staff
+// разрешала инструктору update ЛЮБОЙ колонки ЛЮБОЙ заявки — RLS не умеет
+// ограничивать набор колонок, поэтому запросом мимо интерфейса можно было
+// переписать телефон, способ оплаты или статус чужой заявки. Что именно
+// меняется, решает теперь этот код; условия .eq/.is остались на месте и
+// по-прежнему держат гонку.
 export async function acceptBookingAction(formData: FormData) {
   const user = await requireStaff();
-  const supabase = await createClient();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  await supabase
+  await createAdminClient()
     .from("bookings")
     .update({ accepted_by: user.id, accepted_at: new Date().toISOString() })
     .eq("id", id)
@@ -142,14 +148,13 @@ export async function acceptBookingAction(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
-// «Отказаться»: вернуть запись в общий пул (только свою).
+// «Отказаться»: вернуть запись в общий пул (только свою — .eq("accepted_by")).
 export async function declineBookingAction(formData: FormData) {
   const user = await requireStaff();
-  const supabase = await createClient();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  await supabase
+  await createAdminClient()
     .from("bookings")
     .update({ accepted_by: null, accepted_at: null })
     .eq("id", id)
@@ -292,16 +297,23 @@ export async function recordClientAction(
   // пишем сразу `confirmed` (иначе награда зависала бы pending, клиент везде
   // «оплатил», а в расчёте месяца агенту 0). Размер фиксированный
   // (commission_fixed), считается независимо от чека.
+  //
+  // Пишем service_role-клиентом (0030): политика rewards_insert_instructor
+  // проверяла только роль, поэтому инструктор мог выписать любому агенту
+  // награду любого размера запросом мимо интерфейса. Размер берём из карточки
+  // агента (commission_fixed), а не из формы.
   if (rewarded) {
-    const { error: rewardError } = await supabase.from("referral_rewards").insert({
-      referrer_type: "agent",
-      referrer_id: agent!.id,
-      client_id: clientId,
-      reward_type: "money",
-      amount: agent!.commission_fixed,
-      status: "confirmed",
-      confirmed_at: new Date().toISOString(),
-    });
+    const { error: rewardError } = await createAdminClient()
+      .from("referral_rewards")
+      .insert({
+        referrer_type: "agent",
+        referrer_id: agent!.id,
+        client_id: clientId,
+        reward_type: "money",
+        amount: agent!.commission_fixed,
+        status: "confirmed",
+        confirmed_at: new Date().toISOString(),
+      });
     if (rewardError) {
       // Сессия уже записана — не роняем оформление, но проговариваем проблему.
       console.error("[instructor] reward insert error:", rewardError.message);
@@ -311,8 +323,9 @@ export async function recordClientAction(
   // Заявка доведена до занятия → закрываем её и привязываем клиента. Заодно
   // возвращаем в заявку способ оплаты, которым клиент расплатился: админу
   // видно это прямо в ленте заявок, не открывая сессии.
+  // service_role — см. acceptBookingAction (0030).
   if (bookingId) {
-    await supabase
+    await createAdminClient()
       .from("bookings")
       .update({
         status: "done",
@@ -391,6 +404,14 @@ export async function sellSubscriptionAction(
   // total_minutes (300) и price (6 млн) заданы default'ами в схеме.
   // Минуты живут 3 месяца с продажи. paid_at пишем только при полученной
   // оплате — от него зависит комиссия инструктора (см. 0002).
+  //
+  // Тоже service_role (0030). Политика subscriptions_insert_instructor
+  // проверяла только «sold_by — это я», а цену, минуты и отметку оплаты в
+  // новой строке не ограничивала: запросом мимо интерфейса инструктор мог
+  // завести себе оплаченный абонемент на любую сумму — и накачать этим общий
+  // котёл 15%. Здесь цену и минуты по-прежнему ставит база (default'ы),
+  // sold_by берётся из сессии, а не из формы.
+  const admin = createAdminClient();
   const row = {
     client_id: clientId,
     sold_by: user.id,
@@ -398,22 +419,22 @@ export async function sellSubscriptionAction(
     paid_at: paid ? new Date().toISOString() : null,
     payment_method_id: paymentMethodId,
   };
-  let { error: subError } = await supabase.from("subscriptions").insert(row);
+  let { error: subError } = await admin.from("subscriptions").insert(row);
   // Миграцию 0025 ещё не накатили — колонки payment_method_id нет. Продажу
   // из-за этого не роняем: пишем абонемент без способа оплаты (его потом
   // проставит админ), иначе деплой до миграции убил бы весь поток продаж.
   if (subError?.code === "PGRST204") {
     const legacy: Partial<typeof row> = { ...row };
     delete legacy.payment_method_id;
-    ({ error: subError } = await supabase.from("subscriptions").insert(legacy));
+    ({ error: subError } = await admin.from("subscriptions").insert(legacy));
   }
   if (subError) return { error: `Не удалось создать абонемент: ${subError.message}` };
 
   // Заявка доведена до продажи → закрываем её и привязываем клиента. Способ
   // оплаты уезжает в заявку: админ видит его прямо в ленте, а не выбирает
-  // заново руками.
+  // заново руками. service_role — см. acceptBookingAction (0030).
   if (bookingId) {
-    await supabase
+    await createAdminClient()
       .from("bookings")
       .update({
         status: "done",
@@ -462,8 +483,17 @@ export async function writeOffAction(
     .maybeSingle();
   if (!sub) return { error: "У клиента нет активного абонемента." };
 
+  // Статус абонемента правим service_role-клиентом (0030). Политика
+  // subscriptions_update_instructor разрешала инструктору update ЛЮБОЙ колонки
+  // ЛЮБОГО абонемента: запросом мимо интерфейса можно было проставить себе
+  // sold_by, отметить оплату (paid_at идёт в выручку и в комиссию продавца),
+  // накинуть total_minutes или переписать цену. Приложению от этой политики
+  // нужны ровно два статуса — их и оставляем, всё остальное закрыто.
   if (sub.expires_at && new Date(sub.expires_at) < new Date()) {
-    await supabase.from("subscriptions").update({ status: "expired" }).eq("id", sub.id);
+    await createAdminClient()
+      .from("subscriptions")
+      .update({ status: "expired" })
+      .eq("id", sub.id);
     return { error: "Абонемент истёк (минуты живут 3 месяца). Продайте новый." };
   }
 
@@ -489,7 +519,10 @@ export async function writeOffAction(
   if (sessionError) return { error: `Не удалось списать: ${sessionError.message}` };
 
   if (left - minutes === 0) {
-    await supabase.from("subscriptions").update({ status: "used_up" }).eq("id", sub.id);
+    await createAdminClient()
+      .from("subscriptions")
+      .update({ status: "used_up" })
+      .eq("id", sub.id);
   }
 
   revalidatePath("/", "layout"); // см. комментарий в recordClientAction
