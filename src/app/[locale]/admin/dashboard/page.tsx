@@ -9,6 +9,7 @@ import {
   vnToday,
 } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
+import { loadAllSessions } from "@/lib/sessions";
 import { MANUAL_CHANNELS } from "@/lib/channels";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 
@@ -174,39 +175,43 @@ export default async function AdminDashboardPage({
   };
 
   const supabase = await createClient();
-  const [sessionsRes, allSessionsRes, paidSubsRes, unpaidSubsRes, clientsRes, bookingsRes] =
-    await Promise.all([
-      supabase
-        .from("sessions")
-        .select(
-          "id, date, amount, minutes_used, subscription_id, client_id, instructor_id, client:clients!client_id(name), service:services!service_id(name, category), instructor:users!instructor_id(name), creator:users!created_by(name)",
-        )
-        .gte("date", range.fromDay)
-        .lt("date", range.toDay)
-        .limit(10000),
-      // Все сессии школы — для колонки «визитов всего» у клиента.
-      supabase.from("sessions").select("client_id").limit(10000),
-      supabase
-        .from("subscriptions")
-        .select("price")
-        .gte("paid_at", range.fromIso)
-        .lt("paid_at", range.toIso),
-      // Дебиторка всей школы (не периода): проданные, но неоплаченные.
-      // Отменённые отсеиваем в JS ниже — с них уже никто не заплатит (п.13).
-      supabase.from("subscriptions").select("price, status").is("paid_at", null),
-      supabase
-        .from("clients")
-        .select("id")
-        .gte("created_at", range.fromIso)
-        .lt("created_at", range.toIso),
-      supabase
-        .from("bookings")
-        .select("status, src, ref_code, service:services!service_id(price)")
-        .gte("created_at", range.fromIso)
-        .lt("created_at", range.toIso),
-    ]);
+  const [
+    { rows: sessions },
+    { rows: allSessions },
+    paidSubsRes,
+    unpaidSubsRes,
+    clientsRes,
+    bookingsRes,
+  ] = await Promise.all([
+    // Обе выборки постранично (lib/sessions): .limit(10000) молча срезал бы
+    // и выручку периода, и счётчик визитов клиента.
+    loadAllSessions<VisitRow>(
+      supabase,
+      "id, date, amount, minutes_used, subscription_id, client_id, instructor_id, client:clients!client_id(name), service:services!service_id(name, category), instructor:users!instructor_id(name), creator:users!created_by(name)",
+      { fromDay: range.fromDay, toDay: range.toDay },
+    ),
+    // Все сессии школы — для колонки «визитов всего» у клиента.
+    loadAllSessions<{ client_id: string | null }>(supabase, "client_id"),
+    supabase
+      .from("subscriptions")
+      .select("price")
+      .gte("paid_at", range.fromIso)
+      .lt("paid_at", range.toIso),
+    // Дебиторка всей школы (не периода): проданные, но неоплаченные.
+    // Отменённые отсеиваем в JS ниже — с них уже никто не заплатит (п.13).
+    supabase.from("subscriptions").select("price, status").is("paid_at", null),
+    supabase
+      .from("clients")
+      .select("id")
+      .gte("created_at", range.fromIso)
+      .lt("created_at", range.toIso),
+    supabase
+      .from("bookings")
+      .select("status, src, ref_code, service:services!service_id(price)")
+      .gte("created_at", range.fromIso)
+      .lt("created_at", range.toIso),
+  ]);
 
-  const sessions = (sessionsRes.data ?? []) as unknown as VisitRow[];
   const paidSubs = paidSubsRes.data ?? [];
   const paidSubsSum = paidSubs.reduce((s, r) => s + (r.price ?? 0), 0);
   const unpaid = (unpaidSubsRes.data ?? []).filter((r) => r.status !== "cancelled");
@@ -214,7 +219,7 @@ export default async function AdminDashboardPage({
 
   // Визиты клиента за всё время (не за период).
   const lifetimeVisits = new Map<string, number>();
-  for (const r of allSessionsRes.data ?? []) {
+  for (const r of allSessions) {
     if (!r.client_id) continue;
     lifetimeVisits.set(
       r.client_id as string,

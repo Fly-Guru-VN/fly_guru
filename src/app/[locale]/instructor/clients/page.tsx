@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { loadAllClients } from "@/lib/clients";
+import { loadAllSessions } from "@/lib/sessions";
 import { getAppUser } from "@/lib/auth";
 import { phoneDigits } from "@/lib/phone";
 import { vnd } from "@/lib/stats";
@@ -30,6 +31,13 @@ interface ClientRow {
   telegram_username: string | null;
   photo_url: string | null;
   created_at: string;
+}
+
+// Три поля сессии, из которых считаются занятия, траты и последний визит.
+interface SessionRow {
+  client_id: string | null;
+  amount: number | null;
+  date: string;
 }
 
 // Сортировки списка. Ключ — значение ?sort=, подпись — текст чипса.
@@ -260,18 +268,18 @@ export default async function InstructorClientsPage({
   // .eq("instructor_id") обязателен — RLS отдаёт ему ещё и чужие списания
   // минут (они нужны для остатка абонемента), и без фильтра они попали бы
   // в счётчик занятий.
-  const [{ rows: allClients }, mySessionsRes] = await Promise.all([
+  const [{ rows: allClients }, { rows: mySessions }] = await Promise.all([
     // Постранично (lib/clients): .limit(1000) молча обрезал бы базу клиентов —
     // поиск переставал бы находить всех, кто не попал в первую тысячу.
     loadAllClients<ClientRow>(
       supabase,
       "id, name, phone, source, internal_note, age, city, tour_approved, telegram_username, photo_url, created_at",
     ),
-    supabase
-      .from("sessions")
-      .select("client_id, amount, date")
-      .eq("instructor_id", user.id)
-      .limit(10000),
+    // Тоже постранично (lib/sessions): .limit(10000) молча занизил бы
+    // и число занятий, и сумму трат у клиентов.
+    loadAllSessions<SessionRow>(supabase, "client_id, amount, date", {
+      instructorId: user.id,
+    }),
   ]);
   // Загрузчик отдаёт по id — восстанавливаем прежний порядок «новые сверху».
   const all = [...allClients].sort((a, b) =>
@@ -300,7 +308,7 @@ export default async function InstructorClientsPage({
     }
     return s;
   };
-  for (const r of mySessionsRes.data ?? []) {
+  for (const r of mySessions) {
     const s = stat(r.client_id as string);
     s.sessions += 1;
     s.spent += (r.amount as number) ?? 0;
