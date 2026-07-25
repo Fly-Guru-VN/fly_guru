@@ -33,7 +33,6 @@ export interface AgentPayout {
   name: string;
   confirmedCount: number; // подтверждённых наград в месяце
   total: number; // их сумма к выплате
-  pendingCount: number; // ожидают подтверждения (за всё время) — справка
 }
 
 export interface MonthlyPayroll {
@@ -72,9 +71,11 @@ export async function getMonthlyPayroll(
     }),
   );
 
-  // Награды агентов: подтверждённые — по месяцу подтверждения, ожидающие —
-  // без привязки к месяцу (у pending нет даты, это просто «в очереди»).
-  const [confirmedRes, pendingRes, agentsRes] = await Promise.all([
+  // Награды агентов — по месяцу подтверждения. Очереди «ожидают подтверждения»
+  // больше нет: занятие оформляют по факту оплаты, поэтому награда пишется
+  // сразу confirmed (см. recordClientAction). Пока статус pending существовал,
+  // агент висел в очереди и получал в расчёте месяца 0.
+  const [confirmedRes, agentsRes] = await Promise.all([
     supabase
       .from("referral_rewards")
       .select("referrer_id, amount")
@@ -82,11 +83,6 @@ export async function getMonthlyPayroll(
       .eq("status", "confirmed")
       .gte("confirmed_at", range.fromIso)
       .lt("confirmed_at", range.toIso),
-    supabase
-      .from("referral_rewards")
-      .select("referrer_id")
-      .eq("referrer_type", "agent")
-      .eq("status", "pending"),
     supabase.from("agents").select("id, user:users!user_id(name)"),
   ]);
 
@@ -106,7 +102,6 @@ export async function getMonthlyPayroll(
         name: agentName.get(id) ?? "агент",
         confirmedCount: 0,
         total: 0,
-        pendingCount: 0,
       };
       byAgent.set(id, a);
     }
@@ -116,9 +111,6 @@ export async function getMonthlyPayroll(
     const a = agent(r.referrer_id as string);
     a.confirmedCount += 1;
     a.total += (r.amount as number) ?? 0;
-  }
-  for (const r of pendingRes.data ?? []) {
-    agent(r.referrer_id as string).pendingCount += 1;
   }
   const agents = [...byAgent.values()].sort((a, b) => b.total - a.total);
 

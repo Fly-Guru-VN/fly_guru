@@ -112,10 +112,7 @@ export default async function AdminPayrollPage({
                 <p className="font-semibold">{a.name}</p>
                 <p className="font-bold text-primary">{vnd(a.total)}</p>
               </div>
-              <p className="text-xs text-muted">
-                Подтверждено клиентов: {a.confirmedCount}
-                {a.pendingCount > 0 && ` · ожидают подтверждения: ${a.pendingCount}`}
-              </p>
+              <p className="text-xs text-muted">Приведено клиентов: {a.confirmedCount}</p>
             </div>
           ))}
           {payroll.agents.length === 0 && (

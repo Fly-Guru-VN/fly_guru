@@ -27,8 +27,6 @@ interface AgentStats {
   visits: number;
   clients: number;
   bookedOnly: number; // заполнили заявку, но до оплаты не дошли (пак D, пункт 1)
-  pendingCount: number;
-  pendingSum: number;
   confirmedCount: number;
   confirmedSum: number;
   paidSum: number; // сколько денег агенту уже отдали (п.7)
@@ -38,8 +36,6 @@ const EMPTY_STATS: AgentStats = {
   visits: 0,
   clients: 0,
   bookedOnly: 0,
-  pendingCount: 0,
-  pendingSum: 0,
   confirmedCount: 0,
   confirmedSum: 0,
   paidSum: 0,
@@ -117,7 +113,7 @@ function AgentCard({
           {[
             { label: "Переходы", value: String(stats.visits) },
             { label: "Клиенты", value: String(stats.clients) },
-            { label: "Награды", value: String(stats.pendingCount + stats.confirmedCount) },
+            { label: "Награды", value: String(stats.confirmedCount) },
           ].map((m) => (
             <div key={m.label} className="rounded-xl border border-line/70 p-2">
               <p className="text-lg font-bold">{m.value}</p>
@@ -129,9 +125,7 @@ function AgentCard({
         {/* Дошли до оплаты vs застряли на заявке (пак D, пункт 1) */}
         <div className="grid grid-cols-2 gap-2 text-center">
           <div className="rounded-xl border border-line/70 p-2">
-            <p className="text-lg font-bold text-primary">
-              {stats.confirmedCount + stats.pendingCount}
-            </p>
+            <p className="text-lg font-bold text-primary">{stats.confirmedCount}</p>
             <p className="text-[11px] text-muted">Оплатили</p>
           </div>
           <div className="rounded-xl border border-line/70 p-2">
@@ -312,15 +306,14 @@ export default async function AdminAgentsPage() {
   for (const [agentId, list] of payoutsByAgent) {
     stat(agentId).paidSum = list.reduce((s, p) => s + (p.amount ?? 0), 0);
   }
+  // Награда пишется сразу confirmed — занятие оформляют по факту оплаты, и
+  // очереди «ожидает подтверждения» больше нет. Прочие статусы (если такая
+  // строка когда-то заведётся руками) в счётчик приведённых не берём.
   for (const r of rewardsRes.data ?? []) {
+    if (r.status !== "confirmed") continue;
     const s = stat(r.referrer_id as string);
-    if (r.status === "confirmed") {
-      s.confirmedCount += 1;
-      s.confirmedSum += (r.amount as number) ?? 0;
-    } else {
-      s.pendingCount += 1;
-      s.pendingSum += (r.amount as number) ?? 0;
-    }
+    s.confirmedCount += 1;
+    s.confirmedSum += (r.amount as number) ?? 0;
   }
 
   // Активные сверху (по имени), выключенные серым внизу.
