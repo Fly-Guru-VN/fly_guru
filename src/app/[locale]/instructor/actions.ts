@@ -257,7 +257,13 @@ export async function recordClientAction(
   // клиента (в т.ч. парное). Личный код инструктора скидки и награды не даёт —
   // поэтому смотрим на распознанного агента, а не на сам факт ref_code.
   // Одно решение на троих: скидка клиенту, комиссия на сессии, награда агенту.
-  const rewarded = await agentRewardApplies(supabase, {
+  //
+  // Считаем service-role клиентом, а не своим: RLS (sessions_select_instructor)
+  // отдаёт инструктору ТОЛЬКО его сессии. Значит базовое обучение, которое тот
+  // же клиент прошёл у напарника, для него невидимо — и проверка «первый раз?»
+  // отвечала «да». Итог: агенту вторые 300 000 ₫ и клиенту вторая скидка за то
+  // же самое. Наружу из проверки уходит только «да/нет», чужих сумм не видно.
+  const rewarded = await agentRewardApplies(createAdminClient(), {
     hasAgent: Boolean(agent),
     serviceCode: service.code as string | null,
     clientId,
@@ -859,8 +865,13 @@ export async function lookupClientByPhoneAction(phone: string): Promise<ClientHi
   // Обучение считаем пройденным по факту сессии категории training, а не по
   // отдельному флажку: флажок пришлось бы кому-то ставить руками, а сессия
   // и так есть — её нельзя забыть.
+  //
+  // Сессии читаем service-role клиентом: RLS отдаёт инструктору только его
+  // собственные, и постоянный клиент напарника показывался бы как новый
+  // («обучения не было», «занятий: 0») — ровно то, от чего эта подсказка
+  // должна спасать. Наружу уходят только флаги и счётчик, без сумм и услуг.
   const [sessionsRes, subsRes] = await Promise.all([
-    supabase
+    createAdminClient()
       .from("sessions")
       .select("id, services(category)")
       .eq("client_id", match.id),

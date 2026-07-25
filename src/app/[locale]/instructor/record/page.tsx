@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getAppUser } from "@/lib/auth";
 import { vnToday } from "@/lib/dates";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
@@ -80,8 +81,13 @@ export default async function RecordPage({
         prefill.refIsAgent = Boolean(agent);
         // Скидка положена только за ПЕРВОЕ базовое обучение: если гость уже
         // катался, форма не должна её обещать (расчёт её и не даст).
+        // Проверяем service-role клиентом — своим инструктор не видит сессии
+        // напарников, и форма обещала бы скидку гостю, который базовое
+        // обучение уже прошёл (тот же разрыв, что в recordClientAction).
         if (prefill.refIsAgent) {
-          const known = await firstBasicTrainingByPhone(supabase, [booking.phone]);
+          const known = await firstBasicTrainingByPhone(createAdminClient(), [
+            booking.phone,
+          ]);
           prefill.refDiscount = known.get(booking.phone as string);
         }
       }
