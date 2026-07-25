@@ -554,6 +554,27 @@ export async function adminSellSubscriptionAction(
   const price = priceRaw ? parseVnd(priceRaw) : 6_000_000;
   if (price === null) return { error: "Цена — число в донгах, например 6 000 000." };
 
+  // Уже проведённую заявку вторично не оформляем — та же защита, что в
+  // createSessionAction. Без неё повторный сабмит (кнопка «Назад», зависшая
+  // вкладка со старым ?booking=id) создавал ВТОРОЙ абонемент на 6 млн: он
+  // задваивался и в выручке, и в котле 15% инструкторов.
+  // Проверяем ДО создания клиента: иначе отказ ниже оставил бы клиента-сироту.
+  const bookingId = String(formData.get("bookingId") ?? "") || null;
+  if (bookingId) {
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("status")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (!booking) return { error: "Заявка не найдена." };
+    if (booking.status === "done") {
+      return {
+        error:
+          "Эта заявка уже проведена — абонемент продан. Смотрите вкладку «Абонементы».",
+      };
+    }
+  }
+
   // created_at клиента = дате продажи: абонемент, проданный задним числом, не
   // должен делать клиента «новым в этом месяце» (см. resolveClient).
   const clientRes = await resolveClient(supabase, admin.id, formData, soldAt);
@@ -591,7 +612,6 @@ export async function adminSellSubscriptionAction(
   // закрываем заявку и привязываем клиента. Раньше заявка-абонемент шла на
   // «Запись клиента», где список услуг без абонемента → молча писалась сессия
   // базового обучения, а абонемент не создавался вовсе (пачка №5, п.11).
-  const bookingId = String(formData.get("bookingId") ?? "") || null;
   if (bookingId) {
     await supabase
       .from("bookings")

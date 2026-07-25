@@ -356,6 +356,23 @@ export async function sellSubscriptionAction(
   if (!name || !phone) return { error: "Заполните имя и телефон." };
   if (paid && !paymentMethodId) return { error: "Укажите формат оплаты." };
 
+  // Уже оформленную заявку вторично не проводим — та же защита, что в
+  // recordClientAction, только там её поставили, а здесь забыли. Повторный
+  // сабмит (кнопка «Назад», зависшая вкладка со старым ?booking=id) создавал
+  // ВТОРОЙ абонемент на 6 млн: он задваивался и в выручке, и в котле 15%,
+  // а у клиента появлялись лишние 300 минут.
+  if (bookingId) {
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("status")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (!booking) return { error: "Заявка не найдена." };
+    if (booking.status === "done") {
+      return { error: "Эта заявка уже оформлена — абонемент продан." };
+    }
+  }
+
   const clientResult = await findOrCreateClient(supabase, user, {
     name,
     phone,
