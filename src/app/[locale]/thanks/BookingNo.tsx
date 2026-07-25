@@ -1,17 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 // Номер заявки из ?no=… — читаем в браузере, чтобы страница «спасибо»
 // осталась статической (SSG): сервер номера не знает, а клиенту он нужен,
 // чтобы назвать его при созвоне.
-export function BookingNo() {
-  const [no, setNo] = useState<string | null>(null);
+//
+// useSyncExternalStore, а не useState + useEffect: адресная строка — это
+// внешнее по отношению к React хранилище, и читать её эффектом, который тут же
+// зовёт setState, значит рисовать страницу дважды (на это ругался и линтер).
+// Здесь же сервер отдаёт null, клиент при первом рендере — сам номер.
+const subscribe = () => () => {}; // строка запроса не меняется без перезагрузки
 
-  useEffect(() => {
-    const raw = new URLSearchParams(window.location.search).get("no");
-    if (raw && /^\d+$/.test(raw)) setNo(raw);
-  }, []);
+function readBookingNo(): string | null {
+  const raw = new URLSearchParams(window.location.search).get("no");
+  return raw && /^\d+$/.test(raw) ? raw : null;
+}
+
+export function BookingNo() {
+  const no = useSyncExternalStore(subscribe, readBookingNo, () => null);
 
   if (!no) return null;
 
