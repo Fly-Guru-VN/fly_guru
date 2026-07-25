@@ -107,26 +107,6 @@ async function notifyInstructors(id: string) {
   });
 }
 
-// Клиент пришёл по реф-коду и услуга проведена → награда агента из «ожидает»
-// становится «подтверждена» (войдёт в расчёт месяца: клиенты × 300 000 ₫).
-async function confirmPendingReward(id: string) {
-  const supabase = await createClient();
-  const { data: b } = await supabase
-    .from("bookings")
-    .select("client_id, ref_code")
-    .eq("id", id)
-    .maybeSingle();
-  if (!b?.client_id || !b.ref_code) return;
-  const { error } = await supabase
-    .from("referral_rewards")
-    .update({ status: "confirmed", confirmed_at: new Date().toISOString() })
-    .eq("client_id", b.client_id)
-    .eq("status", "pending");
-  // Кидаем до смены статуса заявки: либо награда подтверждена и заявка
-  // «выполнена», либо не поменялось ничего — полумеры тут хуже ошибки.
-  failIfError(error, "не удалось подтвердить награду агента");
-}
-
 // Ручная заявка: клиент позвонил / написал / пришёл ногами. Без неё такой
 // клиент не попадал в CRM вообще — заявки умела создавать только форма сайта,
 // а значит календарь и «Записи» инструктора не видели половину потока.
@@ -201,8 +181,10 @@ export async function setStatusAction(status: string, formData: FormData) {
   const allowed = ["contacted", "confirmed", "done", "cancelled", "archived"];
   if (!id || !allowed.includes(status)) return;
 
-  if (status === "done") await confirmPendingReward(id);
-
+  // Здесь жил вызов confirmPendingReward — он переводил награду агента из
+  // «ожидает» в «подтверждена». Награды давно пишутся сразу `confirmed` (в
+  // момент, когда занятие записано и оплачено), статус pending не создаёт
+  // никто, и функция была мёртвой. В базе строк pending нет.
   const patch: Record<string, unknown> = { status };
   // Закрытые заявки не должны висеть закреплёнными сверху.
   if (status === "done" || status === "cancelled" || status === "archived") {
