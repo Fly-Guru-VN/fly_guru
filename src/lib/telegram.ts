@@ -86,7 +86,12 @@ const SHIFT_URL = `${SITE_URL}/instructor/shift`;
 
 export async function sendShiftReminder(kind: "open" | "close"): Promise<void> {
   const chatId = process.env.TELEGRAM_INSTRUCTORS_CHAT_ID;
-  if (!chatId) return; // группа ещё не подключена — тихо выходим
+  if (!chatId) {
+    // Молчаливый выход тут — главный подозреваемый в «напоминалка не пришла»,
+    // поэтому оставляем след в логах крона, а не гадаем потом.
+    console.error("[telegram] TELEGRAM_INSTRUCTORS_CHAT_ID не задан — напоминалка не отправлена");
+    return;
+  }
 
   const text =
     kind === "open"

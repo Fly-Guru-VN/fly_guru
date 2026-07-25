@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { vnToday } from "@/lib/dates";
 import { sendShiftReminder } from "@/lib/telegram";
 
 // Крон напоминалок про смену (пак C). Vercel зовёт этот путь дважды в сутки:
-// утром ?type=open, вечером ?type=close (см. vercel.json). Шлём напоминалку в
-// группу инструкторов, только если сегодня реально есть кому её адресовать —
-// иначе в дни без выходов группа получала бы ежедневный спам.
+// утром ?type=open, вечером ?type=close (см. vercel.json).
 //
-// /api не проходит через middleware, сессии тут нет — работаем service_role
-// клиентом и защищаемся секретом (Vercel сам шлёт Authorization: Bearer
-// <CRON_SECRET>). Без секрета роут не работает вообще: иначе чужой человек мог
-// бы спамить группу инструкторов напоминалками.
+// Шлём БЕЗУСЛОВНО, каждый день. Раньше здесь стояла проверка «есть ли сегодня
+// запланированная смена» — и она молчала всегда: смены не заводят с вечера, они
+// появляются в базе либо тем же утром после 9:00, либо прямо в момент нажатия
+// «Открыть» (тогда у строки уже стоит opened_at и под фильтр она не попадает).
+// В итоге за всё время в группу не ушло ни одного напоминания. Напоминалка —
+// это будильник, а не отчёт по базе: она нужна ровно до того, как смену открыли.
+//
+// /api не проходит через middleware, сессии тут нет — защищаемся секретом
+// (Vercel сам шлёт Authorization: Bearer <CRON_SECRET>). Без секрета роут не
+// работает вообще: иначе чужой человек мог бы спамить группу инструкторов.
 
 function authorized(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -28,31 +30,6 @@ export async function GET(request: NextRequest) {
   }
 
   const type = request.nextUrl.searchParams.get("type") === "open" ? "open" : "close";
-  const today = vnToday();
-  const supabase = createAdminClient();
-
-  // Есть ли кому напоминать?
-  //  open  — запланированная смена, которую ещё не открыли;
-  //  close — открытая смена, которую ещё не закрыли.
-  let query = supabase
-    .from("shifts")
-    .select("id", { count: "exact", head: true })
-    .eq("date", today);
-  query =
-    type === "open"
-      ? query.eq("planned", true).is("opened_at", null)
-      : query.not("opened_at", "is", null).is("closed_at", null);
-
-  const { count, error } = await query;
-  if (error) {
-    console.error("[cron shift-reminder] count error:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  if (!count || count === 0) {
-    return NextResponse.json({ type, sent: false, reason: "nothing to remind" });
-  }
-
   await sendShiftReminder(type);
-  return NextResponse.json({ type, sent: true, shifts: count });
+  return NextResponse.json({ type, sent: true });
 }
