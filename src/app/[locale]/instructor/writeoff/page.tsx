@@ -2,6 +2,7 @@ import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { phoneDigits } from "@/lib/phone";
 import { minutesLeft } from "@/lib/subscriptions";
+import { loadAllClients } from "@/lib/clients";
 import { PaidBadge } from "@/components/cabinet/PaidBadge";
 import { WriteOffForm } from "./WriteOffForm";
 
@@ -97,12 +98,17 @@ export default async function WriteOffPage({
   // ── Поиск клиента ──
   let results: ClientRow[] = [];
   if (q && q.trim()) {
-    const { data } = await supabase
-      .from("clients")
-      .select("id, name, phone")
-      .order("created_at", { ascending: false })
-      .limit(1000);
-    results = ((data ?? []) as ClientRow[]).filter((c) => matchClient(c, q.trim())).slice(0, 10);
+    // Постранично (lib/clients): при .limit(1000) поиск просто не находил бы
+    // клиента, не попавшего в первую тысячу, и молчал «ничего не найдено».
+    // created_at тянем, чтобы в выдаче первыми шли те, кто добавлен недавно.
+    const { rows } = await loadAllClients<ClientRow & { created_at: string }>(
+      supabase,
+      "id, name, phone, created_at",
+    );
+    results = rows
+      .filter((c) => matchClient(c, q.trim()))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, 10);
   }
 
   // ── Клиенты с живым абонементом: показываем сразу, без поиска, чтобы

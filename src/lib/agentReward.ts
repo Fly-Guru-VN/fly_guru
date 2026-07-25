@@ -1,6 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { phonesMatch } from "@/lib/phone";
+import { loadAllClients } from "@/lib/clients";
 
 // Когда агент зарабатывает на приведённом клиенте (пачка правок №6, п.5).
 //
@@ -101,20 +102,19 @@ export async function firstBasicTrainingByPhone(
   const result = new Map<string, boolean>();
   if (wanted.length === 0) return result;
 
-  const { data: clients, error } = await supabase
-    .from("clients")
-    .select("id, phone")
-    .not("phone", "is", null)
-    .limit(1000);
+  const { rows: clients, error } = await loadAllClients<{
+    id: string;
+    phone: string | null;
+  }>(supabase, "id, phone", { onlyWithPhone: true });
   if (error) {
-    console.error("[agentReward] clients load failed:", error.message);
+    console.error("[agentReward] clients load failed:", error);
     return result; // не знаем — значит молчим
   }
 
   // Телефон → карточка клиента. Незнакомый номер = новый гость, скидка положена.
   const matched = new Map<string, string>();
   for (const phone of wanted) {
-    const hit = (clients ?? []).find((c) => phonesMatch(c.phone as string, phone));
+    const hit = clients.find((c) => phonesMatch(c.phone as string, phone));
     if (hit) matched.set(phone, hit.id as string);
     else result.set(phone, true);
   }

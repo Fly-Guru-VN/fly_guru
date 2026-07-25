@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { loadAllClients } from "@/lib/clients";
 import { vnCurrentMonth, vnPeriod, vnToday } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import { deleteSessionAction, updateSessionAction } from "../actions";
@@ -266,7 +267,12 @@ export default async function AdminSessionsPage({
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(300),
-    supabase.from("clients").select("id, name, phone").order("name").limit(1000),
+    // Полный список клиентов постранично (lib/clients): .limit(1000) молча
+    // обрезал бы выпадающий список — клиента просто не было бы в выборе.
+    loadAllClients<{ id: string; name: string; phone: string | null }>(
+      supabase,
+      "id, name, phone",
+    ),
     // Без категории subscription: абонемент — не сессия, у него своя форма
     // с минутами, членством и тумблером оплаты (/admin/subscriptions).
     supabase
@@ -279,7 +285,10 @@ export default async function AdminSessionsPage({
   ]);
 
   const sessions = (sessionsRes.data ?? []) as unknown as SessionRow[];
-  const clients = clientsRes.data ?? [];
+  // По алфавиту — см. комментарий в admin/members: загрузчик отдаёт по id.
+  const clients = [...clientsRes.rows].sort((a, b) =>
+    a.name.localeCompare(b.name, "ru"),
+  );
   const services = (servicesRes.data ?? []).map((s) => ({
     ...s,
     price: Number(s.price ?? 0),

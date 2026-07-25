@@ -21,6 +21,7 @@ import type { EquipmentKind } from "@/lib/equipment";
 import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
 import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
+import { loadAllClients } from "@/lib/clients";
 import type { ActionState } from "../instructor/actions";
 
 // Server actions админки: полный цикл заявки. Админ созванивается с гостем,
@@ -233,12 +234,12 @@ async function resolveClient(
 
   const telegram = normalizeTelegram(formData.get("telegramUsername") as string);
 
-  const { data: existing } = await supabase
-    .from("clients")
-    .select("id, phone, telegram_username")
-    .not("phone", "is", null)
-    .limit(1000);
-  const match = (existing ?? []).find((c) => phonesMatch(c.phone, phone));
+  const { rows: existing } = await loadAllClients<{
+    id: string;
+    phone: string | null;
+    telegram_username: string | null;
+  }>(supabase, "id, phone, telegram_username", { onlyWithPhone: true });
+  const match = existing.find((c) => phonesMatch(c.phone, phone));
   if (match) {
     // Ник дописываем только в пустое поле — см. findOrCreateClient.
     if (telegram && !match.telegram_username) {

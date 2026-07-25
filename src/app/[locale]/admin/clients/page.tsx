@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
+import { loadAllClients } from "@/lib/clients";
 import { phoneDigits } from "@/lib/phone";
 import { vnd } from "@/lib/stats";
 import { updateClientAction } from "../actions";
@@ -250,17 +251,19 @@ export default async function AdminClientsPage({
 
   // Сессии тянем по ВСЕМ клиентам сразу (не по показанным): сортировка по
   // занятиям/тратам/визиту должна ранжировать весь список, а не первые 50.
-  const [{ data }, allSessionsRes] = await Promise.all([
-    supabase
-      .from("clients")
-      .select(
-        "id, name, phone, source, referrer_type, referrer_id, internal_note, age, city, tour_approved, telegram_username, photo_url, created_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(1000),
+  const [{ rows: allClients }, allSessionsRes] = await Promise.all([
+    // Постранично (lib/clients): .limit(1000) молча обрезал бы базу клиентов —
+    // поиск переставал бы находить всех, кто не попал в первую тысячу.
+    loadAllClients<ClientRow>(
+      supabase,
+      "id, name, phone, source, referrer_type, referrer_id, internal_note, age, city, tour_approved, telegram_username, photo_url, created_at",
+    ),
     supabase.from("sessions").select("client_id, amount, date").limit(10000),
   ]);
-  const all = (data ?? []) as ClientRow[];
+  // Загрузчик отдаёт по id — восстанавливаем прежний порядок «новые сверху».
+  const all = [...allClients].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at),
+  );
 
   // Поиск в JS: телефоны в базе разноформатные, сравниваем цифры с цифрами,
   // имя — без учёта регистра. На сотнях клиентов это дешевле индексов.

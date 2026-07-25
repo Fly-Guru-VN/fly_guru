@@ -17,6 +17,7 @@ import { minutesLeft } from "@/lib/subscriptions";
 import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
 import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
+import { loadAllClients } from "@/lib/clients";
 
 // Server actions кабинета инструктора. Общий принцип безопасности:
 // instructor_id / sold_by / created_by берутся из СЕССИИ на сервере (user.id),
@@ -77,12 +78,13 @@ async function findOrCreateClient(
     referrer?: { type: "agent"; id: string } | null;
   },
 ): Promise<{ id: string; existingName?: string } | { error: string }> {
-  const { data: existing, error: selError } = await supabase
-    .from("clients")
-    .select("id, name, phone, telegram_username")
-    .not("phone", "is", null)
-    .limit(1000);
-  if (selError) return { error: `Не удалось найти клиента: ${selError.message}` };
+  const { rows: existing, error: selError } = await loadAllClients<{
+    id: string;
+    name: string | null;
+    phone: string | null;
+    telegram_username: string | null;
+  }>(supabase, "id, name, phone, telegram_username", { onlyWithPhone: true });
+  if (selError) return { error: `Не удалось найти клиента: ${selError}` };
 
   // Телефон уже есть в базе → это тот же человек, вторую карточку не заводим.
   // Введённое имя при этом НЕ перезаписывает старое — сообщаем вызвавшему,
@@ -886,13 +888,14 @@ export async function lookupClientByPhoneAction(phone: string): Promise<ClientHi
   if (!isValidPhone(phone)) return { found: false };
 
   const supabase = await createClient();
-  const { data: clients } = await supabase
-    .from("clients")
-    .select("id, name, phone, tour_approved")
-    .not("phone", "is", null)
-    .limit(1000);
+  const { rows: clients } = await loadAllClients<{
+    id: string;
+    name: string;
+    phone: string | null;
+    tour_approved: boolean | null;
+  }>(supabase, "id, name, phone, tour_approved", { onlyWithPhone: true });
 
-  const match = (clients ?? []).find((c) => phonesMatch(c.phone, phone));
+  const match = clients.find((c) => phonesMatch(c.phone, phone));
   if (!match) return { found: false };
 
   // Обучение считаем пройденным по факту сессии категории training, а не по

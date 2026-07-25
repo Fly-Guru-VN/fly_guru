@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { loadAllClients } from "@/lib/clients";
 import { addMemberAction, createInviteAction } from "../actions";
 import { CopyLink } from "../CopyLink";
 
@@ -137,7 +138,12 @@ export default async function AdminMembersPage() {
           .in("client_id", clientIds)
       : Promise.resolve({ data: [] }),
     // Кандидаты для ручной выдачи членства: клиенты, которых в клубе ещё нет.
-    supabase.from("clients").select("id, name, phone").order("name").limit(1000),
+    // Полный список клиентов постранично (lib/clients): .limit(1000) молча
+    // обрезал бы выпадающий список — клиента просто не было бы в выборе.
+    loadAllClients<{ id: string; name: string; phone: string | null }>(
+      supabase,
+      "id, name, phone",
+    ),
   ]);
 
   const activeSubClients = new Set(
@@ -150,7 +156,11 @@ export default async function AdminMembersPage() {
     ]),
   );
   const memberClientIds = new Set(clientIds);
-  const candidates = (clientsRes.data ?? []).filter((c) => !memberClientIds.has(c.id));
+  // Сортируем по имени здесь: загрузчик страниц идёт по id (стабильный порядок
+  // для range), а человеку список нужен по алфавиту.
+  const candidates = clientsRes.rows
+    .filter((c) => !memberClientIds.has(c.id))
+    .sort((a, b) => a.name.localeCompare(b.name, "ru"));
 
   return (
     <div>

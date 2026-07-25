@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { loadAllClients } from "@/lib/clients";
 import { getAppUser } from "@/lib/auth";
 import { phoneDigits } from "@/lib/phone";
 import { vnd } from "@/lib/stats";
@@ -259,21 +260,23 @@ export default async function InstructorClientsPage({
   // .eq("instructor_id") обязателен — RLS отдаёт ему ещё и чужие списания
   // минут (они нужны для остатка абонемента), и без фильтра они попали бы
   // в счётчик занятий.
-  const [{ data }, mySessionsRes] = await Promise.all([
-    supabase
-      .from("clients")
-      .select(
-        "id, name, phone, source, internal_note, age, city, tour_approved, telegram_username, photo_url, created_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(1000),
+  const [{ rows: allClients }, mySessionsRes] = await Promise.all([
+    // Постранично (lib/clients): .limit(1000) молча обрезал бы базу клиентов —
+    // поиск переставал бы находить всех, кто не попал в первую тысячу.
+    loadAllClients<ClientRow>(
+      supabase,
+      "id, name, phone, source, internal_note, age, city, tour_approved, telegram_username, photo_url, created_at",
+    ),
     supabase
       .from("sessions")
       .select("client_id, amount, date")
       .eq("instructor_id", user.id)
       .limit(10000),
   ]);
-  const all = (data ?? []) as ClientRow[];
+  // Загрузчик отдаёт по id — восстанавливаем прежний порядок «новые сверху».
+  const all = [...allClients].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at),
+  );
 
   // Поиск в JS: телефоны в базе разноформатные, сравниваем цифры с цифрами,
   // имя — без учёта регистра. На сотнях клиентов это дешевле индексов.

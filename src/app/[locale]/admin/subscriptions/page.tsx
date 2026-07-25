@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { loadAllClients } from "@/lib/clients";
 import { vnToday } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import {
@@ -343,7 +344,12 @@ export default async function AdminSubscriptionsPage({
 
   const [subsRes, clientsRes, staffRes, paymentMethods] = await Promise.all([
     subsQuery,
-    supabase.from("clients").select("id, name, phone").order("name").limit(1000),
+    // Полный список клиентов постранично (lib/clients): .limit(1000) молча
+    // обрезал бы выпадающий список — клиента просто не было бы в выборе.
+    loadAllClients<{ id: string; name: string; phone: string | null }>(
+      supabase,
+      "id, name, phone",
+    ),
     supabase
       .from("users")
       .select("id, name")
@@ -369,6 +375,11 @@ export default async function AdminSubscriptionsPage({
       if (name) paymentBySub.set(r.id as string, name);
     }
   }
+
+  // По алфавиту — см. комментарий в admin/members: загрузчик отдаёт по id.
+  const clients = [...clientsRes.rows].sort((a, b) =>
+    a.name.localeCompare(b.name, "ru"),
+  );
 
   // Балансы и история — двумя батч-запросами на весь список сразу.
   const [usedRes, adjRes] = ids.length
@@ -445,7 +456,7 @@ export default async function AdminSubscriptionsPage({
             </p>
           )}
           <SellSubscriptionForm
-            clients={clientsRes.data ?? []}
+            clients={clients}
             staff={staffRes.data ?? []}
             today={today}
             paymentMethods={paymentMethods}
