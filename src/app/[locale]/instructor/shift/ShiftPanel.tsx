@@ -135,18 +135,23 @@ function PhotoThumb({ photo, deletable }: { photo: ShiftPhoto; deletable: boolea
 }
 
 // Секция одной фазы (открытие или закрытие): загрузчики + миниатюры.
+//
+// senior=false — второй инструктор на смене (0033): оборудование осматривает
+// старший, поэтому вместо доски и крыла один слот «вы на пляже».
 function PhaseSection({
   phase,
   photos,
   boards,
   wings,
   editable,
+  senior,
 }: {
   phase: PhotoPhase;
   photos: ShiftPhoto[];
   boards: EquipmentItem[];
   wings: EquipmentItem[];
   editable: boolean;
+  senior: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -154,20 +159,31 @@ function PhaseSection({
         <div className="space-y-3">
           {/* Обязательные слоты на виду. Слоты открываем через key от числа
               кадров — форма очищается сама после успешной загрузки. */}
-          <PhotoUploader
-            key={`board-${photos.filter((p) => p.kind === "board").length}`}
-            phase={phase}
-            kind="board"
-            slotLabel="доска"
-            equipment={boards}
-          />
-          <PhotoUploader
-            key={`wing-${photos.filter((p) => p.kind === "wing").length}`}
-            phase={phase}
-            kind="wing"
-            slotLabel="крыло"
-            equipment={wings}
-          />
+          {senior ? (
+            <>
+              <PhotoUploader
+                key={`board-${photos.filter((p) => p.kind === "board").length}`}
+                phase={phase}
+                kind="board"
+                slotLabel="доска"
+                equipment={boards}
+              />
+              <PhotoUploader
+                key={`wing-${photos.filter((p) => p.kind === "wing").length}`}
+                phase={phase}
+                kind="wing"
+                slotLabel="крыло"
+                equipment={wings}
+              />
+            </>
+          ) : (
+            <PhotoUploader
+              key={`checkin-${photos.filter((p) => p.kind === "checkin").length}`}
+              phase={phase}
+              kind="checkin"
+              slotLabel={phase === "open" ? "вы на пляже" : "вы уходите"}
+            />
+          )}
           {/* Необязательные снимки (связь, дефекты) убраны под раскрытие —
               обычно нужны только доска и крыло, остальное не мозолит глаза. */}
           <details className="group rounded-xl border border-line/60 bg-bg/40 [&_summary::-webkit-details-marker]:hidden">
@@ -206,23 +222,26 @@ function PhaseSection({
   );
 }
 
-// Форма открытия/закрытия с комментарием. Кнопка блокируется, пока нет пары
-// «доска + крыло» (сервер проверяет то же — это подсказка, не единственный
-// рубеж).
+// Форма открытия/закрытия с комментарием. Кнопка блокируется, пока не сделаны
+// нужные снимки: старшему — пара «доска + крыло», второму — один любой кадр
+// (сервер проверяет то же самое — это подсказка, не единственный рубеж).
 function FinishForm({
   action,
   photos,
   buttonLabel,
   commentHint,
+  senior,
 }: {
   action: typeof openShiftAction;
   photos: ShiftPhoto[];
   buttonLabel: string;
   commentHint: string;
+  senior: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, { error: null });
-  const ready =
-    photos.some((p) => p.kind === "board") && photos.some((p) => p.kind === "wing");
+  const ready = senior
+    ? photos.some((p) => p.kind === "board") && photos.some((p) => p.kind === "wing")
+    : photos.length > 0;
 
   return (
     <form action={formAction} className="mt-4 border-t border-line pt-4">
@@ -243,7 +262,9 @@ function FinishForm({
       </button>
       {!ready && (
         <p className="mt-2 text-xs text-muted">
-          Нужны снимок доски и снимок крыла.
+          {senior
+            ? "Нужны снимок доски и снимок крыла."
+            : "Нужно одно фото — что вы на месте."}
         </p>
       )}
       {state.error && <p className="mt-2 text-sm text-red-600">{state.error}</p>}
@@ -255,10 +276,13 @@ export function ShiftPanel({
   shift,
   boards,
   wings,
+  senior,
 }: {
   shift: InstructorShift | null;
   boards: EquipmentItem[];
   wings: EquipmentItem[];
+  /** Старший на смене осматривает оборудование, второй просто отмечается (0033). */
+  senior: boolean;
 }) {
   const openedAt = shift?.openedAt ?? null;
   const closedAt = shift?.closedAt ?? null;
@@ -309,7 +333,15 @@ export function ShiftPanel({
 
       {/* Открытие */}
       <section className="rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-bold">Открытие смены</h2>
+        <h2 className="font-bold">
+          {senior ? "Открытие смены" : "Отметка о приходе"}
+        </h2>
+        {!senior && (
+          <p className="mt-1 text-sm text-muted">
+            Доску и крыло снимает старший инструктор. С вас одно фото, что вы на
+            пляже — по нему засчитывается выход.
+          </p>
+        )}
         {shift?.openComment && (
           <p className="mt-1 text-sm text-muted">Комментарий: {shift.openComment}</p>
         )}
@@ -320,14 +352,16 @@ export function ShiftPanel({
             boards={boards}
             wings={wings}
             editable={stage === "open"}
+            senior={senior}
           />
         </div>
         {stage === "open" && (
           <FinishForm
             action={openShiftAction}
             photos={openPhotos}
-            buttonLabel="Открыть смену"
+            buttonLabel={senior ? "Открыть смену" : "Я на месте"}
             commentHint="Комментарий (например, почему открыл позже 9:00) — необязательно"
+            senior={senior}
           />
         )}
       </section>
@@ -335,7 +369,15 @@ export function ShiftPanel({
       {/* Закрытие — доступно только после открытия */}
       {stage !== "open" && (
         <section className="rounded-2xl border border-line bg-surface p-4">
-          <h2 className="font-bold">Закрытие смены</h2>
+          <h2 className="font-bold">
+            {senior ? "Закрытие смены" : "Отметка об уходе"}
+          </h2>
+          {!senior && (
+            <p className="mt-1 text-sm text-muted">
+              Одно фото на прощание — без него выход не закроется, а закрытие
+              нужно, чтобы за смену заплатили.
+            </p>
+          )}
           {shift?.closeComment && (
             <p className="mt-1 text-sm text-muted">
               Комментарий: {shift.closeComment}
@@ -348,14 +390,16 @@ export function ShiftPanel({
               boards={boards}
               wings={wings}
               editable={stage === "close"}
+              senior={senior}
             />
           </div>
           {stage === "close" && (
             <FinishForm
               action={closeShiftAction}
               photos={closePhotos}
-              buttonLabel="Закрыть смену"
+              buttonLabel={senior ? "Закрыть смену" : "Я ухожу"}
               commentHint="Комментарий к закрытию — необязательно"
+              senior={senior}
             />
           )}
         </section>

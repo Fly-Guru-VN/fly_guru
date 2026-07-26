@@ -5,6 +5,26 @@ import { getFullEquipment } from "@/lib/equipment";
 import { SettingsForm } from "@/app/[locale]/instructor/settings/SettingsForm";
 import { DictionaryManager } from "./DictionaryManager";
 import { EquipmentManager } from "./EquipmentManager";
+import { StaffManager, type StaffRow } from "./StaffManager";
+
+// Инструкторы с флагом «старший» (0033). Мягко: до наката миграции колонки нет,
+// и обычный select уронил бы весь экран настроек — тогда просто не показываем
+// блок (в этот момент старшинство ни на что и не влияет).
+async function loadStaff(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<StaffRow[] | null> {
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, name, senior")
+    .eq("role", "instructor")
+    .order("name");
+  if (error) return null;
+  return (data ?? []).map((u) => ({
+    id: u.id as string,
+    name: (u.name as string) ?? "Без имени",
+    senior: Boolean(u.senior),
+  }));
+}
 
 // Настройки админа: профиль (имя и фото — видны в карточке сайдбара кабинета)
 // и справочники школы (пак A). Форму профиля переиспользуем инструкторскую —
@@ -17,17 +37,18 @@ export default async function AdminSettingsPage() {
   if (!user) return null; // layout уже средиректил бы; страховка для типов
 
   const supabase = await createClient();
-  const [methods, equipment] = await Promise.all([
+  const [methods, equipment, staff] = await Promise.all([
     getFullDict(supabase, "payment_methods"),
     getFullEquipment(supabase),
+    loadStaff(supabase),
   ]);
 
   return (
     <div>
       <h1 className="text-2xl font-bold">Настройки</h1>
       <p className="mt-1 text-sm text-muted">
-        Имя и фото видны в кабинете. Ниже — форматы оплаты и инвентарь.
-        Категории расходов теперь редактируются во вкладке «Расходы».
+        Имя и фото видны в кабинете. Ниже — старшие инструкторы, форматы оплаты
+        и инвентарь. Категории расходов редактируются во вкладке «Расходы».
       </p>
       <div className="mt-6">
         <SettingsForm
@@ -38,6 +59,12 @@ export default async function AdminSettingsPage() {
           showGoal={false}
         />
       </div>
+
+      {staff && (
+        <div className="mt-6">
+          <StaffManager staff={staff} />
+        </div>
+      )}
 
       <div className="mt-6 space-y-3">
         <DictionaryManager

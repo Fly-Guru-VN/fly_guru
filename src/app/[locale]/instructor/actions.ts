@@ -21,6 +21,7 @@ import { checkPhoto } from "@/lib/photos";
 import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
 import { claimBooking, releaseBooking, type BookingClaimState } from "@/lib/bookingClaim";
+import { isSeniorInstructor } from "@/lib/shifts";
 
 // Server actions кабинета инструктора. Общий принцип безопасности:
 // instructor_id / sold_by / created_by берутся из СЕССИИ на сервере (user.id),
@@ -1066,7 +1067,7 @@ export async function lookupClientByPhoneAction(phone: string): Promise<ClientHi
 //    (как у avatars и clients).
 
 const PHOTO_PHASES = ["open", "close"] as const;
-const PHOTO_KINDS = ["board", "wing", "comms", "extra"] as const;
+const PHOTO_KINDS = ["board", "wing", "comms", "extra", "checkin"] as const;
 type PhotoPhase = (typeof PHOTO_PHASES)[number];
 type PhotoKind = (typeof PHOTO_KINDS)[number];
 
@@ -1238,22 +1239,40 @@ export async function deleteShiftPhotoAction(formData: FormData) {
   revalidatePath(`${cabinetBase(user)}/shift`);
 }
 
-// Открытие смены обязательно требует пары «доска + крыло»: без них фотофиксация
-// бессмысленна (не с чем сравнить вечерние снимки). Комментарий необязателен —
-// это объяснение, почему открыл позже 9:00.
-async function requireBoardAndWing(
+// Оборудование осматривает старший (0033). Второй инструктор на смене
+// оборудование не снимает — с него одна фотография, что он на месте.
+//
+// Механик под послабление НЕ попадает: senior у него не стоит, но снимает он
+// именно оборудование, ради этого экран ему и дан. Поэтому проверяем роль, а
+// не только флаг.
+async function needsFullInspection(user: AppUser): Promise<boolean> {
+  if (user.role !== "instructor") return true;
+  const supabase = await createClient();
+  return isSeniorInstructor(supabase, user.id);
+}
+
+// Что снято за фазу. Старшему нужна пара «доска + крыло»: без них фотофиксация
+// бессмысленна (не с чем сравнить вечерние снимки). Второму хватает любого
+// кадра — он подтверждает присутствие, а не состояние инвентаря.
+// Комментарий необязателен обоим — это объяснение, почему открыл позже 9:00.
+async function requirePhotos(
   supabase: Awaited<ReturnType<typeof createClient>>,
   shiftId: string,
   phase: PhotoPhase,
+  full: boolean,
 ): Promise<string | null> {
   const { data } = await supabase
     .from("shift_photos")
     .select("kind")
     .eq("shift_id", shiftId)
     .eq("phase", phase);
-  const kinds = new Set((data ?? []).map((p) => p.kind as string));
-  if (!kinds.has("board")) return "Сфотографируйте доску.";
-  if (!kinds.has("wing")) return "Сфотографируйте крыло.";
+  const kinds = (data ?? []).map((p) => p.kind as string);
+  if (!full) {
+    return kinds.length > 0 ? null : "Сделайте фото, что вы на месте.";
+  }
+  const set = new Set(kinds);
+  if (!set.has("board")) return "Сфотографируйте доску.";
+  if (!set.has("wing")) return "Сфотографируйте крыло.";
   return null;
 }
 
@@ -1271,7 +1290,12 @@ export async function openShiftAction(
   if ("error" in shift) return { error: shift.error };
   if (shift.openedAt) return { error: "Смена уже открыта." };
 
-  const missing = await requireBoardAndWing(supabase, shift.id, "open");
+  const missing = await requirePhotos(
+    supabase,
+    shift.id,
+    "open",
+    await needsFullInspection(user),
+  );
   if (missing) return { error: missing };
 
   // opened_at ставит СЕРВЕР (не клиент) и пишет service_role — подделать
@@ -1310,7 +1334,12 @@ export async function closeShiftAction(
   if (!shift.opened_at) return { error: "Сначала откройте смену." };
   if (shift.closed_at) return { error: "Смена уже закрыта." };
 
-  const missing = await requireBoardAndWing(supabase, shift.id as string, "close");
+  const missing = await requirePhotos(
+    supabase,
+    shift.id as string,
+    "close",
+    await needsFullInspection(user),
+  );
   if (missing) return { error: missing };
 
   // closed_at ставит СЕРВЕР под service_role — та же защита, что и на открытии.

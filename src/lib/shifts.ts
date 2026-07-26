@@ -26,7 +26,9 @@ export interface ShiftEntry {
 }
 
 export type PhotoPhase = "open" | "close";
-export type PhotoKind = "board" | "wing" | "comms" | "extra";
+// 'checkin' — одиночный кадр «я на пляже» от второго инструктора на смене
+// (0033): он не осматривает оборудование, а подтверждает, что пришёл.
+export type PhotoKind = "board" | "wing" | "comms" | "extra" | "checkin";
 
 export interface ShiftPhoto {
   id: string;
@@ -215,6 +217,34 @@ export async function getMonthCalendar(
   }
 
   return { days, staff };
+}
+
+// Старший ли инструктор (0033) — от этого зависит, что он делает утром:
+// полный осмотр с доской и крылом или одиночная отметка «я на пляже».
+//
+// Читаем ОТДЕЛЬНЫМ мягким запросом, а не через getAppUser: колонки senior нет
+// до наката миграции, а её отсутствие в общем select уронило бы авторизацию во
+// всех кабинетах сразу (та же причина, что у ref_code в /instructor/record).
+//
+// Два случая, когда старшим считается КАЖДЫЙ, то есть работает старое правило
+// «доска + крыло с каждого»:
+//   • колонки ещё нет (миграция не накатана);
+//   • колонка есть, но админ никого старшим не назначил. Иначе после наката
+//     0033 все разом стали бы «вторыми», и оборудование утром не снимал бы
+//     никто — школа осталась бы без фотофиксации, сама того не заметив.
+export async function isSeniorInstructor(
+  supabase: Supabase,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, senior")
+    .eq("role", "instructor");
+  if (error) return true;
+
+  const rows = (data ?? []) as { id: string; senior: boolean | null }[];
+  if (!rows.some((r) => r.senior)) return true;
+  return Boolean(rows.find((r) => r.id === userId)?.senior);
 }
 
 // Фотографии смен по списку id — одним запросом (панель дня у админа

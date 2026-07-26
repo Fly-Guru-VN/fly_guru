@@ -1534,6 +1534,26 @@ export async function addEquipmentAction(
   return { error: null };
 }
 
+// Старший инструктор (0033): кто утром осматривает доску и крыло, а кто просто
+// отмечается, что пришёл. Пишем service_role — на users нет политики «админ
+// правит чужую строку», роль там же, и открывать её на запись мы не хотим
+// (см. рассинхрон роли JWT/БД). Колонку role не трогаем вообще.
+export async function setSeniorAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const senior = String(formData.get("senior") ?? "") === "true";
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("users")
+    .update({ senior })
+    .eq("id", id)
+    .eq("role", "instructor");
+  failIfError(error, "не удалось изменить старшинство");
+  revalidatePath("/", "layout");
+}
+
 export async function toggleEquipmentAction(formData: FormData) {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");

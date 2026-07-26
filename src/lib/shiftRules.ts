@@ -69,6 +69,7 @@ export const PHOTO_KIND_LABEL: Record<PhotoKind, string> = {
   wing: "Крыло",
   comms: "Связь",
   extra: "Дефект",
+  checkin: "На месте",
 };
 
 export const PHOTO_PHASE_LABEL: Record<PhotoPhase, string> = {
