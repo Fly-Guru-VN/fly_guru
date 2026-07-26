@@ -3,7 +3,6 @@
 import { useActionState, useState } from "react";
 import {
   adminSellSubscriptionAction,
-  adjustMinutesAction,
   writeOffMinutesAction,
 } from "../actions";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
@@ -201,7 +200,10 @@ export function WriteOffMinutesForm({
   return (
     <form action={formAction} className="mt-3 space-y-2">
       <input type="hidden" name="subscriptionId" value={subscriptionId} />
-      <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-3">
+      {/* Четыре поля в две ровные пары: минуты + дата, инструктор +
+          комментарий. Раньше «Инструктор» растягивался на всю ширину и
+          болтался один — места под пометку не было вовсе. */}
+      <div className="grid grid-cols-2 items-end gap-2">
         <label className="min-w-0 text-xs text-muted">
           Откатал, мин
           <input
@@ -224,7 +226,7 @@ export function WriteOffMinutesForm({
             className={`mt-1 ${NATIVE_PICKER} ${inputClass}`}
           />
         </label>
-        <label className="col-span-2 min-w-0 text-xs text-muted sm:col-span-1">
+        <label className="min-w-0 text-xs text-muted">
           Инструктор
           <select name="instructorId" className={`mt-1 ${inputClass}`}>
             <option value="">— не указан —</option>
@@ -235,6 +237,17 @@ export function WriteOffMinutesForm({
             ))}
           </select>
         </label>
+        {/* Необязательная пометка к прокату — уходит в примечание сессии, то
+            же поле, что инструктор видит в «Сессиях». */}
+        <label className="min-w-0 text-xs text-muted">
+          Комментарий
+          <input
+            type="text"
+            name="comment"
+            placeholder="малое крыло, ветер…"
+            className={`mt-1 ${inputClass}`}
+          />
+        </label>
       </div>
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
       <button
@@ -243,49 +256,6 @@ export function WriteOffMinutesForm({
         className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
       >
         {pending ? "Списываем…" : "Списать минуты"}
-      </button>
-    </form>
-  );
-}
-
-// Корректировка минут: ± целое число + обязательный комментарий (лог).
-export function AdjustMinutesForm({ subscriptionId }: { subscriptionId: string }) {
-  const [state, formAction, pending] = useActionState(adjustMinutesAction, {
-    error: null,
-  });
-
-  return (
-    <form action={formAction} className="mt-3 space-y-2">
-      <input type="hidden" name="subscriptionId" value={subscriptionId} />
-      <div className="flex gap-2">
-        <label className="w-28 text-xs text-muted">
-          Минуты (±)
-          <input
-            type="number"
-            name="delta"
-            placeholder="30 / −15"
-            required
-            className={`mt-1 ${inputClass}`}
-          />
-        </label>
-        <label className="flex-1 text-xs text-muted">
-          Почему (обязательно, попадёт в лог)
-          <input
-            type="text"
-            name="comment"
-            required
-            placeholder="компенсация за ветер / ошибка списания…"
-            className={`mt-1 ${inputClass}`}
-          />
-        </label>
-      </div>
-      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
-      >
-        {pending ? "Сохраняем…" : "Скорректировать минуты"}
       </button>
     </form>
   );

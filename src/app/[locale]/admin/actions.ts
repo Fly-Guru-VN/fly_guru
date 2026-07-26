@@ -758,6 +758,8 @@ export async function writeOffMinutesAction(
   const minutes = Math.trunc(Number(formData.get("minutes")));
   const date = String(formData.get("date") ?? "").trim();
   const instructorId = String(formData.get("instructorId") ?? "");
+  // Пометка к прокату — необязательная, уходит в примечание сессии.
+  const comment = String(formData.get("comment") ?? "").trim();
   if (!subId || !Number.isFinite(minutes) || minutes <= 0) {
     return { error: "Минуты — целое число больше нуля." };
   }
@@ -787,6 +789,7 @@ export async function writeOffMinutesAction(
     amount: 0, // прокат по абонементу — деньги получены при его продаже
     instructor_id: instructorId || null,
     created_by: admin.id,
+    note: comment || null,
     date,
   });
   if (error) return { error: `Не удалось списать: ${error.message}` };
@@ -797,34 +800,11 @@ export async function writeOffMinutesAction(
   redirect("/admin/subscriptions");
 }
 
-export async function adjustMinutesAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const admin = await requireAdmin();
-  const supabase = await createClient();
-
-  const subId = String(formData.get("subscriptionId") ?? "");
-  const delta = Math.trunc(Number(formData.get("delta")));
-  const comment = String(formData.get("comment") ?? "").trim();
-  if (!subId || !Number.isFinite(delta) || delta === 0) {
-    return { error: "Минуты — целое число, не ноль (например 30 или −15)." };
-  }
-  if (!comment) return { error: "Комментарий обязателен: почему меняем минуты." };
-
-  const { error } = await supabase.from("subscription_adjustments").insert({
-    subscription_id: subId,
-    delta_minutes: delta,
-    comment,
-    created_by: admin.id,
-  });
-  if (error) return { error: `Не удалось сохранить корректировку: ${error.message}` };
-
-  await recalcSubscriptionStatus(supabase, subId);
-
-  revalidatePath("/", "layout");
-  redirect("/admin/subscriptions");
-}
+// Корректировки минут (таблица subscription_adjustments) больше не заводятся:
+// форма стояла рядом со списанием, читалась как второй способ списать минуты —
+// и админ списывал ею, а такие минуты не попадают в «Сессии» (баг №6 пачки №6).
+// Читать корректировки мы продолжаем: старые записи входят в остаток и в
+// историю абонемента.
 
 // Отмена абонемента (пачка №5, п.13): продажа не состоялась — клиент передумал,
 // вернули деньги. В отличие от удаления карточка остаётся: видно, что продажа

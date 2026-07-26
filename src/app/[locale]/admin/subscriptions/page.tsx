@@ -11,12 +11,12 @@ import {
 } from "../actions";
 import { ConfirmSubmit } from "../ConfirmSubmit";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
+import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
 import { loadPaymentClaims, type ClaimInfo } from "@/lib/subscriptions";
 import { PAYMENT_CLAIM_BADGE, PAYMENT_CLAIM_TEXT } from "@/lib/paymentClaim";
 import {
   SellSubscriptionForm,
-  AdjustMinutesForm,
   WriteOffMinutesForm,
   type SubscriptionPrefill,
 } from "./SubscriptionForms";
@@ -92,57 +92,72 @@ function SubscriptionCard({
   // Заявление живо, только пока оплата не отмечена: подтвердил — вопрос закрыт.
   const pendingClaim = !cancelled && !s.paid_at && claim ? claim : null;
 
+  // Остаток — главная цифра карточки: инструктор ищет глазами именно её,
+  // поэтому она идёт рядом с именем и размером с него (пачка №10, пак 4).
+  // Когда минут уже нет, на её месте — причина, почему их нет.
   const statusLabel = cancelled
-    ? { text: "Отменён", cls: "bg-line text-muted" }
+    ? { text: "Отменён", cls: "text-muted" }
     : burned
-      ? { text: `Сгорело ${left} мин`, cls: "bg-red-500/10 text-red-600" }
+      ? { text: `Сгорело ${left} мин`, cls: "text-red-600" }
       : expired
-        ? { text: "Истёк", cls: "bg-line text-muted" }
+        ? { text: "Истёк", cls: "text-muted" }
         : s.status === "used_up"
-          ? { text: "Минуты кончились", cls: "bg-line text-muted" }
-          : { text: `${left} мин`, cls: "bg-primary/10 text-primary" };
+          ? { text: "Минуты кончились", cls: "text-muted" }
+          : { text: `${left} мин`, cls: "text-primary" };
 
   return (
     <details className="group rounded-2xl border border-line bg-surface">
+      {/* Шапка — ровно два ряда: имя + остаток, под ними время внесения +
+          статус оплаты. Раньше всё стояло одной строкой и на телефоне
+          расплющивалось, а серая строка «дата · цена · продал» съедала место
+          над плашками — она переехала внутрь карточки. */}
       <summary className="flex cursor-pointer list-none items-center gap-2 p-4 [&::-webkit-details-marker]:hidden">
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-bold">{s.clients?.name ?? "Без клиента"}</p>
-          <p className="truncate text-xs text-muted">
-            {fmtDay(s.sold_at)} · {vnd(s.price)} · продал {s.seller?.name ?? "—"}
-          </p>
-          {/* Когда абонемент реально внесли в базу — с точностью до минуты.
-              По дате продажи «24.07» не понять, кто из смены его оформил. */}
-          <EnteredBadge at={s.sold_at} className="mt-1" />
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="min-w-0 truncate font-bold">
+              {s.clients?.name ?? "Без клиента"}
+            </p>
+            <span className={`shrink-0 font-bold ${statusLabel.cls}`}>
+              {statusLabel.text}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            {/* Когда абонемент реально внесли в базу — с точностью до минуты.
+                По дате продажи «24.07» не понять, кто из смены его оформил. */}
+            <EnteredBadge at={s.sold_at} />
+            {/* У отменённого отметки оплаты нет по определению — не пугаем
+                «ожидает оплаты» там, где платить уже нечего. */}
+            {!cancelled && (
+              <span
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                  s.paid_at
+                    ? "bg-emerald-500/10 text-emerald-600"
+                    : "bg-amber-500/10 text-amber-600"
+                }`}
+              >
+                {s.paid_at
+                  ? `Оплачен ${fmtDay(s.paid_at)}`
+                  : // Инструктор уже сказал, что деньги у школы — это не то же
+                    // самое, что «клиент не заплатил» (0032).
+                    pendingClaim
+                    ? PAYMENT_CLAIM_BADGE[pendingClaim.claim]
+                    : "Ожидает оплаты"}
+              </span>
+            )}
+          </div>
         </div>
-        {/* У отменённого отметки оплаты нет по определению — не пугаем
-            «ожидает оплаты» там, где платить уже нечего. */}
-        {!cancelled && (
-          <span
-            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-              s.paid_at
-                ? "bg-emerald-500/10 text-emerald-600"
-                : "bg-amber-500/10 text-amber-600"
-            }`}
-          >
-            {s.paid_at
-              ? `Оплачен ${fmtDay(s.paid_at)}`
-              : // Инструктор уже сказал, что деньги у школы — это не то же
-                // самое, что «клиент не заплатил» (0032).
-                pendingClaim
-                ? PAYMENT_CLAIM_BADGE[pendingClaim.claim]
-                : "Ожидает оплаты"}
-          </span>
-        )}
-        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusLabel.cls}`}>
-          {statusLabel.text}
+        <span className="shrink-0 text-muted transition-transform group-open:rotate-180">
+          ▾
         </span>
-        <span className="text-muted transition-transform group-open:rotate-180">▾</span>
       </summary>
 
       <div className="border-t border-line/70 p-4 pt-3">
-        <p className="text-sm text-muted">
-          Остаток <span className="font-bold text-ink">{left} мин</span> из{" "}
-          {s.total_minutes} · истекает {fmtDay(s.expires_at)}
+        <p className="text-sm text-muted">Истекает {fmtDay(s.expires_at)}</p>
+        {/* Цена и продавец из шапки: в списке они не нужны (остаток важнее),
+            но потерять их нельзя — по продавцу считается доля котла. */}
+        <p className="mt-0.5 text-xs text-muted">
+          Продан {fmtDay(s.sold_at)} · {vnd(s.price)} · продал{" "}
+          {s.seller?.name ?? "—"} · {left} мин из {s.total_minutes}
         </p>
 
         {/* Чем заплатили — той же плашкой, что в ленте заявок, чтобы способ
@@ -197,39 +212,45 @@ function SubscriptionCard({
               </ConfirmSubmit>
             </>
           ) : (
-            <div className="flex flex-wrap items-end gap-2">
+            // Сетка вместо flex-wrap с фиксированными w-40: нативный
+            // датапикер на iOS держит свою ширину и налезал на «Формат
+            // оплаты». min-w-0 + NATIVE_PICKER — та же схема, что в
+            // «Сессиях» и «Статистике».
+            <div>
               <input type="hidden" name="set" value="1" />
-              <label className="w-40 text-xs text-muted">
-                Дата оплаты
-                <input
-                  type="date"
-                  name="paidDate"
-                  defaultValue={today}
-                  max={today}
-                  className={`mt-1 ${inputClass}`}
-                />
-              </label>
-              {/* Спрашиваем и чем заплатили: раньше кнопка ставила только дату,
-                  и абонемент, оплаченный задним числом, навсегда оставался без
-                  способа оплаты — дозаполнить его было негде. */}
-              <label className="w-40 text-xs text-muted">
-                Формат оплаты
-                <select
-                  name="paymentMethodId"
-                  defaultValue={paymentMethods[0]?.id ?? ""}
-                  className={`mt-1 ${inputClass}`}
-                >
-                  <option value="">— не указан —</option>
-                  {paymentMethods.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="grid grid-cols-2 items-end gap-2 sm:max-w-md">
+                <label className="min-w-0 text-xs text-muted">
+                  Дата оплаты
+                  <input
+                    type="date"
+                    name="paidDate"
+                    defaultValue={today}
+                    max={today}
+                    className={`mt-1 ${NATIVE_PICKER} ${inputClass}`}
+                  />
+                </label>
+                {/* Спрашиваем и чем заплатили: раньше кнопка ставила только
+                    дату, и абонемент, оплаченный задним числом, навсегда
+                    оставался без способа оплаты — дозаполнить его было негде. */}
+                <label className="min-w-0 text-xs text-muted">
+                  Формат оплаты
+                  <select
+                    name="paymentMethodId"
+                    defaultValue={paymentMethods[0]?.id ?? ""}
+                    className={`mt-1 ${inputClass}`}
+                  >
+                    <option value="">— не указан —</option>
+                    {paymentMethods.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
               <button
                 type="submit"
-                className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                className="mt-3 rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
               >
                 Отметить оплату
               </button>
@@ -252,16 +273,12 @@ function SubscriptionCard({
           </div>
         )}
 
-        {/* Корректировка минут — не прокат: компенсации и исправления ошибок,
-            в «Сессии» не попадают, живут только в истории абонемента. */}
-        {!cancelled && (
-          <div className="mt-4 border-t border-line/70 pt-3">
-            <p className="text-xs font-semibold text-muted">
-              Поправить минуты (компенсация, ошибка — в сессии не попадёт)
-            </p>
-            <AdjustMinutesForm subscriptionId={s.id} />
-          </div>
-        )}
+        {/* Формы корректировки минут здесь больше нет (пачка №10, пак 4).
+            Она стояла рядом со списанием и выглядела как второй способ списать
+            минуты — админ так и делал, а корректировки в «Сессии» не попадают:
+            клиент откатал, а в ленте дня его нет (это и был баг №6 пачки №6).
+            Старые корректировки никуда не делись — они в истории ниже и в
+            остатке минут. */}
 
         {/* История: списания + корректировки */}
         {history.length > 0 && (
@@ -477,7 +494,8 @@ export default async function AdminSubscriptionsPage({
       <h1 className="text-2xl font-bold">Абонементы</h1>
       <p className="mt-1 text-sm text-muted">
         Пока нет отметки оплаты, абонемент — «ожидает»: он не входит в выручку
-        и комиссию продавца. Минуты правятся только с комментарием — всё в логе.
+        и комиссию продавца. Минуты списываются только прокатом — он попадает в
+        «Сессии» того дня, к нему можно добавить комментарий.
       </p>
 
       <details className="mt-4 rounded-2xl border border-line bg-surface" open={Boolean(bookingPrefill)}>
