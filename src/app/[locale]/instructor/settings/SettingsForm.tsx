@@ -3,12 +3,11 @@
 import { useActionState, useState } from "react";
 import Image from "next/image";
 import { updateProfileAction, type ActionState } from "../actions";
-import { PHOTO_ACCEPT, PHOTO_MAX_BYTES } from "@/lib/photos";
+import { PHOTO_ACCEPT } from "@/lib/photos";
+import { PhotoInput } from "@/components/cabinet/PhotoInput";
 
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
-
-const MAX_PHOTO_BYTES = PHOTO_MAX_BYTES;
 
 export function SettingsForm({
   name,
@@ -30,25 +29,15 @@ export function SettingsForm({
     { error: null },
   );
 
-  // Локальный предпросмотр выбранного фото (до отправки на сервер).
+  // Локальный предпросмотр выбранного фото (до отправки на сервер). Показываем
+  // уже сжатый кадр — ровно то, что уйдёт на сервер.
+  //
+  // Ручной проверки «больше 4 МБ» здесь больше нет: PhotoInput пережимает кадр
+  // в браузере, и снимок с айфона перестал отбиваться (пачка №10, п.1).
   const [preview, setPreview] = useState<string | null>(null);
-  const [photoError, setPhotoError] = useState<string | null>(null);
 
-  function onPhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) {
-      setPreview(null);
-      setPhotoError(null);
-      return;
-    }
-    if (file.size > MAX_PHOTO_BYTES) {
-      setPhotoError("Фото больше 4 МБ. Выберите другое или сожмите.");
-      e.target.value = "";
-      setPreview(null);
-      return;
-    }
-    setPhotoError(null);
-    setPreview(URL.createObjectURL(file));
+  function onPhotoPicked(file: File | null) {
+    setPreview(file ? URL.createObjectURL(file) : null);
   }
 
   return (
@@ -81,15 +70,13 @@ export function SettingsForm({
           <label htmlFor="photo" className="mb-1 block text-sm font-medium">
             Фото
           </label>
-          <input
+          <PhotoInput
             id="photo"
             name="photo"
-            type="file"
             accept={PHOTO_ACCEPT}
-            onChange={onPhotoChange}
+            onPicked={onPhotoPicked}
             className="w-full text-sm text-muted file:mr-3 file:rounded-full file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary"
           />
-          {photoError && <p className="mt-1 text-sm text-red-600">{photoError}</p>}
         </div>
       </div>
 

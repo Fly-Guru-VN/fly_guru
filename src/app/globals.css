@@ -30,6 +30,28 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Всплывающее уведомление кабинета (components/cabinet/Toast): короткий выезд
+   снизу, чтобы появление было заметно боковым зрением. prefers-reduced-motion
+   уважаем — там просто появляется. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-toast-in {
+  animation: toast-in 180ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-toast-in {
+    animation: none;
+  }
+}
+
 /* Мягкий скроллбар для прокручиваемых колонок кабинета: тонкий, почти белый
    и полупрозрачный вместо явного серого. Тонкий контур — чтобы белое читалось
    на светлом фоне (иначе ползунок пропадал бы). */

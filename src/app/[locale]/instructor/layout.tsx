@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { vnCurrentMonth } from "@/lib/dates";
 import { getInstructorStats, vnd } from "@/lib/stats";
 import { BookingsBadgeRefresh } from "@/components/BookingsBadgeRefresh";
+import { ToastHost } from "@/components/cabinet/Toast";
 import { Sidebar } from "./Sidebar";
 
 export const metadata: Metadata = { title: "Кабинет инструктора" };
@@ -51,6 +52,9 @@ export default async function InstructorLayout({
     <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6 md:h-[calc(100dvh-4rem)] md:py-0">
       {/* Живой красный бейдж записей на всех разделах кабинета */}
       <BookingsBadgeRefresh channel="instructor-bookings-badge" />
+      {/* Всплывающие уведомления кабинета («Фото загружено»): держим в макете,
+          чтобы они переживали перерисовку самих форм. */}
+      <ToastHost />
       <div className="md:flex md:h-full md:gap-6">
         <Sidebar
           name={user.name}

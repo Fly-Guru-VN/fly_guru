@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth";
+import { ToastHost } from "@/components/cabinet/Toast";
 import { Sidebar } from "./Sidebar";
 
 export const metadata: Metadata = { title: "Кабинет механика" };
@@ -20,6 +21,8 @@ export default async function MechanicLayout({
     // На ПК — app-shell: сайдбар и контент скроллятся независимо. На телефоне —
     // обычный скролл страницы, меню в фиксированной нижней панели (pb-24 под неё).
     <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6 md:h-[calc(100dvh-4rem)] md:py-0">
+      {/* Всплывающие уведомления («Фото загружено») — см. кабинет инструктора. */}
+      <ToastHost />
       <div className="md:flex md:h-full md:gap-6">
         <Sidebar name={user.name} photoUrl={user.photo_url} />
         <main className="scroll-soft mt-4 min-w-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain md:py-6">

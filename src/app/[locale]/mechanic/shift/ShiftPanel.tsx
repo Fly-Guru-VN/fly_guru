@@ -12,6 +12,8 @@ import type { InstructorShift, PhotoKind, PhotoPhase, ShiftPhoto } from "@/lib/s
 import type { EquipmentItem } from "@/lib/equipment";
 import { PHOTO_KIND_LABEL as KIND_LABEL } from "@/lib/shiftRules";
 import { vnTimeLabel } from "@/lib/dates";
+import { PhotoInput } from "@/components/cabinet/PhotoInput";
+import { showToast } from "@/components/cabinet/Toast";
 
 // Экран смены механика. Механика съёмки и экшены — те же, что у инструктора
 // (одни и те же server actions, одна и та же таблица shifts).
@@ -35,9 +37,16 @@ function PhotoUploader({
   slotLabel: string;
   equipment?: EquipmentItem[];
 }) {
-  const [state, formAction, pending] = useActionState(addShiftPhotoAction, {
-    error: null,
-  });
+  // Обёртка над экшеном — чтобы поймать успех и показать уведомление (форма
+  // после успеха перемонтируется, см. кабинет инструктора).
+  const [state, formAction, pending] = useActionState(
+    async (prev: { error: string | null }, formData: FormData) => {
+      const result = await addShiftPhotoAction(prev, formData);
+      if (!result.error) showToast("Фото загружено");
+      return result;
+    },
+    { error: null },
+  );
 
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-2">
@@ -65,14 +74,13 @@ function PhotoUploader({
       )}
       <label className="text-xs text-muted">
         {equipment ? `Снимок · ${slotLabel}` : slotLabel}
-        <input
-          type="file"
+        {/* Сжатие кадра в браузере — см. кабинет инструктора (пачка №10, п.1). */}
+        <PhotoInput
           name="photo"
-          accept="image/*"
           capture="environment"
           required
           disabled={pending}
-          onChange={(e) => e.currentTarget.form?.requestSubmit()}
+          autoSubmit
           className="mt-1 block w-full text-xs text-muted file:mr-3 file:rounded-full file:border-0 file:bg-line/50 file:px-3 file:py-1.5 file:text-xs file:font-semibold disabled:opacity-60"
         />
       </label>

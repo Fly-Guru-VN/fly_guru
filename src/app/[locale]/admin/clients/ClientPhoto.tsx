@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useActionState } from "react";
 import { uploadClientPhotoAction } from "../actions";
 import { PHOTO_ACCEPT } from "@/lib/photos";
+import { PhotoInput } from "@/components/cabinet/PhotoInput";
+import { showToast } from "@/components/cabinet/Toast";
 import type { ActionState } from "@/app/[locale]/instructor/actions";
 
 // Фото клиента (пак B, пункт 7). Отдельная форма от карточки: та сохраняется
@@ -27,9 +29,16 @@ export function ClientPhoto({
   action?: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   capture?: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(action, {
-    error: null,
-  });
+  // Успех виден и по самому фото, но на телефоне карточка длинная и снимок
+  // остаётся выше экрана — поэтому короткое уведомление (пачка №10, п.1).
+  const [state, formAction, pending] = useActionState(
+    async (prev: ActionState, formData: FormData) => {
+      const result = await action(prev, formData);
+      if (!result.error) showToast("Фото загружено");
+      return result;
+    },
+    { error: null },
+  );
 
   return (
     <div className="flex items-start gap-3">
@@ -50,8 +59,7 @@ export function ClientPhoto({
         <input type="hidden" name="id" value={clientId} />
         <label className="block text-xs text-muted">
           {photoUrl ? "Заменить фото" : "Фото клиента"}
-          <input
-            type="file"
+          <PhotoInput
             name="photo"
             accept={PHOTO_ACCEPT}
             capture={capture ? "environment" : undefined}
