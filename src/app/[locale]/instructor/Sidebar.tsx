@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { Link, usePathname } from "@/i18n/navigation";
+import { LATEST_UPDATE } from "@/content/updates";
 import { logoutAction } from "../login/actions";
 
 // Боковое меню кабинета инструктора. На ПК — узкая колонка слева (sticky).
@@ -19,7 +20,45 @@ type NavItem = {
   hint?: string;
   primary?: boolean;
   badge?: number;
+  dot?: boolean; // красная точка «есть новое» — без числа
 };
+
+// Дату последней прочитанной записи «Обновлений» держим в самом браузере:
+// заводить ради этого колонку в базе не за что, а телефон у инструктора свой.
+const UPDATES_SEEN_KEY = "flyguru:updates-seen";
+const UPDATES_SEEN_EVENT = "flyguru:updates-seen-changed";
+const UPDATES_HREF = "/instructor/updates";
+
+// Собственное событие: `storage` браузер шлёт только ДРУГИМ вкладкам, а точку
+// надо погасить в этой же.
+function subscribeUpdatesSeen(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener(UPDATES_SEEN_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(UPDATES_SEEN_EVENT, onChange);
+  };
+}
+
+// Приватный режим Safari умеет бросаться на localStorage — молча считаем, что
+// человек ничего не читал, вместо белого экрана кабинета.
+function readUpdatesSeen(): string {
+  try {
+    return localStorage.getItem(UPDATES_SEEN_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function markUpdatesSeen() {
+  try {
+    if (localStorage.getItem(UPDATES_SEEN_KEY) === LATEST_UPDATE) return;
+    localStorage.setItem(UPDATES_SEEN_KEY, LATEST_UPDATE);
+    window.dispatchEvent(new Event(UPDATES_SEEN_EVENT));
+  } catch {
+    // приватный режим — точка просто останется гореть
+  }
+}
 
 const NAV: NavItem[] = [
   { href: "/instructor/bookings", label: "Записи", hint: "от админа", primary: true },
@@ -36,6 +75,7 @@ const NAV: NavItem[] = [
   { href: "/instructor/subscription", label: "Абонемент", hint: "продажа" },
   { href: "/instructor/writeoff", label: "Списание", hint: "минуты" },
   { href: "/instructor/expenses", label: "Расходы", hint: "свои траты" },
+  { href: UPDATES_HREF, label: "Обновления", hint: "что нового в кабинете" },
   { href: "/instructor/settings", label: "Настройки", hint: "имя · фото · цель" },
 ];
 
@@ -77,9 +117,30 @@ export function Sidebar({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const withBadges = NAV.map((item) =>
-    item.href === "/instructor/bookings" ? { ...item, badge: activeCount } : item,
+  // Что инструктор уже прочитал — во внешнем хранилище (localStorage), поэтому
+  // useSyncExternalStore, а не эффект с setState (на такой эффект ругается
+  // линтер, и страница рисовалась бы дважды — тот же разбор, что в BookingNo).
+  // Сервер отдаёт null: до гидратации мы не знаем, читал человек ленту или нет,
+  // и молча не зажигаем точку.
+  const updatesSeen = useSyncExternalStore(
+    subscribeUpdatesSeen,
+    readUpdatesSeen,
+    () => null,
   );
+  // Зашёл на вкладку — считаем ленту прочитанной. Пишем в эффекте (это запись
+  // наружу, не состояние React), точка гаснет по событию из markUpdatesSeen.
+  useEffect(() => {
+    if (pathname.startsWith(UPDATES_HREF)) markUpdatesSeen();
+  }, [pathname]);
+  const hasNewUpdates = updatesSeen !== null && updatesSeen < LATEST_UPDATE;
+
+  const withBadges = NAV.map((item) => {
+    if (item.href === "/instructor/bookings") {
+      return { ...item, badge: activeCount };
+    }
+    if (item.href === UPDATES_HREF) return { ...item, dot: hasNewUpdates };
+    return item;
+  });
   const active =
     withBadges.find((item) => pathname.startsWith(item.href)) ?? withBadges[0];
   // Нижняя панель телефона: главные разделы + «Ещё». «Ещё» подсвечиваем, когда
@@ -139,6 +200,12 @@ export function Sidebar({
               )}
             </span>
             {item.badge ? <CountBubble count={item.badge} /> : null}
+            {item.dot ? (
+              <span
+                aria-label="есть новое"
+                className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500"
+              />
+            ) : null}
           </Link>
         );
       })}
@@ -210,6 +277,14 @@ export function Sidebar({
               ☰
             </span>
             Ещё
+            {/* «Обновления» лежат внутри этого листа — без точки на самой
+                кнопке инструктор с телефона про них не узнает. */}
+            {hasNewUpdates && !open ? (
+              <span
+                aria-label="есть новое"
+                className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-surface"
+              />
+            ) : null}
           </button>
         </nav>
       </div>
