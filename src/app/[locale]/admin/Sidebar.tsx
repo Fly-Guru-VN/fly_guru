@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Link, usePathname } from "@/i18n/navigation";
+import {
+  ADMIN_UPDATES_SEEN_KEY,
+  useUpdatesSeen,
+} from "@/components/cabinet/useUpdatesSeen";
 import { logoutAction } from "../login/actions";
 
 // Боковое меню админки. На ПК — узкая колонка слева (sticky). На телефоне —
@@ -19,7 +23,10 @@ type NavItem = {
   hint?: string;
   primary?: boolean;
   badge?: number;
+  dot?: boolean; // красная точка «есть новое» — без числа
 };
+
+const UPDATES_HREF = "/admin/updates";
 
 const NAV: NavItem[] = [
   { href: "/admin/bookings", label: "Заявки", hint: "актуальные", primary: true },
@@ -35,6 +42,9 @@ const NAV: NavItem[] = [
   { href: "/admin/payroll", label: "Расчёт месяца", hint: "ЗП · агенты · CSV" },
   { href: "/admin/expenses", label: "Расходы", hint: "марина · зп · прочее" },
   { href: "/admin/services", label: "Услуги", hint: "цены · справочник" },
+  // Не primary: шестую вкладку в нижнюю панель телефона не ставим (подписи там
+  // и так 11 пикселей), раздел живёт в листе «Ещё» — как у инструктора.
+  { href: UPDATES_HREF, label: "Обновления", hint: "что нового в системе" },
   { href: "/admin/settings", label: "Настройки", hint: "имя · фото" },
 ];
 
@@ -74,9 +84,23 @@ export function Sidebar({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const withBadges = NAV.map((item) =>
-    item.href === "/admin/bookings" ? { ...item, badge: freshCount } : item,
+  // Красная точка «есть новое» на «Обновлениях» — общая механика с кабинетом
+  // инструктора, ключ в localStorage свой (прочитанное у админа не гасит точку
+  // инструктору, который зашёл с того же телефона).
+  const { hasNew: hasNewUpdates, markSeen } = useUpdatesSeen(
+    ADMIN_UPDATES_SEEN_KEY,
   );
+  // Зашёл на вкладку — лента прочитана. Пишем в эффекте (это запись наружу, не
+  // состояние React), точка гаснет по событию из markSeen.
+  useEffect(() => {
+    if (pathname.startsWith(UPDATES_HREF)) markSeen();
+  }, [pathname, markSeen]);
+
+  const withBadges = NAV.map((item) => {
+    if (item.href === "/admin/bookings") return { ...item, badge: freshCount };
+    if (item.href === UPDATES_HREF) return { ...item, dot: hasNewUpdates };
+    return item;
+  });
   const active =
     withBadges.find((item) => pathname.startsWith(item.href)) ?? withBadges[0];
   // Нижняя панель телефона: главные разделы + «Ещё». «Ещё» подсвечиваем, когда
@@ -136,6 +160,12 @@ export function Sidebar({
               )}
             </span>
             {item.badge ? <CountBubble count={item.badge} /> : null}
+            {item.dot ? (
+              <span
+                aria-label="есть новое"
+                className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500"
+              />
+            ) : null}
           </Link>
         );
       })}
@@ -207,6 +237,14 @@ export function Sidebar({
               ☰
             </span>
             Ещё
+            {/* «Обновления» лежат внутри этого листа — без точки на самой
+                кнопке админ с телефона про них не узнает. */}
+            {hasNewUpdates && !open ? (
+              <span
+                aria-label="есть новое"
+                className="absolute right-0.5 top-0.5 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-surface"
+              />
+            ) : null}
           </button>
         </nav>
       </div>

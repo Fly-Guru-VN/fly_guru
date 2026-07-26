@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Link, usePathname } from "@/i18n/navigation";
-import { LATEST_UPDATE } from "@/content/updates";
+import {
+  INSTRUCTOR_UPDATES_SEEN_KEY,
+  useUpdatesSeen,
+} from "@/components/cabinet/useUpdatesSeen";
 import { logoutAction } from "../login/actions";
 
 // Боковое меню кабинета инструктора. На ПК — узкая колонка слева (sticky).
@@ -23,42 +26,7 @@ type NavItem = {
   dot?: boolean; // красная точка «есть новое» — без числа
 };
 
-// Дату последней прочитанной записи «Обновлений» держим в самом браузере:
-// заводить ради этого колонку в базе не за что, а телефон у инструктора свой.
-const UPDATES_SEEN_KEY = "flyguru:updates-seen";
-const UPDATES_SEEN_EVENT = "flyguru:updates-seen-changed";
 const UPDATES_HREF = "/instructor/updates";
-
-// Собственное событие: `storage` браузер шлёт только ДРУГИМ вкладкам, а точку
-// надо погасить в этой же.
-function subscribeUpdatesSeen(onChange: () => void) {
-  window.addEventListener("storage", onChange);
-  window.addEventListener(UPDATES_SEEN_EVENT, onChange);
-  return () => {
-    window.removeEventListener("storage", onChange);
-    window.removeEventListener(UPDATES_SEEN_EVENT, onChange);
-  };
-}
-
-// Приватный режим Safari умеет бросаться на localStorage — молча считаем, что
-// человек ничего не читал, вместо белого экрана кабинета.
-function readUpdatesSeen(): string {
-  try {
-    return localStorage.getItem(UPDATES_SEEN_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function markUpdatesSeen() {
-  try {
-    if (localStorage.getItem(UPDATES_SEEN_KEY) === LATEST_UPDATE) return;
-    localStorage.setItem(UPDATES_SEEN_KEY, LATEST_UPDATE);
-    window.dispatchEvent(new Event(UPDATES_SEEN_EVENT));
-  } catch {
-    // приватный режим — точка просто останется гореть
-  }
-}
 
 const NAV: NavItem[] = [
   { href: "/instructor/bookings", label: "Записи", hint: "от админа", primary: true },
@@ -117,22 +85,16 @@ export function Sidebar({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  // Что инструктор уже прочитал — во внешнем хранилище (localStorage), поэтому
-  // useSyncExternalStore, а не эффект с setState (на такой эффект ругается
-  // линтер, и страница рисовалась бы дважды — тот же разбор, что в BookingNo).
-  // Сервер отдаёт null: до гидратации мы не знаем, читал человек ленту или нет,
-  // и молча не зажигаем точку.
-  const updatesSeen = useSyncExternalStore(
-    subscribeUpdatesSeen,
-    readUpdatesSeen,
-    () => null,
+  // Красная точка «есть новое» — общая механика с админкой (localStorage,
+  // свой ключ у каждого кабинета).
+  const { hasNew: hasNewUpdates, markSeen } = useUpdatesSeen(
+    INSTRUCTOR_UPDATES_SEEN_KEY,
   );
   // Зашёл на вкладку — считаем ленту прочитанной. Пишем в эффекте (это запись
-  // наружу, не состояние React), точка гаснет по событию из markUpdatesSeen.
+  // наружу, не состояние React), точка гаснет по событию из markSeen.
   useEffect(() => {
-    if (pathname.startsWith(UPDATES_HREF)) markUpdatesSeen();
-  }, [pathname]);
-  const hasNewUpdates = updatesSeen !== null && updatesSeen < LATEST_UPDATE;
+    if (pathname.startsWith(UPDATES_HREF)) markSeen();
+  }, [pathname, markSeen]);
 
   const withBadges = NAV.map((item) => {
     if (item.href === "/instructor/bookings") {
