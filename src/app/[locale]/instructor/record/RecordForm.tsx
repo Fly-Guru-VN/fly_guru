@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { recordClientAction, type ActionState } from "../actions";
 import { PhoneField } from "@/components/cabinet/PhoneField";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
+import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { recordDateBounds } from "@/lib/recordDate";
 
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
@@ -40,6 +42,10 @@ export function RecordForm({
     recordClientAction,
     { error: null },
   );
+
+  // Окно дат считаем от даты, пришедшей с сервера: часы телефона могут врать, а
+  // от даты занятия зависят ЗП инструктора и статистика месяца.
+  const { min, max } = recordDateBounds(today);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -153,12 +159,28 @@ export function RecordForm({
         />
       </div>
 
-      {/* Инструктор записывает только текущим днём — дату не выбирают, просто
-          показываем её. Записи задним числом делает админ. */}
+      {/* Дата занятия. По умолчанию сегодня — это главный сценарий, «оформить
+          человека на пляже сразу после занятия». Но менять её можно в пределах
+          недели в обе стороны: забыл записать вчерашнего клиента, или клиент
+          заплатил сегодня, а катается завтра (пачка №10, п.2). Границы считаем
+          от серверной даты — см. lib/recordDate. */}
       <div>
-        <span className="mb-1 block text-sm font-medium">Дата занятия</span>
-        <p className="rounded-xl border border-line bg-surface px-4 py-3 text-base text-muted">
-          Сегодня, {today}
+        <label htmlFor="date" className="mb-1 block text-sm font-medium">
+          Дата занятия *
+        </label>
+        <input
+          id="date"
+          name="date"
+          type="date"
+          required
+          defaultValue={today}
+          min={min}
+          max={max}
+          className={`${NATIVE_PICKER} ${inputClass}`}
+        />
+        <p className="mt-1 text-xs text-muted">
+          По умолчанию сегодня. Можно сдвинуть на неделю в любую сторону —
+          дальше запись оформляет админ.
         </p>
       </div>
 

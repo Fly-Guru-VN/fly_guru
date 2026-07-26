@@ -20,10 +20,13 @@ export default async function DonePage({
     minutes?: string;
     left?: string;
     existing?: string;
+    date?: string;
   }>;
 }) {
   const p = await searchParams;
   const amount = Number(p.amount ?? 0);
+  // Дата приходит, только если записали НЕ сегодняшним числом (пачка №10, п.2).
+  const otherDay = p.date ? p.date.split("-").reverse().join(".") : null;
 
   let title = "Готово!";
   let details: string[] = [];
@@ -35,7 +38,7 @@ export default async function DonePage({
     details = [
       `${p.name ?? "Клиент"} — ${p.service ?? "услуга"}`,
       `Чек: ${vnd(amount)}${p.discount ? " (со скидкой 10% по агентской ссылке)" : ""}`,
-      "Сессия записана на вас.",
+      otherDay ? `Дата занятия: ${otherDay} (не сегодня)` : "Сессия записана на вас.",
     ];
   } else if (p.type === "subscription") {
     title = "Абонемент продан";

@@ -13,6 +13,7 @@ import {
   PHONE_ERROR,
 } from "@/lib/phone";
 import { vnToday, subscriptionExpiry } from "@/lib/dates";
+import { checkRecordDate } from "@/lib/recordDate";
 import { minutesLeft } from "@/lib/subscriptions";
 import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
@@ -183,11 +184,14 @@ export async function recordClientAction(
   const phone = String(formData.get("phone") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim();
   const serviceId = String(formData.get("serviceId") ?? "");
-  // Инструктор работает только в рамках сегодняшнего дня: дату занятия НЕ
-  // берём из формы (её там больше нет), а жёстко ставим текущий день по
-  // Вьетнаму. Записи задним/будущим числом оформляет только админ. Ошибся
-  // инструктор — сообщает админу, тот правит через админку.
-  const date = vnToday();
+  // Дату занятия инструктор выбирает сам, но только в пределах недели в обе
+  // стороны (пачка №10, п.2): «забыл оформить вчерашнего» и «клиент заплатил
+  // сегодня, катается завтра» он закрывает сам, а промахнуться мимо месяца —
+  // увезти занятие в чужую ЗП и чужую статистику — не может. Дальше по времени
+  // по-прежнему оформляет админ. min/max в форме — подсказка, правило здесь.
+  const checkedDate = checkRecordDate(String(formData.get("date") ?? ""));
+  if ("error" in checkedDate) return { error: checkedDate.error };
+  const date = checkedDate.date;
   const bookingId = String(formData.get("bookingId") ?? "") || null;
   // Формат оплаты обязателен (пак A, пункт 6). Проверяем и на сервере, а не
   // только через required в разметке: required обходится, а дыра в отчёте
@@ -375,6 +379,9 @@ export async function recordClientAction(
     service: service.name,
   });
   if (discounted) params.set("discount", "1");
+  // Записали не сегодняшним числом — проговариваем это на экране «Готово»:
+  // промах в дате иначе всплывёт только в конце месяца, в чужой ЗП.
+  if (date !== vnToday()) params.set("date", date);
   if (clientResult.existingName) params.set("existing", clientResult.existingName);
   redirect(`/instructor/done?${params.toString()}`);
 }
