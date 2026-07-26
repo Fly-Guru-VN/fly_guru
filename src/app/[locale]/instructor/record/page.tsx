@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAppUser } from "@/lib/auth";
-import { vnToday } from "@/lib/dates";
+import { vnPeriod, vnToday } from "@/lib/dates";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
+import { getInstructorStats, vnd } from "@/lib/stats";
+import { SHIFT_PAY, SHIFT_PAY_LABEL } from "@/lib/salary";
 import { CopyLink } from "@/app/[locale]/admin/CopyLink";
 import { RecordForm, type RecordPrefill } from "./RecordForm";
 import { createMyRefCodeAction } from "../actions";
@@ -20,6 +22,25 @@ export default async function RecordPage({
   const { booking: bookingId } = await searchParams;
   const supabase = await createClient();
   const user = await getAppUser();
+  const today = vnToday();
+
+  // «Сколько я сегодня заработал» — главный вопрос инструктора в конце дня, а
+  // до сих пор ответ был только за месяц (карточка в сайдбаре). Считаем тем же
+  // getInstructorStats, но за диапазон «сегодня–сегодня»; service-role — потому
+  // что дележ 15% смотрит на чужие сессии и смены дня (см. lib/salary).
+  // Админу не считаем вовсе: ЗП у него нет, все слагаемые всё равно нули.
+  const todayStats =
+    user?.role === "instructor"
+      ? await getInstructorStats(
+          supabase,
+          user.id,
+          vnPeriod(today, today),
+          "instructor",
+          createAdminClient(),
+        )
+      : null;
+  // Смена сегодня одна (день = один выход), поэтому берём первую строку.
+  const todayShift = todayStats?.shiftRows[0] ?? null;
 
   // Личный реф-код инструктора берём отдельным запросом (а НЕ через getAppUser),
   // чтобы до наката 0011 не ронять авторизацию во всех кабинетах. RLS
@@ -101,6 +122,69 @@ export default async function RecordPage({
         Сессия запишется на вас — вы и получите 15% от чека.
       </p>
 
+      {todayStats && (
+        <div className="mt-6 rounded-2xl border border-line bg-surface p-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-sm font-semibold">Моя ЗП за сегодня</p>
+            <p className="text-2xl font-bold text-primary">
+              {vnd(todayStats.salary)}
+            </p>
+          </div>
+
+          <div className="mt-2 space-y-1 text-xs text-muted">
+            <p>
+              15% с занятий дня:{" "}
+              <span className="font-bold text-ink">
+                {vnd(todayStats.salaryFromSessions)}
+              </span>
+              {todayStats.sharedDays > 0
+                ? " · поделены между сменой дня"
+                : todayStats.ownDays > 0
+                  ? " · смен на день нет, считаем с ваших чеков"
+                  : ""}
+            </p>
+
+            {/* Выход отдельной строкой: 300 000 ₫ попадают в сумму только после
+                закрытия смены, и без объяснения цифра выглядит заниженной. */}
+            {!todayShift ? (
+              <p>Выход: смена не открыта — за сегодня не зачтётся.</p>
+            ) : todayShift.status === "paid" ? (
+              <p>
+                Выход зачтён:{" "}
+                <span className="font-bold text-ink">{vnd(SHIFT_PAY)}</span>
+              </p>
+            ) : todayShift.status === "notClosed" ? (
+              <p>
+                Выход ждёт закрытия смены: +{vnd(SHIFT_PAY)} после закрытия.
+              </p>
+            ) : (
+              <p className="text-amber-600">
+                Выход не зачтён: {SHIFT_PAY_LABEL[todayShift.status]}
+                {todayShift.comment ? ` · ${todayShift.comment}` : ""}
+              </p>
+            )}
+
+            {/* Котёл абонементов: сегодня он чаще всего пуст — показываем
+                строку только когда за день что-то оплатили. */}
+            {todayStats.salaryFromSubs > 0 && (
+              <p>
+                Доля с абонементов дня:{" "}
+                <span className="font-bold text-ink">
+                  {vnd(todayStats.salaryFromSubs)}
+                </span>{" "}
+                · котёл {vnd(todayStats.subsPool)} на{" "}
+                {todayStats.instructorsCount}
+              </p>
+            )}
+
+            <p className="pt-1">
+              Ваших занятий сегодня: {todayStats.sessionsCount} · чеки{" "}
+              {vnd(todayStats.revenue)}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Личная реф-ссылка (пак C): дайте её клиенту вне дома — он запишется
           сразу на вас, без скидки. Показываем только инструкторам. */}
       {user?.role === "instructor" && (
@@ -129,7 +213,7 @@ export default async function RecordPage({
       <div className="mt-6">
         <RecordForm
           services={services ?? []}
-          today={vnToday()}
+          today={today}
           paymentMethods={paymentMethods}
           prefill={prefill}
         />
