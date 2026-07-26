@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ServiceOption } from "@/components/BookingForm";
+import { sortServicesByType } from "@/lib/serviceOrder";
 import {
   services as contentServices,
   type Service,
@@ -21,8 +22,7 @@ export async function getActiveServices(
   let query = supabase
     .from("services")
     .select("id, name, category, code")
-    .eq("active", true)
-    .order("price", { ascending: true, nullsFirst: false });
+    .eq("active", true);
 
   if (category) query = query.eq("category", category);
 
@@ -31,9 +31,9 @@ export async function getActiveServices(
     console.error("[services] load error:", error.message);
     return [];
   }
-  // code нужен форме записи, чтобы выбрать услугу по умолчанию не «первую в
-  // списке» (список отсортирован по цене), а конкретное базовое обучение.
-  return (data ?? []).map((s) => ({
+  // Порядок — общий для всей системы (lib/serviceOrder.ts): похожие услуги
+  // рядом, базовое обучение первым.
+  return sortServicesByType(data ?? []).map((s) => ({
     id: s.id,
     name: s.name,
     code: (s.code as string | null) ?? null,

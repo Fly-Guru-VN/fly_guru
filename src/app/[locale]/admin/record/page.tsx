@@ -5,6 +5,7 @@ import { vnToday } from "@/lib/dates";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
 import { RecordClientForm, type RecordPrefill } from "./RecordClientForm";
 import { firstBasicTrainingByPhone } from "@/lib/agentReward";
+import { sortServicesByType } from "@/lib/serviceOrder";
 
 export const metadata: Metadata = { title: "Админка · Запись клиента" };
 
@@ -27,13 +28,14 @@ export default async function AdminRecordPage({
     // Без subscription: абонемент — не сессия (своя форма с минутами/членством).
     supabase
       .from("services")
-      .select("id, name, price")
+      .select("id, name, price, code, category")
       .eq("active", true)
-      .neq("category", "subscription")
-      .order("name"),
+      .neq("category", "subscription"),
     supabase.from("users").select("id, name").in("role", ["instructor", "admin"]).order("name"),
   ]);
-  const services = (servicesRes.data ?? []).map((s) => ({
+  // Порядок «по типажам» (lib/serviceOrder.ts): базовое обучение первым,
+  // похожие услуги рядом.
+  const services = sortServicesByType(servicesRes.data ?? []).map((s) => ({
     ...s,
     price: Number(s.price ?? 0),
   }));

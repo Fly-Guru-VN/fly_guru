@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { vnToday } from "@/lib/dates";
 import { getActiveDict } from "@/lib/dictionaries";
 import { BookingCreateForm } from "../../admin/bookings/BookingCreateForm";
+import { sortServicesByType } from "@/lib/serviceOrder";
 
 export const metadata: Metadata = { title: "Механик · Записать клиента" };
 
@@ -26,11 +27,11 @@ export default async function MechanicRecordPage({
   // формой, иначе клиент не получит минуты и членство.
   const { data: serviceRows } = await supabase
     .from("services")
-    .select("id, name")
+    .select("id, name, code, category")
     .eq("active", true)
-    .neq("category", "subscription")
-    .order("name");
-  const services = (serviceRows ?? []).map((s) => ({
+    .neq("category", "subscription");
+  // Порядок «по типажам» (lib/serviceOrder.ts).
+  const services = sortServicesByType(serviceRows ?? []).map((s) => ({
     id: s.id as string,
     name: s.name as string,
   }));

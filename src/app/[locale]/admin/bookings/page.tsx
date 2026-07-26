@@ -16,6 +16,7 @@ import { SaveForm } from "../SaveForm";
 import { getActiveDict } from "@/lib/dictionaries";
 import { BookingCreateForm } from "./BookingCreateForm";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { sortServicesByType } from "@/lib/serviceOrder";
 
 export const metadata: Metadata = { title: "Админка · Заявки" };
 
@@ -432,11 +433,11 @@ export default async function AdminBookingsPage({
   // и membership (та же дыра, что чинили в 4.8).
   const { data: serviceRows } = await supabase
     .from("services")
-    .select("id, name, category")
+    .select("id, name, category, code")
     .eq("active", true)
-    .neq("category", "subscription")
-    .order("name");
-  const services = (serviceRows ?? []).map((s) => ({
+    .neq("category", "subscription");
+  // Порядок «по типажам» (lib/serviceOrder.ts).
+  const services = sortServicesByType(serviceRows ?? []).map((s) => ({
     id: s.id as string,
     name: s.name as string,
   }));

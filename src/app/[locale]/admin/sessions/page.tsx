@@ -10,6 +10,7 @@ import { getActiveDict } from "@/lib/dictionaries";
 import { SessionCreateForm } from "./SessionCreateForm";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
+import { sortServicesByType } from "@/lib/serviceOrder";
 
 export const metadata: Metadata = { title: "Админка · Сессии" };
 
@@ -277,10 +278,9 @@ export default async function AdminSessionsPage({
     // с минутами, членством и тумблером оплаты (/admin/subscriptions).
     supabase
       .from("services")
-      .select("id, name, price")
+      .select("id, name, price, code, category")
       .eq("active", true)
-      .neq("category", "subscription")
-      .order("name"),
+      .neq("category", "subscription"),
     supabase.from("users").select("id, name").in("role", ["instructor", "admin"]).order("name"),
   ]);
 
@@ -289,7 +289,8 @@ export default async function AdminSessionsPage({
   const clients = [...clientsRes.rows].sort((a, b) =>
     a.name.localeCompare(b.name, "ru"),
   );
-  const services = (servicesRes.data ?? []).map((s) => ({
+  // Порядок «по типажам» (lib/serviceOrder.ts).
+  const services = sortServicesByType(servicesRes.data ?? []).map((s) => ({
     ...s,
     price: Number(s.price ?? 0),
   }));

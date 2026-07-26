@@ -8,6 +8,7 @@ import { SaveForm } from "@/app/[locale]/admin/SaveForm";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 import { updateMySessionAction } from "../actions";
+import { sortServicesByType } from "@/lib/serviceOrder";
 
 // «Сессии» инструктора (пачка №9, пак 1). Инструктор оформляет записи весь
 // день и до сих пор не видел, что именно записалось: список был только у
@@ -268,14 +269,14 @@ export default async function InstructorSessionsPage({
     // с минутами и оплатой (/instructor/subscription).
     supabase
       .from("services")
-      .select("id, name")
+      .select("id, name, code, category")
       .eq("active", true)
-      .neq("category", "subscription")
-      .order("name"),
+      .neq("category", "subscription"),
   ]);
 
   const sessions = (sessionsRes.data ?? []) as unknown as SessionRow[];
-  const services = servicesRes.data ?? [];
+  // Порядок «по типажам» (lib/serviceOrder.ts).
+  const services = sortServicesByType(servicesRes.data ?? []);
   const total = sessions.reduce((sum, s) => sum + (s.amount ?? 0), 0);
   // Своё считаем отдельно: раньше единственная строка «N сессий · сумма» была
   // про меня, теперь она про всю школу — без второй строки инструктор читал бы

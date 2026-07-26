@@ -9,6 +9,7 @@ import { CopyLink } from "@/app/[locale]/admin/CopyLink";
 import { RecordForm, type RecordPrefill } from "./RecordForm";
 import { createMyRefCodeAction } from "../actions";
 import { firstBasicTrainingByPhone } from "@/lib/agentReward";
+import { sortServicesByType } from "@/lib/serviceOrder";
 
 // «Записать клиента»: имя, телефон, услуга, дата → клиент + сессия.
 // Сценарий: оформить человека на пляже за 30 секунд сразу после занятия.
@@ -58,12 +59,14 @@ export default async function RecordPage({
   // Услуги из базы: форма отправляет uuid услуги, цена подставится на сервере.
   // Без категории subscription: абонемент — не сессия, он продаётся через
   // «Продажу абонемента» (иначе клиент не получит минуты и членство).
-  const { data: services } = await supabase
+  // Порядок «по типажам» (lib/serviceOrder.ts): базовое обучение первым —
+  // форма и выбирает по умолчанию первую услугу списка.
+  const { data: serviceRows } = await supabase
     .from("services")
-    .select("id, name")
+    .select("id, name, code, category")
     .eq("active", true)
-    .neq("category", "subscription")
-    .order("price", { ascending: true, nullsFirst: false });
+    .neq("category", "subscription");
+  const services = sortServicesByType(serviceRows ?? []);
 
   const paymentMethods = await getActiveDict(supabase, "payment_methods");
 
