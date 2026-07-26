@@ -539,6 +539,9 @@ export async function writeOffAction(
   const clientId = String(formData.get("clientId") ?? "");
   const clientName = String(formData.get("clientName") ?? "");
   const minutes = Math.floor(Number(formData.get("minutes")));
+  // Пометка к прокату — необязательная, уходит в примечание сессии (то же
+  // поле, что заполняет админ в своей форме списания).
+  const comment = String(formData.get("comment") ?? "").trim();
 
   if (!clientId || !Number.isFinite(minutes) || minutes <= 0) {
     return { error: "Укажите, сколько минут списать." };
@@ -588,6 +591,7 @@ export async function writeOffAction(
       amount: 0, // списание с абонемента — чека нет, комиссия не начисляется
       instructor_id: user.id,
       created_by: user.id,
+      note: comment || null,
       date: vnToday(),
     })
     .select("id")

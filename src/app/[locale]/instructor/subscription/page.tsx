@@ -1,3 +1,4 @@
+import { Link } from "@/i18n/navigation";
 import { formatVnd } from "@/content/services";
 import { getSiteServices, pickService } from "@/lib/services";
 import { createClient } from "@/lib/supabase/server";
@@ -56,13 +57,13 @@ export default async function SubscriptionPage({
     price: number;
     paid_at: string | null;
     sold_at: string;
-    clients: { name: string } | null;
+    client: { id: string; name: string } | null;
     seller: { name: string } | null;
   }
   const { data: soldRaw } = await supabase
     .from("subscriptions")
     .select(
-      "id, total_minutes, price, paid_at, sold_at, clients(name), seller:users!sold_by(name)",
+      "id, total_minutes, price, paid_at, sold_at, client:clients(id, name), seller:users!sold_by(name)",
     )
     .neq("status", "cancelled")
     .order("sold_at", { ascending: false })
@@ -99,7 +100,8 @@ export default async function SubscriptionPage({
 
   const sold = soldRows.map((s) => ({
     id: s.id,
-    clientName: s.clients?.name ?? null,
+    clientId: s.client?.id ?? null,
+    clientName: s.client?.name ?? null,
     sellerName: s.seller?.name ?? null,
     price: Number(s.price ?? 0),
     paidAt: s.paid_at,
@@ -138,28 +140,59 @@ export default async function SubscriptionPage({
           <h2 className="font-bold">Проданные абонементы</h2>
           <p className="mt-1 text-xs text-muted">
             Последние {sold.length}. Остаток минут — с учётом списаний и
-            корректировок админа.
+            корректировок админа. Нажмите на карточку, чтобы списать минуты.
           </p>
           <div className="mt-3 space-y-3">
-            {sold.map((s) => (
-              <div key={s.id} className="rounded-2xl border border-line bg-surface p-4">
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="min-w-0 truncate font-bold">
-                    {s.clientName ?? "Без клиента"}
+            {sold.map((s) => {
+              const body = (
+                <>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="min-w-0 truncate font-bold">
+                      {s.clientName ?? "Без клиента"}
+                    </p>
+                    <p className="shrink-0 text-sm font-bold text-primary">
+                      {s.left} мин
+                    </p>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-muted">
+                    {formatVnd(s.price)} · продал {s.sellerName ?? "—"}
                   </p>
-                  <p className="shrink-0 text-sm font-bold text-primary">
-                    {s.left} мин
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <PaidBadge paidAt={s.paidAt} claim={s.claim} />
+                    <EnteredBadge at={s.soldAt} />
+                  </div>
+                </>
+              );
+
+              // Карточка — вход в списание: инструктор жмёт на клиента и сразу
+              // попадает на экран, где спишет минуты (и при желании оставит
+              // комментарий). Править сам абонемент отсюда нельзя — цену,
+              // оплату и срок ведёт админ.
+              //
+              // Ссылку вешаем, только когда списывать реально есть что: у
+              // карточки с нулём минут (или без клиента) экран списания сказал
+              // бы «нет активного абонемента» — клик в тупик.
+              const canWriteOff = s.clientId !== null && s.left > 0;
+              if (!canWriteOff) {
+                return (
+                  <div key={s.id} className="rounded-2xl border border-line bg-surface p-4">
+                    {body}
+                  </div>
+                );
+              }
+              return (
+                <Link
+                  key={s.id}
+                  href={`/instructor/writeoff?client=${s.clientId}`}
+                  className="block rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-primary"
+                >
+                  {body}
+                  <p className="mt-1.5 text-xs font-semibold text-primary">
+                    Списать минуты →
                   </p>
-                </div>
-                <p className="mt-0.5 truncate text-xs text-muted">
-                  {formatVnd(s.price)} · продал {s.sellerName ?? "—"}
-                </p>
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  <PaidBadge paidAt={s.paidAt} claim={s.claim} />
-                  <EnteredBadge at={s.soldAt} />
-                </div>
-              </div>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </section>
       )}

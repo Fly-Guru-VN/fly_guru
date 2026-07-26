@@ -43,6 +43,22 @@ export function WriteOffForm({
         />
       </div>
 
+      {/* Необязательная пометка к прокату — уходит в примечание сессии, то же
+          поле, что заполняет админ в своей форме списания. */}
+      <div>
+        <label htmlFor="comment" className="mb-1 block text-sm font-medium">
+          Комментарий{" "}
+          <span className="font-normal text-muted">— если есть что добавить</span>
+        </label>
+        <input
+          id="comment"
+          name="comment"
+          type="text"
+          placeholder="малое крыло, ветер…"
+          className={inputClass}
+        />
+      </div>
+
       <button
         type="submit"
         disabled={pending || left <= 0}
