@@ -14,6 +14,7 @@ import {
 } from "@/lib/phone";
 import { vnToday, subscriptionExpiry } from "@/lib/dates";
 import { checkRecordDate } from "@/lib/recordDate";
+import { isPaymentClaim } from "@/lib/paymentClaim";
 import { minutesLeft } from "@/lib/subscriptions";
 import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
@@ -396,7 +397,14 @@ export async function sellSubscriptionAction(
 
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
-  const paid = formData.get("paid") === "on";
+  // «Кто взял деньги» (пачка №10, п.5). Оплату отмечаем ТОЛЬКО когда их принял
+  // сам инструктор: paid_at идёт в выручку месяца и в котёл 15%, и ставить его
+  // со слов клиента нельзя. «Принял админ» и «непонятно» вместо этого оставляют
+  // заявление — админ его подтвердит кнопкой «Отметить оплату» (см. 0032).
+  // Старое поле paid поддерживаем на случай вкладки, открытой до этой правки.
+  const paymentChoice = String(formData.get("payment") ?? "").trim();
+  const claim = isPaymentClaim(paymentChoice) ? paymentChoice : null;
+  const paid = paymentChoice ? paymentChoice === "me" : formData.get("paid") === "on";
   // Пришли из заявки на абонемент — закроем её после продажи (пачка №5, п.11).
   const bookingId = String(formData.get("bookingId") ?? "") || null;
   // Чем заплатили. Обязателен ровно тогда, когда деньги получены: продажа
@@ -474,14 +482,27 @@ export async function sellSubscriptionAction(
     expires_at: subscriptionExpiry().toISOString(),
     paid_at: paid ? new Date().toISOString() : null,
     payment_method_id: paymentMethodId,
+    // Кто именно оставил заявление — видно админу: спрашивать «а кто это
+    // написал» через неделю бессмысленно.
+    payment_claim: claim,
+    payment_claim_note: claim
+      ? String(formData.get("paymentClaimNote") ?? "").trim() || null
+      : null,
+    payment_claim_by: claim ? user.id : null,
+    payment_claim_at: claim ? new Date().toISOString() : null,
   };
   let { error: subError } = await admin.from("subscriptions").insert(row);
-  // Миграцию 0025 ещё не накатили — колонки payment_method_id нет. Продажу
-  // из-за этого не роняем: пишем абонемент без способа оплаты (его потом
-  // проставит админ), иначе деплой до миграции убил бы весь поток продаж.
+  // Миграцию 0025 (способ оплаты) или 0032 (заявление об оплате) ещё не
+  // накатили — колонок нет. Продажу из-за этого не роняем: пишем абонемент без
+  // них, иначе деплой до миграции убил бы весь поток продаж. Заявление в этом
+  // случае теряется — но абонемент неоплаченный, и админ его всё равно увидит.
   if (subError?.code === "PGRST204") {
     const legacy: Partial<typeof row> = { ...row };
     delete legacy.payment_method_id;
+    delete legacy.payment_claim;
+    delete legacy.payment_claim_note;
+    delete legacy.payment_claim_by;
+    delete legacy.payment_claim_at;
     ({ error: subError } = await admin.from("subscriptions").insert(legacy));
   }
   if (subError) {
@@ -501,6 +522,7 @@ export async function sellSubscriptionAction(
 
   const params = new URLSearchParams({ type: "subscription", name });
   if (paid) params.set("paid", "1");
+  if (claim) params.set("claim", claim);
   if (clientResult.existingName) params.set("existing", clientResult.existingName);
   redirect(`/instructor/done?${params.toString()}`);
 }

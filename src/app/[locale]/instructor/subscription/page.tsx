@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 import { PaidBadge } from "@/components/cabinet/PaidBadge";
+import { loadPaymentClaims } from "@/lib/subscriptions";
 import { SubscriptionForm, type SubscriptionPrefill } from "./SubscriptionForm";
 
 // Продажа абонемента: 300 минут / 6 млн ₫, минуты живут 3 месяца.
@@ -93,12 +94,16 @@ export default async function SubscriptionPage({
     adjBySub.set(id, (adjBySub.get(id) ?? 0) + ((r.delta_minutes as number) ?? 0));
   }
 
+  // Заявления об оплате (0032) — отдельным мягким запросом, см. lib/subscriptions.
+  const claims = await loadPaymentClaims(supabase, soldIds);
+
   const sold = soldRows.map((s) => ({
     id: s.id,
     clientName: s.clients?.name ?? null,
     sellerName: s.seller?.name ?? null,
     price: Number(s.price ?? 0),
     paidAt: s.paid_at,
+    claim: claims.get(s.id)?.claim ?? null,
     soldAt: s.sold_at,
     left: s.total_minutes + (adjBySub.get(s.id) ?? 0) - (usedBySub.get(s.id) ?? 0),
   }));
@@ -150,7 +155,7 @@ export default async function SubscriptionPage({
                   {formatVnd(s.price)} · продал {s.sellerName ?? "—"}
                 </p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  <PaidBadge paidAt={s.paidAt} />
+                  <PaidBadge paidAt={s.paidAt} claim={s.claim} />
                   <EnteredBadge at={s.soldAt} />
                 </div>
               </div>

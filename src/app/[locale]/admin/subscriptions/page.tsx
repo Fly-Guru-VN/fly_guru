@@ -12,6 +12,8 @@ import {
 import { ConfirmSubmit } from "../ConfirmSubmit";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
+import { loadPaymentClaims, type ClaimInfo } from "@/lib/subscriptions";
+import { PAYMENT_CLAIM_BADGE, PAYMENT_CLAIM_TEXT } from "@/lib/paymentClaim";
 import {
   SellSubscriptionForm,
   AdjustMinutesForm,
@@ -61,6 +63,7 @@ function SubscriptionCard({
   staff,
   paymentName,
   paymentMethods,
+  claim,
 }: {
   s: SubRow;
   left: number;
@@ -73,6 +76,8 @@ function SubscriptionCard({
   paymentName?: string;
   // Справочник для отметки оплаты задним числом.
   paymentMethods: { id: string; name: string }[];
+  // Заявление инструктора об оплате (0032), если он его оставил.
+  claim?: ClaimInfo;
 }) {
   // Отменённый — продажа не состоялась (п.13). Проверяем первым: у него могли
   // и минуты кончиться, и срок выйти, но человеку важно одно — он отменён.
@@ -83,6 +88,9 @@ function SubscriptionCard({
   // «Сгорел» — истёк, а минуты остались: клиент их не откатал, деньги за них
   // школа получила. Именно это админ хотел видеть (пак E, пункт 9).
   const burned = !cancelled && expired && left > 0;
+
+  // Заявление живо, только пока оплата не отмечена: подтвердил — вопрос закрыт.
+  const pendingClaim = !cancelled && !s.paid_at && claim ? claim : null;
 
   const statusLabel = cancelled
     ? { text: "Отменён", cls: "bg-line text-muted" }
@@ -116,7 +124,13 @@ function SubscriptionCard({
                 : "bg-amber-500/10 text-amber-600"
             }`}
           >
-            {s.paid_at ? `Оплачен ${fmtDay(s.paid_at)}` : "Ожидает оплаты"}
+            {s.paid_at
+              ? `Оплачен ${fmtDay(s.paid_at)}`
+              : // Инструктор уже сказал, что деньги у школы — это не то же
+                // самое, что «клиент не заплатил» (0032).
+                pendingClaim
+                ? PAYMENT_CLAIM_BADGE[pendingClaim.claim]
+                : "Ожидает оплаты"}
           </span>
         )}
         <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${statusLabel.cls}`}>
@@ -149,6 +163,23 @@ function SubscriptionCard({
               </p>
             )
           ))}
+
+        {/* Заявление инструктора об оплате (0032, пачка №10, п.5): деньги, по
+            его словам, школа уже получила мимо CRM. Ставим прямо над кнопкой
+            «Отметить оплату» — это и есть подтверждение. */}
+        {pendingClaim && (
+          <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
+            <p className="font-bold">{PAYMENT_CLAIM_BADGE[pendingClaim.claim]}</p>
+            <p className="mt-1 text-xs">{PAYMENT_CLAIM_TEXT[pendingClaim.claim]}</p>
+            {pendingClaim.note && (
+              <p className="mt-1 text-xs">Пометка: «{pendingClaim.note}»</p>
+            )}
+            <p className="mt-1 text-xs opacity-80">
+              {pendingClaim.by ?? "Инструктор"}
+              {pendingClaim.at ? `, ${fmtDay(pendingClaim.at)}` : ""}
+            </p>
+          </div>
+        )}
 
         {/* Отметка оплаты. У отменённого её нет: пока он в отменённых, деньги
             не должны попадать ни в выручку, ни в комиссию продавца. */}
@@ -361,6 +392,10 @@ export default async function AdminSubscriptionsPage({
   const subs = (subsRes.data ?? []) as unknown as SubRow[];
   const ids = subs.map((s) => s.id);
 
+  // Заявления об оплате (0032): «деньги принял админ», «с оплатой непонятно».
+  // Отдельным мягким запросом — по той же причине, что и способ оплаты ниже.
+  const claimBySub = await loadPaymentClaims(supabase, ids);
+
   // Способ оплаты (0025) тянем ОТДЕЛЬНЫМ запросом, а не в общем select: пока
   // миграция не накатана, колонки нет — и такой select уронил бы всю страницу
   // абонементов. Здесь же ошибка просто оставит блок оплаты пустым.
@@ -509,6 +544,7 @@ export default async function AdminSubscriptionsPage({
             staff={staffRes.data ?? []}
             paymentName={paymentBySub.get(s.id)}
             paymentMethods={paymentMethods}
+            claim={claimBySub.get(s.id)}
           />
         ))}
       </div>

@@ -710,10 +710,26 @@ export async function togglePaidAction(formData: FormData) {
     paymentMethodId = String(formData.get("paymentMethodId") ?? "").trim() || null;
   }
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("subscriptions")
-    .update({ paid_at: paidAt, payment_method_id: paymentMethodId })
-    .eq("id", id);
+  // Заявление инструктора «оплату принял админ» (0032) снимаем в обоих случаях:
+  // админ на вопрос уже ответил — либо подтвердил оплату, либо снял отметку.
+  // Висящая после этого плашка была бы просто мусором на карточке.
+  const patch = {
+    paid_at: paidAt,
+    payment_method_id: paymentMethodId,
+    payment_claim: null,
+    payment_claim_note: null,
+    payment_claim_by: null,
+    payment_claim_at: null,
+  };
+  let { error } = await supabase.from("subscriptions").update(patch).eq("id", id);
+  // 0032 ещё не накатили — колонок заявления нет. Отметку оплаты из-за этого не
+  // роняем: она работала и до миграции.
+  if (error?.code === "PGRST204") {
+    ({ error } = await supabase
+      .from("subscriptions")
+      .update({ paid_at: paidAt, payment_method_id: paymentMethodId })
+      .eq("id", id));
+  }
   failIfError(error, "не удалось изменить отметку оплаты");
   revalidatePath("/", "layout");
 }

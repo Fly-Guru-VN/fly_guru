@@ -1,7 +1,7 @@
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { phoneDigits } from "@/lib/phone";
-import { minutesLeft } from "@/lib/subscriptions";
+import { minutesLeft, loadPaymentClaims } from "@/lib/subscriptions";
 import { loadAllClients } from "@/lib/clients";
 import { PaidBadge } from "@/components/cabinet/PaidBadge";
 import { WriteOffForm } from "./WriteOffForm";
@@ -46,12 +46,18 @@ export default async function WriteOffPage({
 
     const { data: sub } = await supabase
       .from("subscriptions")
-      .select("id, total_minutes, expires_at, status")
+      .select("id, total_minutes, expires_at, status, paid_at")
       .eq("client_id", client.id)
       .eq("status", "active")
       .order("sold_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    // Оплачен абонемент или нет — на списание не влияет (минуты клиенту всё
+    // равно катать), но инструктор должен это видеть до того, как спишет
+    // (пачка №10, п.4). Раньше экран об оплате молчал вовсе.
+    const claims = sub ? await loadPaymentClaims(supabase, [sub.id]) : null;
+    const claim = sub ? (claims?.get(sub.id) ?? null) : null;
 
     // Остаток считаем ровно тем же способом, что и writeOffAction при списании:
     // всего + корректировки админа − списания. Свой подсчёт здесь забывал про
@@ -79,6 +85,25 @@ export default async function WriteOffPage({
                 </p>
               )}
             </div>
+            {/* Абонемент не оплачен — списывать минуты можно (клиент катается,
+                деньги догоняет админ), но молчать об этом нельзя. */}
+            {!sub.paid_at && (
+              <div className="mt-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-700">
+                <p className="font-bold">
+                  {claim
+                    ? "Оплата ещё не подтверждена админом"
+                    : "Абонемент не оплачен"}
+                </p>
+                <p className="mt-1">
+                  {claim
+                    ? "Минуты списывайте как обычно — админ подтвердит оплату отдельно."
+                    : "Минуты списать можно, но передайте админу, что за абонемент не заплатили."}
+                </p>
+                {claim?.note && (
+                  <p className="mt-1 text-xs">Пометка: «{claim.note}»</p>
+                )}
+              </div>
+            )}
             <div className="mt-6">
               <WriteOffForm clientId={client.id} clientName={client.name} left={left} />
             </div>
@@ -86,8 +111,16 @@ export default async function WriteOffPage({
         ) : (
           <div className="mt-6 rounded-2xl border border-line bg-surface p-6 text-center text-muted">
             У клиента нет активного абонемента.
+            {/* Частый случай: абонемент клиент купил, а в CRM его не завели —
+                деньги принял админ и забыл (пачка №10, п.5). Оформить нужно
+                прямо сейчас, иначе списывать минуты не с чего. */}
+            <p className="mt-2 text-sm">
+              Если клиент говорит, что абонемент купил, — оформите его здесь и
+              выберите «Оплату принял админ». Оплату подтвердит админ, а минуты
+              списывайте сразу.
+            </p>
             <Link href="/instructor/subscription" className="mt-2 block text-primary underline">
-              Продать абонемент
+              Оформить абонемент
             </Link>
           </div>
         )}
@@ -127,12 +160,17 @@ export default async function WriteOffPage({
     .eq("status", "active")
     .order("sold_at", { ascending: false });
   const activeSubs = (activeSubsRaw ?? []) as unknown as ActiveSubRow[];
+  const listClaims = await loadPaymentClaims(
+    supabase,
+    activeSubs.map((s) => s.id),
+  );
   const activeList = (
     await Promise.all(
       activeSubs.map(async (s) => ({
         client: s.client,
         expiresAt: s.expires_at,
         paidAt: s.paid_at,
+        claim: listClaims.get(s.id)?.claim ?? null,
         left: await minutesLeft(supabase, s),
       })),
     )
@@ -178,7 +216,7 @@ export default async function WriteOffPage({
                   )}
                   {/* Оплачен абонемент или нет — инструктор должен видеть до
                       того, как спишет минуты (пачка №9, пак 4). */}
-                  <PaidBadge paidAt={r.paidAt} className="mt-1" />
+                  <PaidBadge paidAt={r.paidAt} claim={r.claim} className="mt-1" />
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-lg font-bold text-primary">{r.left}</p>
