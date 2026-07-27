@@ -26,6 +26,49 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 export const MARINA_RATE = 0.35; // Marina Beach — со всей выручки
 export const CRM_RATE = 0.02; // Дэвид + Ромчик — с сессий + абонементов (пополам)
+export const CRM_PARTNERS = ["Дэвид", "Ромчик (СММ)"] as const; // делят CRM_RATE поровну
+
+export interface CrmPayout {
+  revenue: number; // база: сессии + оплаченные абонементы за период
+  total: number; // 2% с неё — общая сумма на двоих
+  each: number; // доля одного (по 1%)
+  partners: readonly string[];
+}
+
+// Доля за CRM отдельно от остальной финмодели: её показывает не только вкладка
+// «Расходы» (там она статья расхода школы), но и «Расчёт месяца» — это такая же
+// выплата человеку, как ЗП инструктора. Ставка и список получателей общие,
+// поэтому цифры на двух вкладках сойтись обязаны.
+export async function getCrmPayout(
+  supabase: Supabase,
+  range: StatsRange,
+): Promise<CrmPayout> {
+  const [sessionsRes, subsRes] = await Promise.all([
+    supabase
+      .from("sessions")
+      .select("amount")
+      .gte("date", range.fromDay)
+      .lt("date", range.toDay),
+    supabase
+      .from("subscriptions")
+      .select("price")
+      .not("paid_at", "is", null)
+      .gte("paid_at", range.fromIso)
+      .lt("paid_at", range.toIso),
+  ]);
+
+  const revenue =
+    (sessionsRes.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0) +
+    (subsRes.data ?? []).reduce((s, r) => s + Number(r.price ?? 0), 0);
+  const total = revenue * CRM_RATE;
+
+  return {
+    revenue,
+    total,
+    each: total / CRM_PARTNERS.length,
+    partners: CRM_PARTNERS,
+  };
+}
 
 export interface ExpenseRow {
   id: string;

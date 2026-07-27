@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { getInstructorStats, type StatsRange } from "@/lib/stats";
+import { getCrmPayout, type CrmPayout } from "@/lib/finance";
 
 // Расчёт месяца: кому и сколько школа должна выплатить.
 // Одна функция на страницу /admin/payroll и на CSV-выгрузку — цифры в файле
@@ -9,6 +10,9 @@ import { getInstructorStats, type StatsRange } from "@/lib/stats";
 // выход, отработанный по регламенту, + доля абонементного котла — всё через
 // getInstructorStats, те же цифры инструктор видит у себя в кабинете.
 // Агенты: подтверждённые в этом месяце награды (клиент дошёл до услуги).
+// CRM (Дэвид + Ромчик): 2% со всей выручки месяца пополам — та же цифра, что
+// во вкладке «Расходы», но здесь она нужна как выплата: месяц закрыли — видно,
+// кому сколько отдать, без похода на другую вкладку.
 // Админа тут нет намеренно: он босс, а не наёмный — школа сама себе не платит.
 // Его деньги (сессия минус 35% Marina и 2% CRM) видны как прибыль в lib/finance.
 
@@ -38,6 +42,7 @@ export interface AgentPayout {
 export interface MonthlyPayroll {
   instructors: InstructorPayout[];
   agents: AgentPayout[];
+  crm: CrmPayout; // Дэвид + Ромчик: 2% с выручки месяца пополам
   grandTotal: number;
 }
 
@@ -75,7 +80,7 @@ export async function getMonthlyPayroll(
   // больше нет: занятие оформляют по факту оплаты, поэтому награда пишется
   // сразу confirmed (см. recordClientAction). Пока статус pending существовал,
   // агент висел в очереди и получал в расчёте месяца 0.
-  const [confirmedRes, agentsRes] = await Promise.all([
+  const [confirmedRes, agentsRes, crm] = await Promise.all([
     supabase
       .from("referral_rewards")
       .select("referrer_id, amount")
@@ -84,6 +89,7 @@ export async function getMonthlyPayroll(
       .gte("confirmed_at", range.fromIso)
       .lt("confirmed_at", range.toIso),
     supabase.from("agents").select("id, user:users!user_id(name)"),
+    getCrmPayout(supabase, range),
   ]);
 
   const agentName = new Map(
@@ -114,9 +120,13 @@ export async function getMonthlyPayroll(
   }
   const agents = [...byAgent.values()].sort((a, b) => b.total - a.total);
 
+  // «Итого к выплате» = все деньги, которые школа раздаёт по итогам месяца,
+  // включая долю за CRM: иначе цифра в шапке страницы не сходилась бы с суммой
+  // блоков под ней.
   const grandTotal =
     instructors.reduce((s, i) => s + i.total, 0) +
-    agents.reduce((s, a) => s + a.total, 0);
+    agents.reduce((s, a) => s + a.total, 0) +
+    crm.total;
 
-  return { instructors, agents, grandTotal };
+  return { instructors, agents, crm, grandTotal };
 }

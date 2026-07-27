@@ -103,6 +103,26 @@ export default async function AdminPayrollPage({
         </div>
       </section>
 
+      {/* Доля за CRM. Считается из выручки месяца, поэтому в списке людей её
+          раньше не было — а платить-то надо, и каждый раз приходилось лезть во
+          вкладку «Расходы». */}
+      <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
+        <h2 className="font-bold">CRM · 2% с выручки пополам</h2>
+        <p className="mt-1 text-xs text-muted">
+          База — занятия месяца плюс абонементы, оплаченные в этом месяце:{" "}
+          {vnd(payroll.crm.revenue)}.
+        </p>
+        <div className="mt-3 space-y-1">
+          {payroll.crm.partners.map((name) => (
+            <Row key={name} label={`${name} · 1%`} value={vnd(payroll.crm.each)} />
+          ))}
+          <div className="flex items-baseline justify-between gap-2 pt-1">
+            <p className="text-sm font-semibold">Итого CRM</p>
+            <p className="font-bold text-primary">{vnd(payroll.crm.total)}</p>
+          </div>
+        </div>
+      </section>
+
       <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-bold">Агенты · за приведённых клиентов</h2>
         <div className="mt-3 space-y-3">

@@ -75,6 +75,11 @@ export async function GET(request: NextRequest) {
       a.total,
     ]);
   }
+  // Доля за CRM (Дэвид + Ромчик) — такая же строка выплаты, как инструктор или
+  // агент: файл должен совпадать с экраном, включая «Итого».
+  for (const name of payroll.crm.partners) {
+    rows.push(["CRM", name, "", "", "", "", "", "", "", "", "", payroll.crm.each]);
+  }
   rows.push([
     "Итого",
     "",
