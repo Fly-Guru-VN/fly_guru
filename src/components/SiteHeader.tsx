@@ -7,7 +7,6 @@ import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useBooking } from "./BookingProvider";
 import { NAV_LINKS } from "./nav";
-import { LinkSpinner } from "./Spinner";
 import { SlidingHighlight } from "./SlidingHighlight";
 
 // Шапка сайта. Клиентский компонент ради мобильного меню и кнопки «Вход/Кабинет».
@@ -114,7 +113,9 @@ export function SiteHeader() {
 
         {/* Десктоп-навигация. Подсветка раздела — не фон у ссылки, а отдельная
             плашка, которая переезжает между вкладками (SlidingHighlight) и
-            подтягивается к той, на которую навели. */}
+            подтягивается к той, на которую навели.
+            Кружка загрузки у пунктов нет намеренно: он раздвигал ширину пункта,
+            плашка под ним дёргалась, а страницы сайта и так открываются сразу. */}
         <nav className="hidden items-center gap-1 md:flex">
           <SlidingHighlight
             activeKey={NAV_LINKS.find((l) => isCurrent(l.href))?.href ?? null}
@@ -133,7 +134,6 @@ export function SiteHeader() {
                 }`}
               >
                 {l.label}
-                <LinkSpinner />
               </Link>
             ))}
           </SlidingHighlight>
@@ -192,7 +192,6 @@ export function SiteHeader() {
                 }`}
               >
                 {l.label}
-                <LinkSpinner />
               </Link>
             ))}
             <Link
