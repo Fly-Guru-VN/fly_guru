@@ -81,13 +81,22 @@ export function SiteHeader() {
   const authLabel = cabinetHref ? "Кабинет" : "Вход";
 
   const countBubble = activeCount > 0 && (
-    <span className="absolute -right-1.5 -top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
+    <span className="absolute -right-1.5 -top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white ring-2 ring-primary-strong">
       {activeCount}
     </span>
   );
 
+  // Текущий раздел. pathname приходит уже без префикса локали (useI18n-навигация),
+  // поэтому сравниваем напрямую. Раньше активный пункт не выделялся вообще —
+  // на цветной шапке это стало заметно сразу.
+  const isCurrent = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
+
   return (
-    <header className="sticky top-0 z-50 border-b border-line bg-surface/90 backdrop-blur">
+    // Фирменный градиент «вода»: от бирюзы мелководья к глубине. Шапку просили
+    // сделать заметной — на белом фоне страницы она сливалась, и на телефоне
+    // человек не понимал, где верх интерфейса.
+    <header className="sticky top-0 z-50 bg-gradient-to-r from-primary to-primary-strong text-white shadow-[0_2px_14px_rgba(11,110,127,0.28)]">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
         <Link href="/" className="flex items-center gap-2 font-bold" onClick={() => setOpen(false)}>
           <Image
@@ -95,22 +104,31 @@ export function SiteHeader() {
             alt="FlyGuru"
             width={36}
             height={36}
-            className="rounded-full"
+            className="rounded-full ring-2 ring-white/70"
             priority
           />
           <span className="text-lg">FlyGuru</span>
         </Link>
 
         {/* Десктоп-навигация */}
-        <nav className="hidden items-center gap-6 md:flex">
+        <nav className="hidden items-center gap-1 md:flex">
           {NAV_LINKS.map((l) => (
-            <Link key={l.href} href={l.href} className="text-sm text-muted hover:text-ink">
+            <Link
+              key={l.href}
+              href={l.href}
+              aria-current={isCurrent(l.href) ? "page" : undefined}
+              className={`rounded-full px-3 py-2 text-sm font-semibold transition-colors ${
+                isCurrent(l.href)
+                  ? "bg-white/20 text-white"
+                  : "text-white/80 hover:bg-white/10 hover:text-white"
+              }`}
+            >
               {l.label}
             </Link>
           ))}
           <Link
             href={authHref}
-            className="relative rounded-full border border-line px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+            className="relative ml-2 rounded-full border border-white/40 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/15"
           >
             {authLabel}
             {countBubble}
@@ -118,7 +136,7 @@ export function SiteHeader() {
           <button
             type="button"
             onClick={() => openBooking()}
-            className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong"
+            className="ml-1 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-strong"
           >
             Записаться
           </button>
@@ -130,22 +148,29 @@ export function SiteHeader() {
           onClick={() => setOpen((v) => !v)}
           aria-label="Меню"
           aria-expanded={open}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-line md:hidden"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 md:hidden"
         >
           <span className="text-xl leading-none">{open ? "✕" : "☰"}</span>
         </button>
       </div>
 
-      {/* Мобильное меню */}
+      {/* Мобильное меню: продолжение шапки, а не белая простыня под ней.
+          Пункты — крупные пилюли с отступами (линии-разделители убраны),
+          текущий раздел залит белым. */}
       {open && (
-        <nav className="border-t border-line bg-surface md:hidden">
-          <div className="mx-auto flex w-full max-w-6xl flex-col px-4 py-2 sm:px-6">
+        <nav className="border-t border-white/15 bg-primary-strong md:hidden">
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-3 sm:px-6">
             {NAV_LINKS.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
                 onClick={() => setOpen(false)}
-                className="border-b border-line/70 py-3 text-muted hover:text-ink"
+                aria-current={isCurrent(l.href) ? "page" : undefined}
+                className={`rounded-xl px-4 py-3 font-semibold transition-colors ${
+                  isCurrent(l.href)
+                    ? "bg-white text-primary-strong"
+                    : "text-white/85 hover:bg-white/10 hover:text-white"
+                }`}
               >
                 {l.label}
               </Link>
@@ -153,11 +178,11 @@ export function SiteHeader() {
             <Link
               href={authHref}
               onClick={() => setOpen(false)}
-              className="py-3 text-muted hover:text-ink"
+              className="mt-2 flex items-center justify-between rounded-xl border border-white/40 px-4 py-3 font-semibold text-white transition-colors hover:bg-white/15"
             >
               {cabinetHref ? "Мой кабинет" : "Вход в кабинет"}
               {activeCount > 0 && (
-                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
                   {activeCount}
                 </span>
               )}
@@ -168,7 +193,7 @@ export function SiteHeader() {
                 setOpen(false);
                 openBooking();
               }}
-              className="mt-2 mb-2 rounded-full bg-accent px-5 py-3 text-center font-semibold text-white"
+              className="mt-1 mb-1 rounded-full bg-accent px-5 py-3 text-center font-semibold text-white transition-colors hover:bg-accent-strong"
             >
               Записаться
             </button>
