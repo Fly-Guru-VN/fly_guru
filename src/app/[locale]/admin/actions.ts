@@ -12,7 +12,7 @@ import {
   normalizeTelegram,
   PHONE_ERROR,
 } from "@/lib/phone";
-import { subscriptionExpiry, vnToday } from "@/lib/dates";
+import { subscriptionExpiry, vnIsoAt, vnToday } from "@/lib/dates";
 import { minutesLeft } from "@/lib/subscriptions";
 import { sendInstructorsBookingAlert } from "@/lib/telegram";
 import { MANUAL_CHANNELS } from "@/lib/channels";
@@ -1430,6 +1430,41 @@ export async function setShiftBonusAction(formData: FormData) {
     .eq("instructor_id", instructorId)
     .eq("date", date);
   failIfError(error, "не удалось изменить премию за смену");
+  revalidatePath("/", "layout");
+}
+
+// Время открытия и закрытия смены руками — только для админа.
+//
+// Зачем вообще: 27.07.2026 Никита сделал утренние фото, но выход ему не
+// засчитался (фото и открытие смены были двумя разными действиями, кнопку он не
+// нажал). Человек отработал, а премии за выход нет — и починить это можно было
+// только запросом в Supabase. Сам сценарий убран (теперь смену открывает фото),
+// но ручка нужна: телефон сел, интернет упал, забыл закрыться.
+//
+// Механику её НЕ даём (в отличие от снятия премии): он тоже открывает себе
+// смену, и правка собственного времени — это ровно то, от чего защищала 0020.
+// Пустое поле = стереть отметку.
+export async function setShiftTimesAction(formData: FormData) {
+  await requireAdmin();
+  const instructorId = String(formData.get("instructorId") ?? "");
+  const date = String(formData.get("date") ?? "");
+  if (!instructorId || !DAY_RE.test(date)) return;
+
+  const opened = String(formData.get("opened") ?? "").trim();
+  const closed = String(formData.get("closed") ?? "").trim();
+  const openedAt = opened ? vnIsoAt(date, opened) : null;
+  const closedAt = closed ? vnIsoAt(date, closed) : null;
+  // Мусор в поле не должен молча ОБНУЛИТЬ время — тогда админ, промахнувшись по
+  // клавише, стёр бы человеку выход. Ничего не трогаем.
+  if ((opened && !openedAt) || (closed && !closedAt)) return;
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("shifts")
+    .update({ opened_at: openedAt, closed_at: closedAt })
+    .eq("instructor_id", instructorId)
+    .eq("date", date);
+  failIfError(error, "не удалось изменить время смены");
   revalidatePath("/", "layout");
 }
 

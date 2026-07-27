@@ -118,6 +118,20 @@ export function vnTimeLabel(iso: string | Date | null): string {
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
+// Момент 'YYYY-MM-DD' + 'HH:MM' по Нячангу как ISO для timestamptz. Нужен
+// админу, когда он правит время открытия/закрытия смены руками: в форме он
+// вводит МЕСТНОЕ время, а в базе лежит UTC. null — время невалидное.
+export function vnIsoAt(day: string, time: string): string | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(time.trim());
+  if (!m) return null;
+  const hour = Number(m[1]);
+  const minute = Number(m[2]);
+  if (hour > 23 || minute > 59) return null;
+  const local = new Date(`${day}T00:00:00Z`);
+  local.setUTCHours(hour, minute, 0, 0);
+  return new Date(local.getTime() - VN_OFFSET_MS).toISOString();
+}
+
 // «23.07 в 14:32» по Нячангу — момент, когда запись реально внесли в CRM
 // (sessions.created_at, subscriptions.sold_at). Это НЕ дата занятия: сессию
 // заводят и задним числом, и именно поэтому время внесения показываем

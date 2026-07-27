@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { vnToday } from "@/lib/dates";
+import { vnTimeLabel, vnToday } from "@/lib/dates";
 import {
   getMonthCalendar,
   loadShiftPhotos,
@@ -14,10 +14,12 @@ import { CalMonthNav, resolveCalYm } from "@/components/cabinet/CalMonthNav";
 import { DayModal } from "@/components/cabinet/DayModal";
 import { ShiftPhotos } from "@/components/cabinet/ShiftPhotos";
 import { ShiftTimes } from "@/components/cabinet/ShiftTimes";
+import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import {
   assignShiftAction,
   removeShiftAction,
   setShiftBonusAction,
+  setShiftTimesAction,
 } from "../actions";
 
 export const metadata: Metadata = { title: "Админка · Календарь" };
@@ -92,6 +94,71 @@ function ShiftBonus({
   );
 }
 
+// Правка времени смены руками (setShiftTimesAction). Обычно не нужна — время
+// ставит сервер по фото, — поэтому прячем под раскрытие, чтобы не выглядело
+// частью повседневной работы.
+function ShiftTimesEdit({
+  shift,
+  date,
+  instructorId,
+}: {
+  shift: ShiftEntry;
+  date: string;
+  instructorId: string;
+}) {
+  const field =
+    "w-28 rounded-lg border border-line bg-surface px-2 py-1.5 text-xs outline-none focus:border-primary";
+
+  return (
+    <details className="group mt-2 [&_summary::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold text-muted">
+        Поправить время
+        <span className="transition-transform group-open:rotate-180">▾</span>
+      </summary>
+      <form
+        action={setShiftTimesAction}
+        className="mt-2 flex flex-wrap items-end gap-2"
+      >
+        <input type="hidden" name="instructorId" value={instructorId} />
+        <input type="hidden" name="date" value={date} />
+        <label className="text-[11px] text-muted">
+          Открыл
+          <input
+            type="time"
+            name="opened"
+            defaultValue={vnTimeInput(shift.openedAt)}
+            className={`mt-1 block ${NATIVE_PICKER} ${field}`}
+          />
+        </label>
+        <label className="text-[11px] text-muted">
+          Закрыл
+          <input
+            type="time"
+            name="closed"
+            defaultValue={vnTimeInput(shift.closedAt)}
+            className={`mt-1 block ${NATIVE_PICKER} ${field}`}
+          />
+        </label>
+        <button
+          type="submit"
+          className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+        >
+          Сохранить
+        </button>
+        <p className="w-full text-[11px] text-muted">
+          Время местное. Пустое поле сотрёт отметку.
+        </p>
+      </form>
+    </details>
+  );
+}
+
+// Значение для input[type=time] — то же местное время, что в плашках, но в
+// формате поля. Пустая строка, если отметки нет.
+function vnTimeInput(iso: string | null): string {
+  return iso ? vnTimeLabel(iso) : "";
+}
+
 function fmtFullDay(d: string): string {
   return new Intl.DateTimeFormat("ru-RU", {
     weekday: "long",
@@ -121,6 +188,23 @@ export default async function AdminCalendarPage({
   const shiftByInstr = new Map(
     (dayData?.shifts ?? []).map((s) => [s.instructorId, s]),
   );
+  // Кто в этот день на смене — наверх. Раньше список шёл строго по алфавиту, и
+  // сверху карточки висели те, кто сегодня вообще не работает, а реальные смены
+  // приходилось искать ниже. Внутри группы «на смене» — по времени открытия
+  // (кто пришёл раньше, тот выше; ещё не открывшие — в конце группы), дальше по
+  // имени, чтобы порядок не прыгал.
+  const staff = [...cal.staff].sort((a, b) => {
+    const sa = shiftByInstr.get(a.id);
+    const sb = shiftByInstr.get(b.id);
+    if (Boolean(sa) !== Boolean(sb)) return sa ? -1 : 1;
+    if (sa && sb) {
+      const oa = sa.openedAt ?? "￿";
+      const ob = sb.openedAt ?? "￿";
+      if (oa !== ob) return oa < ob ? -1 : 1;
+    }
+    return a.name.localeCompare(b.name, "ru");
+  });
+
   // Фото смен выбранного дня (пак C): подтягиваем только для открытого дня.
   const photosByShift: Map<string, ShiftPhoto[]> = selected
     ? await loadShiftPhotos(
@@ -178,7 +262,7 @@ export default async function AdminCalendarPage({
         <DayModal title={fmtFullDay(selected)} closeHref={`/admin/calendar?m=${ym}`}>
           <h3 className="text-sm font-bold text-muted">Смены</h3>
           <div className="mt-2 space-y-2">
-            {cal.staff.map((u) => {
+            {staff.map((u) => {
               const shift = shiftByInstr.get(u.id);
               const photos = shift
                 ? (photosByShift.get(shift.id) ?? [])
@@ -236,11 +320,18 @@ export default async function AdminCalendarPage({
                       9:00/18:00 — только для инструкторов и админа; у механика
                       его нет, поэтому там голое время (см. ShiftTimes). */}
                   {shift && (
-                    <ShiftTimes
-                      openedAt={shift.openedAt}
-                      closedAt={shift.closedAt}
-                      strict={u.role !== "mechanic"}
-                    />
+                    <>
+                      <ShiftTimes
+                        openedAt={shift.openedAt}
+                        closedAt={shift.closedAt}
+                        strict={u.role !== "mechanic"}
+                      />
+                      <ShiftTimesEdit
+                        shift={shift}
+                        date={selected}
+                        instructorId={u.id}
+                      />
+                    </>
                   )}
 
                   {(shift?.openComment || shift?.closeComment) && (
@@ -261,7 +352,7 @@ export default async function AdminCalendarPage({
                 </div>
               );
             })}
-            {cal.staff.length === 0 && (
+            {staff.length === 0 && (
               <p className="text-sm text-muted">Инструкторов нет.</p>
             )}
           </div>
