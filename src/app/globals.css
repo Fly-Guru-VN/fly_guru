@@ -30,9 +30,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Всплывающее уведомление кабинета (components/cabinet/Toast): короткий выезд
-   снизу, чтобы появление было заметно боковым зрением. prefers-reduced-motion
-   уважаем — там просто появляется. */
+/* ── Движение ────────────────────────────────────────────────────────────────
+   Все анимации интерфейса живут здесь, чтобы длительности и кривые не
+   разъезжались по компонентам. Правило простое: движение объясняет, ОТКУДА
+   взялся элемент (лист выехал снизу, меню раскрылось из шапки), и длится
+   150–260 мс — дольше начинает раздражать при десятом открытии за смену.
+
+   Анимируем только появление. Исчезновение потребовало бы держать элемент в
+   DOM после закрытия — ради 200 мс это лишняя машина состояний в каждом
+   компоненте.
+
+   Внизу блока всё разом глушится при системной настройке «меньше движения»
+   (iOS: Настройки → Универсальный доступ → Движение). */
+
 @keyframes toast-in {
   from {
     opacity: 0;
@@ -46,8 +56,82 @@ body {
 .animate-toast-in {
   animation: toast-in 180ms ease-out;
 }
+
+/* Затемнение под модалкой и листом «Ещё» */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade-in {
+  animation: fade-in 160ms ease-out;
+}
+
+/* Лист снизу: карточка дня на телефоне, меню «Ещё» в кабинете */
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-sheet-up {
+  animation: sheet-up 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Карточка по центру на ПК — короткий «подъём» вместо выезда снизу */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@media (min-width: 640px) {
+  .sm\:animate-pop-in {
+    animation: pop-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+/* Мобильное меню шапки: раскрывается из-под неё, а не появляется рывком */
+@keyframes menu-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-menu-down {
+  animation: menu-down 200ms ease-out;
+}
+
+/* Раскрывашки <details> («Снять оборудование», «Поправить время», фильтры в
+   админке) — содержимое выезжает, а не выпрыгивает. Правило общее на весь
+   проект: помечать каждый блок классом пришлось бы в полутора десятках мест,
+   а ведут они себя одинаково. Сам <summary> не трогаем — он на месте. */
+details[open] > *:not(summary) {
+  animation: menu-down 180ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-toast-in {
+  .animate-toast-in,
+  .animate-fade-in,
+  .animate-sheet-up,
+  .sm\:animate-pop-in,
+  .animate-menu-down,
+  details[open] > *:not(summary) {
     animation: none;
   }
 }

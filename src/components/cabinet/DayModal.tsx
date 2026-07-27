@@ -43,17 +43,21 @@ export function DayModal({
       role="dialog"
       aria-modal="true"
       aria-label={title}
-      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4"
+      className="animate-fade-in fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4"
     >
       {/* Фон-подложка: клик по ней закрывает день. Ссылкой, а не onClick, —
           работает и без JS, и правильно ведёт себя с «назад» в браузере. */}
       <Link href={closeHref} aria-label="Закрыть" className="absolute inset-0" />
 
       {/* Телефон — лист снизу на 90% высоты; ПК — карточка по центру.
-          Скроллится содержимое модалки, страница под ней стоит на месте. */}
-      <div className="relative flex max-h-[90vh] w-full flex-col rounded-t-3xl border border-line bg-surface shadow-xl sm:max-h-[85vh] sm:max-w-2xl sm:rounded-3xl">
+          Скроллится содержимое модалки, страница под ней стоит на месте.
+          Движение под форму: на телефоне лист выезжает снизу, на ПК карточка
+          коротко всплывает по центру (sm: перебивает мобильную анимацию). */}
+      <div className="animate-sheet-up sm:animate-pop-in relative flex max-h-[90vh] w-full flex-col rounded-t-3xl border border-line bg-surface shadow-xl sm:max-h-[85vh] sm:max-w-2xl sm:rounded-3xl">
         <div className="flex items-start justify-between gap-3 border-b border-line/70 px-4 py-3 sm:px-6 sm:py-4">
-          <h2 className="text-lg font-bold capitalize">{title}</h2>
+          {/* first-letter, а не capitalize: в «пятница, 24 июля» capitalize
+              поднимал и «Июля» — было «Пятница, 24 Июля». */}
+          <h2 className="text-lg font-bold first-letter:uppercase">{title}</h2>
           <Link
             href={closeHref}
             aria-label="Закрыть"

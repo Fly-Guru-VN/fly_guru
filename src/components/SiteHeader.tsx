@@ -136,7 +136,7 @@ export function SiteHeader() {
           <button
             type="button"
             onClick={() => openBooking()}
-            className="ml-1 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-accent-strong"
+            className="ml-1 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-95"
           >
             Записаться
           </button>
@@ -148,9 +148,17 @@ export function SiteHeader() {
           onClick={() => setOpen((v) => !v)}
           aria-label="Меню"
           aria-expanded={open}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 md:hidden"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 active:scale-95 md:hidden"
         >
-          <span className="text-xl leading-none">{open ? "✕" : "☰"}</span>
+          {/* Значок доворачивается при открытии — палец видит, что нажатие
+              сработало, даже если меню ещё не доехало. */}
+          <span
+            className={`text-xl leading-none transition-transform duration-200 ${
+              open ? "rotate-90" : "rotate-0"
+            }`}
+          >
+            {open ? "✕" : "☰"}
+          </span>
         </button>
       </div>
 
@@ -158,7 +166,7 @@ export function SiteHeader() {
           Пункты — крупные пилюли с отступами (линии-разделители убраны),
           текущий раздел залит белым. */}
       {open && (
-        <nav className="border-t border-white/15 bg-primary-strong md:hidden">
+        <nav className="animate-menu-down border-t border-white/15 bg-primary-strong md:hidden">
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-3 sm:px-6">
             {NAV_LINKS.map((l) => (
               <Link
@@ -193,7 +201,7 @@ export function SiteHeader() {
                 setOpen(false);
                 openBooking();
               }}
-              className="mt-1 mb-1 rounded-full bg-accent px-5 py-3 text-center font-semibold text-white transition-colors hover:bg-accent-strong"
+              className="mt-1 mb-1 rounded-full bg-accent px-5 py-3 text-center font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-95"
             >
               Записаться
             </button>

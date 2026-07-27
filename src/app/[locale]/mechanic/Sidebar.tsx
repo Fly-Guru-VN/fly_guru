@@ -32,7 +32,7 @@ const NAV: NavItem[] = [
 const mobileBarClass =
   "fixed inset-x-0 bottom-0 z-30 flex gap-1 border-t border-line bg-surface px-1 pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] shadow-[0_-2px_12px_rgba(15,34,51,0.10)]";
 const mobileTabClass =
-  "relative flex flex-1 items-center justify-center rounded-xl px-1 py-2.5 text-[11px] font-bold leading-tight transition-colors";
+  "relative flex flex-1 items-center justify-center rounded-xl px-1 py-2.5 text-[11px] font-bold leading-tight transition-[background-color,color,transform] duration-150 active:scale-95";
 const mobileTabActive = "bg-primary text-white shadow-sm";
 const mobileTabIdle = "text-ink";
 
@@ -128,9 +128,9 @@ export function Sidebar({
               type="button"
               aria-label="Закрыть меню"
               onClick={() => setOpen(false)}
-              className="fixed inset-0 z-40 bg-black/40"
+              className="animate-fade-in fixed inset-0 z-40 bg-black/40"
             />
-            <div className="fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] space-y-3 overflow-y-auto rounded-t-2xl border-t border-line bg-bg p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
+            <div className="animate-sheet-up fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] space-y-3 overflow-y-auto rounded-t-2xl border-t border-line bg-bg p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
               {profile}
               {links}
             </div>

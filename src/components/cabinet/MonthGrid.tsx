@@ -89,13 +89,16 @@ export function MonthGrid({
                 ? "border border-line bg-surface-2/70"
                 : "border border-line/70 bg-bg";
 
-          const base = `min-h-17 rounded-xl p-1.5 text-left transition-colors sm:min-h-26 ${tone}`;
+          const base = `min-h-17 rounded-xl p-1.5 text-left transition-[background-color,box-shadow,transform] duration-150 sm:min-h-26 ${tone}`;
 
           return href ? (
+            // Нажатие даёт отдачу: плитка чуть проседает под пальцем (на
+            // телефоне это единственный сигнал, что тап поймали — карточка дня
+            // открывается не мгновенно), на ПК подсвечивается и приподнимается.
             <Link
               key={cell.dateStr}
               href={href}
-              className={`${base} block hover:bg-primary/5`}
+              className={`${base} block hover:bg-primary/5 hover:shadow-sm active:scale-[0.97]`}
             >
               {inner}
             </Link>
