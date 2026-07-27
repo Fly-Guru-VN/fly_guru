@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ROLE_HOME, type AppRole } from "@/lib/auth";
+import { ROLE_HOME, safeNextPath, type AppRole } from "@/lib/auth";
 import { phoneDigits, phonesMatch } from "@/lib/phone";
 
 // Вход по email ИЛИ телефону + пароль (архитектура, раздел 5: SMS не используем).
@@ -78,11 +78,9 @@ export async function loginAction(
     return { error: "Аккаунту не назначена роль. Напишите администратору." };
   }
 
-  // Возврат туда, откуда выбросило на логин. Разрешаем только внутренние пути:
-  // «/» и один символ, который не слэш и не бэкслэш. Так отсекаются и «//evil»,
-  // и «/\evil» — браузер трактует «\» как «/», и без этого был открытый редирект.
-  const safeNext = /^\/[^/\\]/.test(next) ? next : null;
-  redirect(safeNext ?? ROLE_HOME[role]);
+  // Возврат туда, откуда выбросило на логин: только внутренние пути и только
+  // не в чужой кабинет (правила и почему — в lib/auth → safeNextPath).
+  redirect(safeNextPath(next, role));
 }
 
 export async function logoutAction() {
