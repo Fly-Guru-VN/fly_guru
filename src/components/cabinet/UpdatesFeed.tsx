@@ -31,10 +31,14 @@ function fmtDay(day: string): string {
 
 export function UpdatesFeed() {
   // Свежее сверху. Внутри дня порядок оставляем как в файле — там записи
-  // уже идут от главной к мелочам.
+  // уже идут от главной к мелочам; наверх поднимаем только помеченные «важно».
   const days = [...new Set(UPDATES.map((u) => u.date))].sort((a, b) =>
     b.localeCompare(a),
   );
+  const ofDay = (day: string) => {
+    const rows = UPDATES.filter((u) => u.date === day);
+    return [...rows.filter((u) => u.important), ...rows.filter((u) => !u.important)];
+  };
 
   return (
     <>
@@ -42,12 +46,25 @@ export function UpdatesFeed() {
         <section key={day} className="mt-6">
           <h2 className="text-sm font-semibold text-muted">{fmtDay(day)}</h2>
           <div className="mt-3 space-y-3">
-            {UPDATES.filter((u) => u.date === day).map((u) => (
+            {ofDay(day).map((u) => (
               <article
                 key={`${u.date}-${u.title}`}
-                className="rounded-2xl border border-line bg-surface p-4"
+                // Важное отличается не только меткой, но и самой карточкой:
+                // человек листает ленту по диагонали и цепляется взглядом за
+                // цвет раньше, чем читает слова.
+                className={`rounded-2xl border p-4 ${
+                  u.important
+                    ? "border-red-500/40 bg-red-500/5 ring-1 ring-red-500/20"
+                    : "border-line bg-surface"
+                }`}
               >
                 <div className="flex flex-wrap items-center gap-2">
+                  {u.important && (
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-red-500/10 px-2 py-0.5 text-xs font-bold uppercase text-red-600">
+                      <span aria-hidden>⚠️</span>
+                      важно
+                    </span>
+                  )}
                   <span
                     className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-bold ${KIND_CLASS[u.kind]}`}
                   >
