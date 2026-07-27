@@ -4,12 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import { vnToday } from "@/lib/dates";
 import { getShiftForDay } from "@/lib/shifts";
 import { getActiveEquipment } from "@/lib/equipment";
-import { MechanicShiftPanel } from "./ShiftPanel";
+import { ShiftPanel } from "@/components/cabinet/ShiftPanel";
 
 export const metadata: Metadata = { title: "Механик · Смена" };
 
-// Экран «Смена» механика: та же фотофиксация доски и крыла, что у инструктора,
-// но без регламента по времени — открывает и закрывает когда нужно по работе.
+// Экран «Смена» механика: та же фотофиксация, что у инструктора (общий
+// ShiftPanel), но без регламента по времени — приходит и уходит когда нужно по
+// работе, поэтому strict={false}: только время, без «вовремя/поздно».
 
 export default async function MechanicShiftPage() {
   const user = await getAppUser();
@@ -21,27 +22,22 @@ export default async function MechanicShiftPage() {
     getActiveEquipment(supabase),
   ]);
 
-  const boards = equipment.filter((e) => e.kind === "board");
-  const wings = equipment.filter((e) => e.kind === "wing");
-
   return (
     <div>
       <h1 className="text-2xl font-bold">Смена</h1>
       <p className="mt-1 text-sm text-muted">
-        Открываете смену — снимите доску и крыло, закрываете — снимите снова.
-        Время любое. Снимайте прямо с камеры.
+        Пришли — одно фото на пляже, оно откроет смену. Уходите — фото у бара.
+        Оборудование снимайте по надобности, время любое.
       </p>
 
-      {boards.length === 0 && wings.length === 0 ? (
-        <p className="mt-6 rounded-2xl border border-line bg-surface p-4 text-sm text-muted">
-          Инвентарь ещё не заведён — попросите админа добавить доски и крылья в
-          Настройках. Без списка нечего привязать к фото.
-        </p>
-      ) : (
-        <div className="mt-6">
-          <MechanicShiftPanel shift={shift} boards={boards} wings={wings} />
-        </div>
-      )}
+      <div className="mt-6">
+        <ShiftPanel
+          shift={shift}
+          boards={equipment.filter((e) => e.kind === "board")}
+          wings={equipment.filter((e) => e.kind === "wing")}
+          strict={false}
+        />
+      </div>
     </div>
   );
 }

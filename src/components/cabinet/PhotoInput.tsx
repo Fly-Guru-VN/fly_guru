@@ -23,6 +23,7 @@ export function PhotoInput({
   className,
   id,
   autoSubmit = false,
+  confirmText,
   onPicked,
 }: {
   name: string;
@@ -35,6 +36,10 @@ export function PhotoInput({
   // Отправить форму сразу после выбора файла (экран смены: кнопки «загрузить»
   // там нет, снимок засчитывается по выбору).
   autoSubmit?: boolean;
+  // Спросить подтверждение перед автоотправкой. Нужно ровно там, где кадр —
+  // это действие с последствиями: фото у бара закрывает смену, а закрыться
+  // случайно раньше 18:00 значит потерять премию за выход.
+  confirmText?: string;
   // Готовый (уже сжатый) файл — для локального предпросмотра. null, когда выбор
   // сбросили.
   onPicked?: (file: File | null) => void;
@@ -52,6 +57,12 @@ export function PhotoInput({
       return;
     }
     if (working.current) return;
+    // Спрашиваем ДО сжатия: незачем жать кадр, который сейчас отменят.
+    if (autoSubmit && confirmText && !window.confirm(confirmText)) {
+      input.value = ""; // иначе тот же файл второй раз не выберется (onChange не сработает)
+      onPicked?.(null);
+      return;
+    }
     working.current = true;
     setBusy(true);
     try {

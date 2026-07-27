@@ -1,6 +1,6 @@
 import Image from "next/image";
 import type { ShiftPhoto } from "@/lib/shifts";
-import { PHOTO_KIND_LABEL, PHOTO_PHASE_LABEL } from "@/lib/shiftRules";
+import { photoLabel, PHOTO_KIND_LABEL, PHOTO_PHASE_LABEL } from "@/lib/shiftRules";
 
 // Снимки смены в карточке дня. Раньше кадры шли просто плиткой, а что на них —
 // было написано только в подсказке при наведении (на телефоне её нет вообще).
@@ -19,7 +19,7 @@ export function ShiftPhotos({ photos }: { photos: ShiftPhoto[] }) {
     <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
       {ordered.map((p) => {
         const phase = PHOTO_PHASE_LABEL[p.phase];
-        const what = p.equipmentName ?? PHOTO_KIND_LABEL[p.kind];
+        const what = p.equipmentName ?? photoLabel(p.kind, p.phase);
         return (
           <a
             key={p.id}

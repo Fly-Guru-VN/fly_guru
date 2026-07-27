@@ -21,7 +21,6 @@ import { checkPhoto } from "@/lib/photos";
 import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
 import { claimBooking, releaseBooking, type BookingClaimState } from "@/lib/bookingClaim";
-import { isSeniorInstructor } from "@/lib/shifts";
 
 // Server actions кабинета инструктора. Общий принцип безопасности:
 // instructor_id / sold_by / created_by берутся из СЕССИИ на сервере (user.id),
@@ -1051,9 +1050,21 @@ export async function lookupClientByPhoneAction(phone: string): Promise<ClientHi
 }
 
 // ── Смена: открытие, закрытие, фотофиксация (пачка №4, пак C, пункт 5) ────────
-// Договорённость с начальником: инструктор утром снимает доску и крыло, вечером
-// снова — по паре снимков видно, что за день изменилось (где случилась
-// поломка). Штрафов нет, задача — видимость для босса (см. shiftRules.ts).
+// Правила переписаны 27.07.2026 по живому опыту пляжа:
+//
+//   • ОБЯЗАТЕЛЬНЫЙ кадр ровно один на фазу. Утром — фото на пляже, «я на
+//     работе»; вечером — фото у бара на выходе с территории, «я как раз ухожу».
+//     Требуется от каждого, кто на смене: и от старшего, и от второго, и от
+//     механика;
+//   • оборудование (доска, крыло, связь, дефект) снимают ТОЛЬКО при
+//     открытии и только по надобности — кому удобно, тот и снял. Вечером
+//     оборудование не снимают вообще: сравнивать пары кадров оказалось некому,
+//     а лишние пять минут на выходе люди просто не делали;
+//   • само фото и есть действие: обязательный кадр открывает и закрывает смену.
+//     Разделение «сначала фото, потом кнопка» стоило Никите выхода 27.07 — фото
+//     он сделал, кнопку не нажал, и премия за смену не начислилась.
+//
+// Штрафов по-прежнему нет, задача — видимость для босса (см. shiftRules.ts).
 //
 // Фото грузим ПО ОДНОМУ (каждый снимок — свой запрос), а не пачкой: лимит тела
 // server action 5 МБ (next.config.ts), а доска + крыло + связь + дефекты в
@@ -1074,6 +1085,14 @@ const PHOTO_PHASES = ["open", "close"] as const;
 const PHOTO_KINDS = ["board", "wing", "comms", "extra", "checkin"] as const;
 type PhotoPhase = (typeof PHOTO_PHASES)[number];
 type PhotoKind = (typeof PHOTO_KINDS)[number];
+
+// Ответ загрузчика фото: кроме ошибки — что произошло со сменой. Клиенту это
+// нужно, чтобы сказать «Смена открыта», а не сухое «Фото загружено».
+export interface ShiftPhotoState {
+  error: string | null;
+  opened?: boolean;
+  closed?: boolean;
+}
 
 // Смена инструктора на сегодня; заводим на лету, если её нет. Незапланированный
 // выход помечаем planned=false — босс отличит его от согласованной смены.
@@ -1128,11 +1147,17 @@ async function ensureTodayShift(
 }
 
 // Добавить один снимок к смене. board/wing привязываются к единице инвентаря
-// (без неё по фото не понять, какая доска), comms/extra — свободные.
+// (без неё по фото не понять, какая доска), comms/extra/checkin — свободные.
+//
+// Кадр 'checkin' — он же САМО ДЕЙСТВИЕ: утреннее фото на пляже открывает смену,
+// вечернее у бара — закрывает (см. markShift ниже). Раньше это были два разных
+// шага, фото и кнопка, и человек делал фото, уходил с экрана — а выход ему не
+// засчитывался, потому что кнопку он не нажал. Именно так 27.07 потерял смену
+// Никита.
 export async function addShiftPhotoAction(
-  _prev: ActionState,
+  _prev: ShiftPhotoState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<ShiftPhotoState> {
   const user = await requireFieldStaff();
   if (user.role === "admin") {
     return { error: "Смены открывают инструкторы и механик." };
@@ -1160,14 +1185,20 @@ export async function addShiftPhotoAction(
   const shift = await ensureTodayShift(user);
   if ("error" in shift) return { error: shift.error };
 
-  // Фазу нельзя доснимать после того, как она завершена: открытие — пока смена
-  // не открыта, закрытие — пока не закрыта (и только когда уже открыта).
-  if (phase === "open" && shift.openedAt) {
-    return { error: "Смена уже открыта — досъёмка утренних фото закрыта." };
+  // Что и когда можно снимать:
+  //  • закрытая смена — день зафиксирован, больше ничего не принимаем;
+  //  • отметку 'checkin' каждой фазы делают ОДИН раз: это сам факт выхода
+  //    и ухода, второй такой кадр ничего не значит;
+  //  • необязательные кадры (доска, крыло, связь, дефект) можно доснимать в
+  //    любой момент дня. Раньше утренние фото после открытия не принимались —
+  //    теперь оборудование снимает тот, кому удобно, и часто это происходит
+  //    уже после того, как человек отметился на пляже.
+  if (shift.closedAt) return { error: "Смена уже закрыта." };
+  if (phase === "close" && !shift.openedAt) {
+    return { error: "Сначала откройте смену — фото на пляже." };
   }
-  if (phase === "close") {
-    if (!shift.openedAt) return { error: "Сначала откройте смену." };
-    if (shift.closedAt) return { error: "Смена уже закрыта." };
+  if (kind === "checkin" && phase === "open" && shift.openedAt) {
+    return { error: "Смена уже открыта." };
   }
 
   // Путь содержит id смены и uuid — снаружи не угадать; бакет публичный, как
@@ -1200,8 +1231,31 @@ export async function addShiftPhotoAction(
     return { error: `Не удалось сохранить снимок: ${rowError.message}` };
   }
 
+  // Отметка на пляже открывает смену, отметка у бара — закрывает. Время ставит
+  // СЕРВЕР под service_role (0020): у инструктора прав на shifts нет, подделать
+  // «пришёл вовремя» нельзя.
+  let opened = false;
+  let closed = false;
+  if (kind === "checkin") {
+    const column = phase === "open" ? "opened_at" : "closed_at";
+    const { error: markError } = await admin
+      .from("shifts")
+      .update({ [column]: new Date().toISOString() })
+      .eq("id", shift.id)
+      .eq("instructor_id", user.id);
+    if (markError) {
+      // Фото уже засчитано — терять его из-за неудачной отметки незачем:
+      // человек переснимет, и попытка повторится. Но сказать об этом надо.
+      return {
+        error: `Фото сохранено, но смену отметить не удалось: ${markError.message}`,
+      };
+    }
+    opened = phase === "open";
+    closed = phase === "close";
+  }
+
   revalidatePath(`${cabinetBase(user)}/shift`);
-  return { error: null };
+  return { error: null, opened, closed };
 }
 
 // Убрать неудачный кадр (смазал — переснял). Только пока фаза не завершена.
@@ -1217,7 +1271,7 @@ export async function deleteShiftPhotoAction(formData: FormData) {
   // фото своих смен, поэтому чужой id вернёт пусто.
   const { data: photo } = await supabase
     .from("shift_photos")
-    .select("id, path, phase, shifts(opened_at, closed_at)")
+    .select("id, path, phase, kind, shifts(opened_at, closed_at)")
     .eq("id", id)
     .maybeSingle();
   if (!photo) return;
@@ -1226,10 +1280,11 @@ export async function deleteShiftPhotoAction(formData: FormData) {
     opened_at: string | null;
     closed_at: string | null;
   } | null;
-  // Завершённую фазу не трогаем: утренние фото после открытия и вечерние после
-  // закрытия — уже зафиксированный факт.
-  if (photo.phase === "open" && shift?.opened_at) return;
-  if (photo.phase === "close" && shift?.closed_at) return;
+  // Отметку о приходе и об уходе не удаляем: это не иллюстрация, а сам факт
+  // выхода — снеся кадр, инструктор стёр бы обоснование своей смены.
+  if (photo.kind === "checkin") return;
+  // После закрытия день зафиксирован целиком.
+  if (shift?.closed_at) return;
 
   const { error } = await supabase.from("shift_photos").delete().eq("id", id);
   if (error) {
@@ -1243,118 +1298,43 @@ export async function deleteShiftPhotoAction(formData: FormData) {
   revalidatePath(`${cabinetBase(user)}/shift`);
 }
 
-// Оборудование осматривает старший (0033). Второй инструктор на смене
-// оборудование не снимает — с него одна фотография, что он на месте.
+// Комментарий к своей смене: «почему открыл позже 9:00», «что случилось на
+// закрытии». Раньше он приезжал вместе с нажатием «Открыть смену» — а кнопок
+// больше нет, смену открывает фото. Поэтому комментарий стал отдельным
+// действием: его можно написать и потом, пока смена не закрыта.
 //
-// Механик под послабление НЕ попадает: senior у него не стоит, но снимает он
-// именно оборудование, ради этого экран ему и дан. Поэтому проверяем роль, а
-// не только флаг.
-async function needsFullInspection(user: AppUser): Promise<boolean> {
-  if (user.role !== "instructor") return true;
-  const supabase = await createClient();
-  return isSeniorInstructor(supabase, user.id);
-}
-
-// Что снято за фазу. Старшему нужна пара «доска + крыло»: без них фотофиксация
-// бессмысленна (не с чем сравнить вечерние снимки). Второму хватает любого
-// кадра — он подтверждает присутствие, а не состояние инвентаря.
-// Комментарий необязателен обоим — это объяснение, почему открыл позже 9:00.
-async function requirePhotos(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  shiftId: string,
-  phase: PhotoPhase,
-  full: boolean,
-): Promise<string | null> {
-  const { data } = await supabase
-    .from("shift_photos")
-    .select("kind")
-    .eq("shift_id", shiftId)
-    .eq("phase", phase);
-  const kinds = (data ?? []).map((p) => p.kind as string);
-  if (!full) {
-    return kinds.length > 0 ? null : "Сделайте фото, что вы на месте.";
-  }
-  const set = new Set(kinds);
-  if (!set.has("board")) return "Сфотографируйте доску.";
-  if (!set.has("wing")) return "Сфотографируйте крыло.";
-  return null;
-}
-
-export async function openShiftAction(
+// Пишем service_role (0020: прямой записи в shifts у инструктора нет), но
+// трогаем ровно одну колонку и только у СВОЕЙ сегодняшней смены — времена
+// открытия и закрытия отсюда недоступны.
+export async function saveShiftCommentAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   const user = await requireFieldStaff();
   if (user.role === "admin") {
-    return { error: "Смены открывают инструкторы и механик." };
+    return { error: "Смены ведут инструкторы и механик." };
   }
 
-  const supabase = await createClient();
-  const shift = await ensureTodayShift(user);
-  if ("error" in shift) return { error: shift.error };
-  if (shift.openedAt) return { error: "Смена уже открыта." };
+  const phase = String(formData.get("phase") ?? "") as PhotoPhase;
+  if (!PHOTO_PHASES.includes(phase)) return { error: "Неизвестный этап смены." };
 
-  const missing = await requirePhotos(
-    supabase,
-    shift.id,
-    "open",
-    await needsFullInspection(user),
-  );
-  if (missing) return { error: missing };
-
-  // opened_at ставит СЕРВЕР (не клиент) и пишет service_role — подделать
-  // «вовремя» нельзя (0020).
   const comment = String(formData.get("comment") ?? "").trim() || null;
   const admin = createAdminClient();
-  const { error } = await admin
+  const { data: shift } = await admin
     .from("shifts")
-    .update({ opened_at: new Date().toISOString(), open_comment: comment })
-    .eq("id", shift.id)
-    .eq("instructor_id", user.id);
-  if (error) return { error: `Не удалось открыть смену: ${error.message}` };
-
-  revalidatePath(`${cabinetBase(user)}/shift`);
-  return { error: null };
-}
-
-export async function closeShiftAction(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const user = await requireFieldStaff();
-  if (user.role === "admin") {
-    return { error: "Смены закрывают инструкторы и механик." };
-  }
-
-  const supabase = await createClient();
-  const date = vnToday();
-  const { data: shift } = await supabase
-    .from("shifts")
-    .select("id, opened_at, closed_at")
+    .select("id")
     .eq("instructor_id", user.id)
-    .eq("date", date)
+    .eq("date", vnToday())
     .maybeSingle();
-  if (!shift) return { error: "Смена не открыта." };
-  if (!shift.opened_at) return { error: "Сначала откройте смену." };
-  if (shift.closed_at) return { error: "Смена уже закрыта." };
+  if (!shift) return { error: "Смена ещё не начата." };
 
-  const missing = await requirePhotos(
-    supabase,
-    shift.id as string,
-    "close",
-    await needsFullInspection(user),
-  );
-  if (missing) return { error: missing };
-
-  // closed_at ставит СЕРВЕР под service_role — та же защита, что и на открытии.
-  const comment = String(formData.get("comment") ?? "").trim() || null;
-  const admin = createAdminClient();
+  const column = phase === "open" ? "open_comment" : "close_comment";
   const { error } = await admin
     .from("shifts")
-    .update({ closed_at: new Date().toISOString(), close_comment: comment })
+    .update({ [column]: comment })
     .eq("id", shift.id)
     .eq("instructor_id", user.id);
-  if (error) return { error: `Не удалось закрыть смену: ${error.message}` };
+  if (error) return { error: `Не удалось сохранить: ${error.message}` };
 
   revalidatePath(`${cabinetBase(user)}/shift`);
   return { error: null };

@@ -77,6 +77,15 @@ export const PHOTO_PHASE_LABEL: Record<PhotoPhase, string> = {
   close: "Закрытие",
 };
 
+// Обязательный кадр обеих фаз — один и тот же вид 'checkin', но снимают в разных
+// местах: утром на пляже («я на работе»), вечером у бара на выходе с территории
+// («я как раз ухожу»). Отдельный вид ради этого заводить не стали — по фазе и
+// так понятно, что за кадр, а лишнее значение в базе означало бы миграцию.
+export function photoLabel(kind: PhotoKind, phase: PhotoPhase): string {
+  if (kind === "checkin") return phase === "open" ? "На пляже" : "У бара";
+  return PHOTO_KIND_LABEL[kind];
+}
+
 // Цвет метки: тревожное — красным, нормальное — приглушённым.
 // Возвращаем классы Tailwind, а не «цвет» — так вызывающий не выдумывает свои.
 export function statusClass(bad: boolean): string {
