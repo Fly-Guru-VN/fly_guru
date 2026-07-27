@@ -3,6 +3,7 @@ import { Container, Section, SectionHeading, Button } from "@/components/ui";
 import { BookBtn } from "@/components/BookBtn";
 import { HeroStage } from "@/components/HeroStage";
 import { Marquee } from "@/components/Marquee";
+import { Rail, RailItem } from "@/components/Rail";
 import { StickyBookBar } from "@/components/StickyBookBar";
 import { Faq } from "@/components/Faq";
 import { ReviewCard } from "@/components/ReviewCard";
@@ -51,7 +52,7 @@ export default function HomePage() {
   return (
     <>
       {/* ── Первый экран: видео во весь экран ── */}
-      <HeroStage src="/media/video/hero-loop.mp4" poster="/media/video/hero-loop-poster.jpg">
+      <HeroStage video="/media/video/hero-loop.mp4" poster="/media/video/hero-loop-poster.jpg">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
           Электрофойл-школа в Нячанге
         </p>
@@ -135,17 +136,15 @@ export default function HomePage() {
               Все отзывы <IconArrowRight className="h-4 w-4" />
             </Button>
           </div>
-          {/* Телефон — лента, которую листают пальцем: карточка занимает 85%
-              ширины, край следующей выглядывает, и сразу понятно, что дальше
-              есть ещё. Раньше три отзыва подряд занимали полтора экрана.
-              Отрицательные поля — чтобы лента начиналась от края экрана. */}
-          <div className="rail -mx-4 mt-8 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:grid-cols-3 md:gap-6 md:overflow-visible md:px-0">
+          {/* Лента: на телефоне листается пальцем, на ПК — три колонки.
+              Раньше три отзыва подряд занимали полтора экрана. */}
+          <Rail className="mt-8 md:grid-cols-3">
             {reviews.slice(0, 3).map((r, i) => (
-              <div key={i} className="w-[85%] shrink-0 snap-start md:w-auto">
+              <RailItem key={i}>
                 <ReviewCard review={r} clamp />
-              </div>
+              </RailItem>
             ))}
-          </div>
+          </Rail>
           <div className="mt-6 sm:hidden">
             <Button href="/reviews" variant="secondary">
               Все отзывы <IconArrowRight className="h-4 w-4" />

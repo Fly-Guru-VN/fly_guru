@@ -9,7 +9,15 @@ import { BookBtn } from "./BookBtn";
 // есть — вторая только мешала бы кадру), и прячется у самого низа страницы,
 // чтобы не накрывать контакты в подвале. На ПК её нет: там кнопка всегда видна
 // в шапке.
-export function StickyBookBar() {
+export function StickyBookBar({
+  serviceId,
+  label = "Записаться",
+}: {
+  // Услуга, выбранная в форме заранее: на странице обучения нет смысла
+  // открывать модалку с пустым списком.
+  serviceId?: string;
+  label?: string;
+} = {}) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -39,8 +47,8 @@ export function StickyBookBar() {
       // Скрытую панель убираем и от читалок, и от перехода по Tab.
       inert={!show}
     >
-      <BookBtn size="lg" className="w-full">
-        Записаться
+      <BookBtn serviceId={serviceId} size="lg" className="w-full">
+        {label}
       </BookBtn>
     </div>
   );
