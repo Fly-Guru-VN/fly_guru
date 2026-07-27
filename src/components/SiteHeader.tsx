@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useBooking } from "./BookingProvider";
 import { NAV_LINKS } from "./nav";
+import { IconClose, IconMenu } from "./icons";
 import { SlidingHighlight } from "./SlidingHighlight";
 
 // Шапка сайта. Клиентский компонент ради мобильного меню и кнопки «Вход/Кабинет».
@@ -161,14 +162,22 @@ export function SiteHeader() {
           aria-expanded={open}
           className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 active:scale-95 md:hidden"
         >
-          {/* Значок доворачивается при открытии — палец видит, что нажатие
-              сработало, даже если меню ещё не доехало. */}
-          <span
-            className={`text-xl leading-none transition-transform duration-200 ${
-              open ? "rotate-90" : "rotate-0"
-            }`}
-          >
-            {open ? "✕" : "☰"}
+          {/* Обе иконки лежат друг на друге в квадрате 24×24 по центру кнопки и
+              переключаются прозрачностью с доворотом: палец видит, что нажатие
+              сработало, даже если меню ещё не доехало. Значок при этом стоит на
+              месте — раньше символы «☰»/«✕» из шрифта были разной ширины и
+              смещали центр. */}
+          <span className="relative block h-6 w-6">
+            <IconMenu
+              className={`absolute inset-0 h-6 w-6 transition-[opacity,transform] duration-200 ${
+                open ? "rotate-90 opacity-0" : "rotate-0 opacity-100"
+              }`}
+            />
+            <IconClose
+              className={`absolute inset-0 h-6 w-6 transition-[opacity,transform] duration-200 ${
+                open ? "rotate-0 opacity-100" : "-rotate-90 opacity-0"
+              }`}
+            />
           </span>
         </button>
       </div>

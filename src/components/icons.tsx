@@ -102,3 +102,23 @@ export function IconCheck(props: IconProps) {
     </svg>
   );
 }
+
+// Кнопка мобильного меню. Раньше тут стояли символы «☰» и «✕» из шрифта: у них
+// разная ширина и разная высота над базовой линией, поэтому значок сидел не по
+// центру кнопки и при открытии заметно «прыгал». Иконки рисуем сами — обе
+// ровно по сетке 24×24, центр совпадает.
+export function IconMenu(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  );
+}
+
+export function IconClose(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  );
+}
