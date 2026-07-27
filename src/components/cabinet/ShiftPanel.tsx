@@ -12,6 +12,7 @@ import type { InstructorShift, PhotoKind, PhotoPhase, ShiftPhoto } from "@/lib/s
 import type { EquipmentItem } from "@/lib/equipment";
 import { photoLabel, PHOTO_KIND_LABEL } from "@/lib/shiftRules";
 import { vnTimeLabel } from "@/lib/dates";
+import { Spinner } from "@/components/Spinner";
 import { PhotoInput } from "./PhotoInput";
 import { ShiftTimes } from "./ShiftTimes";
 import { showToast } from "./Toast";
@@ -110,7 +111,10 @@ function PhotoUploader({
         />
       </label>
       {pending && (
-        <span className="pb-2 text-xs font-semibold text-primary">Загрузка…</span>
+        <span className="flex items-center gap-1.5 pb-2 text-xs font-semibold text-primary">
+          <Spinner className="h-3.5 w-3.5" />
+          Загрузка…
+        </span>
       )}
       {state.error && <p className="w-full text-xs text-red-600">{state.error}</p>}
     </form>
@@ -246,9 +250,11 @@ function CommentForm({
       <button
         type="submit"
         disabled={pending}
-        className="mt-3 rounded-full border border-line px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+        className="mt-3 inline-flex items-center gap-2 rounded-full border border-line px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
       >
-        {pending ? "…" : "Сохранить"}
+        {pending && <Spinner className="h-3.5 w-3.5" />}
+        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
+        {pending ? "Сохраняем…" : "Сохранить"}
       </button>
       {state.error && <p className="mt-2 text-sm text-red-600">{state.error}</p>}
     </form>

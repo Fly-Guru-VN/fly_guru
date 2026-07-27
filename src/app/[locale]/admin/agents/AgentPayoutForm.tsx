@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { payAgentAction } from "../actions";
 import type { DictItem } from "@/lib/dictionaries";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { Spinner } from "@/components/Spinner";
 
 // Форма «выплачено агенту» (пачка №5, п.7): сумма, способ, дата, комментарий.
 // Клиентский компонент ради ошибки под кнопкой без перезагрузки (useActionState).
@@ -84,6 +85,7 @@ export function AgentPayoutForm({
         disabled={pending}
         className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
       >
+        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
         {pending ? "Сохраняем…" : "Выплачено"}
       </button>
     </form>

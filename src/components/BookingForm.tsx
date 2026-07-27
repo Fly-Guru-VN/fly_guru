@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { forgetRefCode, getAttributionForBooking } from "@/lib/attribution";
 import { isValidPhone, PHONE_ERROR } from "@/lib/phone";
+import { Spinner } from "./Spinner";
 
 // Услуга в том минимальном виде, что нужен форме: id (для базы) + название.
 // code — служебный ключ услуги из базы: по нему форма находит, что выбрать по
@@ -221,8 +222,9 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
       <button
         type="submit"
         disabled={status === "submitting"}
-        className="inline-flex w-full items-center justify-center rounded-full bg-accent px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60 sm:w-auto"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60 sm:w-auto"
       >
+        {status === "submitting" && <Spinner className="h-4 w-4" />}
         {status === "submitting" ? "Отправляем…" : "Записаться"}
       </button>
 

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { addEquipmentAction, toggleEquipmentAction } from "../actions";
 import type { EquipmentItem, EquipmentKind } from "@/lib/equipment";
+import { Spinner } from "@/components/Spinner";
 
 // Управление инвентарём (пак C): один блок на вид — «Доски» или «Крылья».
 // Как DictionaryManager, но с привязкой к kind. Скрытые единицы показываем
@@ -89,9 +90,9 @@ export function EquipmentManager({
           <button
             type="submit"
             disabled={pending}
-            className="mt-[1.15rem] shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 mt-[1.15rem] shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
           >
-            {pending ? "…" : "Добавить"}
+            {pending ? <Spinner className="h-4 w-4" /> : "Добавить"}
           </button>
         </div>
         {state.error && <p className="mt-2 text-sm text-red-600">{state.error}</p>}

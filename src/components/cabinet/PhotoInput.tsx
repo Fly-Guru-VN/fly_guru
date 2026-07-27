@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { compressImage } from "@/lib/imageCompress";
+import { Spinner } from "../Spinner";
 
 // Поле выбора фото со сжатием в браузере. Один компонент на все места загрузки:
 // смена (инструктор и механик), фото клиента, аватарка в настройках.
@@ -101,7 +102,10 @@ export function PhotoInput({
         className={className}
       />
       {busy && (
-        <p className="mt-1 text-xs font-semibold text-primary">Сжимаем фото…</p>
+        <p className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-primary">
+          <Spinner className="h-3.5 w-3.5" />
+          Сжимаем фото…
+        </p>
       )}
     </>
   );

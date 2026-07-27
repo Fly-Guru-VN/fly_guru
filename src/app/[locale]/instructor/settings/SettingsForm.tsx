@@ -5,6 +5,7 @@ import Image from "next/image";
 import { updateProfileAction, type ActionState } from "../actions";
 import { PHOTO_ACCEPT } from "@/lib/photos";
 import { PhotoInput } from "@/components/cabinet/PhotoInput";
+import { Spinner } from "@/components/Spinner";
 
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
@@ -135,6 +136,7 @@ export function SettingsForm({
         disabled={pending}
         className="inline-flex w-full items-center justify-center rounded-full bg-accent px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
       >
+        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
         {pending ? "Сохраняем…" : "Сохранить"}
       </button>
 

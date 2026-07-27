@@ -7,6 +7,7 @@ import {
 } from "../actions";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { Spinner } from "@/components/Spinner";
 
 // Клиентские кусочки страницы абонементов: две формы с ошибками без
 // перезагрузки (useActionState). Кнопка с confirm() — в ../ConfirmSubmit.
@@ -175,6 +176,7 @@ export function SellSubscriptionForm({
         disabled={pending}
         className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
       >
+        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
         {pending ? "Сохраняем…" : "Продать абонемент"}
       </button>
     </form>
@@ -255,6 +257,7 @@ export function WriteOffMinutesForm({
         disabled={pending}
         className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
       >
+        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
         {pending ? "Списываем…" : "Списать минуты"}
       </button>
     </form>

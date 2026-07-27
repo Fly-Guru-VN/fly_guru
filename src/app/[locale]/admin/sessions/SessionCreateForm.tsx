@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { createSessionAction } from "../actions";
 import { vnd } from "@/lib/stats";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { Spinner } from "@/components/Spinner";
 
 // Форма «создать сессию задним числом». Клиентский компонент ради двух вещей:
 // показать ошибку валидации без перезагрузки (useActionState) и подсказать
@@ -179,6 +180,7 @@ export function SessionCreateForm({
         disabled={pending}
         className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
       >
+        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
         {pending ? "Сохраняем…" : "Создать сессию"}
       </button>
     </form>

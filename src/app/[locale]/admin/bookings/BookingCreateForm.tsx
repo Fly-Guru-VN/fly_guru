@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { createBookingAction } from "../actions";
 import { MANUAL_CHANNELS } from "@/lib/channels";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { Spinner } from "@/components/Spinner";
 
 // Форма «Новая заявка»: клиент позвонил / написал / пришёл ногами. Заявку с
 // сайта создаёт публичная форма, а этот поток раньше в CRM не попадал вообще.
@@ -180,6 +181,7 @@ export function BookingCreateForm({
         disabled={pending}
         className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
       >
+        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
         {pending ? "Сохраняем…" : "Создать заявку"}
       </button>
     </form>

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { addDictItemAction, toggleDictItemAction } from "../actions";
 import type { DictItem, DictTable } from "@/lib/dictionaries";
+import { Spinner } from "@/components/Spinner";
 
 // Управление справочником (категории расходов / форматы оплаты) — пак A.
 // Клиентский компонент ради ошибки под полем без перезагрузки («уже есть»).
@@ -90,9 +91,9 @@ export function DictionaryManager({
           <button
             type="submit"
             disabled={pending}
-            className="mt-[1.15rem] shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 mt-[1.15rem] shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
           >
-            {pending ? "…" : "Добавить"}
+            {pending ? <Spinner className="h-4 w-4" /> : "Добавить"}
           </button>
         </div>
         {state.error && (

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { createMaterialAction, updateMaterialAction } from "../actions";
+import { Spinner } from "@/components/Spinner";
 
 // Формы каналов: клиентские компоненты ради ошибок валидации без перезагрузки
 // (useActionState) — метка может оказаться занятой или с недопустимыми знаками.
@@ -70,6 +71,7 @@ export function MaterialCreateForm() {
         disabled={pending}
         className="mt-3 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
       >
+        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
         {pending ? "Создаём…" : "Добавить канал"}
       </button>
     </form>
@@ -95,6 +97,7 @@ export function MaterialEditForm({
         disabled={pending}
         className="mt-3 rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
       >
+        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
         {pending ? "Сохраняем…" : "Сохранить"}
       </button>
     </form>

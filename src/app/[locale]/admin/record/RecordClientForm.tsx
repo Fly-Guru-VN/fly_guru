@@ -5,6 +5,7 @@ import { createSessionAction } from "../actions";
 import { PhoneField } from "@/components/cabinet/PhoneField";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { vnd } from "@/lib/stats";
+import { Spinner } from "@/components/Spinner";
 
 // Админская «Запись клиента». Отдельная форма (а не форма сессий), потому что
 // инструктор по умолчанию — сам админ (он записывает и иногда сам катает), плюс
@@ -201,6 +202,7 @@ export function RecordClientForm({
         disabled={pending}
         className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
       >
+        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
         {pending ? "Сохраняем…" : "Записать клиента"}
       </button>
     </form>

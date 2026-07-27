@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { createAgentAction } from "../actions";
+import { Spinner } from "@/components/Spinner";
 
 // Форма «новый агент»: клиентский компонент ради ошибки валидации без
 // перезагрузки (useActionState). Реф-код генерируется на сервере.
@@ -34,6 +35,7 @@ export function AgentCreateForm() {
         disabled={pending}
         className="rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
       >
+        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
         {pending ? "Создаём…" : "Создать агента"}
       </button>
     </form>

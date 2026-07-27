@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import type { DictItem } from "@/lib/dictionaries";
 import type { ActionState } from "@/app/[locale]/instructor/actions";
+import { Spinner } from "@/components/Spinner";
 
 // Форма ручного расхода. Одна на два кабинета (пак A): админ вносит траты
 // школы, инструктор — свои. Отличается только экшен, поэтому он приходит
@@ -92,6 +93,7 @@ export function ExpenseFields({
         disabled={pending}
         className="mt-3 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
       >
+        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
         {pending ? "Добавляем…" : submitLabel}
       </button>
     </form>
