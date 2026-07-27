@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { buttonClasses } from "./ui";
+import { buttonClasses, type ButtonVariant } from "./ui";
 import { useBooking } from "./BookingProvider";
 
 // Кнопка «Записаться», открывающая единую модалку записи (пак 5). Выглядит как
@@ -19,7 +19,7 @@ export function BookBtn({
   serviceId?: string;
   refCode?: string;
   children: ReactNode;
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: ButtonVariant;
   size?: "md" | "lg";
   className?: string;
 }) {

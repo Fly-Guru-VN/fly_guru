@@ -2,7 +2,9 @@ import { Card } from "./ui";
 import { IconStar } from "./icons";
 import type { Review } from "@/content/reviews";
 
-export function ReviewCard({ review }: { review: Review }) {
+// clamp — для ленты отзывов на главной: там карточки листают пальцем, и полный
+// текст на пол-экрана мешает. Целиком отзывы читаются на /reviews.
+export function ReviewCard({ review, clamp = false }: { review: Review; clamp?: boolean }) {
   return (
     <Card className="flex h-full flex-col">
       <div className="flex gap-0.5 text-accent" aria-label={`Оценка ${review.rating} из 5`}>
@@ -10,7 +12,7 @@ export function ReviewCard({ review }: { review: Review }) {
           <IconStar key={i} className="h-4 w-4" />
         ))}
       </div>
-      <p className="mt-3 flex-1 text-ink">{review.text}</p>
+      <p className={`mt-3 flex-1 text-ink ${clamp ? "line-clamp-[9]" : ""}`}>{review.text}</p>
       <p className="mt-4 text-sm font-semibold">
         {review.name}
         {review.role && <span className="font-normal text-muted"> · {review.role}</span>}

@@ -142,6 +142,38 @@ details[open] > *:not(summary) {
   animation: menu-down 180ms ease-out;
 }
 
+/* Бегущая строка фактов под первым экраном главной. Лента едет влево ровно на
+   половину своей длины — вторая половина это копия первой (см. Marquee), так
+   что склейка не видна и лента идёт бесконечно. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.animate-marquee {
+  animation: marquee 32s linear infinite;
+}
+
+/* Подсказка «листай дальше» на первом экране: медленное дыхание вниз-вверх.
+   Не стрелка-прыгалка — движение должно намекать, а не дёргать. */
+@keyframes scroll-hint {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translateY(6px);
+    opacity: 1;
+  }
+}
+.animate-scroll-hint {
+  animation: scroll-hint 2.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-toast-in,
   .animate-fade-in,
@@ -149,9 +181,21 @@ details[open] > *:not(summary) {
   .sm\:animate-pop-in,
   .animate-menu-down,
   .animate-page-in,
+  .animate-marquee,
+  .animate-scroll-hint,
   details[open] > *:not(summary) {
     animation: none;
   }
+}
+
+/* Горизонтальные ленты, которые листают пальцем (отзывы на главной): полосу
+   прокрутки прячем — на телефоне её и так нет, а на ПК она только шумит под
+   карточками. Прокрутка колесом и клавиатурой при этом работает. */
+.rail {
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar {
+  display: none;
 }
 
 /* Мягкий скроллбар для прокручиваемых колонок кабинета: тонкий, почти белый

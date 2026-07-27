@@ -70,10 +70,14 @@ export function Badge({ children, className = "" }: { children: ReactNode; class
   );
 }
 
+// «light» — для кнопок поверх фото и видео: обычная secondary там пропадает,
+// её бирюзовая рамка на тёмном кадре почти не видна.
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "light";
+
 type ButtonProps = {
   href: string;
   children: ReactNode;
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: ButtonVariant;
   size?: "md" | "lg";
   className?: string;
 };
@@ -85,7 +89,7 @@ export function buttonClasses({
   size = "md",
   className = "",
 }: {
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: ButtonVariant;
   size?: "md" | "lg";
   className?: string;
 } = {}): string {
@@ -96,6 +100,8 @@ export function buttonClasses({
     primary: "bg-accent text-white hover:bg-accent-strong",
     secondary: "border border-primary text-primary hover:bg-primary hover:text-white",
     ghost: "text-primary hover:text-primary-strong",
+    light:
+      "border border-white/70 bg-white/10 text-white backdrop-blur-sm hover:bg-white hover:text-primary-strong",
   };
   return `${base} ${sizes[size]} ${variants[variant]} ${className}`;
 }
