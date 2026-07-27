@@ -52,15 +52,23 @@ export default function HomePage() {
   return (
     <>
       {/* ── Первый экран: видео во весь экран ── */}
-      <HeroStage video="/media/video/hero-loop.mp4" poster="/media/video/hero-loop-poster.jpg">
+      {/* Ролик яркий и солнечный, поэтому dim="soft": сильная заливка убивала
+          бирюзу воды, ради которой всё и снято. Текст держится на тени. */}
+      <HeroStage
+        video="/media/video/hero-loop.mp4"
+        videoMobile="/media/video/hero-loop-mobile.mp4"
+        poster="/media/video/hero-loop-poster.jpg"
+        bleed
+        dim="soft"
+      >
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
           Электрофойл-школа в Нячанге
         </p>
-        <h1 className="mt-3 text-4xl font-bold leading-[1.05] drop-shadow-sm sm:text-5xl md:text-6xl">
+        <h1 className="mt-3 text-4xl font-bold leading-[1.05] drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)] sm:text-5xl md:text-6xl">
           Полёт над водой —<br />
           уже с первого занятия
         </h1>
-        <p className="mt-4 max-w-md text-base text-white/85 sm:text-lg">
+        <p className="mt-4 max-w-md text-base text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-lg">
           Доска поднимается над волной, шума нет, инструктор рядом. Это проще,
           чем выглядит.
         </p>

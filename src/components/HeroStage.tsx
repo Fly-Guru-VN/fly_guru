@@ -13,25 +13,51 @@ import Image from "next/image";
 // vh кнопки уезжали бы под строку браузера.
 export function HeroStage({
   video,
+  videoMobile,
   poster,
   image,
   alt = "",
+  bleed = false,
+  dim = "strong",
   children,
 }: {
   video?: string;
+  // Тот же ролик полегче — для телефонов. Браузер выбирает источник ОДИН раз,
+  // при загрузке (media у <source>), поэтому на узком экране качается только
+  // мобильный файл, а не полуторный кадр «на всякий случай».
+  videoMobile?: string;
   poster?: string;
   // Фото вместо видео. alt описывает кадр — он не декоративный, на нём и есть
   // то, что мы продаём.
   image?: string;
   alt?: string;
+  // bleed — кадр во всю ширину сайта и вплотную к цветной шапке (главная).
+  // Без него кадр остаётся карточкой со скруглениями внутри контейнера.
+  bleed?: boolean;
+  // Насколько глушить кадр. «soft» — для ярких солнечных роликов: там сильная
+  // заливка убивает всю картинку, а текст и так читается благодаря тени.
+  dim?: "strong" | "soft";
   children: ReactNode;
 }) {
+  const overlay =
+    dim === "soft"
+      ? "bg-gradient-to-t from-black/70 via-black/25 to-transparent"
+      : "bg-gradient-to-t from-black/85 via-black/45 to-black/10";
+
   return (
-    <section className="md:px-6 md:pt-6">
-      <div className="relative isolate flex min-h-[86svh] flex-col justify-end overflow-hidden md:mx-auto md:h-[70vh] md:min-h-[520px] md:max-w-6xl md:rounded-3xl">
+    <section className={bleed ? "" : "md:px-6 md:pt-6"}>
+      <div
+        className={`relative isolate flex min-h-[86svh] flex-col justify-end overflow-hidden ${
+          bleed
+            ? // Во всю ширину и без скруглений: верх кадра стыкуется с шапкой
+              // встык, как одна цельная картинка. Высота — экран минус шапка,
+              // чтобы под кадром не оставалось пустой полосы.
+              "md:h-[calc(100svh-4rem)] md:min-h-[560px]"
+            : "md:mx-auto md:h-[70vh] md:min-h-[520px] md:max-w-6xl md:rounded-3xl"
+        }`}
+      >
         {video ? (
           <video
-            src={video}
             poster={poster}
             autoPlay
             loop
@@ -40,7 +66,10 @@ export function HeroStage({
             preload="auto"
             aria-hidden
             className="absolute inset-0 -z-10 h-full w-full object-cover"
-          />
+          >
+            {videoMobile && <source src={videoMobile} media="(max-width: 767px)" type="video/mp4" />}
+            <source src={video} type="video/mp4" />
+          </video>
         ) : (
           <Image
             src={image!}
@@ -53,9 +82,13 @@ export function HeroStage({
           />
         )}
         {/* Затемнение снизу вверх: текст читается, а верх кадра остаётся
-            открытым — там как раз горы и небо. */}
-        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/85 via-black/45 to-black/10" />
-        <div className="px-4 pb-10 pt-28 text-white sm:px-6 md:p-10">{children}</div>
+            открытым — там небо, горы и город. */}
+        <div className={`absolute inset-0 -z-10 ${overlay}`} />
+        <div className="px-4 pb-10 pt-28 text-white sm:px-6 md:px-10 md:pb-12">
+          {/* Ширину текста держим по общему контейнеру сайта, иначе на широком
+              мониторе заголовок уезжал бы к самому краю окна. */}
+          <div className={bleed ? "mx-auto w-full max-w-6xl" : ""}>{children}</div>
+        </div>
       </div>
     </section>
   );
