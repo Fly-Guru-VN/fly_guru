@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Link, usePathname } from "@/i18n/navigation";
+import { LinkSpinner } from "@/components/Spinner";
+import { SlidingHighlight } from "@/components/SlidingHighlight";
 import {
   ADMIN_UPDATES_SEEN_KEY,
   useUpdatesSeen,
@@ -64,8 +66,13 @@ function CountBubble({ count }: { count: number }) {
 const mobileBarClass =
   "fixed inset-x-0 bottom-0 z-30 flex gap-1 border-t border-line bg-surface px-1 pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] shadow-[0_-2px_12px_rgba(15,34,51,0.10)]";
 const mobileTabClass =
-  "relative flex flex-1 items-center justify-center rounded-xl px-1 py-2.5 text-[11px] font-bold leading-tight transition-[background-color,color,transform] duration-150 active:scale-95";
-const mobileTabActive = "bg-primary text-white shadow-sm";
+  "relative flex flex-1 items-center justify-center rounded-xl px-1 py-2.5 text-[11px] font-bold leading-tight transition-colors duration-150 active:scale-95";
+// Заливку активной вкладки рисует не она сама, а плашка, которая переезжает
+// между вкладками (SlidingHighlight) — поэтому здесь остался только цвет
+// текста поверх этой плашки.
+// delay: белым подпись становится не сразу, а когда плашка доехала. Иначе
+// на треть секунды получалось белое по белому — вкладка «пропадала».
+const mobileTabActive = "text-white delay-150";
 const mobileTabIdle = "text-ink";
 
 export function Sidebar({
@@ -159,6 +166,7 @@ export function Sidebar({
                 </span>
               )}
             </span>
+            <LinkSpinner />
             {item.badge ? <CountBubble count={item.badge} /> : null}
             {item.dot ? (
               <span
@@ -206,6 +214,16 @@ export function Sidebar({
         )}
 
         <nav className={mobileBarClass}>
+          <SlidingHighlight
+            activeKey={
+              moreActive || open
+                ? "more"
+                : (primaryItems.find((item) => pathname.startsWith(item.href))
+                    ?.href ?? null)
+            }
+            pillClassName="rounded-xl bg-primary shadow-sm"
+            className="flex flex-1 gap-1"
+          >
           {primaryItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
@@ -213,6 +231,7 @@ export function Sidebar({
                 key={item.href}
                 href={item.href}
                 onClick={() => setOpen(false)}
+                data-tab={item.href}
                 aria-current={isActive ? "page" : undefined}
                 className={`${mobileTabClass} ${isActive ? mobileTabActive : mobileTabIdle}`}
               >
@@ -229,6 +248,7 @@ export function Sidebar({
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
+            data-tab="more"
             className={`${mobileTabClass} flex-col gap-0.5 ${
               moreActive || open ? mobileTabActive : mobileTabIdle
             }`}
@@ -246,6 +266,7 @@ export function Sidebar({
               />
             ) : null}
           </button>
+          </SlidingHighlight>
         </nav>
       </div>
     </aside>

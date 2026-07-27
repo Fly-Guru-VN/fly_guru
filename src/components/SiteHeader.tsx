@@ -7,6 +7,8 @@ import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useBooking } from "./BookingProvider";
 import { NAV_LINKS } from "./nav";
+import { LinkSpinner } from "./Spinner";
+import { SlidingHighlight } from "./SlidingHighlight";
 
 // Шапка сайта. Клиентский компонент ради мобильного меню и кнопки «Вход/Кабинет».
 //
@@ -110,22 +112,31 @@ export function SiteHeader() {
           <span className="text-lg">FlyGuru</span>
         </Link>
 
-        {/* Десктоп-навигация */}
+        {/* Десктоп-навигация. Подсветка раздела — не фон у ссылки, а отдельная
+            плашка, которая переезжает между вкладками (SlidingHighlight) и
+            подтягивается к той, на которую навели. */}
         <nav className="hidden items-center gap-1 md:flex">
-          {NAV_LINKS.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              aria-current={isCurrent(l.href) ? "page" : undefined}
-              className={`rounded-full px-3 py-2 text-sm font-semibold transition-colors ${
-                isCurrent(l.href)
-                  ? "bg-white/20 text-white"
-                  : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
+          <SlidingHighlight
+            activeKey={NAV_LINKS.find((l) => isCurrent(l.href))?.href ?? null}
+            pillClassName="rounded-full bg-white/20"
+            followHover
+            className="flex items-center gap-1"
+          >
+            {NAV_LINKS.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                data-tab={l.href}
+                aria-current={isCurrent(l.href) ? "page" : undefined}
+                className={`relative flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold transition-colors ${
+                  isCurrent(l.href) ? "text-white" : "text-white/80 hover:text-white"
+                }`}
+              >
+                {l.label}
+                <LinkSpinner />
+              </Link>
+            ))}
+          </SlidingHighlight>
           <Link
             href={authHref}
             className="relative ml-2 rounded-full border border-white/40 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/15"
@@ -174,13 +185,14 @@ export function SiteHeader() {
                 href={l.href}
                 onClick={() => setOpen(false)}
                 aria-current={isCurrent(l.href) ? "page" : undefined}
-                className={`rounded-xl px-4 py-3 font-semibold transition-colors ${
+                className={`flex items-center justify-between gap-2 rounded-xl px-4 py-3 font-semibold transition-colors ${
                   isCurrent(l.href)
                     ? "bg-white text-primary-strong"
                     : "text-white/85 hover:bg-white/10 hover:text-white"
                 }`}
               >
                 {l.label}
+                <LinkSpinner />
               </Link>
             ))}
             <Link
