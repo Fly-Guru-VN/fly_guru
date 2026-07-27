@@ -5,6 +5,7 @@ import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { SiteHeader } from "@/components/SiteHeader";
+import { PageTransition } from "@/components/PageTransition";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Attribution } from "@/components/Attribution";
 import { BookingProvider } from "@/components/BookingProvider";
@@ -85,7 +86,9 @@ export default async function LocaleLayout({
           <Attribution />
           <BookingProvider services={services}>
             <SiteHeader />
-            <main className="flex-1">{children}</main>
+            <main className="flex-1">
+              <PageTransition>{children}</PageTransition>
+            </main>
             <SiteFooter />
           </BookingProvider>
         </NextIntlClientProvider>
