@@ -67,7 +67,9 @@ export function DayModal({
           </Link>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        {/* Полоса прокрутки — как в модалке записи: тонкая фирменная и с
+            отступом от рамки, чтобы не упиралась в скруглённый угол. */}
+        <div className="scroll-soft scroll-dim mb-2 mr-2 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2 pl-4 pr-2 pt-4 sm:mr-3 sm:pl-6 sm:pr-3">
           {children}
         </div>
       </div>

@@ -69,8 +69,13 @@ export function BookingModal({
         </div>
 
         {/* Без подзаголовка: первым делом гость должен видеть поле «Имя», а не
-            ещё одну строку текста (пачка №5, п.2). */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-2 sm:px-8 sm:pb-8">
+            ещё одну строку текста (пачка №5, п.2).
+
+            Полоса прокрутки: фирменная тонкая (scroll-soft + scroll-dim) и
+            отодвинута от края панели — правый отступ поменьше, а разницу
+            добираем внешним полем (mr/mb). Раньше системная серая полоса со
+            стрелками стояла вплотную к рамке и заезжала на скруглённый угол. */}
+        <div className="scroll-soft scroll-dim mb-2 mr-2 min-h-0 flex-1 overflow-y-auto overscroll-contain pb-4 pl-6 pr-4 pt-2 sm:mb-3 sm:mr-3 sm:pb-5 sm:pl-8 sm:pr-5">
           <BookingForm
             services={services}
             defaultServiceId={defaultServiceId}
