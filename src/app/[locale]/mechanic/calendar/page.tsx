@@ -11,6 +11,7 @@ import {
 import { SHIFT_PAY, SHIFT_PAY_LABEL, shiftPayStatus } from "@/lib/salary";
 import { vnd } from "@/lib/stats";
 import { MonthGrid } from "@/components/cabinet/MonthGrid";
+import { CalendarDayCell } from "@/components/cabinet/CalendarDayCell";
 import { CalMonthNav, resolveCalYm } from "@/components/cabinet/CalMonthNav";
 import { DayModal } from "@/components/cabinet/DayModal";
 import { ShiftPhotos } from "@/components/cabinet/ShiftPhotos";
@@ -141,33 +142,14 @@ export default async function MechanicCalendarPage({
             const entry = cal.days.get(date);
             if (!entry) return null;
             return (
-              <>
-                {entry.shifts.length > 0 && (
-                  <div className="space-y-0.5">
-                    {entry.shifts.map((s) => {
-                      const mine = s.instructorId === user.id;
-                      return (
-                        <span
-                          key={s.id}
-                          title={s.name}
-                          className={`block truncate rounded px-1 text-[10px] font-bold ${
-                            mine
-                              ? "bg-primary text-white"
-                              : "bg-accent/15 text-accent-strong"
-                          }`}
-                        >
-                          {s.name}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-                {entry.bookings.length > 0 && (
-                  <span className="inline-block rounded bg-primary/10 px-1 text-[10px] font-semibold text-primary">
-                    {entry.bookings.length} зап.
-                  </span>
-                )}
-              </>
+              <CalendarDayCell
+                shifts={entry.shifts.map((s) => ({
+                  id: s.id,
+                  name: s.name,
+                  mine: s.instructorId === user.id,
+                }))}
+                bookings={entry.bookings.length}
+              />
             );
           }}
         />

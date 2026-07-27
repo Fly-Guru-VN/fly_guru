@@ -10,6 +10,7 @@ import {
 import { SHIFT_PAY, SHIFT_PAY_LABEL, shiftPayStatus } from "@/lib/salary";
 import { vnd } from "@/lib/stats";
 import { MonthGrid } from "@/components/cabinet/MonthGrid";
+import { CalendarDayCell } from "@/components/cabinet/CalendarDayCell";
 import { CalMonthNav, resolveCalYm } from "@/components/cabinet/CalMonthNav";
 import { DayModal } from "@/components/cabinet/DayModal";
 import { ShiftPhotos } from "@/components/cabinet/ShiftPhotos";
@@ -232,26 +233,10 @@ export default async function AdminCalendarPage({
             const entry = cal.days.get(date);
             if (!entry) return null;
             return (
-              <>
-                {entry.shifts.length > 0 && (
-                  <div className="space-y-0.5">
-                    {entry.shifts.map((s) => (
-                      <span
-                        key={s.id}
-                        title={s.name}
-                        className="block truncate rounded bg-accent/15 px-1 text-[10px] font-bold text-accent-strong"
-                      >
-                        {s.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {entry.bookings.length > 0 && (
-                  <span className="inline-block rounded bg-primary/10 px-1 text-[10px] font-semibold text-primary">
-                    {entry.bookings.length} зап.
-                  </span>
-                )}
-              </>
+              <CalendarDayCell
+                shifts={entry.shifts.map((s) => ({ id: s.id, name: s.name }))}
+                bookings={entry.bookings.length}
+              />
             );
           }}
         />
