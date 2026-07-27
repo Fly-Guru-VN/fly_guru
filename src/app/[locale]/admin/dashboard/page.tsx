@@ -377,7 +377,7 @@ export default async function AdminDashboardPage({
     // вкладок) — отдельного «вырывания» на всю ширину больше нет.
     <div>
       <h1 className="text-2xl font-bold">Статистика</h1>
-      <p className="mt-1 text-sm capitalize text-muted">{label}</p>
+      <p className="mt-1 text-sm text-muted first-letter:uppercase">{label}</p>
 
       {/* Пресеты периода + свой период */}
       <div className="mt-4 flex flex-wrap gap-1.5">

@@ -97,7 +97,7 @@ export default async function StatsPage({
   return (
     <div>
       <h1 className="text-2xl font-bold">Статистика</h1>
-      <p className="mt-1 text-sm capitalize text-muted">{label}</p>
+      <p className="mt-1 text-sm text-muted first-letter:uppercase">{label}</p>
 
       {/* Пресеты + свой период */}
       <div className="mt-4 flex flex-wrap gap-2">

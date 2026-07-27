@@ -28,7 +28,7 @@ export function MonthSwitcher({ ym, basePath }: { ym: string; basePath: string }
       >
         ‹
       </Link>
-      <span className="font-semibold capitalize">{vnMonth(ym).label}</span>
+      <span className="font-semibold first-letter:uppercase">{vnMonth(ym).label}</span>
       {ym < currentYm ? (
         <Link
           href={`${basePath}?m=${shiftYm(ym, 1)}`}

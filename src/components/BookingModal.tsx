@@ -45,27 +45,32 @@ export function BookingModal({
       aria-modal="true"
       aria-label="Запись"
       onClick={onClose}
-      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm sm:items-center"
+      className="animate-fade-in fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4"
     >
+      {/* Высота ограничена экраном, а прокручивается ТОЛЬКО содержимое: форма
+          длиннее невысокого ноутбучного окна, и панель, растущая по содержимому,
+          вылезала за края — заголовок с крестиком уезжали вверх, кнопка
+          «Записаться» вниз. Устройство то же, что у карточки дня календаря. */}
       <div
         ref={panelRef}
         onClick={(e) => e.stopPropagation()}
-        className="relative my-8 w-full max-w-lg rounded-3xl border border-line bg-surface p-6 shadow-xl sm:p-8"
+        className="animate-sheet-up sm:animate-pop-in relative flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-3xl border border-line bg-surface shadow-xl sm:max-h-[88dvh] sm:rounded-3xl"
       >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Закрыть"
-          className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-line text-muted transition-colors hover:border-primary hover:text-primary"
-        >
-          ✕
-        </button>
-
-        <h2 className="text-2xl font-bold">Запись</h2>
+        <div className="flex items-center justify-between gap-3 px-6 pb-2 pt-6 sm:px-8 sm:pt-8">
+          <h2 className="text-2xl font-bold">Запись</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Закрыть"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line text-muted transition-colors hover:border-primary hover:text-primary"
+          >
+            ✕
+          </button>
+        </div>
 
         {/* Без подзаголовка: первым делом гость должен видеть поле «Имя», а не
             ещё одну строку текста (пачка №5, п.2). */}
-        <div className="mt-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-2 sm:px-8 sm:pb-8">
           <BookingForm
             services={services}
             defaultServiceId={defaultServiceId}
