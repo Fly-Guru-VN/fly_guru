@@ -98,7 +98,13 @@ export function SiteHeader() {
     // Фирменный градиент «вода»: от бирюзы мелководья к глубине. Шапку просили
     // сделать заметной — на белом фоне страницы она сливалась, и на телефоне
     // человек не понимал, где верх интерфейса.
-    <header className="sticky top-0 z-50 bg-gradient-to-r from-primary to-primary-strong text-white shadow-[0_2px_14px_rgba(11,110,127,0.28)]">
+    //
+    // Цвета одни и те же, но на телефоне градиент растянут ЗА край экрана:
+    // тёмная точка стоит на 220% ширины. Иначе те же две точки укладывались в
+    // 390 px, правый край добирался до самого тёмного тона, и шапка на телефоне
+    // выглядела заметно мрачнее, чем на ПК (где переход размазан на 1400+ px и
+    // почти незаметен — за это его и любим). С 768 px берём обычный градиент.
+    <header className="sticky top-0 z-50 bg-[linear-gradient(90deg_in_oklab,var(--color-primary)_0%,var(--color-primary-strong)_220%)] text-white shadow-[0_2px_14px_rgba(11,110,127,0.28)] md:bg-gradient-to-r md:from-primary md:to-primary-strong">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
         <Link href="/" className="flex items-center gap-2 font-bold" onClick={() => setOpen(false)}>
           <Image
@@ -184,9 +190,11 @@ export function SiteHeader() {
 
       {/* Мобильное меню: продолжение шапки, а не белая простыня под ней.
           Пункты — крупные пилюли с отступами (линии-разделители убраны),
-          текущий раздел залит белым. */}
+          текущий раздел залит белым. Фон — основной бирюзовый, тот же, что у
+          светлой части шапки: тёмная заливка ниже осветлённой шапки читалась
+          как ступенька. */}
       {open && (
-        <nav className="animate-menu-down border-t border-white/15 bg-primary-strong md:hidden">
+        <nav className="animate-menu-down border-t border-white/15 bg-primary md:hidden">
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-3 sm:px-6">
             {NAV_LINKS.map((l) => (
               <Link
