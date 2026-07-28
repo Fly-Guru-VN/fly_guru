@@ -103,6 +103,57 @@ export function IconCheck(props: IconProps) {
   );
 }
 
+// ── Мелкие значки для плашек с фактами под карточками «Путь клиента» ──
+
+export function IconClock(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3 1.8" />
+    </svg>
+  );
+}
+
+export function IconPeople(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3.5 19c.6-3 2.8-4.5 5.5-4.5s4.9 1.5 5.5 4.5" />
+      <path d="M16 5.4a3 3 0 0 1 0 5.2" />
+      <path d="M17.5 14.8c1.8.6 3 2 3.4 4.2" />
+    </svg>
+  );
+}
+
+export function IconShield(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3l7 2.6v5.2c0 4.3-2.9 8-7 9.2-4.1-1.2-7-4.9-7-9.2V5.6L12 3Z" />
+      <path d="m9 12 2.2 2.2L15.5 10" />
+    </svg>
+  );
+}
+
+export function IconInfinity(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M8.5 8.5a3.5 3.5 0 1 0 0 7c2.6 0 4-3.5 7-3.5a3.5 3.5 0 1 1 0 7c-3 0-4.4-3.5-7-3.5" />
+    </svg>
+  );
+}
+
+export function IconPalm(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 8v12" />
+      <path d="M12 8c-2.6-2-5.2-1.7-7 .6" />
+      <path d="M12 8c2.6-2 5.2-1.7 7 .6" />
+      <path d="M12 8c-1.4-2.6-.6-4.8 1.6-6" />
+      <path d="M9 20c1.6-1.2 4.4-1.2 6 0" />
+    </svg>
+  );
+}
+
 // Кнопка мобильного меню. Раньше тут стояли символы «☰» и «✕» из шрифта: у них
 // разная ширина и разная высота над базовой линией, поэтому значок сидел не по
 // центру кнопки и при открытии заметно «прыгал». Иконки рисуем сами — обе

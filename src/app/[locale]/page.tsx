@@ -7,7 +7,19 @@ import { Rail, RailItem } from "@/components/Rail";
 import { StickyBookBar } from "@/components/StickyBookBar";
 import { Faq } from "@/components/Faq";
 import { ReviewCard } from "@/components/ReviewCard";
-import { IconTandem, IconFoil, IconClub, IconArrowRight } from "@/components/icons";
+import { StepCard, type Step } from "@/components/StepCard";
+import {
+  IconTandem,
+  IconFoil,
+  IconClub,
+  IconArrowRight,
+  IconClock,
+  IconPeople,
+  IconShield,
+  IconInfinity,
+  IconPalm,
+  IconStar,
+} from "@/components/icons";
 import { homeFaq } from "@/content/faq";
 import { reviews } from "@/content/reviews";
 
@@ -28,24 +40,45 @@ export default function HomePage() {
     "Инструктор рядом на воде",
   ];
 
-  const steps = [
+  const steps: Step[] = [
     {
       icon: IconTandem,
       title: "Тандем",
-      meta: "10 минут",
-      text: "Пробный полёт вдвоём с инструктором. Просто попробовать, как это — лететь над водой.",
+      meta: "10 минут, без обучения",
+      text: "Пробный полёт вдвоём с инструктором, на одном фойле. Просто становитесь и взлетаете, без обучения.",
+      image: "/media/photo/step-1-tandem.webp",
+      imagePosition: "object-[center_55%]",
+      facts: [
+        { icon: IconClock, label: "10 минут" },
+        { icon: IconStar, label: "Идеально", label2: "для старта" },
+        { icon: IconPeople, label: "Доступно детям", label2: "от 8 лет" },
+      ],
     },
     {
       icon: IconFoil,
       title: "Базовое обучение",
-      meta: "у 90% — с первого раза",
-      text: "Встаёте на крыло сами, чаще всего уже на первом занятии. Доска подбирается под ваш вес, инструктор всё время рядом.",
+      meta: "учимся летать",
+      text: "В течение часа мы с нуля обучаем вас, как управлять фойлом, держать баланс и чувствовать доску. В это время инструктор поддерживает с вами связь с берега.",
+      image: "/media/photo/step-2-training.webp",
+      imagePosition: "object-[center_60%]",
+      facts: [
+        { icon: IconClock, label: "60 минут" },
+        { icon: IconPeople, label: "На связи", label2: "с инструктором" },
+        { icon: IconShield, label: "Безопасно", label2: "и просто" },
+      ],
     },
     {
       icon: IconClub,
-      title: "Абонемент и клуб",
-      meta: "дальше — сами",
-      text: "Катаетесь по абонементу, ездите с клубом на экскурсии и сафари по островам.",
+      title: "Экскурсии и сафари",
+      meta: "свободное катание",
+      text: "После обучения вы можете отправляться в более длительные путешествия на острова, безлюдные пляжи и удалённые места.",
+      image: "/media/photo/step-3-club.webp",
+      imagePosition: "object-[center_55%]",
+      facts: [
+        { icon: IconInfinity, label: "Без", label2: "лимита" },
+        { icon: IconPeople, label: "Клуб", label2: "и комьюнити" },
+        { icon: IconPalm, label: "Приключения", label2: "и свобода" },
+      ],
     },
   ];
 
@@ -61,16 +94,13 @@ export default function HomePage() {
         bleed
         dim="soft"
       >
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/80">
-          Электрофойл-школа в Нячанге
-        </p>
-        <h1 className="mt-3 text-4xl font-bold leading-[1.05] drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)] sm:text-5xl md:text-6xl">
-          Полёт над водой —<br />
-          уже с первого занятия
+        <h1 className="text-4xl font-bold leading-[1.05] drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)] sm:text-5xl md:text-6xl">
+          Научим летать<br />
+          за 60 минут
         </h1>
         <p className="mt-4 max-w-md text-base text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-lg">
-          Доска поднимается над волной, шума нет, инструктор рядом. Это проще,
-          чем выглядит.
+          Это проще, чем выглядит. Доска уверенно ощущается под ногами, мачта
+          рассекает воду — и вы летите.
         </p>
         <div className="mt-7 flex flex-col gap-3 sm:flex-row">
           <BookBtn size="lg" className="w-full sm:w-auto">
@@ -95,36 +125,33 @@ export default function HomePage() {
       <Marquee items={facts} />
 
       {/* ── Путь клиента ── */}
-      <Section>
+      {/* Фон уходит от белого к бледно-морскому: блок отделяется от видео сверху
+          без жёсткой линии, как рассвет над водой на самих иллюстрациях. */}
+      <Section id="path" className="bg-gradient-to-b from-white to-surface-2">
         <Container>
           <SectionHeading
             eyebrow="С чего начать"
-            title="Путь от первого полёта до клуба"
+            title="Как встать на доску?"
           />
-          {/* Телефон — дорожка сверху вниз: номер, линия, шаг. Так видно, что
-              это последовательность, а не три отдельные услуги. ПК — три
-              колонки, там сравнение рядом читается лучше. */}
-          <ol className="mt-8 md:grid md:grid-cols-3 md:gap-6">
+          {/* Волна-разделитель под подзаголовком — как в макете: маленький
+              росчерк воды вместо жирной линии. */}
+          <svg
+            aria-hidden
+            viewBox="0 0 64 10"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            className="mt-5 h-2.5 w-16 text-primary/50"
+          >
+            <path d="M2 6c4-5 8-5 12 0s8 5 12 0 8-5 12 0 8 5 12 0" />
+          </svg>
+          {/* Телефон — карточки одна под другой, ПК — три в ряд. Каждая закрытая
+              карточка вместо прежней «дорожки»: у шага появились иллюстрация и
+              факты, а они требуют своей рамки, иначе всё сливается в кашу. */}
+          <ol className="mt-8 grid gap-6 md:grid-cols-3">
             {steps.map((s, i) => (
-              <li key={s.title} className="relative pb-8 pl-16 last:pb-0 md:p-0">
-                {i < steps.length - 1 && (
-                  <span
-                    aria-hidden
-                    className="absolute bottom-0 left-[1.4rem] top-12 w-px bg-line md:hidden"
-                  />
-                )}
-                <span
-                  aria-hidden
-                  className="absolute left-0 top-0 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary md:static md:mb-4 md:flex"
-                >
-                  <s.icon className="h-6 w-6" />
-                </span>
-                <p className="text-xs font-semibold uppercase tracking-wide text-accent-strong">
-                  Шаг {i + 1} · {s.meta}
-                </p>
-                <h3 className="mt-1 text-xl font-bold">{s.title}</h3>
-                <p className="mt-2 text-muted">{s.text}</p>
-              </li>
+              <StepCard key={s.title} step={s} index={i} />
             ))}
           </ol>
           <div className="mt-6 md:mt-8">
