@@ -10,9 +10,6 @@ export type Step = {
   meta: string;
   text: string;
   image: string;
-  // Куда смещать кадр при обрезке в полосу на телефоне: иллюстрации
-  // вертикальные, и «по центру» у каждой попадает в своё место.
-  imagePosition?: string;
   // Три коротких факта в подвале карточки. Второй строкой (label2) — перенос,
   // чтобы подписи не расползались по ширине и подвал держал одну высоту.
   facts: { icon: Icon; label: string; label2?: string }[];
@@ -35,26 +32,38 @@ function factSize(fact: Step["facts"][number]) {
 // Иллюстрация ведёт себя по-разному: на большом экране (от 1024) она вписана в
 // правую половину карточки, как в макете, а текст ужат отступом справа. Ниже
 // 1024 карточка втрое уже, ужимать текст там некуда — иначе в строке остаётся
-// два слова, — поэтому кадр уходит полосой наверх карточки.
+// два слова, — поэтому кадр уходит наверх карточки.
+//
+// Наверху кадр НЕ обрезает: рамка 4:3, картинка вписана целиком (object-contain).
+// Раньше тут была полоса 192 px с object-cover, и вертикальные иллюстрации
+// резались до 40% высоты — людям срезало головы. Contain работает с любой
+// пропорцией исходника: вертикальный ляжет по центру с полями по бокам,
+// горизонтальный 4:3 заполнит рамку от края до края.
 export function StepCard({ step, index }: { step: Step; index: number }) {
   return (
     <li className="flex flex-col overflow-hidden rounded-3xl border border-line bg-surface shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)]">
       <div className="relative flex-1">
-        <div className="relative h-48 w-full bg-gradient-to-b from-white to-surface-2/60 lg:absolute lg:inset-y-0 lg:right-0 lg:h-auto lg:w-[47%] lg:bg-none">
+        <div className="relative aspect-[4/3] w-full bg-white lg:absolute lg:inset-y-0 lg:right-0 lg:aspect-auto lg:h-auto lg:w-[47%]">
           <Image
             src={step.image}
             alt=""
             aria-hidden
             fill
-            sizes="(min-width: 1024px) 220px, 100vw"
-            className={`object-cover lg:object-contain lg:object-bottom ${step.imagePosition ?? ""}`}
+            sizes="(min-width: 1024px) 220px, (min-width: 768px) 33vw, 100vw"
+            className="object-contain object-center lg:object-bottom"
           />
           {/* Растушёвка краёв. Фон у иллюстраций не белый, а бледно-голубой, и
-              на белой карточке он читался прямоугольной заплаткой. Гасим левый
-              и верхний край в белый — картинка «растворяется» в карточке. */}
+              на белой карточке он читался прямоугольной заплаткой. Гасим края в
+              белый — картинка «растворяется» в карточке. На телефоне гасим оба
+              бока и низ (кадр вписан целиком, поля по сторонам), на ПК — левый
+              и верхний край, где иллюстрация подходит к колонке текста. */}
           <span
             aria-hidden
-            className="absolute inset-0 hidden bg-[linear-gradient(to_right,#fff_0%,rgba(255,255,255,0.8)_16%,transparent_46%)] lg:block"
+            className="absolute inset-0 bg-[linear-gradient(to_right,#fff_0%,transparent_16%,transparent_84%,#fff_100%)] lg:bg-[linear-gradient(to_right,#fff_0%,rgba(255,255,255,0.8)_16%,transparent_46%)]"
+          />
+          <span
+            aria-hidden
+            className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent lg:hidden"
           />
           <span
             aria-hidden

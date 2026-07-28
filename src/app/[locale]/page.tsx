@@ -47,7 +47,6 @@ export default function HomePage() {
       meta: "10 минут, без обучения",
       text: "Пробный полёт вдвоём с инструктором, на одном фойле. Просто становитесь и взлетаете, без обучения.",
       image: "/media/photo/step-1-tandem.webp",
-      imagePosition: "object-[center_55%]",
       facts: [
         { icon: IconClock, label: "10 минут" },
         { icon: IconStar, label: "Идеально", label2: "для старта" },
@@ -60,7 +59,6 @@ export default function HomePage() {
       meta: "учимся летать",
       text: "В течение часа мы с нуля обучаем вас, как управлять фойлом, держать баланс и чувствовать доску. В это время инструктор поддерживает с вами связь с берега.",
       image: "/media/photo/step-2-training.webp",
-      imagePosition: "object-[center_60%]",
       facts: [
         { icon: IconClock, label: "60 минут" },
         { icon: IconPeople, label: "На связи", label2: "с инструктором" },
@@ -73,7 +71,6 @@ export default function HomePage() {
       meta: "свободное катание",
       text: "После обучения вы можете отправляться в более длительные путешествия на острова, безлюдные пляжи и удалённые места.",
       image: "/media/photo/step-3-club.webp",
-      imagePosition: "object-[center_55%]",
       facts: [
         { icon: IconInfinity, label: "Без", label2: "лимита" },
         { icon: IconPeople, label: "Клуб", label2: "и комьюнити" },
