@@ -9,65 +9,74 @@ export type Step = {
   // Приписка справа от «Шаг N» — сколько это длится или чем заканчивается.
   meta: string;
   text: string;
+  // Иллюстрация для ПК: вертикальная, стоит в правой половине карточки.
   image: string;
+  // Кадр для узких экранов: снят специально в 4:3, чтобы лечь во всю ширину
+  // карточки без полей и обрезки (см. ниже).
+  imageMobile: string;
   // Три коротких факта в подвале карточки. Второй строкой (label2) — перенос,
   // чтобы подписи не расползались по ширине и подвал держал одну высоту.
   facts: { icon: Icon; label: string; label2?: string }[];
 };
 
-// Ширина колонки под подпись — около 80 px (треть карточки минус иконка и
-// поля). Считаем по самой длинной строке: до 12 знаков влезает основным
-// кеглем, дальше мельчим на шаг.
-function factSize(fact: Step["facts"][number]) {
+// Кегль подписи НА ПК: там иконка и текст стоят в строку, и на подпись остаётся
+// около 80 px (треть карточки минус иконка и поля). Считаем по самой длинной
+// строке: до 12 знаков влезает основным кеглем, дальше мельчим на шаг.
+// На телефоне ничего не мельчим — см. подвал карточки.
+function factSizeLg(fact: Step["facts"][number]) {
   const longest = Math.max(fact.label.length, fact.label2?.length ?? 0);
-  if (longest > 13) return "text-[9px]";
-  if (longest > 11) return "text-[10px]";
-  return "text-[11px]";
+  if (longest > 13) return "lg:text-[9px]";
+  if (longest > 11) return "lg:text-[10px]";
+  return "lg:text-[11px]";
 }
 
 // Карточка шага на главной. Собрана по макету: оранжевый кружок с иконкой и
 // подпись «ШАГ N», под ними название и текст, справа — иллюстрация, внизу —
 // полоска с тремя фактами.
 //
-// Иллюстрация ведёт себя по-разному: на большом экране (от 1024) она вписана в
-// правую половину карточки, как в макете, а текст ужат отступом справа. Ниже
-// 1024 карточка втрое уже, ужимать текст там некуда — иначе в строке остаётся
-// два слова, — поэтому кадр уходит наверх карточки.
+// Кадр в карточке — РАЗНЫЙ на узком и широком экране, и это два разных файла:
 //
-// Наверху кадр НЕ обрезает: рамка 4:3, картинка вписана целиком (object-contain).
-// Раньше тут была полоса 192 px с object-cover, и вертикальные иллюстрации
-// резались до 40% высоты — людям срезало головы. Contain работает с любой
-// пропорцией исходника: вертикальный ляжет по центру с полями по бокам,
-// горизонтальный 4:3 заполнит рамку от края до края.
+//  • до 1024 карточка идёт во всю ширину экрана, и сверху лежит фото, снятое
+//    специально в 4:3 (imageMobile). Оно заполняет рамку от края до края —
+//    object-cover без полей и без растушёвки. Раньше здесь стояла вертикальная
+//    ПК-иллюстрация: object-cover резал ей головы, а object-contain оставлял
+//    белые поля по бокам. Родная пропорция снимает обе проблемы;
+//  • от 1024 карточка втрое уже, кадр уходит в правую половину, как в макете, а
+//    текст ужат отступом справа. Там остаётся вертикальная иллюстрация (image),
+//    вписанная целиком, с растушёвкой краёв: фон у неё бледно-голубой и без
+//    растушёвки читался на белой карточке прямоугольной заплаткой.
 export function StepCard({ step, index }: { step: Step; index: number }) {
   return (
     <li className="flex flex-col overflow-hidden rounded-3xl border border-line bg-surface shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)]">
       <div className="relative flex-1">
-        <div className="relative aspect-[4/3] w-full bg-white lg:absolute lg:inset-y-0 lg:right-0 lg:aspect-auto lg:h-auto lg:w-[47%]">
+        {/* Узкий экран: фото 4:3 во всю ширину карточки. */}
+        <div className="relative aspect-[4/3] w-full bg-white lg:hidden">
+          <Image
+            src={step.imageMobile}
+            alt=""
+            aria-hidden
+            fill
+            sizes="(min-width: 768px) 33vw, 100vw"
+            className="object-cover object-center"
+          />
+        </div>
+        {/* ПК: иллюстрация в правой половине. */}
+        <div className="absolute inset-y-0 right-0 hidden w-[47%] bg-white lg:block">
           <Image
             src={step.image}
             alt=""
             aria-hidden
             fill
-            sizes="(min-width: 1024px) 220px, (min-width: 768px) 33vw, 100vw"
-            className="object-contain object-center lg:object-bottom"
-          />
-          {/* Растушёвка краёв. Фон у иллюстраций не белый, а бледно-голубой, и
-              на белой карточке он читался прямоугольной заплаткой. Гасим края в
-              белый — картинка «растворяется» в карточке. На телефоне гасим оба
-              бока и низ (кадр вписан целиком, поля по сторонам), на ПК — левый
-              и верхний край, где иллюстрация подходит к колонке текста. */}
-          <span
-            aria-hidden
-            className="absolute inset-0 bg-[linear-gradient(to_right,#fff_0%,transparent_16%,transparent_84%,#fff_100%)] lg:bg-[linear-gradient(to_right,#fff_0%,rgba(255,255,255,0.8)_16%,transparent_46%)]"
+            sizes="220px"
+            className="object-contain object-bottom"
           />
           <span
             aria-hidden
-            className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent lg:hidden"
+            className="absolute inset-0 bg-[linear-gradient(to_right,#fff_0%,rgba(255,255,255,0.8)_16%,transparent_46%)]"
           />
           <span
             aria-hidden
-            className="absolute inset-x-0 top-0 hidden h-24 bg-gradient-to-b from-white to-transparent lg:block"
+            className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white to-transparent"
           />
         </div>
         <div className="relative p-6">
@@ -99,17 +108,23 @@ export function StepCard({ step, index }: { step: Step; index: number }) {
         {step.facts.map((f, i) => (
           <div
             key={f.label}
-            className={`flex items-center gap-1.5 px-1.5 md:max-lg:flex-col md:max-lg:items-start md:max-lg:justify-center md:max-lg:gap-0.5 ${
+            className={`flex flex-col items-center justify-center gap-1 px-1.5 text-center lg:flex-row lg:gap-1.5 ${
               i > 0 ? "border-l border-line" : ""
             }`}
           >
-            <f.icon aria-hidden className="h-4 w-4 shrink-0 text-primary" />
+            <f.icon
+              aria-hidden
+              className="h-5 w-5 shrink-0 text-primary lg:h-4 lg:w-4"
+            />
             {/* Подпись — строго в две строки: перенос ставим сами (label2), а
-                внутри строки перенос запрещён. Длинную строку не ломаем на
-                третью, а мельчим шрифт — так все девять подписей в ряду
-                выглядят одинаково ровно. */}
+                внутри строки перенос запрещён.
+                На телефоне кегль у всех девяти подписей ОДИН (12 px) и текст
+                стоит по центру своей плашки под иконкой: плавающий 9–11 px и
+                выключка влево делали подвал рваным. На планшете тот же столбик,
+                но плашка втрое уже — там 10 px. Мельчим по длине строки только
+                на ПК, где иконка и текст стоят в ряд (см. factSizeLg). */}
             <span
-              className={`font-semibold leading-tight text-ink/85 lg:whitespace-nowrap ${factSize(f)}`}
+              className={`text-xs font-semibold leading-tight text-ink/85 md:max-lg:text-[10px] lg:whitespace-nowrap ${factSizeLg(f)}`}
             >
               {f.label}
               {f.label2 && (
