@@ -73,7 +73,7 @@ export default function HomePage() {
       meta: "свободное катание",
       text: "После обучения вы можете отправляться в более длительные путешествия на острова, безлюдные пляжи и удалённые места.",
       image: "/media/photo/step-3-club.webp",
-      imageMobile: "/media/photo/step-3-club-phone.webp",
+      imageMobile: "/media/photo/step-3-club-phone-2.webp",
       facts: [
         { icon: IconInfinity, label: "Без", label2: "лимита" },
         { icon: IconPeople, label: "Клуб", label2: "и комьюнити" },
