@@ -10,13 +10,21 @@ import { closeStatus, openStatus } from "@/lib/shiftRules";
 //    за этот выход ноль. Плюс админ может снять премию руками (bonus_cancelled)
 //    с причиной: регламент живой — шторм, поломка, подмена.
 //  • 15% с сессий делятся НА СМЕНУ ДНЯ: считаем базу дня по всем сессиям
-//    инструкторов и раскладываем её поровну между теми, у кого в этот день
-//    стоит смена. Раньше каждый получал 15% со своих чеков — и тот, кто в паре
-//    оформлял записи на себя, забирал долю напарника.
+//    инструкторов и раскладываем её поровну между теми, кто в этот день
+//    ФАКТИЧЕСКИ вышел. Раньше каждый получал 15% со своих чеков — и тот, кто в
+//    паре оформлял записи на себя, забирал долю напарника.
 //  • доля абонементного котла — без изменений (см. lib/stats).
 //
-// Дни без смен: 15% уходит тому, кто записал. Так расчёт не теряет деньги, если
-// админ не проставил смены в календаре (а он их ставит не всегда).
+// Кто «на смене» для дележа (правка от 28.07.2026). Раньше считалась любая
+// строка shifts — то есть назначенная админом смена давала долю, даже если
+// человек не вышел. Теперь порядок такой:
+//   1. кто ОТКРЫЛ смену (opened_at заполнен) — назначал её админ или инструктор
+//      открыл её сам, не важно: выход открывает фото на пляже, и строка смены
+//      заводится на лету с planned=false (см. instructor/actions ensureTodayShift);
+//   2. никто не открылся, но смены назначены — делим между назначенными
+//      (страховка: человек вышел, а нажать/сфоткаться забыл);
+//   3. смен в этот день нет вовсе — 15% уходят тому, кто записал. Так расчёт не
+//      теряет деньги, если админ не проставил смены в календаре.
 // Сессии, проведённые самим админом, в дележ не идут вообще — он босс, его чек
 // не наполняет ЗП инструкторов (та же логика, что в lib/finance).
 //
@@ -166,6 +174,17 @@ export interface SessionShare {
   ownDays: number; // дни без смен — 15% со своих чеков
 }
 
+// Кто делит 15% за конкретный день: сначала открывшие смену, если таких нет —
+// назначенные. Пустой набор = смен в этот день не было вообще.
+function dayCrew(
+  opened: Set<string> | undefined,
+  planned: Set<string> | undefined,
+): Set<string> | null {
+  if (opened && opened.size > 0) return opened;
+  if (planned && planned.size > 0) return planned;
+  return null;
+}
+
 interface SessionRow {
   date: string;
   amount: number | null;
@@ -177,8 +196,9 @@ interface SessionRow {
 //
 // База дня — чеки сессий инструкторов минус комиссии агентов по ним (агент
 // забирает свои 300к сверху, инструктору с них ничего не идёт). Дальше:
-//   • есть смены в этот день → база × 15% делится поровну между сменщиками,
+//   • кто-то открыл смену → база × 15% делится поровну между открывшими,
 //     даже если сессию оформил кто-то другой (в этом и смысл: работали вдвоём);
+//   • никто не открылся, но смены назначены → делим между назначенными;
 //   • смен нет → каждый получает 15% со своих чеков этого дня.
 export async function getSessionShare(
   client: Supabase,
@@ -217,13 +237,16 @@ export async function getSessionShare(
     own.set(id, (own.get(id) ?? 0) + net);
   }
 
-  // День → кто на смене (дубли гасим: у одного человека день = одна смена).
-  const dayShift = new Map<string, Set<string>>();
+  // День → кто фактически открыл смену и кому она просто назначена (дубли
+  // гасим: у одного человека день = одна смена).
+  const dayOpened = new Map<string, Set<string>>();
+  const dayPlanned = new Map<string, Set<string>>();
   for (const s of shifts) {
     if (!allowed.has(s.instructor_id)) continue;
-    const set = dayShift.get(s.date) ?? new Set<string>();
+    const target = s.opened_at ? dayOpened : dayPlanned;
+    const set = target.get(s.date) ?? new Set<string>();
     set.add(s.instructor_id);
-    dayShift.set(s.date, set);
+    target.set(s.date, set);
   }
 
   const result = new Map<string, SessionShare>();
@@ -237,9 +260,9 @@ export async function getSessionShare(
   };
 
   for (const [date, base] of dayBase) {
-    const crew = dayShift.get(date);
+    const crew = dayCrew(dayOpened.get(date), dayPlanned.get(date));
     const pay = base * SESSION_RATE;
-    if (crew && crew.size > 0) {
+    if (crew) {
       const each = pay / crew.size;
       for (const id of crew) {
         const entry = share(id);

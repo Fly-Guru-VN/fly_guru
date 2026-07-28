@@ -141,7 +141,7 @@ export default async function RecordPage({
                 {vnd(todayStats.salaryFromSessions)}
               </span>
               {todayStats.sharedDays > 0
-                ? " · поделены между сменой дня"
+                ? " · поделены между открывшими смену"
                 : todayStats.ownDays > 0
                   ? " · смен на день нет, считаем с ваших чеков"
                   : ""}
