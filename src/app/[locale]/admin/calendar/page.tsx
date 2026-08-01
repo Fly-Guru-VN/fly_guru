@@ -8,6 +8,7 @@ import {
   type ShiftPhoto,
 } from "@/lib/shifts";
 import { SHIFT_PAY, SHIFT_PAY_LABEL, shiftPayStatus } from "@/lib/salary";
+import { getDayPayments } from "@/lib/payments";
 import { vnd } from "@/lib/stats";
 import { MonthGrid } from "@/components/cabinet/MonthGrid";
 import { CalendarDayCell } from "@/components/cabinet/CalendarDayCell";
@@ -29,7 +30,7 @@ export const metadata: Metadata = { title: "Админка · Календарь
 // записи клиентов по дням. Клик по дню открывает карточку дня ПОВЕРХ сетки
 // (?d=…, пачка №5 п.9) — чистый SSR, формы внутри остаются server actions.
 // Здесь же решается премия за выход: машина считает регламент (открыл до 9:00,
-// закрыл после 18:00 — 300 000 ₫), а админ может снять премию руками с
+// закрыл после 18:00 — 200 000 ₫), а админ может снять премию руками с
 // причиной, если смена была особенной (пачка №9, пак 2).
 
 // Премия за выход в карточке дня: вердикт машины + ручка админа.
@@ -214,6 +215,11 @@ export default async function AdminCalendarPage({
       )
     : new Map();
 
+  // Касса дня по способам оплаты (пачка №15, п.4). Живёт в карточке дня, а не
+  // в Статистике: вопрос «сколько сегодня взяли наличными» — про конкретный
+  // день, а карточка дня и есть единственный экран про один день.
+  const payments = selected ? await getDayPayments(supabase, selected) : null;
+
   return (
     <div>
       <h1 className="text-2xl font-bold">Календарь</h1>
@@ -341,6 +347,43 @@ export default async function AdminCalendarPage({
               <p className="text-sm text-muted">Инструкторов нет.</p>
             )}
           </div>
+
+          <h3 className="mt-5 text-sm font-bold text-muted">Оплаты за день</h3>
+          {payments && payments.lines.length > 0 ? (
+            <div className="mt-2 rounded-xl border border-line/70 px-3 py-2">
+              {payments.lines.map((l) => (
+                <div
+                  key={l.method}
+                  className="flex items-baseline justify-between gap-3 border-b border-line/50 py-1.5 last:border-0"
+                >
+                  <p className={`text-sm ${l.unknown ? "text-amber-600" : ""}`}>
+                    {l.method}
+                    <span className="text-xs text-muted"> · {l.count}</span>
+                  </p>
+                  <p className="shrink-0 text-sm font-bold tabular-nums">
+                    {vnd(l.amount)}
+                  </p>
+                </div>
+              ))}
+              <div className="flex items-baseline justify-between gap-3 border-t border-line pt-2">
+                <p className="text-sm font-semibold">Всего</p>
+                <p className="shrink-0 text-base font-bold tabular-nums text-primary">
+                  {vnd(payments.total)}
+                </p>
+              </div>
+              {/* Способ оплаты не проставляют, когда заявку закрывают кнопкой
+                  «Выполнена» мимо формы записи — тогда деньги в базе есть, а
+                  чем заплатили, неизвестно. Пусть это будет видно. */}
+              {payments.lines.some((l) => l.unknown) && (
+                <p className="mt-2 text-xs text-amber-600">
+                  Часть оплат без способа — записи оформили не через форму
+                  «Записать клиента».
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-muted">Оплат в этот день не было.</p>
+          )}
 
           <h3 className="mt-5 text-sm font-bold text-muted">Записи клиентов</h3>
           {dayData && dayData.bookings.length > 0 ? (
