@@ -13,14 +13,21 @@ import type { ReactNode, RefObject } from "react";
 
 // scrollRef и onScroll — если снаружи нужно следить за прокруткой ленты
 // (например, чтобы подсветить точку-индикатор под ней).
+//
+// gutter — поля ленты на узком экране. Вместе с px обязательно идёт scroll-px
+// того же размера: без него прилипание уводит вторую и третью карточки в самый
+// край экрана, и только первая стоит с отступом. Размер можно переопределить
+// снаружи, если карточке нужен зазор пошире.
 export function Rail({
   children,
   className = "",
+  gutter = "-mx-4 px-4 scroll-px-4 sm:-mx-6 sm:px-6 sm:scroll-px-6",
   scrollRef,
   onScroll,
 }: {
   children: ReactNode;
   className?: string;
+  gutter?: string;
   scrollRef?: RefObject<HTMLDivElement | null>;
   onScroll?: () => void;
 }) {
@@ -28,7 +35,7 @@ export function Rail({
     <div
       ref={scrollRef}
       onScroll={onScroll}
-      className={`rail -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:gap-6 md:overflow-visible md:px-0 ${className}`}
+      className={`rail ${gutter} flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 md:mx-0 md:grid md:gap-6 md:overflow-visible md:px-0 ${className}`}
     >
       {children}
     </div>
