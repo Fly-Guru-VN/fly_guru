@@ -94,32 +94,38 @@ export default function HomePage() {
         poster="/media/video/hero-loop-poster.jpg"
         bleed
         dim="soft"
+        split
       >
         <h1 className="text-4xl font-bold leading-[1.05] drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)] sm:text-5xl md:text-6xl">
           Научим летать<br />
           за 60 минут
         </h1>
-        <p className="mt-4 max-w-md text-base text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-lg">
-          Это проще, чем выглядит. Доска уверенно ощущается под ногами, мачта
-          рассекает воду — и вы летите.
-        </p>
-        <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-          <BookBtn size="lg" className="w-full sm:w-auto">
-            Записаться
-          </BookBtn>
-          <Button href="/tandem" size="lg" variant="light" className="w-full sm:w-auto">
-            Сначала попробовать тандем
-          </Button>
-        </div>
-        {/* Подсказка листать: на полноэкранном кадре без неё не всем очевидно,
-            что под ним есть страница. На ПК не нужна — там кадр не во весь
-            экран и следующий блок виден сразу. */}
-        <div
-          aria-hidden
-          className="animate-scroll-hint mt-8 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-white/70 md:hidden"
-        >
-          <span>Листайте</span>
-          <span className="text-base leading-none">↓</span>
+        {/* Всё, кроме заголовка, лежит одним блоком: на телефоне HeroStage
+            разводит заголовок вверх, а этот блок вниз, и между ними в кадре
+            остаётся сам полёт. На ПК блок просто идёт следом за заголовком. */}
+        <div>
+          <p className="mt-4 max-w-md text-base text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-lg">
+            Это проще, чем выглядит. Доска уверенно ощущается под ногами, мачта
+            рассекает воду — и вы летите.
+          </p>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <BookBtn size="lg" className="w-full sm:w-auto">
+              Записаться
+            </BookBtn>
+            <Button href="/tandem" size="lg" variant="light" className="w-full sm:w-auto">
+              Сначала попробовать тандем
+            </Button>
+          </div>
+          {/* Подсказка листать: на полноэкранном кадре без неё не всем очевидно,
+              что под ним есть страница. На ПК не нужна — там кадр не во весь
+              экран и следующий блок виден сразу. */}
+          <div
+            aria-hidden
+            className="animate-scroll-hint mt-8 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-white/70 md:hidden"
+          >
+            <span>Листайте</span>
+            <span className="text-base leading-none">↓</span>
+          </div>
         </div>
       </HeroStage>
 

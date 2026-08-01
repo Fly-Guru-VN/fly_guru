@@ -19,6 +19,7 @@ export function HeroStage({
   alt = "",
   bleed = false,
   dim = "strong",
+  split = false,
   children,
 }: {
   video?: string;
@@ -37,6 +38,11 @@ export function HeroStage({
   // Насколько глушить кадр. «soft» — для ярких солнечных роликов: там сильная
   // заливка убивает всю картинку, а текст и так читается благодаря тени.
   dim?: "strong" | "soft";
+  // split — на телефоне развести содержимое по краям кадра: первый потомок
+  // (заголовок) уходит наверх, «в небо», второй (текст и кнопки) остаётся
+  // внизу, а между ними виден сам полёт. Ждёт РОВНО двух потомков. От md
+  // содержимое снова идёт подряд одним блоком у нижнего края.
+  split?: boolean;
   children: ReactNode;
 }) {
   const overlay =
@@ -84,10 +90,20 @@ export function HeroStage({
         {/* Затемнение снизу вверх: текст читается, а верх кадра остаётся
             открытым — там небо, горы и город. */}
         <div className={`absolute inset-0 -z-10 ${overlay}`} />
-        <div className="px-4 pb-10 pt-28 text-white sm:px-6 md:px-10 md:pb-12">
+        <div
+          className={`px-4 pb-10 pt-28 text-white sm:px-6 md:px-10 md:pb-12 ${
+            split ? "flex flex-1 flex-col md:block md:flex-none" : ""
+          }`}
+        >
           {/* Ширину текста держим по общему контейнеру сайта, иначе на широком
               мониторе заголовок уезжал бы к самому краю окна. */}
-          <div className={bleed ? "mx-auto w-full max-w-6xl" : ""}>{children}</div>
+          <div
+            className={`${bleed ? "mx-auto w-full max-w-6xl" : ""} ${
+              split ? "flex flex-1 flex-col justify-between md:block" : ""
+            }`}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </section>
