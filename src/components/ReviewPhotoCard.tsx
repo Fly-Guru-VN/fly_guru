@@ -31,9 +31,13 @@ export function ReviewPhotoCard({ review }: { review: Review }) {
           aria-hidden
           className="absolute left-4 top-4 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-white/95 shadow-[0_6px_16px_-8px_rgba(15,34,51,0.6)]"
         >
-          {/* Кавычки сдвинуты вниз: у глифа вся «краска» в верхней части
-              строки, и по центру бокса он визуально висит под самым краем. */}
-          <span className="mt-[0.42em] text-[2.6rem] font-bold leading-none text-primary-strong">
+          {/* Начертание с засечками — ради формы самих кавычек: в наборном
+              шрифте сайта у них квадратное основание, а в макете круглое, с
+              хвостиком (как у запятой). Любой серифный шрифт рисует их именно
+              так, поэтому глиф, а не картинка.
+              Кавычки сдвинуты вниз: вся «краска» глифа в верхней части строки,
+              и по центру бокса он визуально висит под самым краем. */}
+          <span className="mt-[0.34em] font-serif text-[3rem] font-bold leading-none text-primary-strong">
             &ldquo;
           </span>
         </span>
