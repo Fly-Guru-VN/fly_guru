@@ -30,8 +30,8 @@ export const dynamic = "force-static";
 
 // Главная собрана под телефон: экран узкий, палец один, терпения мало.
 // Порядок блоков — как разговор с человеком на пляже: сначала показать полёт
-// (видео), потом коротко факты, потом путь «с чего начать», потом чужой опыт
-// (отзывы), потом ответы на страхи (вопросы) и только в конце — магазин.
+// (видео), потом коротко факты, потом чужой опыт (отзывы), потом путь «с чего
+// начать», потом ответы на страхи (вопросы) и только в конце — магазин.
 export default function HomePage() {
   const facts = [
     "90% встают на крыло на первом занятии",
@@ -131,12 +131,75 @@ export default function HomePage() {
 
       <Marquee items={facts} />
 
+      {/* ── Отзывы ── */}
+      {/* Отзывы идут сразу после первого экрана, до «Как встать на доску?»:
+          сначала чужой опыт, потом уже наши шаги.
+          Фон и чайки по макету: секция «дышит» морем, но декор чисто
+          декоративный — на телефоне он только съедал бы место, поэтому от md. */}
+      <Section
+        tone="muted"
+        className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2"
+      >
+        <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute right-12 top-16 w-16 -rotate-6"
+          />
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute right-24 top-40 w-[4.5rem] rotate-[7deg]"
+          />
+          <Image
+            src="/media/decor/wave-soft.webp"
+            alt=""
+            width={700}
+            height={78}
+            className="absolute -left-20 bottom-16 w-[26rem] opacity-60"
+          />
+        </div>
+        <Container className="relative">
+          <div className="flex items-end justify-between gap-4">
+            <SectionHeading eyebrow="Отзывы" title="Что говорят ученики" />
+            {/* Прячем обёрткой, а не классом hidden на самой кнопке: у Button в
+                базовых классах уже есть inline-flex, и в собранном CSS он идёт
+                позже hidden — на телефоне ссылка вылезала рядом с заголовком. */}
+            <div className="hidden shrink-0 sm:block">
+              <Button href="/reviews" variant="ghost">
+                Все отзывы <IconArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          {/* Лента: на телефоне листается пальцем, на ПК — три колонки.
+              Раньше три отзыва подряд занимали полтора экрана. */}
+          <ReviewsRail count={homeReviews.length}>
+            {homeReviews.map((r) => (
+              <RailItem key={r.name}>
+                <ReviewPhotoCard review={r} />
+              </RailItem>
+            ))}
+          </ReviewsRail>
+          <div className="mt-6 sm:hidden">
+            <Button href="/reviews" variant="secondary">
+              Все отзывы <IconArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </Container>
+      </Section>
+
       {/* ── Путь клиента ── */}
-      {/* Фон уходит от белого к бледно-морскому: блок отделяется от видео сверху
-          без жёсткой линии, как рассвет над водой на самих иллюстрациях. */}
+      {/* Фон продолжает предыдущий блок: отзывы заканчиваются бледно-морским,
+          шаги с него начинаются и уходят обратно в белый — к вопросам ниже.
+          Между блоками нет жёстких линий, как рассвет над водой на самих
+          иллюстрациях. */}
       <Section
         id="path"
-        className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2"
+        className="relative overflow-hidden bg-gradient-to-b from-surface-2 to-white"
       >
         {/* Те же чайки, что в отзывах, но в другом месте и в другую сторону: там
             пара висит справа столбиком и летит влево-вниз, здесь — заходит
@@ -187,65 +250,6 @@ export default function HomePage() {
           <div className="mt-6 md:mt-8">
             <Button href="/training" variant="secondary">
               Подробнее об обучении <IconArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </Container>
-      </Section>
-
-      {/* ── Отзывы ── */}
-      {/* Фон и чайки по макету: секция «дышит» морем, но декор чисто
-          декоративный — на телефоне он только съедал бы место, поэтому от md. */}
-      <Section
-        tone="muted"
-        className="relative overflow-hidden bg-gradient-to-b from-surface-2 to-white"
-      >
-        <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
-          <Image
-            src="/media/decor/bird.webp"
-            alt=""
-            width={320}
-            height={117}
-            className="absolute right-12 top-16 w-16 -rotate-6"
-          />
-          <Image
-            src="/media/decor/bird.webp"
-            alt=""
-            width={320}
-            height={117}
-            className="absolute right-24 top-40 w-[4.5rem] rotate-[7deg]"
-          />
-          <Image
-            src="/media/decor/wave-soft.webp"
-            alt=""
-            width={700}
-            height={78}
-            className="absolute -left-20 bottom-16 w-[26rem] opacity-60"
-          />
-        </div>
-        <Container className="relative">
-          <div className="flex items-end justify-between gap-4">
-            <SectionHeading eyebrow="Отзывы" title="Что говорят ученики" />
-            {/* Прячем обёрткой, а не классом hidden на самой кнопке: у Button в
-                базовых классах уже есть inline-flex, и в собранном CSS он идёт
-                позже hidden — на телефоне ссылка вылезала рядом с заголовком. */}
-            <div className="hidden shrink-0 sm:block">
-              <Button href="/reviews" variant="ghost">
-                Все отзывы <IconArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          {/* Лента: на телефоне листается пальцем, на ПК — три колонки.
-              Раньше три отзыва подряд занимали полтора экрана. */}
-          <ReviewsRail count={homeReviews.length}>
-            {homeReviews.map((r) => (
-              <RailItem key={r.name}>
-                <ReviewPhotoCard review={r} />
-              </RailItem>
-            ))}
-          </ReviewsRail>
-          <div className="mt-6 sm:hidden">
-            <Button href="/reviews" variant="secondary">
-              Все отзывы <IconArrowRight className="h-4 w-4" />
             </Button>
           </div>
         </Container>
