@@ -4,15 +4,21 @@ export interface Review {
   text: string;
   rating: number; // 1..5
   sourceUrl?: string; // ссылка на отзыв в Google Maps
+  // Фото с занятия и аватарка из профиля Google. Есть только у тройки с
+  // главной — на /reviews карточки без фото, там их два десятка.
+  photo?: string;
+  avatar?: string;
 }
 
 // Реальные отзывы с Google Maps (профиль FlyGuru, Нячанг).
 // Тексты приведены как есть, вычищены только обрывки интерфейса.
-// Первые 3 показываются на главной, все — на /reviews.
+// На главной — тройка из homeReviews (ниже), все — на /reviews.
 export const reviews: Review[] = [
   {
     name: "Полина Черненькая",
     role: "6 месяцев назад",
+    photo: "/media/photo/reviews/polina-ch.webp",
+    avatar: "/media/photo/reviews/av-polina-ch.webp",
     text: "Я безумно благодарна этой команде за возможность попробовать электрофойл. Ребята — настоящие профессионалы! За 60 минут было всё: понятная теория и достаточно долгая практика на воде. Сначала было страшно, но инструктор поддерживал, всё спокойно объяснял и вселял уверенность. Я уже вернулась в Россию, но до сих пор живу воспоминаниями об этом уроке. Это был один из самых ярких моментов поездки!",
     rating: 5,
     sourceUrl: "https://maps.app.goo.gl/vZA1Hnf7RBpcBoyp6",
@@ -41,6 +47,8 @@ export const reviews: Review[] = [
   {
     name: "Polina Shchegoleva",
     role: "10 месяцев назад",
+    photo: "/media/photo/reviews/polina-sch.webp",
+    avatar: "/media/photo/reviews/av-polina-sch.webp",
     text: "Это лучшее, что могло случиться с нами в последний день отпуска! Не повторяйте наших ошибок — начинайте учиться сразу, как прилетели в Нячанг! Ребята первоклассные инструкторы. Я и муж полетели с первого раза, сын 9 лет полетел тоже: на коленках в первый раз и стоя во второй. Это незабываемые эмоции, которые стоят каждого заплаченного донга!",
     rating: 5,
     sourceUrl: "https://maps.app.goo.gl/s28NVcDH3bw8fGAg9",
@@ -55,6 +63,8 @@ export const reviews: Review[] = [
   {
     name: "Юлия",
     role: "10 месяцев назад",
+    photo: "/media/photo/reviews/yulia.webp",
+    avatar: "/media/photo/reviews/av-yulia.webp",
     text: "Отдыхали на Марина Бич, дочка увидела электрофойл и захотела покататься. Инструктор Денис сразу нашёл подход к ребёнку, дочка была в полном восторге от доски — весь оставшийся отпуск только и просила покататься. Большое спасибо за такую возможность подарить детям незабываемые эмоции, парить над водой!",
     rating: 5,
     sourceUrl: "https://maps.app.goo.gl/8Z2CDuBaqBE5MrFX6",
@@ -81,3 +91,10 @@ export const reviews: Review[] = [
     sourceUrl: "https://maps.app.goo.gl/FA6SsXve4gfgd2C99",
   },
 ];
+
+// Тройка для главной — те отзывы, к которым есть фото с занятия. Порядок задан
+// руками, а не срезом массива: на главной карточки стоят слева направо именно
+// так, как их отобрали под фотографии.
+export const homeReviews: Review[] = ["Polina Shchegoleva", "Юлия", "Полина Черненькая"].map(
+  (name) => reviews.find((r) => r.name === name)!,
+);

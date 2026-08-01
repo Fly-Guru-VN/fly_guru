@@ -3,10 +3,11 @@ import { Container, Section, SectionHeading, Button } from "@/components/ui";
 import { BookBtn } from "@/components/BookBtn";
 import { HeroStage } from "@/components/HeroStage";
 import { Marquee } from "@/components/Marquee";
-import { Rail, RailItem } from "@/components/Rail";
+import { RailItem } from "@/components/Rail";
+import { ReviewsRail } from "@/components/ReviewsRail";
 import { StickyBookBar } from "@/components/StickyBookBar";
 import { Faq } from "@/components/Faq";
-import { ReviewCard } from "@/components/ReviewCard";
+import { ReviewPhotoCard } from "@/components/ReviewPhotoCard";
 import { StepCard, type Step } from "@/components/StepCard";
 import {
   IconTandem,
@@ -21,7 +22,7 @@ import {
   IconStar,
 } from "@/components/icons";
 import { homeFaq } from "@/content/faq";
-import { reviews } from "@/content/reviews";
+import { homeReviews } from "@/content/reviews";
 
 // Страница полностью статична — форсим SSG. В Next 16 классификация
 // static/dynamic для страниц с next-intl Link нестабильна; директива это фиксирует.
@@ -163,23 +164,60 @@ export default function HomePage() {
       </Section>
 
       {/* ── Отзывы ── */}
-      <Section tone="muted">
-        <Container>
+      {/* Фон и чайки по макету: секция «дышит» морем, но декор чисто
+          декоративный — на телефоне он только съедал бы место, поэтому от md. */}
+      <Section
+        tone="muted"
+        className="relative overflow-hidden bg-gradient-to-b from-surface-2 to-white"
+      >
+        <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute right-12 top-16 w-16 -rotate-6"
+          />
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute right-24 top-40 w-[4.5rem] rotate-[7deg]"
+          />
+          <Image
+            src="/media/decor/wave-soft.webp"
+            alt=""
+            width={700}
+            height={78}
+            className="absolute -left-20 bottom-16 w-[26rem] opacity-60"
+          />
+        </div>
+        <Container className="relative">
           <div className="flex items-end justify-between gap-4">
-            <SectionHeading eyebrow="Отзывы" title="Что говорят ученики" />
-            <Button href="/reviews" variant="ghost" className="hidden sm:inline-flex">
-              Все отзывы <IconArrowRight className="h-4 w-4" />
-            </Button>
+            <SectionHeading
+              eyebrow="Отзывы"
+              title="Что говорят ученики"
+              subtitle="Реальные впечатления — лучшая мотивация."
+            />
+            {/* Прячем обёрткой, а не классом hidden на самой кнопке: у Button в
+                базовых классах уже есть inline-flex, и в собранном CSS он идёт
+                позже hidden — на телефоне ссылка вылезала рядом с заголовком. */}
+            <div className="hidden shrink-0 sm:block">
+              <Button href="/reviews" variant="ghost">
+                Все отзывы <IconArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
           {/* Лента: на телефоне листается пальцем, на ПК — три колонки.
               Раньше три отзыва подряд занимали полтора экрана. */}
-          <Rail className="mt-8 md:grid-cols-3">
-            {reviews.slice(0, 3).map((r, i) => (
-              <RailItem key={i}>
-                <ReviewCard review={r} clamp />
+          <ReviewsRail count={homeReviews.length}>
+            {homeReviews.map((r) => (
+              <RailItem key={r.name}>
+                <ReviewPhotoCard review={r} />
               </RailItem>
             ))}
-          </Rail>
+          </ReviewsRail>
           <div className="mt-6 sm:hidden">
             <Button href="/reviews" variant="secondary">
               Все отзывы <IconArrowRight className="h-4 w-4" />

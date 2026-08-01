@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 
 // Лента, которую на телефоне листают пальцем, а на ПК она разворачивается в
 // обычную сетку.
@@ -11,15 +11,23 @@ import type { ReactNode } from "react";
 // поля контейнера: обрезанная карточка у края и есть подсказка «листай».
 // Число колонок на ПК задаётся снаружи: md:grid-cols-3 / md:grid-cols-4.
 
+// scrollRef и onScroll — если снаружи нужно следить за прокруткой ленты
+// (например, чтобы подсветить точку-индикатор под ней).
 export function Rail({
   children,
   className = "",
+  scrollRef,
+  onScroll,
 }: {
   children: ReactNode;
   className?: string;
+  scrollRef?: RefObject<HTMLDivElement | null>;
+  onScroll?: () => void;
 }) {
   return (
     <div
+      ref={scrollRef}
+      onScroll={onScroll}
       className={`rail -mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:gap-6 md:overflow-visible md:px-0 ${className}`}
     >
       {children}
