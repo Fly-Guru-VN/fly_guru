@@ -134,8 +134,31 @@ export default function HomePage() {
       {/* ── Путь клиента ── */}
       {/* Фон уходит от белого к бледно-морскому: блок отделяется от видео сверху
           без жёсткой линии, как рассвет над водой на самих иллюстрациях. */}
-      <Section id="path" className="bg-gradient-to-b from-white to-surface-2">
-        <Container>
+      <Section
+        id="path"
+        className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2"
+      >
+        {/* Те же чайки, что в отзывах, но в другом месте и в другую сторону: там
+            пара висит справа столбиком и летит влево-вниз, здесь — заходит
+            горизонтально над карточками, в пустоте справа от заголовка.
+            Как и там, только от md: на телефоне декор съедал бы место. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute right-40 top-12 w-12 -scale-x-100 -rotate-[9deg] opacity-90"
+          />
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute right-10 top-24 w-[4.5rem] -scale-x-100 rotate-[5deg]"
+          />
+        </div>
+        <Container className="relative">
           <SectionHeading
             eyebrow="С чего начать"
             title="Как встать на доску?"
