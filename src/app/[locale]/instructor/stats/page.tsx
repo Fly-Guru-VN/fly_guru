@@ -2,7 +2,7 @@ import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUser } from "@/lib/auth";
 import {
-  vnCurrentMonth,
+  vnMonthToDate,
   vnPeriod,
   vnPrevMonth,
   vnShiftDays,
@@ -57,14 +57,16 @@ export default async function StatsPage({
 
   const { from, to } = await searchParams;
   const today = vnToday();
-  const month = vnCurrentMonth();
+  // По умолчанию — с 1-го числа по сегодня (см. vnMonthToDate): дат из
+  // будущего в полях «С / По» быть не должно.
+  const month = vnMonthToDate();
   const prev = vnPrevMonth();
 
   // Период из URL (обе даты включительно); мусор → текущий месяц.
   const custom = Boolean(from && to && DAY_RE.test(from!) && DAY_RE.test(to!) && from! <= to!);
   const range: StatsRange = custom ? vnPeriod(from!, to!) : month;
   // Последний день периода включительно — для подписи и значений инпутов.
-  const lastDay = custom ? to! : vnShiftDays(month.toDay, -1);
+  const lastDay = custom ? to! : month.lastDay;
   const label = custom ? `${from} — ${to}` : month.label;
 
   const supabase = await createClient();
@@ -173,7 +175,7 @@ export default async function StatsPage({
         </div>
       </div>
 
-      {/* ЗП: доля 15% по сменам дня + 300к за зачтённый выход + доля котла */}
+      {/* ЗП: доля 15% по сменам дня + 200к за зачтённый выход + доля котла */}
       <div className="mt-3 rounded-2xl border-2 border-primary bg-surface p-5">
         <p className="text-sm text-muted">Моя ЗП за период</p>
         <p className="mt-1 text-3xl font-bold text-primary">{vnd(stats.salary)}</p>
@@ -197,7 +199,7 @@ export default async function StatsPage({
         </p>
       </div>
 
-      {/* Почему выход не оплачен. Инструктору важнее всего именно это: 300к за
+      {/* Почему выход не оплачен. Инструктору важнее всего именно это: 200к за
           смену — самая крупная строка его ЗП, и «почему не начислили» он
           должен видеть сам, а не спрашивать админа. */}
       {stats.shiftRows.length > 0 && (
