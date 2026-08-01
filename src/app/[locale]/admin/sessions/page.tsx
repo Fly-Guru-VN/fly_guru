@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { loadAllClients } from "@/lib/clients";
-import { vnCurrentMonth, vnPeriod, vnToday } from "@/lib/dates";
+import { vnMonthToDate, vnPeriod, vnToday } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import { deleteSessionAction, updateSessionAction } from "../actions";
 import { ConfirmSubmit } from "../ConfirmSubmit";
@@ -245,14 +245,15 @@ export default async function AdminSessionsPage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   const params = await searchParams;
-  const month = vnCurrentMonth();
+  // По умолчанию — с 1-го числа по сегодня (см. vnMonthToDate).
+  const month = vnMonthToDate();
   const today = vnToday();
 
-  // Период: обе даты включительно; по умолчанию — текущий месяц.
+  // Период: обе даты включительно; по умолчанию — этот месяц по сегодня.
   const fromDay = DAY_RE.test(params.from ?? "") ? params.from! : month.fromDay;
   const toInclusive = DAY_RE.test(params.to ?? "")
     ? params.to!
-    : new Date(new Date(month.toDay).getTime() - 86400000).toISOString().slice(0, 10);
+    : month.lastDay;
   const range = vnPeriod(fromDay, toInclusive);
 
   const supabase = await createClient();

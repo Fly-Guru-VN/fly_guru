@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAppUser } from "@/lib/auth";
-import { vnCurrentMonth, vnPeriod, vnShiftDays, vnToday } from "@/lib/dates";
+import { vnMonthToDate, vnPeriod, vnToday } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import { getActiveDict } from "@/lib/dictionaries";
 import { SaveForm } from "@/app/[locale]/admin/SaveForm";
@@ -234,14 +234,15 @@ export default async function InstructorSessionsPage({
   if (!user) return null; // layout уже средиректил бы; страховка для типов
 
   const params = await searchParams;
-  const month = vnCurrentMonth();
+  // По умолчанию — с 1-го числа по сегодня (см. vnMonthToDate).
+  const month = vnMonthToDate();
   const today = vnToday();
 
-  // Период: обе даты включительно; по умолчанию — текущий месяц.
+  // Период: обе даты включительно; по умолчанию — этот месяц по сегодня.
   const fromDay = DAY_RE.test(params.from ?? "") ? params.from! : month.fromDay;
   const toInclusive = DAY_RE.test(params.to ?? "")
     ? params.to!
-    : vnShiftDays(month.toDay, -1);
+    : month.lastDay;
   const range = vnPeriod(fromDay, toInclusive);
 
   const supabase = await createClient();

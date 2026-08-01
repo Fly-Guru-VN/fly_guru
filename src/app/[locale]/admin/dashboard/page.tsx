@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import {
-  vnCurrentMonth,
+  vnMonthToDate,
   vnPeriod,
   vnPrevMonth,
   vnShiftDays,
@@ -148,7 +148,9 @@ export default async function AdminDashboardPage({
   const { from, to, cat = "", inst = "", sort = "date", dir = "d" } =
     await searchParams;
   const today = vnToday();
-  const month = vnCurrentMonth();
+  // По умолчанию — с 1-го числа по сегодня (не месяц целиком): в полях «С / По»
+  // не должно быть дат из будущего, см. vnMonthToDate.
+  const month = vnMonthToDate();
   const prev = vnPrevMonth();
 
   // Период из URL (обе даты включительно); мусор → текущий месяц.
@@ -156,7 +158,7 @@ export default async function AdminDashboardPage({
     from && to && DAY_RE.test(from!) && DAY_RE.test(to!) && from! <= to!,
   );
   const range = custom ? vnPeriod(from!, to!) : month;
-  const lastDay = custom ? to! : vnShiftDays(month.toDay, -1);
+  const lastDay = custom ? to! : month.lastDay;
   const label = custom
     ? from === ALL_FROM
       ? "Всё время"
