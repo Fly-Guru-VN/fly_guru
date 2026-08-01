@@ -224,11 +224,7 @@ export default function HomePage() {
         </div>
         <Container className="relative">
           <div className="flex items-end justify-between gap-4">
-            <SectionHeading
-              eyebrow="Отзывы"
-              title="Что говорят ученики"
-              subtitle="Реальные впечатления — лучшая мотивация."
-            />
+            <SectionHeading eyebrow="Отзывы" title="Что говорят ученики" />
             {/* Прячем обёрткой, а не классом hidden на самой кнопке: у Button в
                 базовых классах уже есть inline-flex, и в собранном CSS он идёт
                 позже hidden — на телефоне ссылка вылезала рядом с заголовком. */}
