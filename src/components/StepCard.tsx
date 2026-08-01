@@ -19,17 +19,6 @@ export type Step = {
   facts: { icon: Icon; label: string; label2?: string }[];
 };
 
-// Кегль подписи НА ПК: там иконка и текст стоят в строку, и на подпись остаётся
-// около 80 px (треть карточки минус иконка и поля). Считаем по самой длинной
-// строке: до 12 знаков влезает основным кеглем, дальше мельчим на шаг.
-// На телефоне ничего не мельчим — см. подвал карточки.
-function factSizeLg(fact: Step["facts"][number]) {
-  const longest = Math.max(fact.label.length, fact.label2?.length ?? 0);
-  if (longest > 13) return "lg:text-[9px]";
-  if (longest > 11) return "lg:text-[10px]";
-  return "lg:text-[11px]";
-}
-
 // Карточка шага на главной. Собрана по макету: оранжевый кружок с иконкой и
 // подпись «ШАГ N», под ними название и текст, справа — иллюстрация, внизу —
 // полоска с тремя фактами.
@@ -108,23 +97,23 @@ export function StepCard({ step, index }: { step: Step; index: number }) {
         {step.facts.map((f, i) => (
           <div
             key={f.label}
-            className={`flex flex-col items-center justify-center gap-1 px-1.5 text-center lg:flex-row lg:gap-1.5 ${
+            className={`flex flex-col items-center justify-center gap-1 px-1.5 text-center ${
               i > 0 ? "border-l border-line" : ""
             }`}
           >
-            <f.icon
-              aria-hidden
-              className="h-5 w-5 shrink-0 text-primary lg:h-4 lg:w-4"
-            />
+            <f.icon aria-hidden className="h-5 w-5 shrink-0 text-primary" />
             {/* Подпись — строго в две строки: перенос ставим сами (label2), а
                 внутри строки перенос запрещён.
-                На телефоне кегль у всех девяти подписей ОДИН (12 px) и текст
-                стоит по центру своей плашки под иконкой: плавающий 9–11 px и
-                выключка влево делали подвал рваным. На планшете тот же столбик,
-                но плашка втрое уже — там 10 px. Мельчим по длине строки только
-                на ПК, где иконка и текст стоят в ряд (см. factSizeLg). */}
+                Кегль ОДИН у всех девяти подписей — 12 px, и на телефоне, и на
+                ПК. Раньше на ПК он плавал от 9 до 11 px в зависимости от длины
+                строки: подписи выходили разного размера и мелкими. Плавать
+                приходилось потому, что иконка и текст стояли в ряд и на текст
+                оставалась треть плашки. Теперь на ПК иконка тоже стоит НАД
+                текстом — плашка отдаёт подписи всю ширину, и 12 px влезают.
+                Исключение одно — планшет: там три карточки в ряд на 768 px,
+                плашка вдвое уже, и подпись ужимается до 10 px. */}
             <span
-              className={`text-xs font-semibold leading-tight text-ink/85 md:max-lg:text-[10px] lg:whitespace-nowrap ${factSizeLg(f)}`}
+              className="text-xs font-semibold leading-tight text-ink/85 md:max-lg:text-[10px] lg:whitespace-nowrap"
             >
               {f.label}
               {f.label2 && (
