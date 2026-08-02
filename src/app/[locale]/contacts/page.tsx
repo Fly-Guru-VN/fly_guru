@@ -3,18 +3,21 @@ import { Container, Section, SectionHeading, Card } from "@/components/ui";
 import { IconPhone, IconChat, IconPin } from "@/components/icons";
 import { TrackedLink } from "@/components/TrackedLink";
 import { JsonLd } from "@/components/JsonLd";
-import { businessSchema } from "@/lib/schema";
+import { businessSchema, priceRangeLabel } from "@/lib/schema";
+import { getSiteServices } from "@/lib/services";
 import { contacts, socials } from "@/content/contacts";
 
 export const metadata: Metadata = { title: "Контакты" };
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
-export default function ContactsPage() {
+export default async function ContactsPage() {
+  // Вилка цен для разметки — из базы, как и на главной (см. lib/schema.ts).
+  const priceRange = priceRangeLabel(await getSiteServices());
   return (
     <Section className="pt-10 sm:pt-14">
       {/* Та же карточка школы, что и на главной (общий @id внутри): именно эту
           страницу поисковик считает страницей контактов организации. */}
-      <JsonLd data={businessSchema()} />
+      <JsonLd data={businessSchema(priceRange)} />
       <Container>
         <SectionHeading eyebrow="Контакты" title="Как с нами связаться" subtitle="Пишите в мессенджер — отвечаем быстро." />
 

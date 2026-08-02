@@ -2,7 +2,8 @@ import Image from "next/image";
 import { Container, Section, SectionHeading, Button, buttonClasses } from "@/components/ui";
 import { TrackedLink } from "@/components/TrackedLink";
 import { JsonLd } from "@/components/JsonLd";
-import { businessSchema } from "@/lib/schema";
+import { businessSchema, priceRangeLabel } from "@/lib/schema";
+import { getSiteServices } from "@/lib/services";
 import { BookBtn } from "@/components/BookBtn";
 import { HeroStage } from "@/components/HeroStage";
 import { Marquee } from "@/components/Marquee";
@@ -38,7 +39,11 @@ export const dynamic = "force-static";
 // Порядок блоков — как разговор с человеком на пляже: сначала показать полёт
 // (видео), потом коротко факты, потом чужой опыт (отзывы), потом путь «с чего
 // начать», потом ответы на страхи (вопросы) и только в конце — магазин.
-export default function HomePage() {
+export default async function HomePage() {
+  // Только ради вилки цен в разметке для поисковика. Страница статичная, так
+  // что запрос уходит один раз при сборке, а не на каждого посетителя.
+  const priceRange = priceRangeLabel(await getSiteServices());
+
   const facts = [
     "90% встают на крыло на первом занятии",
     "Тандем — 10 минут",
@@ -100,7 +105,7 @@ export default function HomePage() {
     <>
       {/* Карточка школы для поисковиков: адрес, телефон, часы, координаты.
           Стоит на главной — это страница, которая и представляет саму школу. */}
-      <JsonLd data={businessSchema()} />
+      <JsonLd data={businessSchema(priceRange)} />
 
       {/* ── Первый экран: видео во весь экран ── */}
       {/* Ролик яркий и солнечный, поэтому dim="soft": сильная заливка убивала

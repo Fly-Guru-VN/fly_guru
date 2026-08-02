@@ -30,7 +30,21 @@ const DESCRIPTION =
 // Тип SportsActivityLocation — это «место для занятий спортом» из справочника
 // schema.org, наследник обычного LocalBusiness. Он точнее описывает школу с
 // собственной точкой на пляже, чем безликая «организация».
-export function businessSchema() {
+// «Вилка цен» для карточки: от самой дешёвой услуги до самой дорогой.
+// Считаем по тем же ценам из базы, что стоят в прайсе, — вручную вписанная
+// вилка устарела бы при первой же правке цен в админке.
+export function priceRangeLabel(services: Service[]): string {
+  const prices = services
+    .map((s) => s.price)
+    .filter((p): p is number => p != null);
+  if (prices.length === 0) return "";
+  const money = (n: number) => n.toLocaleString("ru-RU");
+  return `${money(Math.min(...prices))}–${money(Math.max(...prices))} ₫`;
+}
+
+// priceRange — необязательное поле, но Google на его отсутствие ругается
+// («незначительная проблема») и без него не показывает вилку цен в карточке.
+export function businessSchema(priceRange?: string) {
   return {
     "@context": "https://schema.org",
     "@type": "SportsActivityLocation",
@@ -75,6 +89,8 @@ export function businessSchema() {
       },
     ],
     currenciesAccepted: "VND",
+    // Пустую строку не отдаём: поле без значения хуже, чем его отсутствие.
+    ...(priceRange ? { priceRange } : {}),
     // sameAs — «это та же самая школа, что и вот здесь». Сюда идут карточка на
     // картах и соцсети: так Google связывает сайт, точку и аккаунты в один
     // бизнес, а не в несколько разных.
