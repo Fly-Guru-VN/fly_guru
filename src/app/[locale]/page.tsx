@@ -292,11 +292,15 @@ export default function HomePage() {
         <Container className="relative">
           {/* Плашка магазина. Фото очень светлое и широкое (3:1), поэтому:
               • на телефоне оно лежит полосой сверху, а текст идёт под ним по
-                белому — в узкий кадр текст поверх фото просто не влезал;
+                белому — в узкий кадр текст поверх фото просто не влезал. Кадр
+                сдвинут вправо (object-position 70%), чтобы доска встала по
+                центру полосы: сама она сидит примерно на 58% ширины снимка, а
+                при object-cover окно кадра ходит только в пределах остатка;
               • от sm фото заливает плашку целиком, текст ложится слева поверх
-                воды, как в макете, под ним лёгкая белая вуаль для читаемости.
-              Текст тёмный, а не белый: заливать светлое фото чёрным градиентом
-              ради белых букв — значит убить сам кадр. */}
+                воды, как в макете. БЕЗ белой вуали: слева и так почти белая
+                вода, а вуаль читалась как пелена поверх фотографии. Текст
+                тёмный — заливать светлое фото чёрным градиентом ради белых букв
+                значит убить сам кадр. */}
           <div className="relative isolate overflow-hidden rounded-3xl bg-surface shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)] sm:h-[340px]">
             <div className="relative h-48 sm:absolute sm:inset-0 sm:-z-10 sm:h-auto">
               <Image
@@ -305,13 +309,9 @@ export default function HomePage() {
                 fill
                 sizes="(min-width: 1024px) 1024px, 100vw"
                 quality={90}
-                className="object-cover object-[62%_50%] sm:object-center"
+                className="object-cover object-[70%_50%] sm:object-center"
               />
             </div>
-            <div
-              aria-hidden
-              className="hidden sm:absolute sm:inset-0 sm:-z-10 sm:block sm:bg-gradient-to-r sm:from-white/90 sm:via-white/45 sm:to-transparent"
-            />
             <div className="p-6 sm:flex sm:h-full sm:max-w-[52%] sm:flex-col sm:justify-center sm:p-10">
               <p className="text-sm font-semibold uppercase tracking-wide text-primary">
                 Магазин
@@ -330,18 +330,16 @@ export default function HomePage() {
           </div>
 
           {/* Низ блока: слева вопросы, справа карточка с видео сборки.
-              На телефоне — колонкой, видео уходит под вопросы. */}
+              На ТЕЛЕФОНЕ видео идёт ПЕРВЫМ, до вопросов: длинный список ответов
+              на узком экране отодвигал его так далеко вниз, что до ролика почти
+              никто не доезжал. Порядок меняем через order — в разметке карточка
+              остаётся второй, чтобы на ПК не пришлось раскладывать колонки
+              задом наперёд. */}
           <div className="mt-6 grid items-start gap-6 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
-            <div>
-              <SectionHeading
-                eyebrow="Частые вопросы"
-                title="Ответы на популярные вопросы"
-              />
-              <div className="mt-6">
-                <Faq items={homeFaq} />
-              </div>
+            <div className="order-2 lg:order-none">
+              <Faq items={homeFaq} heading="Ответы на популярные вопросы" />
             </div>
-            <div className="overflow-hidden rounded-3xl border border-line bg-surface p-4 shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)]">
+            <div className="order-1 overflow-hidden rounded-3xl border border-line bg-surface p-4 shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)] lg:order-none">
               <FoilVideo
                 src="/media/video/foil-build.mp4"
                 poster="/media/video/foil-build-poster.jpg"

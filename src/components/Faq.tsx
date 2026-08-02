@@ -6,9 +6,15 @@ export interface FaqEntry {
   a: ReactNode;
 }
 
-export function Faq({ items }: { items: FaqEntry[] }) {
+// heading — заголовок ВНУТРИ карточки, первой строкой над вопросами. Так
+// заголовок и список читаются одним блоком, а не подписью и отдельной плашкой
+// под ней. Разделитель под ним рисует общий divide-y, отдельной линии не надо.
+export function Faq({ items, heading }: { items: FaqEntry[]; heading?: string }) {
   return (
     <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+      {heading && (
+        <h2 className="p-5 text-xl font-bold text-primary sm:text-2xl">{heading}</h2>
+      )}
       {items.map((item, i) => (
         <details key={i} className="group">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 font-semibold">
