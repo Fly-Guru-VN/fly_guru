@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Manrope } from "next/font/google";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
@@ -92,6 +93,10 @@ export default async function LocaleLayout({
             <SiteFooter />
           </BookingProvider>
         </NextIntlClientProvider>
+        {/* Счётчик посещений Vercel: считает визиты и просмотры страниц БЕЗ
+            cookie и без личных данных, поэтому баннер согласия не нужен.
+            Данные — во вкладке Analytics проекта на Vercel. */}
+        <Analytics />
       </body>
     </html>
   );
