@@ -118,7 +118,12 @@ export default async function TrainingPage() {
           ))}
         </ul>
         <div className="mt-7">
-          <BookBtn serviceId={defaultServiceId} size="lg" className="w-full sm:w-auto">
+          <BookBtn
+            serviceId={defaultServiceId}
+            place="training-hero"
+            size="lg"
+            className="w-full sm:w-auto"
+          >
             Записаться на обучение
           </BookBtn>
         </div>
@@ -167,6 +172,7 @@ export default async function TrainingPage() {
                   <div className="mt-4">
                     <BookBtn
                       serviceId={services.find((x) => x.name === s.name)?.id ?? defaultServiceId}
+                      place="training-price"
                       variant="secondary"
                       className="w-full"
                     >

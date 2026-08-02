@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { Container, Section, SectionHeading, Button } from "@/components/ui";
+import { Container, Section, SectionHeading, Button, buttonClasses } from "@/components/ui";
+import { TrackedLink } from "@/components/TrackedLink";
 import { BookBtn } from "@/components/BookBtn";
 import { HeroStage } from "@/components/HeroStage";
 import { Marquee } from "@/components/Marquee";
@@ -122,7 +123,7 @@ export default function HomePage() {
         </div>
         <div>
           <div className="flex flex-col gap-3 sm:flex-row md:mt-7">
-            <BookBtn size="lg" className="w-full sm:w-auto">
+            <BookBtn place="hero" size="lg" className="w-full sm:w-auto">
               Записаться
             </BookBtn>
             <Button href="/tandem" size="lg" variant="light" className="w-full sm:w-auto">
@@ -324,9 +325,18 @@ export default function HomePage() {
                 вес и уровень, расскажем про обслуживание.
               </p>
               <div className="mt-6">
-                <Button href="/shop" variant="sea">
+                {/* Через TrackedLink, а не обычный Button: переход в магазин
+                    считаем отдельно — по нему видно, есть ли вообще спрос на
+                    продажу фойлов с главной. Вид тот же, классы кнопки берём
+                    из общего buttonClasses. */}
+                <TrackedLink
+                  href="/shop"
+                  event="shop_click"
+                  data={{ place: "home" }}
+                  className={buttonClasses({ variant: "sea" })}
+                >
                   Смотреть магазин <IconArrowRight className="h-4 w-4" />
-                </Button>
+                </TrackedLink>
               </div>
             </div>
           </div>

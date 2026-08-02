@@ -6,11 +6,13 @@ import { useBooking } from "./BookingProvider";
 
 // Кнопка «Записаться», открывающая единую модалку записи (пак 5). Выглядит как
 // <Button>, но не ведёт на страницу-якорь, а открывает форму поверх текущей.
-// serviceId — какую услугу выбрать заранее; refCode — реф-код на лендинге.
+// serviceId — какую услугу выбрать заранее; refCode — реф-код на лендинге;
+// place — метка для аналитики: с какой именно кнопки открыли форму.
 
 export function BookBtn({
   serviceId,
   refCode,
+  place,
   children,
   variant = "primary",
   size = "md",
@@ -18,6 +20,7 @@ export function BookBtn({
 }: {
   serviceId?: string;
   refCode?: string;
+  place?: string;
   children: ReactNode;
   variant?: ButtonVariant;
   size?: "md" | "lg";
@@ -27,7 +30,7 @@ export function BookBtn({
   return (
     <button
       type="button"
-      onClick={() => open({ serviceId, refCode })}
+      onClick={() => open({ serviceId, refCode, place })}
       className={buttonClasses({ variant, size, className })}
     >
       {children}

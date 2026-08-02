@@ -40,7 +40,9 @@ export default async function TandemPage() {
                 и обязательств.
               </p>
               <div className="mt-8">
-                <BookBtn serviceId={services[0]?.id} size="lg">Записаться на тандем</BookBtn>
+                <BookBtn serviceId={services[0]?.id} place="tandem-hero" size="lg">
+                  Записаться на тандем
+                </BookBtn>
               </div>
             </div>
             {/* Кадр снят вертикально — родные 9:16, иначе object-cover срежет
@@ -71,6 +73,7 @@ export default async function TandemPage() {
                 <div className="mt-6">
                   <BookBtn
                     serviceId={services.find((x) => x.name === s.name)?.id}
+                    place="tandem-price"
                     variant="secondary"
                     className="w-full"
                   >

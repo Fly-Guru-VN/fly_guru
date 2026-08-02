@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "@/i18n/navigation";
+import { trackEvent } from "@/lib/analytics";
 import { forgetRefCode, getAttributionForBooking } from "@/lib/attribution";
 import { isValidPhone, PHONE_ERROR } from "@/lib/phone";
 import { Spinner } from "./Spinner";
@@ -92,6 +93,13 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
       // Сервер не нашёл владельца кода — стираем его из браузера, иначе он
       // будет цепляться к заявкам ещё 30 дней (см. forgetRefCode).
       if (refAccepted === false) forgetRefCode();
+      // Вторая половина воронки: сколько из открывших форму дошли до конца.
+      // Услугу пишем кодом (basic-adult и т. п.), а не названием: названия в
+      // базе правят, и статистика тогда разъезжается на две разные строки.
+      const chosen = services.find((s) => s.id === payload.serviceId);
+      trackEvent("booking_sent", {
+        service: chosen?.code || chosen?.name || "unknown",
+      });
       // Сначала закрываем модалку (если форма в ней): иначе панель с «Отправляем…»
       // и заблокированный скролл висят поверх /thanks — форма будто зависла,
       // хотя заявка ушла (пачка №5, п.1/3).

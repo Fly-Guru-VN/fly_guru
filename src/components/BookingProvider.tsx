@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { ServiceOption } from "./BookingForm";
 import { BookingModal } from "./BookingModal";
+import { trackEvent } from "@/lib/analytics";
 
 // Единая форма записи на весь сайт (пак 5). Один инстанс формы живёт здесь, в
 // модалке поверх страницы; любая кнопка «Записаться» открывает её через
@@ -18,6 +19,9 @@ import { BookingModal } from "./BookingModal";
 interface OpenOpts {
   serviceId?: string; // какую услугу выбрать заранее (зависит от кнопки)
   refCode?: string; // реф-код (кнопки на лендинге /r/[code])
+  // Откуда открыли форму: «header», «hero», «sticky» и т. д. Уходит в
+  // аналитику — по этой метке видно, какая кнопка на сайте реально работает.
+  place?: string;
 }
 
 interface BookingContext {
@@ -47,10 +51,12 @@ export function BookingProvider({
     refCode?: string;
   }>({ open: false });
 
-  const open = useCallback(
-    (opts?: OpenOpts) => setState({ open: true, ...opts }),
-    [],
-  );
+  // Событие шлём здесь, а не в каждой кнопке: точка входа в форму одна, и так
+  // ни один способ её открыть не останется неучтённым.
+  const open = useCallback((opts?: OpenOpts) => {
+    trackEvent("booking_open", { place: opts?.place ?? "unknown" });
+    setState({ open: true, serviceId: opts?.serviceId, refCode: opts?.refCode });
+  }, []);
   const close = useCallback(() => setState((s) => ({ ...s, open: false })), []);
 
   return (

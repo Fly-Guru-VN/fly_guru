@@ -47,7 +47,7 @@ export function StickyBookBar({
       // Скрытую панель убираем и от читалок, и от перехода по Tab.
       inert={!show}
     >
-      <BookBtn serviceId={serviceId} size="lg" className="w-full">
+      <BookBtn serviceId={serviceId} place="sticky" size="lg" className="w-full">
         {label}
       </BookBtn>
     </div>

@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { NAV_LINKS } from "./nav";
 import { IconPhone, IconChat, IconPin } from "./icons";
+import { TrackedLink } from "./TrackedLink";
 import { contacts, socials } from "@/content/contacts";
 
 // Футер: навигация + контакты/соцсети/мессенджеры.
@@ -41,38 +42,80 @@ export function SiteFooter() {
           <ul className="space-y-2 text-sm text-muted">
             <li className="flex items-center gap-2">
               <IconPhone className="h-5 w-5 shrink-0 text-primary" />
-              <a href={contacts.phone.tel} className="hover:text-ink">
+              <TrackedLink
+                href={contacts.phone.tel}
+                external
+                event="contact_click"
+                data={{ channel: "phone", place: "footer" }}
+                className="hover:text-ink"
+              >
                 {contacts.phone.display}
-              </a>
+              </TrackedLink>
             </li>
             <li className="flex items-center gap-2">
               <IconChat className="h-5 w-5 shrink-0 text-primary" />
               <span>
-                <a href={contacts.phone.whatsapp} className="hover:text-ink">WhatsApp</a>
+                <TrackedLink
+                  href={contacts.phone.whatsapp}
+                  external
+                  event="contact_click"
+                  data={{ channel: "whatsapp", place: "footer" }}
+                  className="hover:text-ink"
+                >
+                  WhatsApp
+                </TrackedLink>
                 {" · "}
-                <a href={contacts.telegram} className="hover:text-ink">Telegram</a>
+                <TrackedLink
+                  href={contacts.telegram}
+                  external
+                  event="contact_click"
+                  data={{ channel: "telegram", place: "footer" }}
+                  className="hover:text-ink"
+                >
+                  Telegram
+                </TrackedLink>
                 {" · "}
-                <a href={contacts.zalo} className="hover:text-ink">Zalo</a>
+                <TrackedLink
+                  href={contacts.zalo}
+                  external
+                  event="contact_click"
+                  data={{ channel: "zalo", place: "footer" }}
+                  className="hover:text-ink"
+                >
+                  Zalo
+                </TrackedLink>
               </span>
             </li>
             <li className="flex items-center gap-2">
               <IconPin className="h-5 w-5 shrink-0 text-primary" />
-              <a href={contacts.mapLink} target="_blank" rel="noopener noreferrer" className="hover:text-ink">
+              <TrackedLink
+                href={contacts.mapLink}
+                external
+                newTab
+                event="contact_click"
+                data={{ channel: "maps", place: "footer" }}
+                className="hover:text-ink"
+              >
                 {contacts.address}
-              </a>
+              </TrackedLink>
             </li>
           </ul>
           <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-sm">
             {socials.map((s) => (
-              <a
+              <TrackedLink
                 key={s.name}
                 href={s.href}
-                target="_blank"
-                rel="noopener noreferrer"
+                external
+                newTab
+                event="contact_click"
+                // Название соцсети — как в списке (Instagram, YouTube…),
+                // приводим к нижнему регистру, чтобы в отчёте не появлялись
+                // две строки на одну и ту же ссылку.
+                data={{ channel: s.name.toLowerCase(), place: "footer" }}
                 className="text-primary hover:text-primary-strong"
               >
                 {s.name}
-              </a>
+              </TrackedLink>
             ))}
           </div>
         </div>

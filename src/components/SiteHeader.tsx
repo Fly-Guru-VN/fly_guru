@@ -153,7 +153,7 @@ export function SiteHeader() {
           </Link>
           <button
             type="button"
-            onClick={() => openBooking()}
+            onClick={() => openBooking({ place: "header" })}
             className="ml-1 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-95"
           >
             Записаться
@@ -227,7 +227,7 @@ export function SiteHeader() {
               type="button"
               onClick={() => {
                 setOpen(false);
-                openBooking();
+                openBooking({ place: "burger" });
               }}
               className="mt-1 mb-1 rounded-full bg-accent px-5 py-3 text-center font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-95"
             >

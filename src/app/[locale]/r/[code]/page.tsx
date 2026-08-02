@@ -84,7 +84,7 @@ export default async function ReferralLandingPage({
                   : " Запишитесь напрямую к вашему инструктору."}
               </p>
               <div className="mt-8">
-                <BookBtn refCode={code} serviceId={defaultServiceId} size="lg">
+                <BookBtn refCode={code} serviceId={defaultServiceId} place="ref-hero" size="lg">
                   {isAgent ? "Записаться со скидкой" : "Записаться"}
                 </BookBtn>
               </div>
@@ -147,7 +147,7 @@ export default async function ReferralLandingPage({
                 Скидка применяется к базовому занятию (взрослый). Действует по этой ссылке.
               </p>
               <div className="mt-8">
-                <BookBtn refCode={code} serviceId={defaultServiceId} size="lg">
+                <BookBtn refCode={code} serviceId={defaultServiceId} place="ref-bottom" size="lg">
                   Записаться
                 </BookBtn>
               </div>
