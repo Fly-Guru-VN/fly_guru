@@ -4,7 +4,7 @@ import { BookBtn } from "@/components/BookBtn";
 import { HeroStage } from "@/components/HeroStage";
 import { Marquee } from "@/components/Marquee";
 import { RailItem } from "@/components/Rail";
-import { ReviewsRail } from "@/components/ReviewsRail";
+import { DotsRail } from "@/components/DotsRail";
 import { StickyBookBar } from "@/components/StickyBookBar";
 import { Faq } from "@/components/Faq";
 import { ReviewPhotoCard } from "@/components/ReviewPhotoCard";
@@ -106,19 +106,22 @@ export default function HomePage() {
         dim="soft"
         split
       >
-        <h1 className="text-4xl font-bold leading-[1.05] drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)] sm:text-5xl md:text-6xl">
-          Научим летать<br />
-          за 60 минут
-        </h1>
-        {/* Всё, кроме заголовка, лежит одним блоком: на телефоне HeroStage
-            разводит заголовок вверх, а этот блок вниз, и между ними в кадре
-            остаётся сам полёт. На ПК блок просто идёт следом за заголовком. */}
+        {/* Весь текст — одним блоком наверху: на телефоне HeroStage уводит
+            первого потомка в небо над фойлом, а второго оставляет внизу. Абзац
+            раньше жил внизу с кнопками и налезал на доску. На ПК блоки просто
+            идут подряд, вид тот же. */}
         <div>
+          <h1 className="text-4xl font-bold leading-[1.05] drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)] sm:text-5xl md:text-6xl">
+            Научим летать<br />
+            за 60 минут
+          </h1>
           <p className="mt-4 max-w-md text-base text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-lg">
             Это проще, чем выглядит. Доска уверенно ощущается под ногами, мачта
             рассекает воду — и вы летите.
           </p>
-          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+        </div>
+        <div>
+          <div className="flex flex-col gap-3 sm:flex-row md:mt-7">
             <BookBtn size="lg" className="w-full sm:w-auto">
               Записаться
             </BookBtn>
@@ -148,6 +151,7 @@ export default function HomePage() {
           декоративный — на телефоне он только съедал бы место, поэтому от md. */}
       <Section
         tone="muted"
+        pad="tight"
         className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2"
       >
         <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
@@ -165,13 +169,6 @@ export default function HomePage() {
             height={117}
             className="absolute right-24 top-40 w-[4.5rem] rotate-[7deg]"
           />
-          <Image
-            src="/media/decor/wave-soft.webp"
-            alt=""
-            width={700}
-            height={78}
-            className="absolute -left-20 bottom-16 w-[26rem] opacity-60"
-          />
         </div>
         <Container className="relative">
           <div className="flex items-end justify-between gap-4">
@@ -187,13 +184,13 @@ export default function HomePage() {
           </div>
           {/* Лента: на телефоне листается пальцем, на ПК — три колонки.
               Раньше три отзыва подряд занимали полтора экрана. */}
-          <ReviewsRail count={homeReviews.length}>
+          <DotsRail count={homeReviews.length} className="md:grid-cols-3">
             {homeReviews.map((r) => (
               <RailItem key={r.name}>
                 <ReviewPhotoCard review={r} />
               </RailItem>
             ))}
-          </ReviewsRail>
+          </DotsRail>
           <div className="mt-6 sm:hidden">
             <Button href="/reviews" variant="secondary">
               Все отзывы <IconArrowRight className="h-4 w-4" />
@@ -202,6 +199,22 @@ export default function HomePage() {
         </Container>
       </Section>
 
+      {/* ── Разделитель: волна ── */}
+      {/* Отдельная полоса между отзывами и шагами, а не декор внутри секции:
+          раньше волна пряталась в углу отзывов слева и терялась. Фон здесь —
+          surface-2, тот же цвет, которым заканчивается верхняя секция и
+          начинается нижняя, поэтому стыка не видно, а волна читается как
+          росчерк воды между блоками. Виден и на телефоне. */}
+      <div aria-hidden className="flex justify-center bg-surface-2 py-2">
+        <Image
+          src="/media/decor/wave-soft.webp"
+          alt=""
+          width={700}
+          height={78}
+          className="w-[22rem] opacity-70 sm:w-[32rem] lg:w-[48rem]"
+        />
+      </div>
+
       {/* ── Путь клиента ── */}
       {/* Фон продолжает предыдущий блок: отзывы заканчиваются бледно-морским,
           шаги с него начинаются и уходят обратно в белый — к вопросам ниже.
@@ -209,6 +222,7 @@ export default function HomePage() {
           иллюстрациях. */}
       <Section
         id="path"
+        pad="tight"
         className="relative overflow-hidden bg-gradient-to-b from-surface-2 to-white"
       >
         {/* Те же чайки, что в отзывах, но в другом месте и в другую сторону: там
@@ -249,14 +263,18 @@ export default function HomePage() {
           >
             <path d="M2 6c4-5 8-5 12 0s8 5 12 0 8-5 12 0 8 5 12 0" />
           </svg>
-          {/* Телефон — карточки одна под другой, ПК — три в ряд. Каждая закрытая
-              карточка вместо прежней «дорожки»: у шага появились иллюстрация и
-              факты, а они требуют своей рамки, иначе всё сливается в кашу. */}
-          <ol className="mt-8 grid gap-6 md:grid-cols-3">
+          {/* Телефон — лента с точками, как у отзывов: три высокие карточки
+              одна под другой занимали почти три экрана прокрутки вслепую.
+              ПК — три в ряд. Каждая закрытая карточка вместо прежней
+              «дорожки»: у шага появились иллюстрация и факты, а они требуют
+              своей рамки, иначе всё сливается в кашу. */}
+          <DotsRail as="ol" count={steps.length} className="md:grid-cols-3">
             {steps.map((s, i) => (
-              <StepCard key={s.title} step={s} index={i} />
+              <RailItem as="li" key={s.title}>
+                <StepCard step={s} index={i} />
+              </RailItem>
             ))}
-          </ol>
+          </DotsRail>
           <div className="mt-6 md:mt-8">
             <Button href="/training" variant="secondary">
               Подробнее об обучении <IconArrowRight className="h-4 w-4" />
@@ -270,7 +288,7 @@ export default function HomePage() {
           фоном (вопросы на фоне страницы, магазин на surface-2) — на стыке с
           шагами получалась заметная ступенька цвета. Теперь секция начинается
           ровно тем белым, которым закончились шаги, и сама уходит в морской. */}
-      <Section className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2">
+      <Section pad="tight" className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2">
         {/* Чайки — как в отзывах и шагах, только от md. Пара летит в пустоте
             справа, под карточкой с видео. */}
         <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
