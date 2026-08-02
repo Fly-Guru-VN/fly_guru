@@ -72,7 +72,10 @@ export function Badge({ children, className = "" }: { children: ReactNode; class
 
 // «light» — для кнопок поверх фото и видео: обычная secondary там пропадает,
 // её бирюзовая рамка на тёмном кадре почти не видна.
-export type ButtonVariant = "primary" | "secondary" | "ghost" | "light";
+// «sea» — залитая морской бирюзой. Для второстепенных переходов на светлых
+// плашках (магазин на главной): оранжевая primary там спорила бы с главным
+// «Записаться», а полая secondary на фотофоне выглядит слабо.
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "light" | "sea";
 
 type ButtonProps = {
   href: string;
@@ -102,6 +105,7 @@ export function buttonClasses({
     ghost: "text-primary hover:text-primary-strong",
     light:
       "border border-white/70 bg-white/10 text-white backdrop-blur-sm hover:bg-white hover:text-primary-strong",
+    sea: "bg-primary text-white hover:bg-primary-strong",
   };
   return `${base} ${sizes[size]} ${variants[variant]} ${className}`;
 }

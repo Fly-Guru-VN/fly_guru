@@ -9,6 +9,7 @@ import { StickyBookBar } from "@/components/StickyBookBar";
 import { Faq } from "@/components/Faq";
 import { ReviewPhotoCard } from "@/components/ReviewPhotoCard";
 import { StepCard, type Step } from "@/components/StepCard";
+import { FoilVideo } from "@/components/FoilVideo";
 import {
   IconTandem,
   IconFoil,
@@ -20,6 +21,8 @@ import {
   IconInfinity,
   IconPalm,
   IconStar,
+  IconWrench,
+  IconBadgeCheck,
 } from "@/components/icons";
 import { homeFaq } from "@/content/faq";
 import { homeReviews } from "@/content/reviews";
@@ -39,6 +42,13 @@ export default function HomePage() {
     "Нячанг · Marina Beach",
     "Дети с 8 лет",
     "Инструктор рядом на воде",
+  ];
+
+  // Три обещания под видео сборки — тем же строем, что факты в карточках шагов.
+  const shopFacts = [
+    { icon: IconShield, label: "Надёжные бренды" },
+    { icon: IconWrench, label: "Поддержка и сервис" },
+    { icon: IconBadgeCheck, label: "Гарантия качества" },
   ];
 
   const steps: Step[] = [
@@ -255,43 +265,111 @@ export default function HomePage() {
         </Container>
       </Section>
 
-      {/* ── FAQ ── */}
-      <Section>
-        <Container>
-          <SectionHeading eyebrow="Частые вопросы" title="Коротко о главном" />
-          <div className="mt-8">
-            <Faq items={homeFaq} />
-          </div>
-        </Container>
-      </Section>
-
-      {/* ── Тизер магазина ── */}
-      <Section tone="muted">
-        <Container>
-          {/* Фото фоном, текст поверх — блок стал вдвое компактнее прежнего,
-              где картинка и текст стояли рядом и занимали пол-экрана каждый.
-              next/image здесь напрямую (а не через Media): нужна своя высота на
-              телефоне и на ПК, а Media задаёт пропорции кадра. */}
-          <div className="relative isolate h-[340px] overflow-hidden rounded-3xl sm:h-[300px]">
-            <Image
-              src="/media/photo/shop-foil.webp"
-              alt="Электрофойл FlyGuru на пляже в Нячанге"
-              fill
-              sizes="(min-width: 1024px) 1024px, 100vw"
-              quality={90}
-              className="-z-10 object-cover"
+      {/* ── Магазин и вопросы ── */}
+      {/* Один блок вместо двух. Раньше это были две отдельные секции с разным
+          фоном (вопросы на фоне страницы, магазин на surface-2) — на стыке с
+          шагами получалась заметная ступенька цвета. Теперь секция начинается
+          ровно тем белым, которым закончились шаги, и сама уходит в морской. */}
+      <Section className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2">
+        {/* Чайки — как в отзывах и шагах, только от md. Пара летит в пустоте
+            справа, под карточкой с видео. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute bottom-24 right-24 w-14 -rotate-[7deg] opacity-90"
+          />
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute bottom-10 right-44 w-[4.5rem] rotate-[5deg]"
+          />
+        </div>
+        <Container className="relative">
+          {/* Плашка магазина. Фото очень светлое и широкое (3:1), поэтому:
+              • на телефоне оно лежит полосой сверху, а текст идёт под ним по
+                белому — в узкий кадр текст поверх фото просто не влезал;
+              • от sm фото заливает плашку целиком, текст ложится слева поверх
+                воды, как в макете, под ним лёгкая белая вуаль для читаемости.
+              Текст тёмный, а не белый: заливать светлое фото чёрным градиентом
+              ради белых букв — значит убить сам кадр. */}
+          <div className="relative isolate overflow-hidden rounded-3xl bg-surface shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)] sm:h-[340px]">
+            <div className="relative h-48 sm:absolute sm:inset-0 sm:-z-10 sm:h-auto">
+              <Image
+                src="/media/photo/shop-hero.webp"
+                alt="Электрофойл в полёте над морем"
+                fill
+                sizes="(min-width: 1024px) 1024px, 100vw"
+                quality={90}
+                className="object-cover object-[62%_50%] sm:object-center"
+              />
+            </div>
+            <div
+              aria-hidden
+              className="hidden sm:absolute sm:inset-0 sm:-z-10 sm:block sm:bg-gradient-to-r sm:from-white/90 sm:via-white/45 sm:to-transparent"
             />
-            <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/85 via-black/50 to-black/10 sm:bg-gradient-to-r sm:from-black/85 sm:via-black/55 sm:to-transparent" />
-            <div className="flex h-full flex-col justify-end p-6 text-white sm:max-w-md sm:justify-center sm:p-10">
-              <h2 className="text-2xl font-bold sm:text-3xl">Продаём электрофойлы</h2>
-              <p className="mt-3 text-white/85">
+            <div className="p-6 sm:flex sm:h-full sm:max-w-[52%] sm:flex-col sm:justify-center sm:p-10">
+              <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+                Магазин
+              </p>
+              <h2 className="mt-2 text-2xl font-bold sm:text-3xl">Продаём электрофойлы</h2>
+              <p className="mt-3 text-muted">
                 Официально возим Hobbywing и Lift Foils. Поможем выбрать под ваш
                 вес и уровень, расскажем про обслуживание.
               </p>
               <div className="mt-6">
-                <Button href="/shop" variant="light">
-                  Смотреть магазин
+                <Button href="/shop" variant="sea">
+                  Смотреть магазин <IconArrowRight className="h-4 w-4" />
                 </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Низ блока: слева вопросы, справа карточка с видео сборки.
+              На телефоне — колонкой, видео уходит под вопросы. */}
+          <div className="mt-6 grid items-start gap-6 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+            <div>
+              <SectionHeading
+                eyebrow="Частые вопросы"
+                title="Ответы на популярные вопросы"
+              />
+              <div className="mt-6">
+                <Faq items={homeFaq} />
+              </div>
+            </div>
+            <div className="overflow-hidden rounded-3xl border border-line bg-surface p-4 shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)]">
+              <FoilVideo
+                src="/media/video/foil-build.mp4"
+                poster="/media/video/foil-build-poster.jpg"
+                alt="Сборка электрофойла: мачта, крылья и мотор"
+              />
+              {/* Без подписи тёмный технический ролик висит в карточке без
+                  объяснения — непонятно ни что это, ни что его можно открыть. */}
+              <div className="px-2 pt-4">
+                <h3 className="text-lg font-bold">Как устроен фойл</h3>
+                <p className="mt-1.5 text-sm text-muted">
+                  Доска, мачта, крылья, мотор и батарея — всё собирается за
+                  несколько минут. Нажмите на видео, чтобы развернуть.
+                </p>
+              </div>
+              <div className="mt-4 grid grid-cols-3 border-t border-line pt-4">
+                {shopFacts.map((f, i) => (
+                  <div
+                    key={f.label}
+                    className={`flex flex-col items-center justify-start gap-1.5 px-1.5 text-center ${
+                      i > 0 ? "border-l border-line" : ""
+                    }`}
+                  >
+                    <f.icon aria-hidden className="h-5 w-5 shrink-0 text-primary" />
+                    <span className="text-[11px] font-semibold leading-tight text-ink/85 sm:text-xs">
+                      {f.label}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
