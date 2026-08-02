@@ -6,6 +6,25 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
+  // Служебный адрес продакшн-деплоя (fly-guru.vercel.app) отдаёт тот же сайт,
+  // что и основной домен, и не закрыт от индексации — для поисковика это сайт
+  // ДВОЙНИК, который отбирает у flyguru.pro позиции. Уводим его на основной
+  // домен навсегда (308), сохраняя путь: /training → www.flyguru.pro/training.
+  //
+  // Хост перечислен ПОИМЁННО, не по маске *.vercel.app: у превью-деплоев
+  // (ветки, пул-реквесты) адреса тоже на vercel.app, и по маске они бы
+  // перестали открываться — а именно на них удобно проверять правки до
+  // выкатки. Превью Vercel и так закрывает от поисковиков сам.
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "fly-guru.vercel.app" }],
+        destination: "https://www.flyguru.pro/:path*",
+        permanent: true,
+      },
+    ];
+  },
   experimental: {
     // Загрузка аватарки в настройках кабинета идёт через server action;
     // дефолтный лимит тела (1 МБ) для фото с телефона мал.
