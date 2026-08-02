@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { Container, Section, SectionHeading, Button, buttonClasses } from "@/components/ui";
 import { TrackedLink } from "@/components/TrackedLink";
+import { JsonLd } from "@/components/JsonLd";
+import { businessSchema } from "@/lib/schema";
 import { BookBtn } from "@/components/BookBtn";
 import { HeroStage } from "@/components/HeroStage";
 import { Marquee } from "@/components/Marquee";
@@ -96,6 +98,10 @@ export default function HomePage() {
 
   return (
     <>
+      {/* Карточка школы для поисковиков: адрес, телефон, часы, координаты.
+          Стоит на главной — это страница, которая и представляет саму школу. */}
+      <JsonLd data={businessSchema()} />
+
       {/* ── Первый экран: видео во весь экран ── */}
       {/* Ролик яркий и солнечный, поэтому dim="soft": сильная заливка убивала
           бирюзу воды, ради которой всё и снято. Текст держится на тени. */}

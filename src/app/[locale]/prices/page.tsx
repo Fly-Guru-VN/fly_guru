@@ -7,6 +7,8 @@ import {
   type ServiceCategory,
 } from "@/content/services";
 import { getSiteServices } from "@/lib/services";
+import { JsonLd } from "@/components/JsonLd";
+import { priceListSchema } from "@/lib/schema";
 
 export const metadata: Metadata = { title: "Прайс" };
 export const dynamic = "force-static"; // статичная страница, форсим SSG
@@ -19,6 +21,9 @@ export default async function PricesPage() {
   const services = await getSiteServices();
   return (
     <Section className="pt-10 sm:pt-14">
+      {/* Прайс для поисковиков: те же услуги и те же цены, что в таблице ниже —
+          и то и другое берётся из базы, разъехаться не может. */}
+      <JsonLd data={priceListSchema(services)} />
       <Container>
         <SectionHeading eyebrow="Прайс" title="Стоимость услуг" subtitle="Все цены в донгах (₫). Оплата на месте." />
 

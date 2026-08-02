@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Container, Section, SectionHeading, Card } from "@/components/ui";
 import { IconPhone, IconChat, IconPin } from "@/components/icons";
 import { TrackedLink } from "@/components/TrackedLink";
+import { JsonLd } from "@/components/JsonLd";
+import { businessSchema } from "@/lib/schema";
 import { contacts, socials } from "@/content/contacts";
 
 export const metadata: Metadata = { title: "Контакты" };
@@ -10,6 +12,9 @@ export const dynamic = "force-static"; // статичная страница, �
 export default function ContactsPage() {
   return (
     <Section className="pt-10 sm:pt-14">
+      {/* Та же карточка школы, что и на главной (общий @id внутри): именно эту
+          страницу поисковик считает страницей контактов организации. */}
+      <JsonLd data={businessSchema()} />
       <Container>
         <SectionHeading eyebrow="Контакты" title="Как с нами связаться" subtitle="Пишите в мессенджер — отвечаем быстро." />
 
