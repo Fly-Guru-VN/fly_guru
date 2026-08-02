@@ -90,9 +90,13 @@ export function HeroStage({
         {/* Затемнение снизу вверх: текст читается, а верх кадра остаётся
             открытым — там небо, горы и город. */}
         <div className={`absolute inset-0 -z-10 ${overlay}`} />
+        {/* Верхний отступ у split-кадра на телефоне минимальный: заголовок с
+            текстом должны стоять высоко в небе, иначе абзац дотягивается до
+            доски. 20 px — предел: меньше, и текст упирается в шапку. На ПК
+            содержимое лежит внизу кадра, там прежние 112 px. */}
         <div
-          className={`px-4 pb-10 pt-28 text-white sm:px-6 md:px-10 md:pb-12 ${
-            split ? "flex flex-1 flex-col md:block md:flex-none" : ""
+          className={`px-4 pb-10 text-white sm:px-6 md:px-10 md:pb-12 md:pt-28 ${
+            split ? "flex flex-1 flex-col pt-5 md:block md:flex-none" : "pt-28"
           }`}
         >
           {/* Ширину текста держим по общему контейнеру сайта, иначе на широком
