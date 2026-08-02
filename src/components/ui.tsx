@@ -7,15 +7,19 @@ export function Container({ children, className = "" }: { children: ReactNode; c
 }
 
 // Вертикальный ритм секций. tone="muted" — чуть другой фон для чередования.
+// pad="tight" — сжатые поля: на главной блоки идут одной историей подряд
+// (отзывы → шаги → магазин), и обычный воздух между ними читался как разрыв.
 export function Section({
   children,
   className = "",
   tone = "default",
+  pad = "normal",
   id,
 }: {
   children: ReactNode;
   className?: string;
   tone?: "default" | "muted" | "primary";
+  pad?: "normal" | "tight";
   id?: string;
 }) {
   const tones = {
@@ -23,8 +27,9 @@ export function Section({
     muted: "bg-surface-2",
     primary: "bg-primary text-white",
   };
+  const pads = { normal: "py-14 sm:py-20", tight: "py-8 sm:py-12" };
   return (
-    <section id={id} className={`py-14 sm:py-20 ${tones[tone]} ${className}`}>
+    <section id={id} className={`${pads[pad]} ${tones[tone]} ${className}`}>
       {children}
     </section>
   );
