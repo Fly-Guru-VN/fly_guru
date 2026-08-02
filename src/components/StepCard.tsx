@@ -34,9 +34,12 @@ export type Step = {
 //    текст ужат отступом справа. Там остаётся вертикальная иллюстрация (image),
 //    вписанная целиком, с растушёвкой краёв: фон у неё бледно-голубой и без
 //    растушёвки читался на белой карточке прямоугольной заплаткой.
+// Карточка рендерится обычным div: элемент списка (<li>) снаружи рисует
+// RailItem — карточки лежат в ленте, которую на телефоне листают пальцем.
+// h-full — чтобы в ряду и в ленте все три держали одну высоту.
 export function StepCard({ step, index }: { step: Step; index: number }) {
   return (
-    <li className="flex flex-col overflow-hidden rounded-3xl border border-line bg-surface shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)]">
+    <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)]">
       <div className="relative flex-1">
         {/* Узкий экран: фото 4:3 во всю ширину карточки. */}
         <div className="relative aspect-[4/3] w-full bg-white lg:hidden">
@@ -126,6 +129,6 @@ export function StepCard({ step, index }: { step: Step; index: number }) {
           </div>
         ))}
       </div>
-    </li>
+    </div>
   );
 }

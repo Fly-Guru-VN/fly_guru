@@ -3,13 +3,25 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Rail } from "./Rail";
 
-// Лента отзывов на главной с точками-индикаторами под ней (как в макете).
+// Лента с точками-индикаторами под ней (как в макете): отзывы и шаги на главной.
 //
-// Точки нужны только на телефоне: на ПК все три карточки стоят в ряд и считать
+// Точки нужны только на телефоне: на ПК все карточки стоят в ряд и считать
 // нечего. Сами карточки приходят готовыми из серверного компонента — здесь
 // только прокрутка, поэтому «use client» на них не распространяется.
-export function ReviewsRail({ children, count }: { children: ReactNode; count: number }) {
-  const ref = useRef<HTMLDivElement>(null);
+//
+// as="ol" — для шагов: там карточки нумерованные и должны остаться списком.
+export function DotsRail({
+  children,
+  count,
+  as = "div",
+  className = "",
+}: {
+  children: ReactNode;
+  count: number;
+  as?: "div" | "ol";
+  className?: string;
+}) {
+  const ref = useRef<HTMLElement>(null);
   const [active, setActive] = useState(0);
 
   function onScroll() {
@@ -29,10 +41,11 @@ export function ReviewsRail({ children, count }: { children: ReactNode; count: n
           жался к левому краю. С 28 px просветы слева и справа почти равны, и
           карточка стоит по центру. */}
       <Rail
+        as={as}
         scrollRef={ref}
         onScroll={onScroll}
         gutter="-mx-4 px-7 scroll-px-7 sm:-mx-6 sm:px-6 sm:scroll-px-6"
-        className="mt-8 md:grid-cols-3"
+        className={`mt-8 ${className}`}
       >
         {children}
       </Rail>

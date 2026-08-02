@@ -18,27 +18,36 @@ import type { ReactNode, RefObject } from "react";
 // того же размера: без него прилипание уводит вторую и третью карточки в самый
 // край экрана, и только первая стоит с отступом. Размер можно переопределить
 // снаружи, если карточке нужен зазор пошире.
+//
+// as — каким тегом рендерить. По умолчанию div, но шаги на главной — это
+// нумерованный список: там лента должна быть <ol>, а карточки — <li>.
 export function Rail({
   children,
   className = "",
   gutter = "-mx-4 px-4 scroll-px-4 sm:-mx-6 sm:px-6 sm:scroll-px-6",
+  as: Tag = "div",
   scrollRef,
   onScroll,
 }: {
   children: ReactNode;
   className?: string;
   gutter?: string;
-  scrollRef?: RefObject<HTMLDivElement | null>;
+  as?: "div" | "ol";
+  scrollRef?: RefObject<HTMLElement | null>;
   onScroll?: () => void;
 }) {
   return (
-    <div
-      ref={scrollRef}
+    <Tag
+      // Тег выбирается пропом, и TS требует ссылку, подходящую СРАЗУ обоим
+      // вариантам (div и ol). Такой ссылки не существует, поэтому приводим
+      // тип: снаружи от элемента нужны только scrollLeft/scrollWidth, они есть
+      // у любого.
+      ref={scrollRef as RefObject<never> | undefined}
       onScroll={onScroll}
       className={`rail ${gutter} flex snap-x snap-mandatory gap-4 overflow-x-auto pb-2 md:mx-0 md:grid md:gap-6 md:overflow-visible md:px-0 ${className}`}
     >
       {children}
-    </div>
+    </Tag>
   );
 }
 
@@ -47,11 +56,13 @@ export function Rail({
 export function RailItem({
   children,
   className = "",
+  as: Tag = "div",
 }: {
   children: ReactNode;
   className?: string;
+  as?: "div" | "li";
 }) {
   return (
-    <div className={`w-[85%] shrink-0 snap-start md:w-auto ${className}`}>{children}</div>
+    <Tag className={`w-[85%] shrink-0 snap-start md:w-auto ${className}`}>{children}</Tag>
   );
 }
