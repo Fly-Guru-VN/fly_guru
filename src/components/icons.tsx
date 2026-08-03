@@ -216,6 +216,73 @@ export function IconBadgeCheck(props: IconProps) {
   );
 }
 
+// ── Значки в подвале карточек форматов обучения ──
+
+// Спасжилет — «снаряжение включено». Две полы с воротом-вырезом и застёжка
+// посередине: в 20 px именно вырез отличает жилет от обычной футболки.
+export function IconVest(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M8.5 3 5.5 4.6V20h13V4.6L15.5 3" />
+      <path d="M8.5 3c0 2.3 1.6 3.8 3.5 3.8S15.5 5.3 15.5 3" />
+      <path d="M12 6.8V20" />
+      <path d="M5.5 11h3M15.5 11h3" />
+    </svg>
+  );
+}
+
+// Улыбка — «детская программа». Рядом с фойлами и щитами это единственный
+// значок про настроение, поэтому детский формат узнаётся по нему сразу.
+export function IconSmile(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M8.8 14c.8 1 1.9 1.5 3.2 1.5s2.4-.5 3.2-1.5" />
+      <path d="M9.2 9.5h.01M14.8 9.5h.01" strokeWidth="2.2" />
+    </svg>
+  );
+}
+
+// Один человек в кадре — «инструктор на связи» и «1 на 1 с инструктором».
+// Отличается от IconPeople тем, что фигура ровно одна.
+export function IconUser(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="8" r="3.2" />
+      <path d="M5.5 19.5c.7-3.2 3.2-5 6.5-5s5.8 1.8 6.5 5" />
+    </svg>
+  );
+}
+
+// Ползунки — «индивидуальный подход»: настройки, которые двигают под человека.
+export function IconSliders(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M7 3.5v6M7 14.5v6M17 3.5v3.5M17 12v8.5" />
+      <path d="M4.5 12h5M14.5 9.5h5" />
+    </svg>
+  );
+}
+
+// Стрелка вверх по ступенькам — «быстрый прогресс».
+export function IconTrend(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3.5 17.5 9 12l3.5 3.5L20 8" />
+      <path d="M15 8h5v5" />
+    </svg>
+  );
+}
+
+// Огонёк на плашке «Популярное».
+export function IconFlame(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3.2c3.3 3 5 5.5 5 7.6a5 5 0 0 1-10 0c0-1 .4-2.1 1.2-3.3.5 1 1.1 1.6 1.8 1.9.3-2.6.9-4.7 2-6.2Z" />
+    </svg>
+  );
+}
+
 // Стрелки в углы — «развернуть на весь экран».
 export function IconExpand(props: IconProps) {
   return (
