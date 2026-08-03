@@ -196,7 +196,10 @@ export default async function TrainingPage() {
       {/* ── Форматы ── */}
       {/* Без заголовка секции: карточки и так подписаны, а «Форматы. Выберите
           вариант» отодвигало сами варианты на пол-экрана вниз. */}
-      <Section tone="muted" className="pt-10 pb-12 sm:pt-14 sm:pb-20">
+      {/* Верхнее поле маленькое: над карточками уже есть свой поясок под метку
+          «Популярное» (pt-10 в FormatCard), и обычный отступ секции складывался
+          бы с ним в пустую полосу. */}
+      <Section tone="muted" className="pt-4 pb-12 sm:pt-6 sm:pb-20">
         <Container>
           {/* На планшете 2 в ряд, а не 4: при 768 px четыре карточки давали
               плашку факта шириной 53 px — подписи в неё просто не влезали. */}
@@ -209,19 +212,22 @@ export default async function TrainingPage() {
           </Rail>
 
           {/* Что входит в цену — один раз под всеми карточками, как в макете.
-              Раньше эти пункты повторялись в каждой карточке и раздували их. */}
-          <div className="mt-6 rounded-2xl border border-line bg-surface px-5 py-4 shadow-sm sm:mt-8">
-            <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-center sm:gap-6">
+              Раньше эти пункты повторялись в каждой карточке и раздували их.
+              Плашка нарочно легче карточек: узкая, прижата к ним вплотную и с
+              еле заметным градиентом вместо ровной заливки — читается как
+              приписка к ряду, а не как пятая карточка. */}
+          <div className="mt-3 rounded-2xl border border-line bg-gradient-to-b from-white to-surface-2 px-4 py-2.5">
+            <div className="flex flex-col gap-2 text-[13px] sm:flex-row sm:items-center sm:justify-center sm:gap-6">
               <p className="flex items-start gap-2 sm:items-center">
-                <IconCheck aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-primary sm:mt-0" />
+                <IconCheck aria-hidden className="mt-px h-4 w-4 shrink-0 text-primary sm:mt-0" />
                 <span>
                   <span className="font-semibold">В стоимость входит:</span> eFoil, жилет, шлем,
                   рация, спец-экипировка.
                 </span>
               </p>
-              <span aria-hidden className="hidden h-6 w-px shrink-0 bg-line sm:block" />
+              <span aria-hidden className="hidden h-5 w-px shrink-0 bg-line sm:block" />
               <p className="flex items-start gap-2 sm:items-center">
-                <IconShield aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-primary sm:mt-0" />
+                <IconShield aria-hidden className="mt-px h-4 w-4 shrink-0 text-primary sm:mt-0" />
                 <span>Все занятия проходят в безопасной закрытой бухте.</span>
               </p>
             </div>
