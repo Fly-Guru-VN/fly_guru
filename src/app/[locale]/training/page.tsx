@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Container, Section, SectionHeading } from "@/components/ui";
 import { Media, VideoPlayer } from "@/components/Media";
 import { HeroStage } from "@/components/HeroStage";
@@ -7,6 +8,7 @@ import { Rail, RailItem } from "@/components/Rail";
 import { StickyBookBar } from "@/components/StickyBookBar";
 import { Faq } from "@/components/Faq";
 import { FormatCard, type Format } from "@/components/FormatCard";
+import { TrainingSteps, type TrainingStep } from "@/components/TrainingSteps";
 import {
   IconCheck,
   IconVest,
@@ -104,26 +106,33 @@ export default async function TrainingPage() {
 
   // Что происходит на занятии по шагам. Человеку страшно не «обучение», а
   // неизвестность: сразу ли ставят на доску, что будет, если упаду.
-  const steps = [
+  const steps: TrainingStep[] = [
     {
+      meta: "15 минут",
       title: "Инструктаж на берегу",
-      meta: "5–10 минут",
-      text: "Разбираем доску и пульт, показываем, как падать и как забираться обратно. Подбираем снаряжение по размеру.",
+      text: "Инструктор показывает все нужные положения. Инструктаж проходит на реальной доске. Далее вам подбирают снаряжение и выпускают на воду.",
+      image: "/media/photo/training-step-1.webp",
     },
     {
-      title: "Первые метры лёжа",
-      meta: "начало занятия",
-      text: "Выходите на воду лёжа на доске и привыкаете к тяге. Скорость сначала небольшая — от вас нужно только равновесие.",
+      meta: "Знакомство с фойлом",
+      title: "Для начала едем лёжа",
+      text: "Для начала осваиваем работу с джойстиком и привыкаем к скорости фойла. Этот этап длится всего 5–7 минут.",
+      image: "/media/photo/training-step-2.webp",
     },
     {
-      title: "На колени и в полный рост",
-      meta: "то же занятие",
-      text: "Дальше — на колени, потом встаёте. Инструктор идёт рядом и подсказывает в наушник, куда перенести вес.",
+      meta: "Практикуем баланс",
+      title: "Едем на коленях и в полный рост",
+      text: "Та же скорость, но теперь практикуем баланс и ощущение доски. Инструктор держит с вами связь через наушник.",
+      image: "/media/photo/training-step-3.webp",
     },
     {
-      title: "Полёт на крыле",
-      meta: "у 90% — на первом занятии",
-      text: "Доска выходит из воды, брызги пропадают, и вы летите. Дальше остаётся держать высоту и учиться поворачивать.",
+      meta: "Взлетаем",
+      title: "Ощущаем полёт",
+      text: "Доска поднимается над водой, сопротивление пропадает и вы ощущаете настоящую свободу. Для начала взлетаем на коленях, а потом практикуем полёт стоя.",
+      image: "/media/photo/training-step-4.webp",
+      // Последний шаг — ради него всё занятие и затевалось: метка оранжевая и
+      // со свечением, как в макете.
+      highlight: true,
     },
   ];
 
@@ -236,46 +245,57 @@ export default async function TrainingPage() {
       </Section>
 
       {/* ── Как проходит занятие ── */}
-      <Section className="pt-12 pb-12 sm:pt-20 sm:pb-20">
-        <Container>
-          <SectionHeading
-            eyebrow="Как это выглядит"
-            title="Занятие по шагам"
-            subtitle="Час на воде выглядит так — с первой минуты и до полёта."
+      <Section className="relative overflow-hidden pt-12 pb-12 sm:pt-20 sm:pb-20">
+        {/* Чайки — как в блоках главной: только от md, на телефоне декор
+            съедал бы место. Пара сидит в пустоте справа от заголовка, над
+            видео. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute left-[52%] top-10 w-14 -rotate-[7deg] opacity-90"
           />
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute left-[44%] top-20 w-[4.5rem] rotate-[5deg]"
+          />
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute bottom-16 left-12 w-16 -scale-x-100 rotate-[6deg] opacity-80"
+          />
+        </div>
+        <Container className="relative">
+          {/* Заголовок набран здесь, а не через SectionHeading: он на 10%
+              крупнее общего размера — это главный блок страницы. Надстрочника
+              и подзаголовка нет, шаги сами всё объясняют. */}
+          <h2 className="text-[1.65rem] font-bold sm:text-[2.05rem]">Занятие по шагам</h2>
           <div className="mt-8 md:grid md:grid-cols-12 md:gap-10">
-            {/* Дорожка шагов — как путь клиента на главной: видно, что это
-                последовательность, а не список услуг. */}
-            <ol className="md:col-span-7">
-              {steps.map((s, i) => (
-                <li key={s.title} className="relative pb-6 pl-16 last:pb-0">
-                  {i < steps.length - 1 && (
-                    <span
-                      aria-hidden
-                      className="absolute bottom-0 left-[1.4rem] top-12 w-px bg-line"
-                    />
-                  )}
-                  <span
-                    aria-hidden
-                    className="absolute left-0 top-0 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary"
-                  >
-                    {i + 1}
-                  </span>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-accent-strong">
-                    {s.meta}
-                  </p>
-                  <h3 className="mt-1 text-xl font-bold">{s.title}</h3>
-                  <p className="mt-2 text-muted">{s.text}</p>
-                </li>
-              ))}
-            </ol>
-            {/* Ролик снят вертикально — показываем в родных 9:16. */}
-            <VideoPlayer
-              src="/media/video/obuchenie.mp4"
-              poster="/media/video/obuchenie-poster.jpg"
-              ratio="9/16"
-              className="mx-auto mt-8 max-w-[260px] md:col-span-5 md:mt-0 md:max-w-[320px]"
-            />
+            <div className="md:col-span-7">
+              <TrainingSteps steps={steps} />
+            </div>
+            {/* Ролик снят вертикально — показываем в родных 9:16, в бирюзовой
+                рамке с воздухом вокруг кадра.
+                Ширину держим жёстко: при 9:16 колонка в 440 px дала бы кадр
+                высотой под 800 px, и видео вылезло бы ниже последнего шага. */}
+            {/* self-start обязателен: без него ячейка сетки растягивается на
+                высоту колонки с шагами, рамка тянется следом и под видео
+                остаётся пустая белая полоса в треть кадра. */}
+            <div className="mx-auto mt-8 w-full max-w-[280px] self-start rounded-[1.75rem] border-2 border-primary/30 bg-surface p-3 shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)] md:col-span-5 md:mt-0 md:max-w-[320px]">
+              <VideoPlayer
+                src="/media/video/obuchenie.mp4"
+                poster="/media/video/obuchenie-poster.jpg"
+                ratio="9/16"
+                rounded="rounded-[1.15rem]"
+              />
+            </div>
           </div>
         </Container>
       </Section>

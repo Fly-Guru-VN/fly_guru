@@ -174,6 +174,23 @@ details[open] > *:not(summary) {
   animation: scroll-hint 2.4s ease-in-out infinite;
 }
 
+/* Кружок последнего шага на странице обучения («Взлетаем»): оранжевое свечение
+   медленно дышит. Это единственный момент занятия, ради которого человек и
+   пришёл, поэтому метка живая, а не просто другого цвета. Дыхание длинное
+   (3 с) — короткая пульсация читалась бы уведомлением, а не свечением. */
+@keyframes step-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 122, 26, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 18px 5px rgba(255, 122, 26, 0.35);
+  }
+}
+.animate-step-glow {
+  animation: step-glow 3s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-toast-in,
   .animate-fade-in,
@@ -183,6 +200,7 @@ details[open] > *:not(summary) {
   .animate-page-in,
   .animate-marquee,
   .animate-scroll-hint,
+  .animate-step-glow,
   details[open] > *:not(summary) {
     animation: none;
   }
