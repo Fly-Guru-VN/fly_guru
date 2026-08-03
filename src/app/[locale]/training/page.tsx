@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { Container, Section, SectionHeading } from "@/components/ui";
-import { Media, VideoPlayer } from "@/components/Media";
+import { Container, Section } from "@/components/ui";
 import { HeroStage } from "@/components/HeroStage";
 import { Marquee } from "@/components/Marquee";
 import { Rail, RailItem } from "@/components/Rail";
 import { StickyBookBar } from "@/components/StickyBookBar";
-import { Faq } from "@/components/Faq";
 import { FormatCard, type Format } from "@/components/FormatCard";
 import { TrainingSteps, type TrainingStep } from "@/components/TrainingSteps";
+import { WatchVideoBtn } from "@/components/WatchVideoBtn";
 import {
   IconCheck,
   IconVest,
@@ -19,12 +18,14 @@ import {
   IconSliders,
   IconTrend,
 } from "@/components/icons";
-import { trainingFaq } from "@/content/faq";
 import { BookBtn } from "@/components/BookBtn";
 import { getActiveServices, getSiteServices, pickService } from "@/lib/services";
 
 export const metadata: Metadata = { title: "Обучение" };
 export const dynamic = "force-static"; // статичная страница, форсим SSG
+
+// Кнопка «Смотреть видео» у заголовка ищет ролик по этому id.
+const VIDEO_ID = "lesson-video";
 
 // Страница обучения собрана под телефон, как и главная: сначала кадр во весь
 // экран, дальше — только то, что человек реально спрашивает перед записью:
@@ -136,32 +137,17 @@ export default async function TrainingPage() {
     },
   ];
 
-  const photos = [
-    {
-      src: "/media/photo/training-uchenik.webp",
-      alt: "Ученик самостоятельно едет на электрофойле",
-    },
-    {
-      src: "/media/photo/training-master.webp",
-      alt: "Уверенное катание на электрофойле над водой",
-    },
-    {
-      src: "/media/photo/poza-guru.webp",
-      alt: "Инструктор FlyGuru летит на электрофойле сидя в позе лотоса",
-    },
-  ];
-
   return (
     <>
       {/* ── Первый экран ── */}
       {/* Кадр во весь экран и вплотную к шапке, как видео на главной: продаёт
-          сама картинка полёта, а не текст над ней. split — на телефоне
-          заголовок уходит в небо над фойлерами, кнопка остаётся внизу. */}
+          сама картинка полёта, а не текст над ней. Без split: весь текст лежит
+          внизу кадра и на телефоне, и на ПК — на этом снимке верх занимают небо
+          и горы, и разводить заголовок с кнопкой по краям тут нечего. */}
       <HeroStage
         image="/media/photo/training-hero.webp"
         alt="Двое летят на электрофойлах над морем в Нячанге"
         bleed
-        split
       >
         <div>
           <h1 className="text-4xl font-bold leading-[1.05] drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)] sm:text-5xl md:text-6xl">
@@ -174,10 +160,8 @@ export default async function TrainingPage() {
           </p>
         </div>
         <div>
-          {/* Сухие условия: раньше лежали списком под текстом и терялись.
-              На ПК содержимое кадра идёт одним блоком, поэтому отступ от
-              абзаца выше задаём сами (на телефоне блоки разведены по краям). */}
-          <ul className="flex flex-wrap gap-2 md:mt-6">
+          {/* Сухие условия: раньше лежали списком под текстом и терялись. */}
+          <ul className="mt-6 flex flex-wrap gap-2">
             {facts.map((f) => (
               <li
                 key={f}
@@ -205,10 +189,12 @@ export default async function TrainingPage() {
       {/* ── Форматы ── */}
       {/* Без заголовка секции: карточки и так подписаны, а «Форматы. Выберите
           вариант» отодвигало сами варианты на пол-экрана вниз. */}
-      {/* Верхнее поле маленькое: над карточками уже есть свой поясок под метку
+      {/* Фон у всех секций страницы общий — чередования плашками нет: страница
+          читается одним полотном, а не набором блоков.
+          Верхнее поле маленькое: над карточками уже есть свой поясок под метку
           «Популярное» (pt-10 в FormatCard), и обычный отступ секции складывался
           бы с ним в пустую полосу. */}
-      <Section tone="muted" className="pt-4 pb-12 sm:pt-6 sm:pb-20">
+      <Section pad="tight" className="pt-0 sm:pt-2">
         <Container>
           {/* На планшете 2 в ряд, а не 4: при 768 px четыре карточки давали
               плашку факта шириной 53 px — подписи в неё просто не влезали. */}
@@ -245,7 +231,7 @@ export default async function TrainingPage() {
       </Section>
 
       {/* ── Как проходит занятие ── */}
-      <Section className="relative overflow-hidden pt-12 pb-12 sm:pt-20 sm:pb-20">
+      <Section pad="tight" className="relative overflow-hidden">
         {/* Чайки — как в блоках главной: только от md, на телефоне декор
             съедал бы место. Пара сидит в пустоте справа от заголовка, над
             видео. */}
@@ -276,49 +262,41 @@ export default async function TrainingPage() {
           {/* Заголовок набран здесь, а не через SectionHeading: он на 10%
               крупнее общего размера — это главный блок страницы. Надстрочника
               и подзаголовка нет, шаги сами всё объясняют. */}
-          <h2 className="text-[1.65rem] font-bold sm:text-[2.05rem]">Занятие по шагам</h2>
+          {/* Кнопка справа от заголовка — только на телефоне: там ролик лежит
+              под всеми четырьмя шагами, и без неё до него мало кто доезжает. */}
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[1.65rem] font-bold sm:text-[2.05rem]">Занятие по шагам</h2>
+            <WatchVideoBtn target={VIDEO_ID} className="md:hidden" />
+          </div>
           <div className="mt-8 md:grid md:grid-cols-12 md:gap-10">
-            <div className="md:col-span-7">
+            {/* На телефоне дорожку шагов ужимаем до ширины ролика под ней:
+                карточки во всю ширину экрана над узким вертикальным видео
+                выглядели обрубком. На ПК колонки живут своей шириной. */}
+            <div className="mx-auto w-full max-w-[330px] md:col-span-7 md:max-w-none">
               <TrainingSteps steps={steps} />
             </div>
-            {/* Ролик снят вертикально — показываем в родных 9:16, в бирюзовой
-                рамке с воздухом вокруг кадра.
-                Ширину держим жёстко: при 9:16 колонка в 440 px дала бы кадр
-                высотой под 800 px, и видео вылезло бы ниже последнего шага. */}
-            {/* self-start обязателен: без него ячейка сетки растягивается на
-                высоту колонки с шагами, рамка тянется следом и под видео
-                остаётся пустая белая полоса в треть кадра. */}
-            <div className="mx-auto mt-8 w-full max-w-[280px] self-start rounded-[1.75rem] border-2 border-primary/30 bg-surface p-3 shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)] md:col-span-5 md:mt-0 md:max-w-[320px]">
-              <VideoPlayer
+            {/* Ролик снят вертикально, показываем в бирюзовой рамке с воздухом
+                вокруг кадра.
+                На ПК рамка тянется на всю высоту колонки шагов — от первого до
+                последнего, поэтому у видео там не своё соотношение сторон, а
+                высота родителя, и лишнее по краям срезается (object-cover). На
+                телефоне видео идёт под шагами в родных 9:16. */}
+            <div className="relative mx-auto mt-6 w-full max-w-[330px] rounded-[1.75rem] border-2 border-primary/30 bg-surface p-3 shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)] md:col-span-5 md:mt-0 md:max-w-none">
+              {/* На ПК видео вынуто из потока (absolute inset-3): иначе оно
+                  тянет высоту рамки под свои 9:16 и рамка становится выше
+                  колонки шагов — то есть растягивается не она под шаги, а
+                  строка сетки под неё. Пустая рамка высоты не имеет и честно
+                  тянется до низа последнего шага. */}
+              <video
+                id={VIDEO_ID}
                 src="/media/video/obuchenie.mp4"
                 poster="/media/video/obuchenie-poster.jpg"
-                ratio="9/16"
-                rounded="rounded-[1.15rem]"
+                controls
+                playsInline
+                preload="none"
+                className="aspect-[9/16] w-full rounded-[1.15rem] bg-surface-2 object-cover md:absolute md:inset-3 md:aspect-auto md:h-auto md:w-auto"
               />
             </div>
-          </div>
-        </Container>
-      </Section>
-
-      {/* ── Фото ── */}
-      <Section tone="muted" className="pt-8 pb-8 sm:pt-12 sm:pb-12">
-        <Container>
-          <Rail className="md:grid-cols-3">
-            {photos.map((p) => (
-              <RailItem key={p.src}>
-                <Media src={p.src} alt={p.alt} ratio="3/4" sizes="(min-width: 768px) 30vw, 85vw" />
-              </RailItem>
-            ))}
-          </Rail>
-        </Container>
-      </Section>
-
-      {/* ── Сжатый FAQ ── */}
-      <Section>
-        <Container>
-          <SectionHeading eyebrow="Частые вопросы" title="Перед первым занятием" />
-          <div className="mt-8 max-w-3xl">
-            <Faq items={trainingFaq} />
           </div>
         </Container>
       </Section>

@@ -283,6 +283,17 @@ export function IconFlame(props: IconProps) {
   );
 }
 
+// Треугольник в кружке — «смотреть видео». Заливка у треугольника своя, не
+// currentColor-контур: в мелком размере пустой треугольник читается хуже.
+export function IconPlay(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M10.4 9.2v5.6l4.4-2.8-4.4-2.8Z" fill="currentColor" />
+    </svg>
+  );
+}
+
 // Стрелки в углы — «развернуть на весь экран».
 export function IconExpand(props: IconProps) {
   return (
