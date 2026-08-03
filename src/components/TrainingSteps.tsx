@@ -12,34 +12,40 @@ export type TrainingStep = {
   highlight?: boolean;
 };
 
-// Занятие по шагам — дорожка с нумерованными кружками слева и карточкой шага
-// справа, по макету.
+// Занятие по шагам. Два разных вида под ПК и под телефон — переключаются по
+// `md` (768 px).
 //
-// Линия и кружки лежат ОТДЕЛЬНО от карточек, слева от них: так видно, что это
-// последовательность, а не четыре независимые плашки. Под последним кружком
-// линия становится пунктиром и обрывается — занятие кончилось, дальше вы
-// катаетесь сами.
+// ПК: дорожка — нумерованные кружки с линией ОТДЕЛЬНО, слева от карточек. Так
+// видно, что это последовательность, а не четыре независимые плашки. Под
+// последним кружком линия становится пунктиром и обрывается — занятие
+// кончилось, дальше вы катаетесь сами.
+//
+// Телефон: дорожки нет (на 330 px она съедала бы четверть ширины), карточки
+// стоят по центру экрана, а кружок с номером сидит верхом на верхней границе
+// своей карточки — ровно наполовину над ней, как в макете `ref_steps`.
 export function TrainingSteps({ steps }: { steps: TrainingStep[] }) {
   return (
     <ol className="relative">
       {steps.map((s, i) => {
         const first = i === 0;
         const last = i === steps.length - 1;
-        // Зазор между шагами задан симметричным py-2, а не pb-4 снизу: так
-        // середина элемента списка совпадает с серединой карточки, и кружок с
-        // номером, который центрируется по элементу, встаёт ровно по центру
-        // своей плашки.
+        // На телефоне сверху оставлен pt-7 — это половина кружка, торчащая над
+        // карточкой, плюс воздух до предыдущего шага.
+        // На ПК зазор задан симметричным py-2, а не pb-4 снизу: так середина
+        // элемента списка совпадает с серединой карточки, и кружок с номером,
+        // который центрируется по элементу, встаёт ровно по центру своей
+        // плашки.
         return (
-          <li key={s.title} className="relative py-2 pl-14 sm:pl-16">
+          <li key={s.title} className="relative pb-5 pt-7 md:py-2 md:pl-16">
             {/* Линия идёт сквозь всю дорожку, а кружки лежат ПОВЕРХ неё и
                 закрывают её собой (у них своя заливка). Считать отрезки от
-                кружка до кружка нельзя: кружок теперь стоит по центру своей
-                карточки, а карточки разной высоты.
+                кружка до кружка нельзя: кружок стоит по центру своей карточки,
+                а карточки разной высоты.
                 У первого шага линия начинается от центра кружка, у последнего
                 там же обрывается — до и после занятия дорожки нет. */}
             <span
               aria-hidden
-              className={`absolute left-[1.28rem] w-0.5 bg-primary/20 sm:left-[1.53rem] ${
+              className={`absolute left-[1.53rem] hidden w-0.5 bg-primary/20 md:block ${
                 first ? "top-1/2" : "top-0"
               } ${last ? "bottom-1/2" : "bottom-0"}`}
             />
@@ -48,16 +54,18 @@ export function TrainingSteps({ steps }: { steps: TrainingStep[] }) {
             {last && (
               <span
                 aria-hidden
-                className="absolute left-[1.28rem] top-1/2 h-10 w-0.5 bg-[repeating-linear-gradient(to_bottom,var(--color-primary)_0_3px,transparent_3px_9px)] opacity-30 sm:left-[1.53rem]"
+                className="absolute left-[1.53rem] top-1/2 hidden h-10 w-0.5 bg-[repeating-linear-gradient(to_bottom,var(--color-primary)_0_3px,transparent_3px_9px)] opacity-30 md:block"
               />
             )}
 
-            {/* Номер шага — ровно по центру своей карточки. ring — бледный
-                ореол вокруг кружка, как в макете: без него кружок на светлом
-                фоне выглядит наклейкой. */}
+            {/* Номер шага. На телефоне — по центру верхнего края карточки
+                (граница карточки проходит через центр кружка), на ПК — слева,
+                ровно по центру своей карточки. ring — бледный ореол вокруг
+                кружка, как в макете: без него кружок на светлом фоне выглядит
+                наклейкой. */}
             <span
               aria-hidden
-              className={`absolute left-1 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border-2 bg-surface text-lg font-bold ${
+              className={`absolute left-1/2 top-7 z-10 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 bg-surface text-lg font-bold md:left-1 md:top-1/2 md:translate-x-0 ${
                 s.highlight
                   ? "animate-step-glow border-accent text-accent ring-8 ring-accent/5"
                   : "border-primary/35 text-primary ring-8 ring-primary/5"
@@ -66,7 +74,9 @@ export function TrainingSteps({ steps }: { steps: TrainingStep[] }) {
               {i + 1}
             </span>
 
-            <div className="rounded-2xl bg-gradient-to-br from-surface-2 via-surface to-surface p-4 shadow-[0_14px_30px_-24px_rgba(15,34,51,0.5)] sm:p-5">
+            {/* Верхнее поле на телефоне больше остальных: под кружком должно
+                остаться место, иначе он ложится на оранжевую подпись. */}
+            <div className="rounded-3xl bg-gradient-to-br from-surface-2 via-surface to-surface px-5 pb-5 pt-8 shadow-[0_18px_36px_-26px_rgba(15,34,51,0.55)] md:rounded-2xl md:p-5">
               <div className="flex items-start gap-4">
                 <Image
                   src={s.image}
@@ -75,7 +85,7 @@ export function TrainingSteps({ steps }: { steps: TrainingStep[] }) {
                   width={320}
                   height={320}
                   sizes="128px"
-                  className="hidden h-24 w-24 shrink-0 sm:block"
+                  className="hidden h-24 w-24 shrink-0 md:block"
                 />
                 <div className="min-w-0">
                   <p className="text-xs font-extrabold uppercase tracking-wide text-accent-strong">
@@ -95,7 +105,7 @@ export function TrainingSteps({ steps }: { steps: TrainingStep[] }) {
                 width={320}
                 height={320}
                 sizes="128px"
-                className="mx-auto mt-2 h-24 w-24 sm:hidden"
+                className="mx-auto mt-3 h-28 w-28 md:hidden"
               />
             </div>
           </li>

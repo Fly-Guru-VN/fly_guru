@@ -145,7 +145,7 @@ export default async function TrainingPage() {
           внизу кадра и на телефоне, и на ПК — на этом снимке верх занимают небо
           и горы, и разводить заголовок с кнопкой по краям тут нечего. */}
       <HeroStage
-        image="/media/photo/training-hero.webp"
+        image="/media/photo/training-hero-2.webp"
         alt="Двое летят на электрофойлах над морем в Нячанге"
         bleed
       >
@@ -262,40 +262,58 @@ export default async function TrainingPage() {
           {/* Заголовок набран здесь, а не через SectionHeading: он на 10%
               крупнее общего размера — это главный блок страницы. Надстрочника
               и подзаголовка нет, шаги сами всё объясняют. */}
-          {/* Кнопка справа от заголовка — только на телефоне: там ролик лежит
-              под всеми четырьмя шагами, и без неё до него мало кто доезжает. */}
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[1.65rem] font-bold sm:text-[2.05rem]">Занятие по шагам</h2>
-            <WatchVideoBtn target={VIDEO_ID} className="md:hidden" />
-          </div>
-          <div className="mt-8 md:grid md:grid-cols-12 md:gap-10">
-            {/* На телефоне дорожку шагов ужимаем до ширины ролика под ней:
-                карточки во всю ширину экрана над узким вертикальным видео
-                выглядели обрубком. На ПК колонки живут своей шириной. */}
-            <div className="mx-auto w-full max-w-[330px] md:col-span-7 md:max-w-none">
-              <TrainingSteps steps={steps} />
+          {/* Кнопка «Смотреть видео» — только на телефоне: там ролик лежит под
+              всеми четырьмя шагами, и без неё до него мало кто доезжает. Она
+              стоит ПОД заголовком и по центру: рядом с ним она отжимала
+              «Занятие по шагам» на две строки.
+              На ПК всё содержимое блока ужато на 10% (zoom): в полный размер
+              заголовок с шагами и роликом не помещались на экран ноутбука
+              целиком. zoom, а не scale: блок при этом честно занимает всю
+              ширину колонки и не съезжает вбок. */}
+          <div className="md:[zoom:0.9]">
+            <div className="flex flex-col items-center gap-3 text-center md:block md:text-left">
+              <h2 className="whitespace-nowrap text-[1.6rem] font-bold sm:text-[2.05rem]">
+                Занятие по шагам
+              </h2>
+              <WatchVideoBtn target={VIDEO_ID} className="md:hidden" />
             </div>
-            {/* Ролик снят вертикально, показываем в бирюзовой рамке с воздухом
-                вокруг кадра.
-                На ПК рамка тянется на всю высоту колонки шагов — от первого до
-                последнего, поэтому у видео там не своё соотношение сторон, а
-                высота родителя, и лишнее по краям срезается (object-cover). На
-                телефоне видео идёт под шагами в родных 9:16. */}
-            <div className="relative mx-auto mt-6 w-full max-w-[330px] rounded-[1.75rem] border-2 border-primary/30 bg-surface p-3 shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)] md:col-span-5 md:mt-0 md:max-w-none">
-              {/* На ПК видео вынуто из потока (absolute inset-3): иначе оно
-                  тянет высоту рамки под свои 9:16 и рамка становится выше
-                  колонки шагов — то есть растягивается не она под шаги, а
-                  строка сетки под неё. Пустая рамка высоты не имеет и честно
-                  тянется до низа последнего шага. */}
-              <video
-                id={VIDEO_ID}
-                src="/media/video/obuchenie.mp4"
-                poster="/media/video/obuchenie-poster.jpg"
-                controls
-                playsInline
-                preload="none"
-                className="aspect-[9/16] w-full rounded-[1.15rem] bg-surface-2 object-cover md:absolute md:inset-3 md:aspect-auto md:h-auto md:w-auto"
-              />
+            <div className="mt-8 md:grid md:grid-cols-12 md:gap-10">
+              {/* На телефоне дорожку шагов ужимаем до ширины ролика под ней:
+                  карточки во всю ширину экрана над узким вертикальным видео
+                  выглядели обрубком. На ПК колонки живут своей шириной. */}
+              <div className="mx-auto w-full max-w-[330px] md:col-span-7 md:max-w-none">
+                <TrainingSteps steps={steps} />
+              </div>
+              {/* Ролик снят вертикально, показываем в бирюзовой рамке с
+                  воздухом вокруг кадра.
+                  На ПК рамка тянется на всю высоту колонки шагов — от первого
+                  до последнего, поэтому у видео там не своё соотношение сторон,
+                  а высота родителя, и лишнее по краям срезается (object-cover).
+                  На телефоне видео идёт под шагами в родных 9:16. */}
+              <div className="relative mx-auto mt-6 w-full max-w-[330px] rounded-[1.75rem] border-2 border-primary/30 bg-surface p-3 shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)] md:col-span-5 md:mt-0 md:max-w-none">
+                {/* На ПК из потока вынуто не само видео, а эта обёртка
+                    (absolute inset-3): иначе видео тянет высоту рамки под свои
+                    9:16 и рамка становится выше колонки шагов — то есть
+                    растягивается не она под шаги, а строка сетки под неё.
+                    Пустая рамка высоты не имеет и честно тянется до низа
+                    последнего шага.
+                    Обёртка обязательна: у самого видео, положенного в absolute
+                    с inset-3, ширина и высота auto считаются НЕ от краёв рамки,
+                    а от родного размера файла — оно вылезало за рамку на
+                    127 px. Внутри обёртки h-full считается от неё, и всё
+                    сходится. */}
+                <div className="md:absolute md:inset-3">
+                  <video
+                    id={VIDEO_ID}
+                    src="/media/video/obuchenie.mp4"
+                    poster="/media/video/obuchenie-poster.jpg"
+                    controls
+                    playsInline
+                    preload="none"
+                    className="aspect-[9/16] w-full rounded-[1.15rem] bg-surface-2 object-cover md:aspect-auto md:h-full"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </Container>
