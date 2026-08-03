@@ -310,7 +310,13 @@ export default async function TrainingPage() {
                     controls
                     playsInline
                     preload="none"
-                    className="aspect-[9/16] w-full rounded-[1.15rem] bg-surface-2 object-cover md:aspect-auto md:h-full"
+                    // object-cover нужен только внутри рамки на странице. В
+                    // полноэкранном режиме класс никуда не девается, и браузер
+                    // режет вертикальный кадр под 16:9 монитора — поэтому там
+                    // переключаемся на contain (по бокам чёрные поля) и
+                    // отпускаем соотношение сторон. Дубль с -webkit- — для
+                    // старых Safari, где :fullscreen без префикса не понимается.
+                    className="aspect-[9/16] w-full rounded-[1.15rem] bg-surface-2 object-cover md:aspect-auto md:h-full [&:-webkit-full-screen]:aspect-auto [&:-webkit-full-screen]:object-contain [&:fullscreen]:aspect-auto [&:fullscreen]:object-contain"
                   />
                 </div>
               </div>
