@@ -15,7 +15,7 @@ import {
 import { subscriptionExpiry, vnIsoAt, vnToday } from "@/lib/dates";
 import { minutesLeft } from "@/lib/subscriptions";
 import { sendInstructorsBookingAlert } from "@/lib/telegram";
-import { MANUAL_CHANNELS } from "@/lib/channels";
+import { pickChannel } from "@/lib/channels";
 import { DICT_LABEL, type DictTable } from "@/lib/dictionaries";
 import type { EquipmentKind } from "@/lib/equipment";
 import { parseVnd } from "@/lib/money";
@@ -66,6 +66,13 @@ function bookingFields(formData: FormData) {
     // обязателен) — чтобы в ленте заявок было видно, чем реально заплатили.
     payment_method_id:
       String(formData.get("paymentMethodId") ?? "").trim() || null,
+    // Город правится из карточки заявки: у заявок с сайта его нет вовсе (гость
+    // город не указывает), а знать, откуда гость, нужно. Ключ добавляем только
+    // если поле реально пришло с формой — иначе форма без него стирала бы
+    // сохранённый город.
+    ...(formData.has("city")
+      ? { city: String(formData.get("city") ?? "").trim() || null }
+      : {}),
   };
 }
 
@@ -125,8 +132,13 @@ export async function createBookingAction(
   const phone = String(formData.get("phone") ?? "").trim();
   if (!phone) return { error: "Укажите телефон клиента." };
 
-  const channel = String(formData.get("channel") ?? "").trim();
-  if (!MANUAL_CHANNELS[channel]) return { error: "Выберите, откуда пришёл клиент." };
+  // Канал: ключ из списка или свой текст из пункта «Другой…» (lib/channels).
+  const channel = pickChannel(formData.get("channel"), formData.get("channelOther"));
+  if (!channel) return { error: "Укажите канал записи." };
+
+  // Город обязателен: required в разметке — подсказка, правило здесь.
+  const city = String(formData.get("city") ?? "").trim();
+  if (!city) return { error: "Укажите город клиента." };
 
   const preferredDate = String(formData.get("preferredDate") ?? "").trim();
   if (preferredDate && !DAY_RE.test(preferredDate))
@@ -148,6 +160,7 @@ export async function createBookingAction(
       // Формат оплаты сюда приходит из bookingFields: в заявке он
       // необязателен — клиент ещё не платил (пак A).
       ...bookingFields(formData),
+      city,
     })
     .select("id")
     .single();
@@ -235,19 +248,24 @@ async function resolveClient(
 
   const telegram = normalizeTelegram(formData.get("telegramUsername") as string);
 
+  const city = String(formData.get("newCity") ?? "").trim();
+
   const { rows: existing } = await loadAllClients<{
     id: string;
     phone: string | null;
     telegram_username: string | null;
-  }>(supabase, "id, phone, telegram_username", { onlyWithPhone: true });
+    city: string | null;
+  }>(supabase, "id, phone, telegram_username, city", { onlyWithPhone: true });
   const match = existing.find((c) => phonesMatch(c.phone, phone));
   if (match) {
-    // Ник дописываем только в пустое поле — см. findOrCreateClient.
-    if (telegram && !match.telegram_username) {
-      await supabase
-        .from("clients")
-        .update({ telegram_username: telegram })
-        .eq("id", match.id);
+    // Ник и город дописываем только в пустые поля — см. findOrCreateClient.
+    // Раньше город у существующего клиента просто выбрасывался: поле в форме
+    // заполняли, а в карточке оно так и оставалось пустым.
+    const patch: Record<string, string> = {};
+    if (telegram && !match.telegram_username) patch.telegram_username = telegram;
+    if (city && !match.city) patch.city = city;
+    if (Object.keys(patch).length > 0) {
+      await supabase.from("clients").update(patch).eq("id", match.id);
     }
     return { id: match.id };
   }
@@ -257,7 +275,7 @@ async function resolveClient(
     .insert({
       name,
       phone: phoneDigits(phone) || phone,
-      city: String(formData.get("newCity") ?? "").trim() || null,
+      city: city || null,
       telegram_username: telegram,
       source: "offline",
       created_by: adminId,
@@ -357,6 +375,19 @@ export async function createSessionAction(
     return { error: "Абонемент оформляется на вкладке «Абонементы»." };
   }
 
+  // Город и канал записи спрашивает «Записать клиента»; форма сессий их не
+  // шлёт (там вносят прошлое, где канала уже не вспомнить) — поэтому проверяем
+  // только те поля, что реально пришли с формой.
+  if (formData.has("newCity") && !String(formData.get("newCity") ?? "").trim()) {
+    return { error: "Укажите город клиента." };
+  }
+  const channel = formData.has("channel")
+    ? pickChannel(formData.get("channel"), formData.get("channelOther"))
+    : null;
+  if (formData.has("channel") && !channel) {
+    return { error: "Укажите канал записи." };
+  }
+
   // Клиент — последним из проверок: всё, что могло отказать, уже отказало.
   // created_at = дате занятия (см. resolveClient).
   const clientRes = await resolveClient(supabase, admin.id, formData, dayToIso(date));
@@ -413,6 +444,9 @@ export async function createSessionAction(
     amount,
     agent_commission: rewarded ? agent!.commission_fixed : 0,
     payment_method_id: paymentMethodId,
+    // Как человек записался на это занятие (0034). Заявка не создаётся, когда
+    // клиента оформляют сразу на пляже, — иначе канал терялся бы совсем.
+    channel,
     note: String(formData.get("note") ?? "").trim() || null,
     created_by: admin.id,
   });

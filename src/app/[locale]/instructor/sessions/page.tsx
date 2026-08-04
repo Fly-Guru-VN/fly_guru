@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { channelLabel } from "@/lib/channels";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAppUser } from "@/lib/auth";
 import { vnMonthToDate, vnPeriod, vnToday } from "@/lib/dates";
@@ -30,6 +31,7 @@ interface SessionRow {
   service_id: string | null;
   instructor_id: string | null;
   payment_method_id: string | null;
+  channel: string | null;
   note: string | null;
   created_at: string;
   clients: { name: string } | null;
@@ -101,6 +103,14 @@ function SessionCard({
               {s.instructor?.name ?? "инструктор не указан"}
             </span>
             <EnteredBadge at={s.created_at} />
+            {/* Канал записи (0034): откуда пришёл этот гость. У занятий до
+                пачки №20 его нет — плашки просто не будет. */}
+            {s.channel && (
+              <span className="inline-flex items-center gap-1 rounded-lg bg-line/50 px-2 py-0.5 text-xs font-semibold text-muted">
+                <span aria-hidden>📍</span>
+                {channelLabel(s.channel)}
+              </span>
+            )}
           </div>
           {s.note && (
             <p className="mt-1 truncate text-xs italic text-muted">📝 {s.note}</p>
@@ -256,7 +266,7 @@ export default async function InstructorSessionsPage({
     createAdminClient()
       .from("sessions")
       .select(
-        "id, date, amount, minutes_used, subscription_id, service_id, instructor_id, payment_method_id, note, created_at, clients(name), services(name), instructor:users!instructor_id(name), payment:payment_methods(name)",
+        "id, date, amount, minutes_used, subscription_id, service_id, instructor_id, payment_method_id, channel, note, created_at, clients(name), services(name), instructor:users!instructor_id(name), payment:payment_methods(name)",
       )
       .gte("date", range.fromDay)
       .lt("date", range.toDay)

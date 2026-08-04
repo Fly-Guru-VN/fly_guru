@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { recordClientAction, type ActionState } from "../actions";
 import { PhoneField } from "@/components/cabinet/PhoneField";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
+import { ChannelField } from "@/components/cabinet/ChannelField";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { recordDateBounds } from "@/lib/recordDate";
 import { Spinner } from "@/components/Spinner";
@@ -24,6 +25,8 @@ export interface RecordPrefill {
   telegram?: string | null;
   paymentMethodId?: string | null; // способ оплаты, выбранный админом в заявке
   paymentMethodName?: string | null;
+  city?: string | null; // город из заявки
+  channel?: string | null; // канал записи из заявки (bookings.src)
 }
 
 interface RecordFormProps {
@@ -98,20 +101,26 @@ export function RecordForm({
         className={inputClass}
       />
 
-      {/* Город — только для НОВОГО клиента (у существующего берётся из карточки
-          и не перезаписывается). Необязательное поле. */}
+      {/* Город обязателен (пачка №20). У нового клиента он ляжет в карточку,
+          у существующего заполнит пустое поле — уже вписанный город не
+          перетирается. Из заявки приезжает заполненным. */}
       <div>
         <label htmlFor="city" className="mb-1 block text-sm font-medium">
-          Город
+          Город *
         </label>
         <input
           id="city"
           name="city"
           type="text"
+          required
+          defaultValue={prefill?.city ?? ""}
           placeholder="Nha Trang"
           className={inputClass}
         />
       </div>
+
+      {/* Канал записи: по умолчанию «Пляжи», любой свой — через «Другой…». */}
+      <ChannelField className={inputClass} defaultValue={prefill?.channel} />
 
       <div>
         <label htmlFor="serviceId" className="mb-1 block text-sm font-medium">

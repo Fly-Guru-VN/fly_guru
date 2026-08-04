@@ -20,6 +20,7 @@ import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
 import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
+import { pickChannel } from "@/lib/channels";
 import { claimBooking, releaseBooking, type BookingClaimState } from "@/lib/bookingClaim";
 
 // Server actions кабинета инструктора. Общий принцип безопасности:
@@ -86,7 +87,8 @@ async function findOrCreateClient(
     name: string | null;
     phone: string | null;
     telegram_username: string | null;
-  }>(supabase, "id, name, phone, telegram_username", { onlyWithPhone: true });
+    city: string | null;
+  }>(supabase, "id, name, phone, telegram_username, city", { onlyWithPhone: true });
   if (selError) return { error: `Не удалось найти клиента: ${selError}` };
 
   // Телефон уже есть в базе → это тот же человек, вторую карточку не заводим.
@@ -102,11 +104,15 @@ async function findOrCreateClient(
     // инструктора нет и не было: этот дописанный ник МОЛЧА не сохранялся —
     // RLS отбрасывал update без единой ошибки (0 строк = успех). Заодно это
     // позволило снять clients_insert_instructor: набор колонок задаёт код.
+    // Город — та же история: у постоянного клиента он уже выверен, но если
+    // поле пустое, а в форме город указали (теперь он обязателен), дописываем.
+    const patch: Record<string, string> = {};
     if (input.telegram && !match.telegram_username) {
-      await createAdminClient()
-        .from("clients")
-        .update({ telegram_username: input.telegram })
-        .eq("id", match.id);
+      patch.telegram_username = input.telegram;
+    }
+    if (input.city && !match.city) patch.city = input.city;
+    if (Object.keys(patch).length > 0) {
+      await createAdminClient().from("clients").update(patch).eq("id", match.id);
     }
     return { id: match.id, existingName: match.name ?? undefined };
   }
@@ -201,6 +207,15 @@ export async function recordClientAction(
 
   if (!name || !phone || !serviceId) {
     return { error: "Заполните имя, телефон и услугу." };
+  }
+  // Город и канал записи обязательны (пачка №20): required в разметке —
+  // подсказка, правило здесь. Без них не видно, откуда к нам едут люди.
+  if (!city) {
+    return { error: "Укажите город клиента." };
+  }
+  const channel = pickChannel(formData.get("channel"), formData.get("channelOther"));
+  if (!channel) {
+    return { error: "Укажите канал записи." };
   }
   // Длину номера проверяем и на сервере: в разметке она подсказка, здесь —
   // правило. Кривой номер = потерянный клиент, чинить его потом некому.
@@ -324,6 +339,9 @@ export async function recordClientAction(
     amount,
     agent_commission: rewarded ? agent!.commission_fixed : 0,
     payment_method_id: paymentMethodId,
+    // Как человек записался на это занятие (0034): заявки у записи с пляжа
+    // нет, и канал терялся бы совсем.
+    channel,
     note: String(formData.get("note") ?? "").trim() || null,
     created_by: user.id,
   });

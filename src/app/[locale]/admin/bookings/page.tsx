@@ -9,7 +9,7 @@ import {
   setStatusAction,
   rescheduleAction,
 } from "../actions";
-import { MANUAL_CHANNELS } from "@/lib/channels";
+import { channelLabel } from "@/lib/channels";
 import { resolveRefOwners, refOwnerLabel, type RefOwner } from "@/lib/refOwner";
 import { firstBasicTrainingByPhone } from "@/lib/agentReward";
 import { SaveForm } from "../SaveForm";
@@ -39,6 +39,7 @@ interface BookingRow {
   pinned: boolean;
   ref_code: string | null;
   src: string | null;
+  city: string | null;
   utm: Record<string, string> | null;
   internal_note: string | null;
   client_id: string | null;
@@ -207,9 +208,12 @@ function BookingCard({
         )}
 
         {/* Атрибуция: откуда пришёл клиент */}
-        {(b.src || b.ref_code || utmEntries.length > 0) && (
+        {(b.src || b.city || b.ref_code || utmEntries.length > 0) && (
           <div className="mt-2 space-y-0.5 rounded-xl bg-line/30 px-3 py-2 text-xs text-muted">
-            {b.src && <p>Источник: {MANUAL_CHANNELS[b.src] ?? b.src}</p>}
+            {b.src && <p>Канал записи: {channelLabel(b.src)}</p>}
+            {/* Города нет у заявок с сайта и у всех старых — там строки просто
+                не будет, а вписать город можно в полях ниже. */}
+            {b.city && <p>Город: {b.city}</p>}
             {/* Вместо сырого кода — имя того, кто привёл гостя, и правда про
                 скидку: её даёт только активная агентская ссылка (п.4/5). */}
             {b.ref_code && <p>{refOwnerLabel(b.ref_code, refOwner, refDiscount)}</p>}
@@ -263,6 +267,18 @@ function BookingCard({
               />
             </label>
           </div>
+          {/* Город: у заявок с сайта его нет (гость не указывает), у ручных он
+              приходит из формы. Здесь дописывают или правят. */}
+          <label className="mt-2 block text-xs text-muted">
+            Город
+            <input
+              type="text"
+              name="city"
+              defaultValue={b.city ?? ""}
+              placeholder="Nha Trang"
+              className={`mt-1 ${inputClass}`}
+            />
+          </label>
           {/* Формат оплаты можно проставить руками (договорились по телефону)
               или поправить — сам он приезжает при проведении заявки. */}
           <label className="mt-2 block text-xs text-muted">
@@ -445,7 +461,7 @@ export default async function AdminBookingsPage({
   const { data } = await supabase
     .from("bookings")
     .select(
-      "id, booking_no, client_name, phone, telegram_username, preferred_date, scheduled_time, age, weight, status, pinned, ref_code, src, utm, internal_note, client_id, rescheduled_at, created_at, payment_method_id, services(name, category), accepted:users!accepted_by(name), payment:payment_methods(name)",
+      "id, booking_no, client_name, phone, telegram_username, preferred_date, scheduled_time, age, weight, status, pinned, ref_code, src, city, utm, internal_note, client_id, rescheduled_at, created_at, payment_method_id, services(name, category), accepted:users!accepted_by(name), payment:payment_methods(name)",
     )
     .order("created_at", { ascending: false })
     .limit(200);

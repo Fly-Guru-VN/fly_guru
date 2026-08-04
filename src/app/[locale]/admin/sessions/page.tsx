@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { channelLabel } from "@/lib/channels";
 import { loadAllClients } from "@/lib/clients";
 import { vnMonthToDate, vnPeriod, vnToday } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
@@ -27,6 +28,7 @@ interface SessionRow {
   service_id: string | null;
   instructor_id: string | null;
   payment_method_id: string | null;
+  channel: string | null;
   note: string | null;
   created_at: string;
   clients: { name: string } | null;
@@ -94,6 +96,14 @@ function SessionCard({
               </span>
             )}
             <EnteredBadge at={s.created_at} />
+            {/* Канал записи (0034): откуда пришёл этот гость. У занятий до
+                пачки №20 его нет — плашки просто не будет. */}
+            {s.channel && (
+              <span className="inline-flex items-center gap-1 rounded-lg bg-line/50 px-2 py-0.5 text-xs font-semibold text-muted">
+                <span aria-hidden>📍</span>
+                {channelLabel(s.channel)}
+              </span>
+            )}
           </div>
           {s.note && (
             <p className="mt-1 truncate text-xs italic text-muted">📝 {s.note}</p>
@@ -262,7 +272,7 @@ export default async function AdminSessionsPage({
     supabase
       .from("sessions")
       .select(
-        "id, date, amount, minutes_used, subscription_id, service_id, instructor_id, payment_method_id, note, created_at, clients(name), services(name), instructor:users!instructor_id(name), payment:payment_methods(name)",
+        "id, date, amount, minutes_used, subscription_id, service_id, instructor_id, payment_method_id, channel, note, created_at, clients(name), services(name), instructor:users!instructor_id(name), payment:payment_methods(name)",
       )
       .gte("date", range.fromDay)
       .lt("date", range.toDay)

@@ -20,6 +20,7 @@ interface BookingRow {
   weight: number | null;
   pinned: boolean;
   internal_note: string | null;
+  city: string | null;
   accepted_by: string | null;
   services: { name: string; category: string } | null;
   accepted: { name: string } | null;
@@ -39,7 +40,7 @@ export default async function InstructorBookingsPage() {
     supabase
       .from("bookings")
       .select(
-        "id, client_name, phone, preferred_date, scheduled_time, age, weight, pinned, internal_note, accepted_by, services(name, category), accepted:users!accepted_by(name)",
+        "id, client_name, phone, preferred_date, scheduled_time, age, weight, pinned, internal_note, city, accepted_by, services(name, category), accepted:users!accepted_by(name)",
       )
       .eq("status", "confirmed")
       .order("pinned", { ascending: false })
@@ -119,6 +120,9 @@ export default async function InstructorBookingsPage() {
                   {b.age != null && b.weight != null && " · "}
                   {b.weight != null && <>Вес: {b.weight} кг</>}
                 </p>
+                {/* Город гостя: у ручных заявок его теперь спрашивают всегда,
+                    у заявок с сайта и у старых строки не будет. */}
+                {b.city && <p>Город: {b.city}</p>}
                 {b.internal_note && <p className="italic">{b.internal_note}</p>}
               </div>
 

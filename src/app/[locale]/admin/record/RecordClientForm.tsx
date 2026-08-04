@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { createSessionAction } from "../actions";
 import { PhoneField } from "@/components/cabinet/PhoneField";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
+import { ChannelField } from "@/components/cabinet/ChannelField";
 import { vnd } from "@/lib/stats";
 import { Spinner } from "@/components/Spinner";
 
@@ -32,6 +33,8 @@ export interface RecordPrefill {
   date?: string; // дата из заявки — на неё и ляжет занятие
   paymentMethodId?: string | null; // способ оплаты из карточки заявки
   paymentMethodName?: string | null;
+  city?: string | null; // город из заявки — второй раз его не спрашиваем
+  channel?: string | null; // канал записи из заявки (bookings.src)
 }
 
 // Единая высота h-10 у всех полей. Дата — компактная (задаёт ширину сама, как
@@ -152,10 +155,28 @@ export function RecordClientForm({
         variant="compact"
       />
 
+      {/* Город обязателен (пачка №20): без него не видно, откуда к нам едут.
+          У нового клиента он попадёт в карточку, у существующего — заполнит
+          пустое поле, уже вписанный город не перетирает. */}
       <label className="block text-xs text-muted">
-        Город
-        <input type="text" name="newCity" placeholder="Nha Trang" className={`mt-1 ${inputClass}`} />
+        Город *
+        <input
+          type="text"
+          name="newCity"
+          required
+          defaultValue={prefill?.city ?? ""}
+          placeholder="Nha Trang"
+          className={`mt-1 ${inputClass}`}
+        />
       </label>
+
+      {/* Канал записи: по умолчанию «Пляжи», свой вариант — пункт «Другой…».
+          Из заявки приезжает её канал. */}
+      <ChannelField
+        variant="compact"
+        className={inputClass}
+        defaultValue={prefill?.channel}
+      />
 
       <div className="grid grid-cols-2 gap-2">
         <label className="text-xs text-muted">

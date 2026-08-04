@@ -10,7 +10,7 @@ import {
 } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import { loadAllSessions } from "@/lib/sessions";
-import { MANUAL_CHANNELS } from "@/lib/channels";
+import { channelLabel } from "@/lib/channels";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 
 export const metadata: Metadata = { title: "Админка · Статистика" };
@@ -292,12 +292,14 @@ export default async function AdminDashboardPage({
   let lostSum = 0;
   for (const b of bookings) {
     byStatus.set(b.status, (byStatus.get(b.status) ?? 0) + 1);
-    // Ручные каналы (звонок/мессенджер/пришёл сам) показываем по-человечески,
-    // сайтовые метки — как есть: «src: instagram».
+    // Ручные каналы (пляжи/звонок/мессенджер) показываем по-человечески,
+    // вписанный руками канал и сайтовые метки (instagram/qr/flyer) — как есть:
+    // с тех пор как канал можно вписать своими словами, отличить одно от
+    // другого нечем, а «src: instagram» и так читалось как техническая строка.
     const source = b.ref_code
       ? "по реф-ссылке"
       : b.src
-        ? (MANUAL_CHANNELS[b.src] ?? `src: ${b.src}`)
+        ? (channelLabel(b.src) ?? "прямые")
         : "прямые";
     bySource.set(source, (bySource.get(source) ?? 0) + 1);
     if (b.status === "cancelled") lostSum += b.service?.price ?? 0;

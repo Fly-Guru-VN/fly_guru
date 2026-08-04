@@ -75,7 +75,7 @@ export default async function RecordPage({
     const { data: booking } = await supabase
       .from("bookings")
       .select(
-        "id, client_name, phone, service_id, ref_code, telegram_username, payment_method_id, payment:payment_methods(name)",
+        "id, client_name, phone, service_id, ref_code, telegram_username, payment_method_id, city, src, payment:payment_methods(name)",
       )
       .eq("id", bookingId)
       .maybeSingle();
@@ -91,6 +91,10 @@ export default async function RecordPage({
         // второй раз, просто подставляем (инструктор может поменять).
         paymentMethodId: booking.payment_method_id,
         paymentMethodName: embeddedName(booking.payment),
+        // Город и канал записи уже указаны в заявке — подставляем, чтобы
+        // инструктор не вспоминал их заново (поменять можно).
+        city: booking.city,
+        channel: booking.src,
       };
       // Скидку даёт ТОЛЬКО агентский код, инструкторский — нет. Проверяем,
       // чей это код, чтобы форма не обещала скидку там, где её не будет

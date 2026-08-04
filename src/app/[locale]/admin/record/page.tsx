@@ -48,7 +48,7 @@ export default async function AdminRecordPage({
     const { data: booking } = await supabase
       .from("bookings")
       .select(
-        "id, client_name, phone, service_id, ref_code, preferred_date, telegram_username, payment_method_id, payment:payment_methods(name)",
+        "id, client_name, phone, service_id, ref_code, preferred_date, telegram_username, payment_method_id, city, src, payment:payment_methods(name)",
       )
       .eq("id", bookingId)
       .maybeSingle();
@@ -69,6 +69,10 @@ export default async function AdminRecordPage({
         // заново — то же действие второй раз.
         paymentMethodId: booking.payment_method_id,
         paymentMethodName: embeddedName(booking.payment),
+        // Город и канал записи админ уже указал в заявке — спрашивать второй
+        // раз незачем, но поменять можно (поля обычные).
+        city: booking.city,
+        channel: booking.src,
       };
       // Чей это код и положена ли гостю скидка — та же проверка, что делает
       // расчёт чека: скидку даёт только активный агент и только за первое

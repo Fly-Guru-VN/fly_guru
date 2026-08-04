@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { createBookingAction } from "../actions";
-import { MANUAL_CHANNELS } from "@/lib/channels";
+import { ChannelField } from "@/components/cabinet/ChannelField";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { Spinner } from "@/components/Spinner";
 
@@ -82,16 +82,9 @@ export function BookingCreateForm({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <label className="text-xs text-muted">
-          Откуда пришёл
-          <select name="channel" defaultValue="call" className={`mt-1 ${inputClass}`}>
-            {Object.entries(MANUAL_CHANNELS).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {/* Канал записи: по умолчанию «Пляжи», любой другой можно вписать
+            руками (пункт «Другой…» в списке). */}
+        <ChannelField variant="compact" className={inputClass} />
         <label className="text-xs text-muted">
           Услуга
           <select name="serviceId" className={`mt-1 ${inputClass}`}>
@@ -104,6 +97,19 @@ export function BookingCreateForm({
           </select>
         </label>
       </div>
+
+      {/* Город — обязательный: без него в базе не видно, откуда к нам едут.
+          Свободный текст, справочника нарочно нет. */}
+      <label className="block text-xs text-muted">
+        Город *
+        <input
+          type="text"
+          name="city"
+          required
+          placeholder="Nha Trang"
+          className={`mt-1 ${inputClass}`}
+        />
+      </label>
 
       {/* Формат оплаты (пак A, пункт 6) — здесь НЕобязателен: заявка это
           договорённость, клиент ещё не платил. Заполняют, когда о способе
