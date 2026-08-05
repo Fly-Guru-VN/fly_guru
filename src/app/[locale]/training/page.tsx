@@ -145,7 +145,7 @@ export default async function TrainingPage() {
           внизу кадра и на телефоне, и на ПК — на этом снимке верх занимают небо
           и горы, и разводить заголовок с кнопкой по краям тут нечего. */}
       <HeroStage
-        image="/media/photo/training-hero-2.webp"
+        image="/media/photo/training-hero-3.webp"
         alt="Двое летят на электрофойлах над морем в Нячанге"
         bleed
       >
