@@ -164,9 +164,11 @@ export default async function TandemPage() {
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-primary">
                     <f.icon aria-hidden className="h-5 w-5" />
                   </span>
+                  {/* Подпись сверху, значение под ней: сначала читается «о чём
+                      речь» (длительность, доступ), потом сама цифра. */}
                   <span>
-                    <span className="block text-sm font-bold leading-tight">{f.value}</span>
                     <span className="block text-xs text-muted">{f.label}</span>
+                    <span className="block text-sm font-bold leading-tight">{f.value}</span>
                   </span>
                 </li>
               ))}
