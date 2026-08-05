@@ -20,11 +20,15 @@ export function FoilVideo({
   src,
   poster,
   alt,
+  shape = "aspect-video rounded-2xl",
 }: {
   src: string;
   poster: string;
   // Не alt в прямом смысле (у video его нет) — подпись для читалок экрана.
   alt: string;
+  // Форма рамки, пока ролик не развёрнут: горизонтальный в магазине,
+  // вертикальный на тандеме. В полном экране форму задаёт сам экран.
+  shape?: string;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -76,7 +80,7 @@ export function FoilVideo({
     <div
       ref={boxRef}
       className={`group relative isolate overflow-hidden ${
-        full ? "flex items-center justify-center bg-black" : "aspect-video rounded-2xl bg-ink"
+        full ? "flex items-center justify-center bg-black" : `${shape} bg-ink`
       }`}
     >
       <video
