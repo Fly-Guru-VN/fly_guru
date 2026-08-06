@@ -1,6 +1,4 @@
 import Image from "next/image";
-import { DotsRail } from "./DotsRail";
-import { RailItem } from "./Rail";
 import { FoilVideo } from "./FoilVideo";
 
 export type TandemStep = {
@@ -15,94 +13,93 @@ export type TandemStep = {
 const CLIP = "/media/video/tandem-ride.mp4";
 const CLIP_POSTER = "/media/video/tandem-ride-poster.jpg";
 
-// Место шага в сетке на большом экране: первый и второй столбиком слева,
-// третий — правее и по центру их высоты (self-center + строка на две).
-// Только от lg: на планшете шаги стоят прежним рядом из трёх.
-const PLACE = [
-  "lg:col-start-1 lg:row-start-1",
-  "lg:col-start-1 lg:row-start-2",
-  "lg:col-start-2 lg:row-span-2 lg:self-center",
-];
-
-// «Как проходит тандем»: слева белая плашка с шагами, справа вертикальный ролик.
+// «Как проходит тандем» по макету `photo_video/Тандем/ref_2.jpg`: слева шаги
+// лежачими карточками (иллюстрация в круге, рядом текст) с дорожкой номеров
+// сбоку, справа — вертикальный ролик в бирюзовой рамке, той же, что у ролика на
+// странице обучения.
 //
-// Три вида:
-//  • большой экран (от lg) — шаги 1 и 2 столбиком, шаг 3 правее по центру,
-//    ролик крайним столбцом;
-//  • планшет (md) — прежний ряд из трёх шагов, ролик под плашкой: рядом с ним
-//    колонки шагов ужимались до 200 px и заголовки ломались пополам;
-//  • телефон — лента с точками (как отзывы и шаги на главной), ролик под ней:
-//    три высокие карточки одна под другой заняли бы почти три экрана прокрутки.
+// Дорожка номеров устроена как на «Обучении»: линия идёт сквозь весь список, а
+// кружки лежат поверх неё и закрывают её собой — считать отрезки от кружка до
+// кружка нельзя, карточки разной высоты. У первого шага линия начинается от
+// центра кружка, у последнего там же обрывается.
+//
+// На телефоне дорожки нет (на 330 px она съела бы восьмую часть ширины), кружок
+// с номером сидит верхом на верхней границе своей карточки — тем же приёмом,
+// что и шаги обучения.
 export function TandemSteps({ steps }: { steps: TandemStep[] }) {
   return (
-    <div className="lg:flex lg:items-stretch lg:gap-8">
-      <div className="md:rounded-3xl md:border md:border-line md:bg-surface md:px-8 md:pb-10 md:pt-8 md:shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)] lg:flex-1">
-        {/* mt-8 у ленты снимаем на ПК: там сверху уже есть поле самой плашки. */}
-        <DotsRail
-          as="ol"
-          count={steps.length}
-          className="md:mt-0 md:grid-cols-3 lg:grid-cols-2 lg:gap-x-10 lg:gap-y-8"
-        >
-          {steps.map((s, i) => (
-            <RailItem as="li" key={s.title} className={`relative ${PLACE[i]}`}>
-              {/* Пунктир между колонками ряда — только на планшете: на большом
-                  экране шаги стоят уступом, и соединять там нечего. Висит в
-                  зазоре сетки (левый край колонки минус половина своей ширины)
-                  на высоте середины иллюстрации. */}
-              {i > 0 && (
-                <span
-                  aria-hidden
-                  className="absolute left-0 top-[9rem] hidden w-6 -translate-x-1/2 border-t-2 border-dashed border-primary/25 md:block lg:hidden"
-                />
-              )}
-              {/* На телефоне шаг — закрытая карточка, на ПК рамка не нужна:
-                  шаги живут внутри общей плашки. */}
-              <div className="h-full rounded-3xl border border-line bg-surface p-5 shadow-[0_18px_36px_-26px_rgba(15,34,51,0.55)] md:rounded-none md:border-0 md:p-0 md:shadow-none">
-                <span
-                  aria-hidden
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/15 bg-surface-2 text-lg font-bold text-primary ring-8 ring-primary/5"
-                >
-                  {i + 1}
-                </span>
+    <div className="md:flex md:items-center md:gap-8 lg:gap-12">
+      <ol className="relative md:flex-1">
+        {steps.map((s, i) => {
+          const first = i === 0;
+          const last = i === steps.length - 1;
+          return (
+            // Зазор на ПК симметричный (py-3), а не отступом снизу: так середина
+            // элемента списка совпадает с серединой карточки, и кружок, который
+            // центрируется по элементу, встаёт ровно по центру своей плашки.
+            <li key={s.title} className="relative pb-5 pt-7 md:py-3 md:pl-16">
+              <span
+                aria-hidden
+                className={`absolute left-[1.53rem] hidden w-0.5 bg-primary/20 md:block ${
+                  first ? "top-1/2" : "top-0"
+                } ${last ? "bottom-1/2" : "bottom-0"}`}
+              />
+
+              {/* ring — бледный ореол вокруг кружка: без него он выглядит на
+                  светлом фоне наклейкой. */}
+              <span
+                aria-hidden
+                className="absolute left-1/2 top-7 z-10 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-primary/35 bg-surface text-lg font-bold text-primary ring-8 ring-primary/5 md:left-1 md:top-1/2 md:translate-x-0"
+              >
+                {i + 1}
+              </span>
+
+              {/* Верхнее поле на телефоне больше остальных: под кружком должно
+                  остаться место, иначе он ложится на заголовок. */}
+              <div className="flex items-center gap-4 rounded-3xl border border-line bg-surface px-4 pb-5 pt-8 shadow-[0_18px_36px_-26px_rgba(15,34,51,0.55)] sm:px-5 md:gap-6 md:py-5">
                 {/* Иллюстрации разной формы (две вертикальные, третья широкая),
-                    поэтому вписываем их в общий по высоте бокс и прижимаем к его
-                    низу: так фигуры стоят на одной линии, как в макете. */}
-                <div className="relative mt-5 h-32 w-full md:h-40">
+                    поэтому вписываем их в общий круг: так все три занимают одно
+                    место и стоят по одной линии, как в макете. */}
+                <span
+                  aria-hidden
+                  className="grid h-[4.5rem] w-[4.5rem] shrink-0 place-items-center rounded-full bg-surface-2 sm:h-24 sm:w-24 md:h-28 md:w-28"
+                >
                   <Image
                     src={s.image}
                     alt=""
-                    aria-hidden
-                    fill
-                    sizes="(min-width: 768px) 240px, 280px"
-                    // Качество выше обычного не ради деталей, а ради фона:
-                    // при 75 белый фон иллюстрации пережимается в 252 и на белой
-                    // плашке видно светло-серый прямоугольник вокруг фигурки.
+                    width={560}
+                    height={560}
+                    sizes="112px"
+                    // Качество выше обычного не ради деталей, а ради фона: при 75
+                    // белый фон иллюстрации пережимается в 252 и на светлой
+                    // подложке видно серый прямоугольник вокруг фигурки.
                     quality={90}
-                    className="object-contain object-bottom"
+                    className="h-[78%] w-[78%] object-contain mix-blend-multiply"
                   />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold leading-tight sm:text-lg">{s.title}</h3>
+                  <p className="mt-2 text-sm text-muted">{s.text}</p>
                 </div>
-                <h3 className="mt-5 text-center text-lg font-bold">{s.title}</h3>
-                <p className="mt-2 text-center text-sm text-muted">{s.text}</p>
               </div>
-            </RailItem>
-          ))}
-        </DotsRail>
-      </div>
+            </li>
+          );
+        })}
+      </ol>
 
-      {/* Ролик. Кадр показываем целиком, своим форматом 9:16 и без растягивания
-          на всю высоту плашки: в ролик вшиты подписи, и object-cover срезал бы
-          у них края. Поэтому столбец фиксированной ширины и по центру высоты.
-          На телефоне — узкой колонкой по центру: во всю ширину вертикальный
-          кадр занял бы почти весь экран. */}
-      <div className="mt-8 lg:mt-0 lg:w-[340px] lg:shrink-0 lg:self-center">
-        <div className="mx-auto w-[72%] max-w-[280px] md:max-w-[320px] lg:w-full lg:max-w-none">
-          <FoilVideo
-            src={CLIP}
-            poster={CLIP_POSTER}
-            alt="Полёт в тандеме с инструктором в Нячанге"
-            shape="aspect-[9/16] rounded-3xl"
-          />
-        </div>
+      {/* Ролик в бирюзовой рамке — такой же, как у ролика на странице обучения.
+          Кадр показываем целиком, своим форматом 9:16 и без растягивания на всю
+          высоту шагов: в ролик вшиты подписи, и object-cover срезал бы у них
+          края. Поэтому столбец фиксированной ширины и по центру высоты.
+          На телефоне — узкой колонкой по центру: во всю ширину вертикальный кадр
+          занял бы почти весь экран. */}
+      <div className="mx-auto mt-8 w-[72%] max-w-[280px] rounded-[1.75rem] border-2 border-primary/30 bg-surface p-3 shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)] md:mt-0 md:w-[300px] md:max-w-none md:shrink-0 lg:w-[340px]">
+        <FoilVideo
+          src={CLIP}
+          poster={CLIP_POSTER}
+          alt="Полёт в тандеме с инструктором в Нячанге"
+          shape="aspect-[9/16] rounded-[1.15rem]"
+        />
       </div>
     </div>
   );
