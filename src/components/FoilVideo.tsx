@@ -21,6 +21,7 @@ export function FoilVideo({
   poster,
   alt,
   shape = "aspect-video rounded-2xl",
+  sound = false,
 }: {
   src: string;
   poster: string;
@@ -29,10 +30,15 @@ export function FoilVideo({
   // Форма рамки, пока ролик не развёрнут: горизонтальный в магазине,
   // вертикальный на тандеме. В полном экране форму задаёт сам экран.
   shape?: string;
+  // У ролика есть звук: включаем его, когда ролик разворачивают на весь экран.
+  // Само по себе в карточке видео всегда без звука — со звуком браузеры
+  // автозапуск запрещают, ролик просто стоял бы постером.
+  sound?: boolean;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [full, setFull] = useState(false);
+  const [muted, setMuted] = useState(true);
 
   useEffect(() => {
     const box = boxRef.current;
@@ -49,10 +55,27 @@ export function FoilVideo({
     return () => io.disconnect();
   }, []);
 
+  // Свернули ролик — глушим обратно, иначе он продолжал бы говорить из
+  // маленькой карточки, пока страница листается дальше. Событие
+  // webkitendfullscreen — про родной плеер iOS, обычного fullscreenchange там
+  // не бывает.
   useEffect(() => {
-    const onChange = () => setFull(document.fullscreenElement === boxRef.current);
+    const video = videoRef.current;
+    const onChange = () => {
+      const isFull = document.fullscreenElement === boxRef.current;
+      setFull(isFull);
+      if (!isFull) mute();
+    };
+    const mute = () => {
+      setMuted(true);
+      if (video) video.muted = true;
+    };
     document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
+    video?.addEventListener("webkitendfullscreen", mute);
+    return () => {
+      document.removeEventListener("fullscreenchange", onChange);
+      video?.removeEventListener("webkitendfullscreen", mute);
+    };
   }, []);
 
   function expand() {
@@ -65,9 +88,15 @@ export function FoilVideo({
       return;
     }
     // Клик — это жест пользователя, и это единственный момент, когда можно
-    // завести ролик наверняка. Нужно для iOS в режиме энергосбережения: там
-    // автозапуск запрещён даже без звука, видео стоит постером, и родной
-    // полноэкранный плеер открывать по сути нечего.
+    // завести ролик наверняка и снять с него глушилку. Завести нужно для iOS в
+    // режиме энергосбережения: там автозапуск запрещён даже без звука, видео
+    // стоит постером, и родной полноэкранный плеер открывать по сути нечего.
+    // Звук снимаем и напрямую у элемента, и через состояние: пока React
+    // перерисует, полный экран уже откроется.
+    if (sound && video) {
+      video.muted = false;
+      setMuted(false);
+    }
     video?.play().catch(() => {});
     if (box?.requestFullscreen) {
       box.requestFullscreen().catch(() => video?.webkitEnterFullscreen?.());
@@ -87,7 +116,7 @@ export function FoilVideo({
         ref={videoRef}
         poster={poster}
         loop
-        muted
+        muted={muted}
         playsInline
         preload="none"
         controls={full}

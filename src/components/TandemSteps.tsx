@@ -106,6 +106,9 @@ export function TandemSteps({ steps }: { steps: TandemStep[] }) {
           poster={CLIP_POSTER}
           alt="Полёт в тандеме с инструктором в Нячанге"
           shape="aspect-[9/16] rounded-[1.15rem]"
+          // В карточке ролик крутится без звука (иначе браузер не даст ему
+          // запуститься сам), звук включается, когда его разворачивают.
+          sound
         />
       </div>
     </div>
