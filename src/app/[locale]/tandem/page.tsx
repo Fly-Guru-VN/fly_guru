@@ -70,6 +70,8 @@ export default async function TandemPage() {
       title: "Эмоции на высоте",
       text: "Яркие впечатления обеспечены.",
       image: "/media/photo/tandem-step-3.webp",
+      // Оранжевый пульсирующий номер, как у последнего шага обучения.
+      highlight: true,
     },
   ];
 
@@ -220,10 +222,30 @@ export default async function TandemPage() {
       </section>
 
       {/* ── Как проходит тандем ── */}
-      <Section pad="tight" className="bg-gradient-to-b from-white to-surface-2">
-        <Container>
-          <h2 className="text-2xl font-bold sm:text-3xl">Как проходит тандем</h2>
-          <Squiggle className="mt-4" />
+      <Section pad="tight" className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2">
+        {/* Чайки из макета `ref_2.jpg` — пара над роликом, в пустоте справа от
+            заголовка. Только от md: на телефоне ролик начинается сразу под
+            заголовком и садиться им негде. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute right-[22%] top-4 w-16 -rotate-[6deg] opacity-90"
+          />
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute right-4 top-12 w-12 rotate-[4deg] opacity-80"
+          />
+        </div>
+
+        <Container className="relative">
+          <h2 className="text-3xl font-bold sm:text-4xl">Как проходит тандем</h2>
+          <Squiggle long className="mt-4" />
           <div className="mt-6 md:mt-8">
             <TandemSteps steps={steps} />
           </div>

@@ -6,6 +6,9 @@ export type TandemStep = {
   text: string;
   // Иллюстрация шага (синяя графика на белом), обрезанная в край фигуры.
   image: string;
+  // Последний шаг: номер другого цвета и с живым свечением — как «Взлетаем» на
+  // странице обучения.
+  highlight?: boolean;
 };
 
 // Ролик тандема (вертикальный, из инстаграма): без звука, зациклен, по клику
@@ -49,7 +52,11 @@ export function TandemSteps({ steps }: { steps: TandemStep[] }) {
                   светлом фоне наклейкой. */}
               <span
                 aria-hidden
-                className="absolute left-1/2 top-7 z-10 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-primary/35 bg-surface text-lg font-bold text-primary ring-8 ring-primary/5 md:left-1 md:top-1/2 md:translate-x-0"
+                className={`absolute left-1/2 top-7 z-10 flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 bg-surface text-lg font-bold ring-8 md:left-1 md:top-1/2 md:translate-x-0 ${
+                  s.highlight
+                    ? "animate-step-glow border-accent text-accent ring-accent/5"
+                    : "border-primary/35 text-primary ring-primary/5"
+                }`}
               >
                 {i + 1}
               </span>
