@@ -294,6 +294,19 @@ export function IconPlay(props: IconProps) {
   );
 }
 
+// Квадрокоптер сбоку: два винта на лучах, корпус и шарик камеры снизу.
+// Для съёмки с дрона в прайсе.
+export function IconDrone(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3.5 6.5h5m7 0h5" />
+      <path d="M6 6.5v1.6l3 1.9m9-3.5v1.6l-3 1.9" />
+      <rect x="9" y="9.5" width="6" height="4.2" rx="1.6" />
+      <circle cx="12" cy="16.8" r="1.7" />
+    </svg>
+  );
+}
+
 // Стрелки в углы — «развернуть на весь экран».
 export function IconExpand(props: IconProps) {
   return (

@@ -63,6 +63,14 @@ export const services: Service[] = [
   // ── Доп. услуги ──
   { id: "video", name: "Фото/видео с монтажом", durationMin: null, durationLabel: "—", price: 1_200_000, category: "extra" },
   { id: "video-raw", name: "Фото/видео без монтажа", durationMin: null, durationLabel: "—", price: 600_000, category: "extra" },
+  {
+    id: "drone",
+    name: "Съёмка с дрона Hover Aqua Pro",
+    durationMin: 20,
+    price: 1_000_000,
+    category: "extra",
+    note: "Одна сессия, исходники отдаём",
+  },
 ];
 
 export function getService(id: string): Service {
