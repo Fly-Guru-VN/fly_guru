@@ -80,7 +80,17 @@ export default async function LocaleLayout({
   const services = await getActiveServices();
 
   return (
-    <html lang={locale} className={`${font.variable} h-full`}>
+    // data-scroll-behavior — обязательная пара к `html { scroll-behavior: smooth }`
+    // из globals.css. По этому атрибуту Next на переходе между страницами
+    // временно гасит плавную прокрутку. Без него его собственная прокрутка
+    // наверх уезжала плавно, Next тут же мерил ещё старую позицию, решал, что
+    // верх страницы не в кадре, и добивал scrollIntoView — новая страница
+    // открывалась прокрученной на высоту шапки, с обрезанным первым экраном.
+    <html
+      lang={locale}
+      data-scroll-behavior="smooth"
+      className={`${font.variable} h-full`}
+    >
       <body className="flex min-h-full flex-col">
         <NextIntlClientProvider>
           {/* Невидимая «ловушка меток» источника — работает на всех страницах. */}
