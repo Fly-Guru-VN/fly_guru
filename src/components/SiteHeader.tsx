@@ -123,7 +123,17 @@ export function SiteHeader() {
             подтягивается к той, на которую навели.
             Кружка загрузки у пунктов нет намеренно: он раздвигал ширину пункта,
             плашка под ним дёргалась, а страницы сайта и так открываются сразу. */}
-        <nav className="hidden items-center gap-1 md:flex">
+        {/* Порог у меню НЕ md (768), а 960 px — единственное место, где шапка
+            расходится с общей сеткой сайта, и менять его на md нельзя.
+            Логотип, семь пунктов, «Вход» и «Записаться» требуют 869 px: на 768
+            они не помещались, вылезали за край, и вбок уезжала ВСЯ страница —
+            шапка sticky и тянет документ за собой. Ужимать пункты пришлось бы
+            на сотню пикселей, это уже нечитаемый кегль, поэтому до порога
+            работает бургер, как на телефоне.
+            Именно 960, а не 870: на 900–920 меню встаёт вплотную к логотипу
+            (замерено — зазор 0, плашка активного пункта наезжает на «FlyGuru»),
+            а с 960 между ними появляется воздух. */}
+        <nav className="hidden items-center gap-1 min-[960px]:flex">
           <SlidingHighlight
             activeKey={NAV_LINKS.find((l) => isCurrent(l.href))?.href ?? null}
             pillClassName="rounded-full bg-white/20"
@@ -166,7 +176,7 @@ export function SiteHeader() {
           onClick={() => setOpen((v) => !v)}
           aria-label="Меню"
           aria-expanded={open}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 active:scale-95 md:hidden"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 active:scale-95 min-[960px]:hidden"
         >
           {/* Обе иконки лежат друг на друге в квадрате 24×24 по центру кнопки и
               переключаются прозрачностью с доворотом: палец видит, что нажатие
@@ -194,7 +204,7 @@ export function SiteHeader() {
           светлой части шапки: тёмная заливка ниже осветлённой шапки читалась
           как ступенька. */}
       {open && (
-        <nav className="animate-menu-down border-t border-white/15 bg-primary md:hidden">
+        <nav className="animate-menu-down border-t border-white/15 bg-primary min-[960px]:hidden">
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-3 sm:px-6">
             {NAV_LINKS.map((l) => (
               <Link
