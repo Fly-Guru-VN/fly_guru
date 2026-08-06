@@ -39,8 +39,9 @@ export default async function TandemPage() {
     { icon: IconCheck, value: "не требуется", label: "обучение" },
   ];
 
-  // Две плашки поверх кадра — снимают два главных страха: «а это безопасно?»
-  // и «а я вообще смогу?».
+  // Два обещания — снимают главные страхи: «а это безопасно?» и «а я вообще
+  // смогу?». На ПК висят плашками поверх кадра, на телефоне — короткими
+  // плашками над заголовком (там от них остаются только названия).
   const promises = [
     {
       icon: IconShield,
@@ -144,7 +145,26 @@ export default async function TandemPage() {
 
         <Container className="relative">
           <div className="pb-12 pt-8 lg:max-w-[46%] lg:pb-8 lg:pt-16">
-            <p className="text-sm font-semibold uppercase tracking-wide text-primary">Тандем</p>
+            {/* Надпись «Тандем» над заголовком остаётся только на большом
+                экране. Ниже lg вместо неё — те же два обещания, что на ПК висят
+                поверх кадра, но короткими плашками в ряд: без них первый экран
+                телефона обходился совсем без ответа на «а это безопасно?».
+                flex-wrap — страховка на узких телефонах: не влезут в строку,
+                встанут друг под другом. */}
+            <p className="hidden text-sm font-semibold uppercase tracking-wide text-primary lg:block">
+              Тандем
+            </p>
+            <ul className="flex flex-wrap gap-2 lg:hidden">
+              {promises.map((p) => (
+                <li
+                  key={p.title}
+                  className="flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 shadow-[0_10px_24px_-20px_rgba(15,34,51,0.6)]"
+                >
+                  <p.icon aria-hidden className="h-4 w-4 shrink-0 text-primary" />
+                  <span className="text-sm font-semibold">{p.title}</span>
+                </li>
+              ))}
+            </ul>
             <Squiggle className="mt-3" />
             <h1 className="mt-5 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
               Полёт в тандеме
@@ -195,18 +215,6 @@ export default async function TandemPage() {
               </a>
             </div>
 
-            {/* Те же два обещания, что поверх кадра на ПК. */}
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:hidden">
-              {promises.map((p) => (
-                <div key={p.title} className="rounded-2xl border border-line bg-surface p-4">
-                  <p className="flex items-center gap-2 font-bold">
-                    <p.icon aria-hidden className="h-5 w-5 shrink-0 text-primary" />
-                    {p.title}
-                  </p>
-                  <p className="mt-1.5 text-sm leading-snug text-muted">{p.text}</p>
-                </div>
-              ))}
-            </div>
           </div>
         </Container>
       </section>
