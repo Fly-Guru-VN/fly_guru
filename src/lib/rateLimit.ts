@@ -1,7 +1,8 @@
-// Простая защита от «слишком частых» отправок формы с одного адреса.
+// Простая защита от «слишком частых» обращений с одного адреса.
 //
-// Простыми словами: считаем, сколько раз за последнюю минуту с одного IP пришла
-// заявка. Если больше лимита — просим подождать. Это отсекает грубый спам.
+// Простыми словами: считаем, сколько раз за последнюю минуту с одного IP
+// пришёл запрос. Если больше лимита — просим подождать. Это отсекает грубый
+// спам: и заявки пачками, и стук по служебным адресам.
 //
 // Оговорка честно: счётчик живёт в памяти одного серверного процесса. На Vercel
 // процессов бывает несколько, и между ними память не общая — поэтому это
@@ -15,25 +16,55 @@ interface Bucket {
 }
 
 const WINDOW_MS = 60_000; // окно 1 минута
-const MAX_REQUESTS = 5; // не больше 5 заявок с одного IP в минуту
+const MAX_REQUESTS = 5; // по умолчанию — не больше 5 обращений с одного IP в минуту
 
 const buckets = new Map<string, Bucket>();
 
-// Возвращает true, если запрос разрешён; false — если лимит превышен.
-export function checkRateLimit(ip: string): boolean {
+// Потолок числа адресов в памяти. Раньше его не было: спамер, который меняет
+// IP на каждом запросе, тихо раздувал этот Map, пока процессу не становилось
+// плохо — то есть сама защита от спама и была способом уронить сервер.
+// Дошли до потолка — выкидываем всё протухшее, а если и это не помогло,
+// чистим Map целиком: потерять счётчики не страшно (окно всё равно минута),
+// а память — важнее.
+const MAX_KEYS = 10_000;
+
+function prune(now: number): void {
+  for (const [key, bucket] of buckets) {
+    if (now > bucket.resetAt) buckets.delete(key);
+  }
+  if (buckets.size >= MAX_KEYS) buckets.clear();
+}
+
+/**
+ * Возвращает true, если запрос разрешён; false — если лимит превышен.
+ *
+ * @param key   кто стучится. Для разных адресов сайта ставьте свой префикс
+ *              («bookings:1.2.3.4»), иначе они будут делить один счётчик.
+ * @param max   сколько обращений разрешено в минуту.
+ */
+export function checkRateLimit(key: string, max: number = MAX_REQUESTS): boolean {
   const now = Date.now();
-  const bucket = buckets.get(ip);
+  const bucket = buckets.get(key);
 
   if (!bucket || now > bucket.resetAt) {
+    if (buckets.size >= MAX_KEYS) prune(now);
     // Нет записи или окно истекло — начинаем новое окно.
-    buckets.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    buckets.set(key, { count: 1, resetAt: now + WINDOW_MS });
     return true;
   }
 
-  if (bucket.count >= MAX_REQUESTS) {
+  if (bucket.count >= max) {
     return false; // лимит на эту минуту исчерпан
   }
 
   bucket.count += 1;
   return true;
+}
+
+// IP отправителя из заголовков запроса. На Vercel настоящий адрес гостя стоит
+// первым в x-forwarded-for; подделать его так, чтобы обмануть счётчик, можно
+// (заголовок клиентский), но это и не защита от целенаправленной атаки —
+// это барьер от простого спама.
+export function clientIp(headers: Headers): string {
+  return headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 }

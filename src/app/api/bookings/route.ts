@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { checkRateLimit } from "@/lib/rateLimit";
+import { checkRateLimit, clientIp } from "@/lib/rateLimit";
 import { sendBookingNotification } from "@/lib/telegram";
 import { isValidPhone, normalizeTelegram, phoneDigits } from "@/lib/phone";
 import { resolveRefOwners, refOwnerLabel, type RefOwner } from "@/lib/refOwner";
@@ -33,6 +33,44 @@ function isUuid(value: string): boolean {
   );
 }
 
+// Обрезка текстовых полей (ревизия безопасности 2026-08-07). Форму заполняет
+// не только человек: телефон и услугу мы проверяли и раньше, а имя, комментарий
+// и метки источника писались в базу как есть — то есть скриптом туда заливался
+// хоть мегабайт текста на каждую заявку. Живому гостю этих длин хватает с
+// запасом, поэтому режем молча, а не отказываем: настоящий человек с длинным
+// вопросом не должен получить «ошибку» вместо записи.
+function trim(value: unknown, max: number): string | null {
+  if (typeof value !== "string") return null;
+  const s = value.trim();
+  return s ? s.slice(0, max) : null;
+}
+
+// Настоящий ли это день календаря. Одной проверки формата мало: «2026-13-99»
+// выглядит как дата, но такого дня нет — Postgres отвечает ошибкой, и гость
+// видит «заявка не сохранилась» вместо записи. Дату из формы выбирают
+// календарём, так что сюда несуществующий день приезжает только от того, кто
+// шлёт запрос мимо формы; ему просто не проставим дату.
+function isRealDay(day: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const d = new Date(`${day}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === day;
+}
+
+// Метки рекламы (utm_source и прочие) приходят из адреса и целиком уезжают в
+// одну колонку json. Ограничиваем и число меток, и длину каждой.
+const UTM_MAX_KEYS = 10;
+const UTM_MAX_LEN = 200;
+function cleanUtm(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (Object.keys(out).length >= UTM_MAX_KEYS) break;
+    if (typeof value !== "string") continue;
+    out[key.slice(0, 40)] = value.slice(0, UTM_MAX_LEN);
+  }
+  return out;
+}
+
 export async function POST(req: NextRequest) {
   let body: BookingPayload;
   try {
@@ -48,9 +86,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 2. Ограничение частоты по IP-адресу.
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (!checkRateLimit(ip)) {
+  if (!checkRateLimit(`bookings:${clientIp(req.headers)}`)) {
     return NextResponse.json(
       { ok: false, error: "rate_limited" },
       { status: 429 },
@@ -58,8 +94,8 @@ export async function POST(req: NextRequest) {
   }
 
   // 3. Минимальная проверка: без имени и контакта заявка бессмысленна.
-  const clientName = body.clientName?.trim();
-  const contact = body.contact?.trim();
+  const clientName = trim(body.clientName, 100);
+  const contact = trim(body.contact, 40);
   if (!clientName || !contact) {
     return NextResponse.json(
       { ok: false, error: "missing_fields" },
@@ -78,12 +114,15 @@ export async function POST(req: NextRequest) {
   }
 
   const serviceId = body.serviceId && isUuid(body.serviceId) ? body.serviceId : null;
-  const messenger = body.messenger?.trim() || null;
-  const comment = body.comment?.trim() || null;
-  const preferredDate = body.preferredDate?.trim() || null;
-  const refCode = body.ref_code?.trim() || null;
-  const src = body.src?.trim() || null;
-  const utm = body.utm && typeof body.utm === "object" ? body.utm : {};
+  const messenger = trim(body.messenger, 40);
+  const comment = trim(body.comment, 1000);
+  // Дата — только существующий день; всё прочее в колонку date не ляжет.
+  const preferredDateRaw = trim(body.preferredDate, 10);
+  const preferredDate =
+    preferredDateRaw && isRealDay(preferredDateRaw) ? preferredDateRaw : null;
+  const refCode = trim(body.ref_code, 32);
+  const src = trim(body.src, 64);
+  const utm = cleanUtm(body.utm);
 
   // Канал связи и комментарий клиента кладём в internal_note (стартовая
   // заметка для админа; дальше он ведёт в ней договорённости с клиентом).
