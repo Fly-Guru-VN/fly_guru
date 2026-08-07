@@ -11,7 +11,10 @@ import {
 import { vnd } from "@/lib/stats";
 import { loadAllSessions } from "@/lib/sessions";
 import { channelLabel } from "@/lib/channels";
+import { buildPaymentBreakdown, SUBS_CAT, type PaymentInput } from "@/lib/payments";
+import { getFinance } from "@/lib/finance";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { VisitsTable, type VisitCell, type VisitColumn } from "./VisitsTable";
 
 export const metadata: Metadata = { title: "Админка · Статистика" };
 
@@ -20,6 +23,12 @@ export const metadata: Metadata = { title: "Админка · Статистик
 // и фильтрами по услуге/инструктору; фильтры действуют и на графики ниже.
 // Правило денег: доход существует только после факта оплаты — неоплаченные
 // абонементы в итоги не входят, показываются справочной строкой.
+//
+// Пачка №23: способ оплаты виден и в строке таблицы, и отдельным блоком
+// «Деньги по способам оплаты» (наличные / QR / T-Bank × виды занятий) — по
+// нему сводят кассу. Плюс «Куда ушли деньги»: то же, что на вкладке
+// «Расходы», но за выбранный период — начальник видит чистую прибыль, не
+// уходя со «Статистики».
 
 const CATEGORY_LABEL: Record<string, string> = {
   training: "Обучение",
@@ -42,7 +51,6 @@ const STATUS_LABEL: Record<string, string> = {
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 // «Всё время» — с даты заведомо раньше первой записи школы.
 const ALL_FROM = "2020-01-01";
-const TABLE_LIMIT = 100;
 
 const presetClass = (active: boolean) =>
   `rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
@@ -63,6 +71,7 @@ interface VisitRow {
   service: { name: string; category: string } | null;
   instructor: { name: string } | null;
   creator: { name: string } | null;
+  payment: { name: string } | null;
 }
 
 // Колонки таблицы: ключ ?sort=, подпись, стартовое направление.
@@ -71,6 +80,7 @@ const COLUMNS = [
   { key: "client", label: "Клиент", startDir: "a" },
   { key: "service", label: "Занятие", startDir: "a" },
   { key: "amount", label: "Оплата", startDir: "d" },
+  { key: "payment", label: "Чем оплатил", startDir: "a" },
   { key: "instructor", label: "Откатал", startDir: "a" },
   { key: "creator", label: "Записал", startDir: "a" },
   { key: "visits", label: "Визитов всего", startDir: "d" },
@@ -184,19 +194,22 @@ export default async function AdminDashboardPage({
     unpaidSubsRes,
     clientsRes,
     bookingsRes,
+    fin,
   ] = await Promise.all([
     // Обе выборки постранично (lib/sessions): .limit(10000) молча срезал бы
     // и выручку периода, и счётчик визитов клиента.
     loadAllSessions<VisitRow>(
       supabase,
-      "id, date, amount, minutes_used, subscription_id, client_id, instructor_id, client:clients!client_id(name), service:services!service_id(name, category), instructor:users!instructor_id(name), creator:users!created_by(name)",
+      "id, date, amount, minutes_used, subscription_id, client_id, instructor_id, client:clients!client_id(name), service:services!service_id(name, category), instructor:users!instructor_id(name), creator:users!created_by(name), payment:payment_methods!payment_method_id(name)",
       { fromDay: range.fromDay, toDay: range.toDay },
     ),
     // Все сессии школы — для колонки «визитов всего» у клиента.
     loadAllSessions<{ client_id: string | null }>(supabase, "client_id"),
+    // Способ оплаты — для блока «Деньги по способам оплаты»: абонемент
+    // оплачивают теми же деньгами и в кассу дня он попадает наравне с чеками.
     supabase
       .from("subscriptions")
-      .select("price")
+      .select("price, payment:payment_methods!payment_method_id(name)")
       .gte("paid_at", range.fromIso)
       .lt("paid_at", range.toIso),
     // Дебиторка всей школы (не периода): проданные, но неоплаченные.
@@ -212,9 +225,14 @@ export default async function AdminDashboardPage({
       .select("status, src, ref_code, service:services!service_id(price)")
       .gte("created_at", range.fromIso)
       .lt("created_at", range.toIso),
+    // Финмодель периода — та же, что на вкладке «Расходы» (lib/finance).
+    getFinance(supabase, range),
   ]);
 
-  const paidSubs = paidSubsRes.data ?? [];
+  const paidSubs = (paidSubsRes.data ?? []) as unknown as {
+    price: number | null;
+    payment: { name: string } | null;
+  }[];
   const paidSubsSum = paidSubs.reduce((s, r) => s + (r.price ?? 0), 0);
   const unpaid = (unpaidSubsRes.data ?? []).filter((r) => r.status !== "cancelled");
   const unpaidSum = unpaid.reduce((s, r) => s + (r.price ?? 0), 0);
@@ -230,6 +248,9 @@ export default async function AdminDashboardPage({
   }
   const visitsOf = (r: VisitRow) =>
     r.client_id ? (lifetimeVisits.get(r.client_id) ?? 0) : 0;
+  // Способ оплаты для сортировки и для ячейки: у списания с абонемента денег
+  // в этот день не было, спрашивать способ не с чего.
+  const paymentKey = (r: VisitRow) => (r.amount > 0 ? (r.payment?.name ?? "") : "—");
 
   // Фильтры-чипсы собираем из сессий периода: только то, что реально было.
   const presentCats = [...new Set(sessions.map((r) => r.service?.category ?? ""))]
@@ -258,6 +279,10 @@ export default async function AdminDashboardPage({
         return dirMul * (a.service?.name ?? "").localeCompare(b.service?.name ?? "", "ru");
       case "amount":
         return dirMul * (a.amount - b.amount);
+      case "payment":
+        // Ключ тот же, что и на экране: у списания с абонемента способа нет,
+        // даже если в строке сессии он зачем-то проставлен.
+        return dirMul * paymentKey(a).localeCompare(paymentKey(b), "ru");
       case "instructor":
         return dirMul * (a.instructor?.name ?? "").localeCompare(b.instructor?.name ?? "", "ru");
       case "creator":
@@ -268,7 +293,34 @@ export default async function AdminDashboardPage({
         return dirMul * a.date.localeCompare(b.date);
     }
   });
-  const shown = sorted.slice(0, TABLE_LIMIT);
+
+  // Готовые строки и шапка для клиентской таблицы: она умеет только рисовать
+  // и сворачивать, форматирование и сортировка остаются здесь, на сервере.
+  const tableRows: VisitCell[] = sorted.map((r) => ({
+    id: r.id,
+    date: fmtDay(r.date),
+    client: r.client?.name ?? "—",
+    service: r.subscription_id
+      ? `Абонемент · ${r.minutes_used ?? 0} мин`
+      : (r.service?.name ?? "—"),
+    amount: r.amount > 0 ? vnd(r.amount) : null,
+    payment: paymentKey(r) || null, // пусто → «не указан» серым
+    instructor: r.instructor?.name ?? "—",
+    creator: r.creator?.name ?? "—",
+    visits: String(visitsOf(r) || "—"),
+  }));
+  const tableColumns: VisitColumn[] = COLUMNS.map((c) => {
+    const active = sort === c.key;
+    // Клик по активной колонке разворачивает направление.
+    const nextDir = active ? (dir === "a" ? "d" : "a") : c.startDir;
+    return {
+      key: c.key,
+      label: c.label,
+      href: href({ sort: c.key, dir: nextDir }),
+      active,
+      arrow: active ? (dir === "a" ? " ↑" : " ↓") : "",
+    };
+  });
 
   // Итоги под таблицей — по всем отфильтрованным строкам, не только показанным.
   const tSum = filtered.reduce((s, r) => s + r.amount, 0);
@@ -279,6 +331,27 @@ export default async function AdminDashboardPage({
     (s, r) => s + (r.subscription_id ? (r.minutes_used ?? 0) : 0),
     0,
   );
+
+  // Деньги по способам оплаты — по всему периоду, БЕЗ фильтров услуги и
+  // инструктора: это касса, её сводят целиком. Абонементы сюда входят по дате
+  // оплаты, списания минут — нет (в этот день денег не было).
+  const payments = buildPaymentBreakdown([
+    ...sessions.map<PaymentInput>((r) => ({
+      amount: r.amount,
+      method: r.payment?.name ?? null,
+      category: r.service?.category ?? null,
+    })),
+    ...paidSubs.map<PaymentInput>((s) => ({
+      amount: Number(s.price ?? 0),
+      method: s.payment?.name ?? null,
+      category: SUBS_CAT,
+    })),
+  ]);
+  // Колонки — в привычном порядке видов занятий, и только те, что встретились.
+  const payCats = [
+    ...Object.keys(CATEGORY_LABEL).filter((c) => payments.totalByCategory.has(c)),
+    ...payments.categories.filter((c) => !(c in CATEGORY_LABEL)),
+  ];
 
   // Заявки периода: воронка, источники, потерянная прибыль с отменённых.
   const bookings = (bookingsRes.data ?? []) as unknown as {
@@ -484,63 +557,13 @@ export default async function AdminDashboardPage({
       <section className="mt-4 rounded-2xl border border-line bg-surface">
         <div className="flex items-baseline justify-between gap-2 p-4 pb-0">
           <h2 className="font-bold">Визиты за период</h2>
-          <p className="text-xs text-muted">
-            {filtered.length > TABLE_LIMIT
-              ? `показаны ${TABLE_LIMIT} из ${filtered.length}`
-              : `всего: ${filtered.length}`}
-          </p>
+          <p className="text-xs text-muted">всего: {filtered.length}</p>
         </div>
 
         {filtered.length === 0 ? (
           <p className="p-4 pt-2 text-sm text-muted">За этот период занятий не было.</p>
         ) : (
-          <div className="mt-2 overflow-x-auto">
-            <table className="w-full whitespace-nowrap text-sm">
-              <thead>
-                <tr className="border-b border-line/70 text-left text-xs text-muted">
-                  {COLUMNS.map((c) => {
-                    const active = sort === c.key;
-                    // Клик по активной колонке разворачивает направление.
-                    const nextDir = active ? (dir === "a" ? "d" : "a") : c.startDir;
-                    return (
-                      <th key={c.key} className="p-0 font-semibold">
-                        <Link
-                          href={href({ sort: c.key, dir: nextDir })}
-                          className="block px-3 py-2 transition-colors hover:text-primary"
-                        >
-                          {c.label}
-                          {active && (dir === "a" ? " ↑" : " ↓")}
-                        </Link>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody className="tabular-nums">
-                {shown.map((r) => (
-                  <tr key={r.id} className="border-b border-line/40 last:border-0">
-                    <td className="px-3 py-2 text-muted">{fmtDay(r.date)}</td>
-                    <td className="max-w-40 truncate px-3 py-2 font-semibold lg:max-w-none">
-                      {r.client?.name ?? "—"}
-                    </td>
-                    <td className="max-w-44 truncate px-3 py-2 lg:max-w-none">
-                      {r.subscription_id
-                        ? `Абонемент · ${r.minutes_used ?? 0} мин`
-                        : (r.service?.name ?? "—")}
-                    </td>
-                    <td className="px-3 py-2">
-                      {r.amount > 0 ? vnd(r.amount) : <span className="text-muted">—</span>}
-                    </td>
-                    <td className="max-w-32 truncate px-3 py-2 lg:max-w-none">{r.instructor?.name ?? "—"}</td>
-                    <td className="max-w-32 truncate px-3 py-2 text-muted lg:max-w-none">
-                      {r.creator?.name ?? "—"}
-                    </td>
-                    <td className="px-3 py-2">{visitsOf(r) || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <VisitsTable columns={tableColumns} rows={tableRows} />
         )}
 
         {filtered.length > 0 && (
@@ -553,6 +576,77 @@ export default async function AdminDashboardPage({
           </div>
         )}
       </section>
+
+      {/* Деньги по способам оплаты: строка = способ, колонка = вид занятия.
+          По этой таблице сводят кассу — наличку с карманом, безнал с выпиской. */}
+      {payments.lines.length > 0 && (
+        <section className="mt-3 rounded-2xl border border-line bg-surface">
+          <div className="p-4 pb-0">
+            <h2 className="font-bold">Деньги по способам оплаты</h2>
+            <p className="mt-1 text-xs text-muted">
+              За весь период целиком — фильтры услуги и инструктора на эту
+              таблицу не действуют. Абонементы считаются по дате оплаты, списания
+              минут с абонемента сюда не входят: денег в этот день не было.
+            </p>
+          </div>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full whitespace-nowrap text-sm">
+              <thead>
+                <tr className="border-b border-line/70 text-left text-xs text-muted">
+                  <th className="px-3 py-2 font-semibold">Способ оплаты</th>
+                  {payCats.map((c) => (
+                    <th key={c} className="px-3 py-2 text-right font-semibold">
+                      {CATEGORY_LABEL[c] ?? c}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2 text-right font-semibold">Итого</th>
+                  <th className="px-3 py-2 text-right font-semibold">Оплат</th>
+                </tr>
+              </thead>
+              <tbody className="tabular-nums">
+                {payments.lines.map((l) => (
+                  <tr key={l.method} className="border-b border-line/40">
+                    <td
+                      className={`px-3 py-2 font-semibold ${l.unknown ? "text-amber-600" : ""}`}
+                    >
+                      {l.method}
+                    </td>
+                    {payCats.map((c) => {
+                      const v = l.byCategory.get(c) ?? 0;
+                      return (
+                        <td key={c} className="px-3 py-2 text-right">
+                          {v > 0 ? vnd(v) : <span className="text-muted">—</span>}
+                        </td>
+                      );
+                    })}
+                    <td className="px-3 py-2 text-right font-bold">{vnd(l.amount)}</td>
+                    <td className="px-3 py-2 text-right text-muted">{l.count}</td>
+                  </tr>
+                ))}
+                <tr className="border-t border-line/70 font-bold">
+                  <td className="px-3 py-2">Итого</td>
+                  {payCats.map((c) => (
+                    <td key={c} className="px-3 py-2 text-right">
+                      {vnd(payments.totalByCategory.get(c) ?? 0)}
+                    </td>
+                  ))}
+                  <td className="px-3 py-2 text-right text-primary">
+                    {vnd(payments.total)}
+                  </td>
+                  <td className="px-3 py-2 text-right text-muted">{payments.count}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="p-4 pt-3 text-xs text-muted">
+            {payments.lines.some((l) => l.unknown)
+              ? "Строка «не указан» — оплаты, у которых способ не проставили. Обычно так выходит, когда заявку закрывают кнопкой «Выполнена» мимо формы записи: деньги в кассе есть, а чем платили — неизвестно."
+              : "У каждой оплаты проставлен способ — касса сходится."}{" "}
+            Способ у занятия один: если клиент платил частями и разными
+            способами, вся сумма попадёт в один столбец.
+          </p>
+        </section>
+      )}
 
       {/* Итоги и графики: на телефоне — колонкой, на ПК — сеткой в 2–3 ряда
           с увеличенными отступами, чтобы блоки читались раздельно. */}
@@ -591,6 +685,50 @@ export default async function AdminDashboardPage({
               не входят (всего по школе).
             </p>
           )}
+        </div>
+
+        {/* Куда ушли деньги — тот же расчёт, что на вкладке «Расходы»
+            (lib/finance), но за выбранный здесь период: начальник видит
+            чистую прибыль, не уходя со «Статистики». */}
+        <div className="rounded-2xl border border-line bg-surface p-4">
+          <p className="text-xs text-muted">Чистая прибыль за период</p>
+          <p className="mt-1 text-3xl font-bold text-primary">{vnd(fin.netProfit)}</p>
+          <div className="mt-3 space-y-1 text-sm text-muted">
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Marina Beach · 35%</span>
+              <span className="font-semibold text-ink">−{vnd(fin.marina)}</span>
+            </p>
+            <p className="flex items-baseline justify-between gap-2">
+              <span>ЗП инструкторов</span>
+              <span className="font-semibold text-ink">−{vnd(fin.instructorPay)}</span>
+            </p>
+            {fin.agentCommissions > 0 && (
+              <p className="flex items-baseline justify-between gap-2">
+                <span>Комиссии агентов</span>
+                <span className="font-semibold text-ink">
+                  −{vnd(fin.agentCommissions)}
+                </span>
+              </p>
+            )}
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Дэвид + Ромчик · 2%</span>
+              <span className="font-semibold text-ink">−{vnd(fin.crmCut)}</span>
+            </p>
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Прочие расходы ({fin.manualExpenses.length})</span>
+              <span className="font-semibold text-ink">−{vnd(fin.manualTotal)}</span>
+            </p>
+          </div>
+          <p className="mt-3 border-t border-line/70 pt-2 text-xs text-muted">
+            Выручка {vnd(fin.revenue)} − расходы {vnd(fin.autoTotal + fin.manualTotal)}.
+            ЗП инструкторов — 15% с их занятий + {fin.instructorShifts} зачтённых
+            выходов + 15% с проданных ими абонементов. Расписать траты и внести
+            новые —{" "}
+            <Link href="/admin/expenses" className="font-semibold text-primary">
+              вкладка «Расходы»
+            </Link>{" "}
+            (она считает по месяцам).
+          </p>
         </div>
 
         {/* Динамика по дням/месяцам — на широком экране занимает два столбца */}
