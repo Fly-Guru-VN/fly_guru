@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
       "Доля абонементов, VND",
       "Подтверждённые клиенты, шт",
       "Итого к выплате, VND",
+      "Выплачено, VND",
     ],
   ];
   for (const i of payroll.instructors) {
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
       i.salaryFromSubs,
       "",
       i.total,
+      i.paidOut?.amount ?? "",
     ]);
   }
   for (const a of payroll.agents) {
@@ -91,13 +93,16 @@ export async function GET(request: NextRequest) {
       "",
       a.confirmedCount,
       a.total,
+      "",
     ]);
   }
   // Доля за CRM (Дэвид + Ромчик) — такая же строка выплаты, как инструктор или
-  // агент: файл должен совпадать с экраном, включая «Итого».
+  // агент: файл должен совпадать с экраном, включая «Итого». Считается за
+  // календарный месяц целиком, поэтому в тип пишем, за какой именно: в
+  // недельной выгрузке эта сумма в «Итого» не входит (см. lib/payroll).
   for (const name of payroll.crm.partners) {
     rows.push([
-      "CRM",
+      `CRM · ${payroll.crmMonthLabel}${payroll.crmInTotal ? "" : " (не входит в итог)"}`,
       name,
       "",
       "",
@@ -110,6 +115,7 @@ export async function GET(request: NextRequest) {
       "",
       "",
       payroll.crm.each,
+      "",
     ]);
   }
   rows.push([
@@ -126,6 +132,7 @@ export async function GET(request: NextRequest) {
     "",
     "",
     payroll.grandTotal,
+    payroll.paidOutTotal,
   ]);
 
   // В имени файла — обе границы периода: недельных выгрузок в папке будет

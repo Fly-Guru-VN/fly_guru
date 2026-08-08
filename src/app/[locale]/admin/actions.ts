@@ -73,6 +73,13 @@ function bookingFields(formData: FormData) {
     ...(formData.has("city")
       ? { city: String(formData.get("city") ?? "").trim() || null }
       : {}),
+    // «Клиент уже заплатил» (0036): написал в инстаграм, сразу перевёл деньги,
+    // катается послезавтра. Раньше это было некуда записать, и инструктор на
+    // пляже спрашивал деньги второй раз. Это ПОМЕТКА, а не выручка: деньги
+    // по-прежнему считаются в момент записи занятия, иначе один платёж попал
+    // бы в отчёты дважды. Ключ добавляем только если чекбокс был в форме —
+    // формы без него (карточка заявки с сайта) не должны стирать отметку.
+    ...(formData.has("paidMark") ? { paid: formData.get("paidMark") === "on" } : {}),
   };
 }
 
@@ -92,7 +99,15 @@ function failIfError(error: { message: string } | null, what: string): void {
 // бейдж в шапке) — на масштабе школы дешевле, чем целиться в пути.
 async function updateBooking(id: string, patch: Record<string, unknown>) {
   const supabase = await createClient();
-  const { error } = await supabase.from("bookings").update(patch).eq("id", id);
+  let { error } = await supabase.from("bookings").update(patch).eq("id", id);
+  // Колонка paid появилась в 0036, а деплой у David едет раньше наката: без
+  // этой страховки карточка заявки перестала бы сохраняться целиком из-за
+  // одной галочки (тот же приём, что у payment_method_id абонемента в 0025).
+  if (error?.code === "PGRST204" && "paid" in patch) {
+    const legacy = { ...patch };
+    delete legacy.paid;
+    ({ error } = await supabase.from("bookings").update(legacy).eq("id", id));
+  }
   failIfError(error, "не удалось сохранить заявку");
   revalidatePath("/", "layout");
 }
@@ -148,23 +163,38 @@ export async function createBookingAction(
   const confirmed = formData.get("status") !== "new";
 
   const supabase = await createClient();
-  const { data: created, error } = await supabase
+  const row = {
+    client_name: clientName,
+    phone,
+    service_id: serviceId || null,
+    preferred_date: preferredDate || null,
+    status: confirmed ? "confirmed" : "new",
+    src: channel,
+    // Формат оплаты сюда приходит из bookingFields: в заявке он
+    // необязателен — клиент ещё не платил (пак A). Оттуда же галочка «уже
+    // оплачено» — она, наоборот, про «деньги получены до занятия» (0036).
+    ...bookingFields(formData),
+    city,
+  };
+  let { data: created, error } = await supabase
     .from("bookings")
-    .insert({
-      client_name: clientName,
-      phone,
-      service_id: serviceId || null,
-      preferred_date: preferredDate || null,
-      status: confirmed ? "confirmed" : "new",
-      src: channel,
-      // Формат оплаты сюда приходит из bookingFields: в заявке он
-      // необязателен — клиент ещё не платил (пак A).
-      ...bookingFields(formData),
-      city,
-    })
+    .insert(row)
     .select("id")
     .single();
-  if (error) return { error: `Не удалось создать заявку: ${error.message}` };
+  // 0036 может быть ещё не накатана — создаём заявку без отметки об оплате,
+  // чтобы форма не отказывала целиком из-за одной колонки.
+  if (error?.code === "PGRST204" && "paid" in row) {
+    const legacy: Partial<typeof row> = { ...row };
+    delete legacy.paid;
+    ({ data: created, error } = await supabase
+      .from("bookings")
+      .insert(legacy)
+      .select("id")
+      .single());
+  }
+  if (error || !created) {
+    return { error: `Не удалось создать заявку: ${error?.message ?? "неизвестно"}` };
+  }
 
   // Инструкторам сообщаем только о том, что уже подтверждено — как и с сайта.
   if (confirmed) await notifyInstructors(created.id as string).catch(() => {});
@@ -669,6 +699,14 @@ export async function adminSellSubscriptionAction(
   // Минуты живут 3 месяца С ДАТЫ ПРОДАЖИ (в т.ч. прошлой). paid_at — только
   // при полученной оплате: от месяца оплаты зависят выручка и комиссия.
   const paid = formData.get("paid") === "on";
+  // Дата оплаты может отличаться от даты продажи: купили в конце июля, деньги
+  // принесли в августе. Раньше paid_at жёстко равнялся дате продажи, и такой
+  // абонемент уезжал в чужой месяц — и в выручке, и в котле 15%. Пустое поле
+  // (старая вкладка) — это по-прежнему день продажи.
+  const paidDay = String(formData.get("paidDate") ?? "").trim();
+  if (paid && paidDay && !DAY_RE.test(paidDay))
+    return { error: "Дата оплаты указана неверно." };
+  const paidAt = paid ? dayToIso(paidDay || soldDay) : null;
   // Чем заплатили — спрашиваем ровно при полученной оплате (см. форму).
   const paymentMethodId =
     String(formData.get("paymentMethodId") ?? "").trim() || null;
@@ -700,7 +738,7 @@ export async function adminSellSubscriptionAction(
     price,
     sold_at: soldAt,
     expires_at: subscriptionExpiry(new Date(soldAt)).toISOString(),
-    paid_at: paid ? soldAt : null,
+    paid_at: paidAt,
     payment_method_id: paymentMethodId,
   };
   let { error: subError } = await supabase.from("subscriptions").insert(row);
@@ -1620,6 +1658,128 @@ export async function setSeniorAction(formData: FormData) {
     .eq("id", id)
     .eq("role", "instructor");
   failIfError(error, "не удалось изменить старшинство");
+  revalidatePath("/", "layout");
+}
+
+// «ЗП за период выдана» (0036). Вкладка «Расходы» показывает НАЧИСЛЕННУЮ ЗП —
+// она уходит в расчёт прибыли в тот же момент, когда занятие записано. А на
+// руки деньги отдают раз в неделю и не всегда всем сразу: кто-то в отъезде,
+// кто-то заберёт в понедельник. Отметка отвечает ровно на вопрос «кому я уже
+// отдал» и на прибыль не влияет — иначе цифра прибыли скакала бы от того,
+// успел начальник раздать деньги или нет.
+//
+// Сумму пишем снимком: если потом поправят занятие внутри уже закрытой недели,
+// история выплаты не должна задним числом стать другой.
+export async function markSalaryPaidAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const id = String(formData.get("instructorId") ?? "");
+  const from = String(formData.get("from") ?? "");
+  const to = String(formData.get("to") ?? "");
+  if (!id || !DAY_RE.test(from) || !DAY_RE.test(to)) return;
+
+  const amount = Number(formData.get("amount") ?? 0);
+  const supabase = await createClient();
+  const { error } = await supabase.from("salary_payouts").upsert(
+    {
+      instructor_id: id,
+      period_from: from,
+      period_to: to,
+      amount: Math.round(amount),
+      paid_at: new Date().toISOString(),
+      created_by: admin.id,
+    },
+    { onConflict: "instructor_id,period_from,period_to" },
+  );
+  failIfError(error, "не удалось отметить выплату");
+  revalidatePath("/", "layout");
+}
+
+// Снять отметку — ткнули не в того. Подтверждение спрашивает кнопка.
+export async function unmarkSalaryPaidAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("instructorId") ?? "");
+  const from = String(formData.get("from") ?? "");
+  const to = String(formData.get("to") ?? "");
+  if (!id || !DAY_RE.test(from) || !DAY_RE.test(to)) return;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("salary_payouts")
+    .delete()
+    .eq("instructor_id", id)
+    .eq("period_from", from)
+    .eq("period_to", to);
+  failIfError(error, "не удалось снять отметку о выплате");
+  revalidatePath("/", "layout");
+}
+
+// Уволить инструктора (0036). Не удаление: строка в users остаётся, вместе с
+// ней остаются его занятия, смены и все прошлые расчёты — начальнику нужно
+// видеть, что такой человек был и сколько ему выплатили.
+//
+// left_at — ПОСЛЕДНИЙ рабочий день включительно. Со следующего дня человек:
+//   • исчезает из списков в формах (кто провёл, кто продал, кому ставить смену),
+//   • не участвует в дележе абонементов, оплаченных после его ухода,
+//   • не может войти в кабинет (см. lib/auth).
+// Заработанное за отработанные дни остаётся в «Расчёте выплат» — по нему и
+// платят напоследок.
+//
+// Пишем service_role по той же причине, что и старшинство: политики «админ
+// правит чужую строку users» нет, и открывать эту таблицу на запись мы не
+// хотим (роль лежит там же — см. рассинхрон роли JWT/БД).
+export async function fireInstructorAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const day = String(formData.get("lastDay") ?? "").trim();
+  if (!DAY_RE.test(day)) return;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("users")
+    .update({ left_at: day })
+    .eq("id", id)
+    .eq("role", "instructor");
+  failIfError(error, "не удалось уволить инструктора");
+  revalidatePath("/", "layout");
+}
+
+// Вернуть уволенного: снимаем дату. На случай ошибки («не того ткнул») и
+// реального возвращения человека после перерыва — вся его история на месте.
+export async function rehireInstructorAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("users")
+    .update({ left_at: null })
+    .eq("id", id)
+    .eq("role", "instructor");
+  failIfError(error, "не удалось вернуть инструктора");
+  revalidatePath("/", "layout");
+}
+
+// Первый рабочий день. Нужен новичкам: доля с абонементов должна идти с даты
+// приёма, а не с начала месяца. Пусто = «работал всегда» (так у всех, кто был
+// заведён до 0036).
+export async function setHiredAtAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const raw = String(formData.get("hiredAt") ?? "").trim();
+  if (raw && !DAY_RE.test(raw)) return;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("users")
+    .update({ hired_at: raw || null })
+    .eq("id", id)
+    .eq("role", "instructor");
+  failIfError(error, "не удалось сохранить дату приёма");
   revalidatePath("/", "layout");
 }
 

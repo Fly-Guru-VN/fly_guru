@@ -15,6 +15,7 @@ import { vnd } from "@/lib/stats";
 import { SHIFT_PAY } from "@/lib/salary";
 import { getMonthlyPayroll } from "@/lib/payroll";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { PaidOutToggle } from "./PaidOutToggle";
 
 export const metadata: Metadata = { title: "Админка · Расчёт выплат" };
 
@@ -176,6 +177,14 @@ export default async function AdminPayrollPage({
       <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
         <p className="text-xs text-muted">Итого к выплате за {label}</p>
         <p className="mt-1 text-3xl font-bold text-primary">{vnd(payroll.grandTotal)}</p>
+        {/* Сколько из этого уже роздано: начисление и выдача — разные события,
+            и раньше их путали (в «Расходах» ЗП уже списана, а деньги ещё в
+            кармане). Отметки ставятся кнопкой у каждого инструктора ниже. */}
+        {payroll.paidOutTotal > 0 && (
+          <p className="mt-1 text-xs text-muted">
+            Инструкторам уже выдано: {vnd(payroll.paidOutTotal)}
+          </p>
+        )}
         {/* Excel — первой кнопкой: CSV русский Excel открывает одной склеенной
             колонкой (разделителем он считает запятую, а не точку с запятой).
             CSV оставлен рядом — он нужен, если файл заряжают в другую
@@ -214,8 +223,15 @@ export default async function AdminPayrollPage({
           {payroll.instructors.map((i) => (
             <div key={i.id}>
               <div className="flex items-baseline justify-between gap-2">
-                <p className="font-semibold">{i.name}</p>
-                <p className="font-bold text-primary">{vnd(i.total)}</p>
+                <p className="min-w-0 font-semibold">
+                  {i.name}
+                  {i.employmentLabel && (
+                    <span className="ml-2 text-[11px] font-normal text-muted">
+                      {i.employmentLabel}
+                    </span>
+                  )}
+                </p>
+                <p className="shrink-0 font-bold text-primary">{vnd(i.total)}</p>
               </div>
               <div className="mt-1 space-y-1.5">
                 {/* Сумма тут — доля с занятий ДНЯ, а не 15% со своих чеков:
@@ -252,6 +268,13 @@ export default async function AdminPayrollPage({
                   hint={`продал сам: ${i.paidSubsCount}`}
                 />
               </div>
+              <PaidOutToggle
+                instructorId={i.id}
+                from={fromDay}
+                to={lastDay}
+                amount={i.total}
+                paidOut={i.paidOut}
+              />
             </div>
           ))}
           {payroll.instructors.length === 0 && (
@@ -260,14 +283,18 @@ export default async function AdminPayrollPage({
         </div>
       </section>
 
-      {/* Доля за CRM. Считается из выручки месяца, поэтому в списке людей её
-          раньше не было — а платить-то надо, и каждый раз приходилось лезть во
-          вкладку «Расходы». */}
+      {/* Доля за CRM. Считается ВСЕГДА за календарный месяц, даже когда выбрана
+          неделя: инструкторам платят понедельно, а эта доля закрывается раз в
+          месяц (решение David от 08.08.2026). Поэтому в «Итого к выплате» за
+          неделю она не входит — иначе к недельной сумме прибавлялась бы
+          месячная, и цифра в шапке не сходилась бы ни с чем. */}
       <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-bold">CRM · 2% с выручки пополам</h2>
         <p className="mt-1 text-xs text-muted">
-          База — занятия периода плюс абонементы, оплаченные в нём:{" "}
-          {vnd(payroll.crm.revenue)}.
+          Считается помесячно: {payroll.crmMonthLabel} целиком. База — занятия
+          месяца плюс абонементы, оплаченные в нём: {vnd(payroll.crm.revenue)}.
+          {!payroll.crmInTotal &&
+            " В «Итого к выплате» за выбранный период эта сумма не входит."}
         </p>
         <div className="mt-3 space-y-1">
           {payroll.crm.partners.map((name) => (

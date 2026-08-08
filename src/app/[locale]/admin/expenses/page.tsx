@@ -95,6 +95,10 @@ export default async function AdminExpensesPage({
         <p className="mt-1 text-xs text-muted">Считаются из выручки автоматически.</p>
         <div className="mt-3 space-y-1">
           <Row label="Marina Beach" hint="35% выручки" value={vnd(fin.marina)} />
+          {/* ЗП тут НАЧИСЛЕННАЯ: в расчёт она уходит в момент записи занятия.
+              Деньги на руки отдают раз в неделю, поэтому вторая строка отвечает
+              на живой вопрос «а сколько я уже роздал» — отметки ставятся на
+              «Расчёте выплат». На прибыль они не влияют. */}
           <Row
             label="ЗП инструкторов"
             hint={`15% их сессий (−комиссия агента) + ${fin.instructorShifts} зачтённых выходов${
@@ -104,6 +108,17 @@ export default async function AdminExpensesPage({
             } + 15% их абонементов`}
             value={vnd(fin.instructorPay)}
           />
+          {fin.instructorPaidOut > 0 && (
+            <Row
+              label="— из них выдано на руки"
+              hint={
+                fin.instructorPay - fin.instructorPaidOut > 0.5
+                  ? `ещё должны ${vnd(fin.instructorPay - fin.instructorPaidOut)}`
+                  : "выплачено полностью"
+              }
+              value={vnd(fin.instructorPaidOut)}
+            />
+          )}
           {fin.agentCommissions > 0 && (
             <Row
               label="Комиссии агентов"
