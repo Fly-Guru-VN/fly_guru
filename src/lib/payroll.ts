@@ -26,6 +26,7 @@ export interface InstructorPayout {
   salaryFromSessions: number;
   shiftsCount: number; // зачтённые выходы
   shiftsUnpaidCount: number; // выходы, срезанные регламентом или снятые админом
+  shiftsPlannedCount: number; // смены графика, до которых месяц ещё не дошёл
   salaryFromShifts: number;
   paidSubsCount: number; // продал сам — справка, на сумму не влияет
   salaryFromSubs: number; // доля котла
@@ -68,6 +69,7 @@ export async function getMonthlyPayroll(
         salaryFromSessions: s.salaryFromSessions,
         shiftsCount: s.shiftsCount,
         shiftsUnpaidCount: s.shiftsUnpaidCount,
+        shiftsPlannedCount: s.shiftsPlannedCount,
         salaryFromShifts: s.salaryFromShifts,
         paidSubsCount: s.paidSubsCount,
         salaryFromSubs: s.salaryFromSubs,

@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
+import { vnToday } from "@/lib/dates";
 import { closeStatus, openStatus } from "@/lib/shiftRules";
 
 // Как школа платит инструкторам (пачка правок №9, пак 2 — новые правила от
@@ -118,6 +119,7 @@ async function loadShifts(
 export interface ShiftPayInfo {
   paidCount: number; // выходы, за которые платим
   unpaidCount: number; // выходы, которые регламент срезал
+  plannedCount: number; // смены из графика, которые ещё не отработаны
   amount: number; // paidCount × SHIFT_PAY
   rows: ShiftPayRow[]; // по датам, по возрастанию — чтобы объяснить каждый ноль
 }
@@ -132,12 +134,13 @@ export async function getShiftPay(
 ): Promise<Map<string, ShiftPayInfo>> {
   const shifts = await loadShifts(client, range);
   const allowed = new Set(instructorIds);
+  const today = vnToday();
 
   const byInstructor = new Map<string, ShiftPayInfo>();
   const info = (id: string): ShiftPayInfo => {
     let entry = byInstructor.get(id);
     if (!entry) {
-      entry = { paidCount: 0, unpaidCount: 0, amount: 0, rows: [] };
+      entry = { paidCount: 0, unpaidCount: 0, plannedCount: 0, amount: 0, rows: [] };
       byInstructor.set(id, entry);
     }
     return entry;
@@ -146,6 +149,16 @@ export async function getShiftPay(
   for (const s of shifts) {
     // Смена админа — не выход наёмного работника, платить за неё некому.
     if (!allowed.has(s.instructor_id)) continue;
+    // Смена, которая ещё не отработана (сегодняшняя незакрытая или из будущего
+    // графика), — это не «срезанный регламентом выход», а просто не наступивший
+    // день. Раньше такие строки шли в unpaidCount, и 8 августа расчёт месяца
+    // писал «Выходы (4) · не зачтено 12» — то есть весь остаток графика висел
+    // как нарушение. Закрытую смену судим по регламенту в любом случае: закрыть
+    // задним числом можно, а вот открыть завтрашний день — нет.
+    if (!s.closed_at && s.date >= today) {
+      info(s.instructor_id).plannedCount += 1;
+      continue;
+    }
     const status = shiftPayStatus(
       s.opened_at,
       s.closed_at,

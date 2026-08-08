@@ -13,12 +13,32 @@ export const metadata: Metadata = { title: "Админка · Расчёт ме�
 // совпадают со статистикой в кабинете инструктора). Агенты — награды,
 // подтверждённые в этом месяце. CSV — та же таблица файлом для архива.
 
-function Row({ label, value }: { label: string; value: string }) {
+// Строка выплаты: за что платим — слева, сумма — справа, подробности мелким
+// под ней. Раньше все подробности («занятия (12) · 10 000 000 ₫») лезли в саму
+// подпись, и на телефоне их срезало `truncate`: строка обрывалась на середине,
+// а из-за подписи «Занятия (0) · 0 ₫» рядом с суммой 562 500 ₫ расчёт выглядел
+// сломанным. Теперь подпись короткая (не обрезается), а цифры — отдельной
+// строкой под ней. Пунктирная выноска осталась только на широком экране: на
+// телефоне она превращалась в обрубок в пару пикселей.
+function Row({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
   return (
-    <div className="flex items-baseline gap-2 text-sm">
-      <span className="min-w-0 truncate text-muted">{label}</span>
-      <span className="min-w-4 flex-1 border-b border-dotted border-line" />
-      <span className="shrink-0 font-semibold">{value}</span>
+    <div>
+      <div className="flex items-baseline gap-2 text-sm">
+        <span className="min-w-0 text-muted">{label}</span>
+        <span className="hidden min-w-4 flex-1 border-b border-dotted border-line sm:block" />
+        <span className="ml-auto shrink-0 font-semibold tabular-nums sm:ml-0">
+          {value}
+        </span>
+      </div>
+      {hint && <p className="text-xs text-muted/80">{hint}</p>}
     </div>
   );
 }
@@ -76,24 +96,39 @@ export default async function AdminPayrollPage({
                 <p className="font-semibold">{i.name}</p>
                 <p className="font-bold text-primary">{vnd(i.total)}</p>
               </div>
-              <div className="mt-1 space-y-1">
+              <div className="mt-1 space-y-1.5">
+                {/* Сумма тут — доля с занятий ДНЯ, а не 15% со своих чеков:
+                    она делится между вышедшими на смену. Поэтому подпись
+                    говорит про долю, а собственные занятия ушли в пояснение —
+                    иначе «Занятия (0)» рядом с полумиллионом читалось как сбой
+                    (у человека действительно бывает 0 своих записей и при этом
+                    доля за день, отработанный в паре). */}
                 <Row
-                  label={`Занятия (${i.sessionsCount}) · ${vnd(i.sessionsRevenue)}`}
+                  label="Доля 15% с занятий дня"
                   value={vnd(i.salaryFromSessions)}
+                  hint={`свои занятия: ${i.sessionsCount} на ${vnd(i.sessionsRevenue)}`}
                 />
                 <Row
-                  label={
-                    // Незачтённые выходы показываем прямо в подписи: иначе
-                    // «выходов 3» при 11 отработанных днях выглядит как сбой.
-                    i.shiftsUnpaidCount > 0
-                      ? `Выходы (${i.shiftsCount}) · не зачтено ${i.shiftsUnpaidCount}`
-                      : `Выходы (${i.shiftsCount})`
-                  }
+                  label={`Выходы · зачтено ${i.shiftsCount} из ${i.shiftsCount + i.shiftsUnpaidCount}`}
                   value={vnd(i.salaryFromShifts)}
+                  hint={[
+                    i.shiftsUnpaidCount > 0
+                      ? `не зачтено ${i.shiftsUnpaidCount} — регламент или снятая премия`
+                      : null,
+                    // Будущие смены месяца больше не висят в «не зачтено»
+                    // (см. getShiftPay), но показать их полезно: видно, сколько
+                    // ещё добавится к выплате, если график отработают.
+                    i.shiftsPlannedCount > 0
+                      ? `в графике ещё ${i.shiftsPlannedCount} — до ${vnd(i.shiftsPlannedCount * SHIFT_PAY)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 />
                 <Row
-                  label={`Доля абонементов · продал сам ${i.paidSubsCount}`}
+                  label="Доля с абонементов"
                   value={vnd(i.salaryFromSubs)}
+                  hint={`продал сам: ${i.paidSubsCount}`}
                 />
               </div>
             </div>

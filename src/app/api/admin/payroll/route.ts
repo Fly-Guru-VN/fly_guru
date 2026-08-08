@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
       "Доля 15% занятий, VND",
       "Выходы зачтены, шт",
       "Выходы не зачтены, шт",
+      "Смены впереди, шт",
       "За выходы, VND",
       "Продал абонементов, шт",
       "Доля абонементов, VND",
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
       i.salaryFromSessions,
       i.shiftsCount,
       i.shiftsUnpaidCount,
+      i.shiftsPlannedCount,
       i.salaryFromShifts,
       i.paidSubsCount,
       i.salaryFromSubs,
@@ -71,6 +73,7 @@ export async function GET(request: NextRequest) {
       "",
       "",
       "",
+      "",
       a.confirmedCount,
       a.total,
     ]);
@@ -78,10 +81,25 @@ export async function GET(request: NextRequest) {
   // Доля за CRM (Дэвид + Ромчик) — такая же строка выплаты, как инструктор или
   // агент: файл должен совпадать с экраном, включая «Итого».
   for (const name of payroll.crm.partners) {
-    rows.push(["CRM", name, "", "", "", "", "", "", "", "", "", payroll.crm.each]);
+    rows.push([
+      "CRM",
+      name,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      payroll.crm.each,
+    ]);
   }
   rows.push([
     "Итого",
+    "",
     "",
     "",
     "",

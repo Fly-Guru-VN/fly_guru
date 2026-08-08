@@ -233,6 +233,15 @@ export default async function StatsPage({
               ошибка — скажите админу, премию можно вернуть.
             </p>
           )}
+          {/* Смены впереди в списке не показываем: там каждая строка — вердикт
+              по отработанному дню. Но сказать, сколько ещё стоит в графике,
+              полезно — это будущие деньги. */}
+          {stats.shiftsPlannedCount > 0 && (
+            <p className="mt-2 text-xs text-muted">
+              Впереди по графику: {stats.shiftsPlannedCount} смен(ы) — это ещё до{" "}
+              {vnd(stats.shiftsPlannedCount * SHIFT_PAY)} премий.
+            </p>
+          )}
         </div>
       )}
 

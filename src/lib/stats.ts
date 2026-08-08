@@ -63,6 +63,7 @@ export interface InstructorStats {
   salaryFromSubs: number; // моя доля котла (не зависит от того, кто продал)
   shiftsCount: number; // выходы, за которые заплатят
   shiftsUnpaidCount: number; // выходы, срезанные регламентом или админом
+  shiftsPlannedCount: number; // смены графика, которые ещё не отработаны
   shiftRows: ShiftPayRow[]; // каждый выход с вердиктом — объяснить любой ноль
   sharedDays: number; // дней, где 15% делились со сменщиками
   ownDays: number; // дней без смен — 15% достались мне целиком
@@ -173,6 +174,7 @@ export async function getInstructorStats(
   const myShifts = shiftPay.get(instructorId) ?? {
     paidCount: 0,
     unpaidCount: 0,
+    plannedCount: 0,
     amount: 0,
     rows: [],
   };
@@ -216,6 +218,7 @@ export async function getInstructorStats(
     salaryFromSubs,
     shiftsCount: myShifts.paidCount,
     shiftsUnpaidCount: myShifts.unpaidCount,
+    shiftsPlannedCount: myShifts.plannedCount,
     shiftRows: myShifts.rows,
     sharedDays: myShare.sharedDays,
     ownDays: myShare.ownDays,
