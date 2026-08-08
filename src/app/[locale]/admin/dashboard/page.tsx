@@ -607,13 +607,25 @@ export default async function AdminDashboardPage({
             {/* Выгрузка ровно того, что на экране: тот же период, те же
                 фильтры и та же сортировка (см. csvHref). */}
             {filtered.length > 0 && (
-              <a
-                href={csvHref}
-                download
-                className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
-              >
-                Скачать CSV
-              </a>
+              <>
+                {/* Excel — первой кнопкой: CSV русский Excel сваливает в один
+                    столбец (разделителем он считает запятую). CSV оставлен для
+                    других программ и таблиц Google. */}
+                <a
+                  href={csvHref + (csvHref.includes("?") ? "&" : "?") + "format=xlsx"}
+                  download
+                  className="rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
+                >
+                  Скачать Excel
+                </a>
+                <a
+                  href={csvHref}
+                  download
+                  className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+                >
+                  CSV
+                </a>
+              </>
             )}
           </div>
         </div>

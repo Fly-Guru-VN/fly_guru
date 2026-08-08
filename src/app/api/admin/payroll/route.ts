@@ -3,6 +3,7 @@ import { getAppUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { vnCurrentMonth, vnMonth } from "@/lib/dates";
 import { getMonthlyPayroll } from "@/lib/payroll";
+import { buildXlsx, xlsxHeaders } from "@/lib/xlsx";
 
 // CSV расчёта месяца: /api/admin/payroll?m=YYYY-MM. Данные — та же функция,
 // что у страницы /admin/payroll, файл не может разойтись с экраном.
@@ -113,7 +114,16 @@ export async function GET(request: NextRequest) {
     payroll.grandTotal,
   ]);
 
-  // BOM + точка с запятой — так файл сразу открывается русским Excel.
+  // Книга Excel — основной формат: русский Excel не считает точку с запятой
+  // разделителем, и CSV открывается одной склеенной колонкой (см. lib/xlsx).
+  if (request.nextUrl.searchParams.get("format") === "xlsx") {
+    return new NextResponse(new Uint8Array(buildXlsx("Расчёт месяца", rows, { totalRow: true })), {
+      headers: xlsxHeaders(`flyguru-payroll-${ym}.xlsx`),
+    });
+  }
+
+  // BOM — чтобы кириллица не превратилась в кракозябры, если файл всё-таки
+  // откроют как текст.
   const csv = "\uFEFF" + rows.map((r) => r.map(cell).join(";")).join("\r\n");
 
   return new NextResponse(csv, {

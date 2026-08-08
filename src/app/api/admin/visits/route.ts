@@ -10,6 +10,7 @@ import {
   serviceLabel,
   sortVisits,
 } from "@/lib/visits";
+import { buildXlsx, xlsxHeaders } from "@/lib/xlsx";
 
 // CSV таблицы визитов со «Статистики»: /api/admin/visits?from&to&cat&inst&pay&ch&sort&dir.
 // Параметры — те же, что у страницы, и считает всё та же lib/visits: файл не
@@ -95,16 +96,26 @@ export async function GET(request: NextRequest) {
     "",
   ]);
 
-  // BOM + точка с запятой — так файл сразу открывается русским Excel.
-  const csv = "\uFEFF" + out.map((r) => r.map(cell).join(";")).join("\r\n");
   // В имени файла — последний день периода включительно (range.toDay — граница
   // «строго меньше», то есть уже следующий день).
-  const name = `flyguru-visits-${range.fromDay}_${custom ? to : month.lastDay}.csv`;
+  const name = `flyguru-visits-${range.fromDay}_${custom ? to : month.lastDay}`;
 
+  // Книга Excel: у David русская Windows, и точку с запятой его Excel за
+  // разделитель не считает — весь CSV падал в первый столбец. В .xlsx колонки
+  // разложены сразу, суммы приходят числами, а над шапкой стоит фильтр.
+  if (p.get("format") === "xlsx") {
+    return new NextResponse(new Uint8Array(buildXlsx("Визиты", out, { totalRow: true })), {
+      headers: xlsxHeaders(`${name}.xlsx`),
+    });
+  }
+
+  // BOM — чтобы кириллица не превратилась в кракозябры, если файл всё-таки
+  // откроют как текст.
+  const csv = "\uFEFF" + out.map((r) => r.map(cell).join(";")).join("\r\n");
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${name}"`,
+      "Content-Disposition": `attachment; filename="${name}.csv"`,
     },
   });
 }

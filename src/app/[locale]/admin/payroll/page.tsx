@@ -68,13 +68,26 @@ export default async function AdminPayrollPage({
       <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
         <p className="text-xs text-muted">Итого к выплате за {month.label}</p>
         <p className="mt-1 text-3xl font-bold text-primary">{vnd(payroll.grandTotal)}</p>
-        <a
-          href={`/api/admin/payroll?m=${ym}`}
-          download
-          className="mt-3 inline-block rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
-        >
-          Скачать CSV
-        </a>
+        {/* Excel — первой кнопкой: CSV русский Excel открывает одной склеенной
+            колонкой (разделителем он считает запятую, а не точку с запятой).
+            CSV оставлен рядом — он нужен, если файл заряжают в другую
+            программу или в таблицы Google. */}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a
+            href={`/api/admin/payroll?m=${ym}&format=xlsx`}
+            download
+            className="rounded-full border border-primary px-4 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
+          >
+            Скачать Excel
+          </a>
+          <a
+            href={`/api/admin/payroll?m=${ym}`}
+            download
+            className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+          >
+            CSV
+          </a>
+        </div>
       </div>
 
       <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
