@@ -1,17 +1,42 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { vnMonth } from "@/lib/dates";
+import {
+  vnCurrentMonth,
+  vnMonth,
+  vnPeriod,
+  vnPrevMonth,
+  vnPrevWeek,
+  vnRangeLabel,
+  vnShiftDays,
+  vnWeekOf,
+} from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import { SHIFT_PAY } from "@/lib/salary";
 import { getMonthlyPayroll } from "@/lib/payroll";
-import { MonthSwitcher, resolveYm } from "../MonthSwitcher";
+import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 
-export const metadata: Metadata = { title: "Админка · Расчёт месяца" };
+export const metadata: Metadata = { title: "Админка · Расчёт выплат" };
 
-// Расчёт месяца: кому и сколько выплатить. Инструкторы — 15% сессий + 15%
-// оплаченных В ЭТОМ месяце абонементов (месяц оплаты, не продажи — цифры
-// совпадают со статистикой в кабинете инструктора). Агенты — награды,
-// подтверждённые в этом месяце. CSV — та же таблица файлом для архива.
+// Расчёт выплат: кому и сколько отдать за выбранный период. Инструкторы —
+// 15% занятий + выходы + доля абонементов, оплаченных В ЭТОМ периоде (по дате
+// оплаты, не продажи — цифры совпадают со статистикой в кабинете инструктора).
+// Агенты — награды, подтверждённые в периоде. Excel/CSV — та же таблица файлом.
+//
+// Период любой, а не только месяц: инструкторам платят раз в неделю, и раньше
+// начальник считал недельную выплату руками по месячной таблице. Все слагаемые
+// привязаны к датам (смена — к своей дате, занятие — к своей, абонемент — к
+// дате оплаты, награда — к дате подтверждения), поэтому недели складываются в
+// месяц без нахлёста и потерь.
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const presetClass = (active: boolean) =>
+  `rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+    active
+      ? "bg-primary text-white"
+      : "border border-line text-muted hover:border-primary hover:text-primary"
+  }`;
 
 // Строка выплаты: за что платим — слева, сумма — справа, подробности мелким
 // под ней. Раньше все подробности («занятия (12) · 10 000 000 ₫») лезли в саму
@@ -46,27 +71,110 @@ function Row({
 export default async function AdminPayrollPage({
   searchParams,
 }: {
-  searchParams: Promise<{ m?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; m?: string }>;
 }) {
-  const { m } = await searchParams;
-  const ym = resolveYm(m);
-  const month = vnMonth(ym);
+  const { from, to, m } = await searchParams;
+
+  const week = vnWeekOf(); // текущая неделя, пн–вс
+  const prevWeek = vnPrevWeek();
+  const curMonth = vnCurrentMonth();
+  const monthLast = vnShiftDays(curMonth.toDay, -1);
+  const prevMonth = vnPrevMonth();
+
+  // Период целиком, без обрезки по «сегодня»: в середине недели полезно видеть
+  // не только заработанное, но и строку «в графике ещё N смен».
+  const custom = Boolean(from && to && DAY_RE.test(from) && DAY_RE.test(to) && from <= to);
+  // Старые ссылки вида ?m=2026-07 (их раздавал переключатель месяцев) должны
+  // продолжать открываться — теперь как обычный период «месяц целиком».
+  const legacy = !custom && /^\d{4}-\d{2}$/.test(m ?? "") ? vnMonth(m!) : null;
+
+  const fromDay = custom ? from! : (legacy?.fromDay ?? week.fromDay);
+  const lastDay = custom
+    ? to!
+    : legacy
+      ? vnShiftDays(legacy.toDay, -1)
+      : week.lastDay;
+
+  const range = vnPeriod(fromDay, lastDay);
+  const label = vnRangeLabel(fromDay, lastDay);
+  const periodQs = `from=${fromDay}&to=${lastDay}`;
+
+  // Пресет активен, если совпали обе границы: так «Эта неделя» подсвечена и
+  // при заходе без параметров, и по прямой ссылке с датами.
+  const isPreset = (f: string, l: string) => fromDay === f && lastDay === l;
 
   const supabase = await createClient();
-  const payroll = await getMonthlyPayroll(supabase, month);
+  const payroll = await getMonthlyPayroll(supabase, range);
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Расчёт месяца</h1>
+      <h1 className="text-2xl font-bold">Расчёт выплат</h1>
       <p className="mt-1 text-sm text-muted">
-        Выплаты по факту оплаты: абонемент попадает в расчёт в месяц оплаты,
-        награда агента — в месяц подтверждения.
+        Выплаты по факту оплаты: абонемент попадает в расчёт в период оплаты,
+        награда агента — в период подтверждения.
       </p>
 
-      <MonthSwitcher ym={ym} basePath="/admin/payroll" />
+      {/* Пресеты периода. Неделя первой: инструкторам платят раз в неделю. */}
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        <Link
+          href={`/admin/payroll?from=${week.fromDay}&to=${week.lastDay}`}
+          className={presetClass(isPreset(week.fromDay, week.lastDay))}
+        >
+          Эта неделя
+        </Link>
+        <Link
+          href={`/admin/payroll?from=${prevWeek.fromDay}&to=${prevWeek.lastDay}`}
+          className={presetClass(isPreset(prevWeek.fromDay, prevWeek.lastDay))}
+        >
+          Прошлая неделя
+        </Link>
+        <Link
+          href={`/admin/payroll?from=${curMonth.fromDay}&to=${monthLast}`}
+          className={presetClass(isPreset(curMonth.fromDay, monthLast))}
+        >
+          Этот месяц
+        </Link>
+        <Link
+          href={`/admin/payroll?from=${prevMonth.fromDay}&to=${prevMonth.lastDay}`}
+          className={presetClass(isPreset(prevMonth.fromDay, prevMonth.lastDay))}
+        >
+          Прошлый месяц
+        </Link>
+      </div>
+
+      {/* Свой период. Поля без w-full: нативный датапикер на телефоне
+          растягивается и вылезает за экран (см. «Статистику»). */}
+      <form className="mt-3 flex w-fit flex-col gap-3" action="">
+        <div className="flex items-end gap-2">
+          <label className="flex flex-col items-start text-xs text-muted">
+            С
+            <input
+              type="date"
+              name="from"
+              defaultValue={fromDay}
+              className={`mt-1 ${NATIVE_PICKER} rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary`}
+            />
+          </label>
+          <label className="flex flex-col items-start text-xs text-muted">
+            По
+            <input
+              type="date"
+              name="to"
+              defaultValue={lastDay}
+              className={`mt-1 ${NATIVE_PICKER} rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary`}
+            />
+          </label>
+        </div>
+        <button
+          type="submit"
+          className="w-full rounded-xl border border-primary px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
+        >
+          Показать
+        </button>
+      </form>
 
       <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
-        <p className="text-xs text-muted">Итого к выплате за {month.label}</p>
+        <p className="text-xs text-muted">Итого к выплате за {label}</p>
         <p className="mt-1 text-3xl font-bold text-primary">{vnd(payroll.grandTotal)}</p>
         {/* Excel — первой кнопкой: CSV русский Excel открывает одной склеенной
             колонкой (разделителем он считает запятую, а не точку с запятой).
@@ -74,14 +182,14 @@ export default async function AdminPayrollPage({
             программу или в таблицы Google. */}
         <div className="mt-3 flex flex-wrap gap-2">
           <a
-            href={`/api/admin/payroll?m=${ym}&format=xlsx`}
+            href={`/api/admin/payroll?${periodQs}&format=xlsx`}
             download
             className="rounded-full border border-primary px-4 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
           >
             Скачать Excel
           </a>
           <a
-            href={`/api/admin/payroll?m=${ym}`}
+            href={`/api/admin/payroll?${periodQs}`}
             download
             className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
           >
@@ -158,7 +266,7 @@ export default async function AdminPayrollPage({
       <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-bold">CRM · 2% с выручки пополам</h2>
         <p className="mt-1 text-xs text-muted">
-          База — занятия месяца плюс абонементы, оплаченные в этом месяце:{" "}
+          База — занятия периода плюс абонементы, оплаченные в нём:{" "}
           {vnd(payroll.crm.revenue)}.
         </p>
         <div className="mt-3 space-y-1">
@@ -185,7 +293,7 @@ export default async function AdminPayrollPage({
             </div>
           ))}
           {payroll.agents.length === 0 && (
-            <p className="text-sm text-muted">Выплат агентам в этом месяце нет.</p>
+            <p className="text-sm text-muted">Выплат агентам за этот период нет.</p>
           )}
         </div>
       </section>

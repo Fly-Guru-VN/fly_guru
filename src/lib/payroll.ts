@@ -2,9 +2,10 @@ import type { createClient } from "@/lib/supabase/server";
 import { getInstructorStats, type StatsRange } from "@/lib/stats";
 import { getCrmPayout, type CrmPayout } from "@/lib/finance";
 
-// Расчёт месяца: кому и сколько школа должна выплатить.
-// Одна функция на страницу /admin/payroll и на CSV-выгрузку — цифры в файле
-// и на экране не могут разойтись.
+// Расчёт выплат: кому и сколько школа должна отдать за период.
+// Одна функция на страницу /admin/payroll и на выгрузку — цифры в файле
+// и на экране не могут разойтись. Период любой: инструкторам платят раз в
+// неделю, месяц — просто ещё один диапазон (см. комментарий на странице).
 //
 // Инструкторы: доля 15% с сессий (делится по сменам дня) + 200 000 ₫ за каждый
 // выход, отработанный по регламенту, + доля абонементного котла — всё через
@@ -58,7 +59,7 @@ export async function getMonthlyPayroll(
     .eq("role", "instructor")
     .order("name");
 
-  const instructors: InstructorPayout[] = await Promise.all(
+  const unsorted: InstructorPayout[] = await Promise.all(
     (staff ?? []).map(async (u) => {
       const s = await getInstructorStats(supabase, u.id, range, "instructor");
       return {
@@ -76,6 +77,13 @@ export async function getMonthlyPayroll(
         total: s.salary,
       };
     }),
+  );
+
+  // По убыванию суммы: экран отвечает на вопрос «кто сколько заработал за
+  // неделю», и алфавитный порядок для этого приходилось читать глазами.
+  // Равные суммы (например два нуля) — по имени, чтобы список не прыгал.
+  const instructors = unsorted.sort(
+    (a, b) => b.total - a.total || a.name.localeCompare(b.name, "ru"),
   );
 
   // Награды агентов — по месяцу подтверждения. Очереди «ожидают подтверждения»

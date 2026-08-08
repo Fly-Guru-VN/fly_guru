@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAppUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { vnCurrentMonth, vnMonth } from "@/lib/dates";
+import { vnMonth, vnPeriod, vnShiftDays, vnWeekOf } from "@/lib/dates";
 import { getMonthlyPayroll } from "@/lib/payroll";
 import { buildXlsx, xlsxHeaders } from "@/lib/xlsx";
 
-// CSV расчёта месяца: /api/admin/payroll?m=YYYY-MM. Данные — та же функция,
+// Выгрузка расчёта выплат: /api/admin/payroll?from=YYYY-MM-DD&to=YYYY-MM-DD
+// (старое ?m=YYYY-MM тоже понимаем — месяц целиком). Данные — та же функция,
 // что у страницы /admin/payroll, файл не может разойтись с экраном.
 // /api не проходит через middleware (см. matcher), поэтому роль проверяем сами.
+
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Значение в ячейку: кавычки, если внутри разделитель/кавычки/перенос.
 function cell(v: string | number): string {
@@ -21,12 +24,23 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const currentYm = vnCurrentMonth().fromDay.slice(0, 7);
-  const m = request.nextUrl.searchParams.get("m") ?? "";
-  const ym = /^\d{4}-\d{2}$/.test(m) && m <= currentYm ? m : currentYm;
+  const p = request.nextUrl.searchParams;
+  const from = p.get("from") ?? "";
+  const to = p.get("to") ?? "";
+  const m = p.get("m") ?? "";
+  const week = vnWeekOf(); // как на странице: без параметров — текущая неделя
+  const legacy = /^\d{4}-\d{2}$/.test(m) ? vnMonth(m) : null;
+
+  const custom = DAY_RE.test(from) && DAY_RE.test(to) && from <= to;
+  const fromDay = custom ? from : (legacy?.fromDay ?? week.fromDay);
+  const lastDay = custom
+    ? to
+    : legacy
+      ? vnShiftDays(legacy.toDay, -1)
+      : week.lastDay;
 
   const supabase = await createClient();
-  const payroll = await getMonthlyPayroll(supabase, vnMonth(ym));
+  const payroll = await getMonthlyPayroll(supabase, vnPeriod(fromDay, lastDay));
 
   const rows: (string | number)[][] = [
     [
@@ -114,11 +128,15 @@ export async function GET(request: NextRequest) {
     payroll.grandTotal,
   ]);
 
+  // В имени файла — обе границы периода: недельных выгрузок в папке будет
+  // четыре в месяц, и «payroll-2026-08» их уже не различает.
+  const name = `flyguru-payroll-${fromDay}_${lastDay}`;
+
   // Книга Excel — основной формат: русский Excel не считает точку с запятой
   // разделителем, и CSV открывается одной склеенной колонкой (см. lib/xlsx).
-  if (request.nextUrl.searchParams.get("format") === "xlsx") {
-    return new NextResponse(new Uint8Array(buildXlsx("Расчёт месяца", rows, { totalRow: true })), {
-      headers: xlsxHeaders(`flyguru-payroll-${ym}.xlsx`),
+  if (p.get("format") === "xlsx") {
+    return new NextResponse(new Uint8Array(buildXlsx("Расчёт выплат", rows, { totalRow: true })), {
+      headers: xlsxHeaders(`${name}.xlsx`),
     });
   }
 
@@ -129,7 +147,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="flyguru-payroll-${ym}.csv"`,
+      "Content-Disposition": `attachment; filename="${name}.csv"`,
     },
   });
 }

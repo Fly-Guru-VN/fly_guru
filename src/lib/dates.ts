@@ -112,6 +112,48 @@ export function vnPrevMonth() {
   };
 }
 
+// ── Недели ───────────────────────────────────────────────────────────────────
+// Инструкторам платят раз в неделю, поэтому «Расчёт выплат» умеет считать не
+// только месяц. Неделя — понедельник–воскресенье: так её считают и сами
+// инструкторы, и график смен.
+
+// Понедельник недели, в которую попадает день 'YYYY-MM-DD'.
+function vnMonday(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  // getUTCDay(): 0 — воскресенье, поэтому у него до понедельника не 0, а 6 дней.
+  const back = (d.getUTCDay() + 6) % 7;
+  return vnShiftDays(day, -back);
+}
+
+// Неделя, в которую попадает день (по умолчанию сегодняшний): обе даты
+// включительно — та же форма, что у vnPrevMonth, её ждут пресеты периода.
+export function vnWeekOf(day: string = vnToday()) {
+  const fromDay = vnMonday(day);
+  return { fromDay, lastDay: vnShiftDays(fromDay, 6) };
+}
+
+// Прошлая неделя — «за что платим сегодня», самый частый случай.
+export function vnPrevWeek() {
+  return vnWeekOf(vnShiftDays(vnMonday(vnToday()), -1));
+}
+
+// Подпись периода: «3 — 9 августа 2026» (месяц не повторяем, если он один).
+// Нужна там, где раньше стояло название месяца, — заголовок расчёта выплат.
+export function vnRangeLabel(fromDay: string, lastDay: string): string {
+  const fmt = (day: string, opts: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat("ru-RU", { ...opts, timeZone: "UTC" }).format(
+      new Date(`${day}T00:00:00Z`),
+    );
+  if (fromDay === lastDay) {
+    return fmt(fromDay, { day: "numeric", month: "long", year: "numeric" });
+  }
+  const sameMonth = fromDay.slice(0, 7) === lastDay.slice(0, 7);
+  const left = sameMonth
+    ? fmt(fromDay, { day: "numeric" })
+    : fmt(fromDay, { day: "numeric", month: "long" });
+  return `${left} — ${fmt(lastDay, { day: "numeric", month: "long", year: "numeric" })}`;
+}
+
 // Дата продажи + 3 месяца — срок жизни минут абонемента (архитектура, раздел 2).
 export function subscriptionExpiry(from: Date = new Date()): Date {
   const d = new Date(from);

@@ -41,7 +41,7 @@ const NAV: NavItem[] = [
   { href: "/admin/members", label: "Члены клуба", hint: "инвайты · кабинеты" },
   { href: "/admin/materials", label: "Материалы", hint: "ссылки для рекламы" },
   { href: "/admin/dashboard", label: "Статистика", hint: "месяц цифрами", primary: true },
-  { href: "/admin/payroll", label: "Расчёт месяца", hint: "ЗП · агенты · CSV" },
+  { href: "/admin/payroll", label: "Расчёт выплат", hint: "неделя · месяц · Excel" },
   { href: "/admin/expenses", label: "Расходы", hint: "марина · зп · прочее" },
   { href: "/admin/services", label: "Услуги", hint: "цены · справочник" },
   // Не primary: шестую вкладку в нижнюю панель телефона не ставим (подписи там
