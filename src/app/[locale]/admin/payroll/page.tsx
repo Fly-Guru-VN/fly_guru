@@ -72,9 +72,9 @@ function Row({
 export default async function AdminPayrollPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; m?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; m?: string; clash?: string }>;
 }) {
-  const { from, to, m } = await searchParams;
+  const { from, to, m, clash } = await searchParams;
 
   const week = vnWeekOf(); // текущая неделя, пн–вс
   const prevWeek = vnPrevWeek();
@@ -106,6 +106,12 @@ export default async function AdminPayrollPage({
 
   const supabase = await createClient();
   const payroll = await getMonthlyPayroll(supabase, range);
+
+  // Поля дат краснеют, если выбранные дни хоть у кого-то уже закрыты выплатой.
+  const dateFieldClass =
+    payroll.blockedNames.length > 0
+      ? "border-red-500 text-red-600 focus:border-red-600"
+      : "border-line focus:border-primary";
 
   return (
     <div>
@@ -144,7 +150,12 @@ export default async function AdminPayrollPage({
       </div>
 
       {/* Свой период. Поля без w-full: нативный датапикер на телефоне
-          растягивается и вылезает за экран (см. «Статистику»). */}
+          растягивается и вылезает за экран (см. «Статистику»).
+
+          Красная рамка — когда выбранные дни уже закрыты чьей-то выплатой.
+          Так двойная выдача видна ДО того, как искать её глазами по списку:
+          отметил за 1–5, потом развернул период до 1–8 — и поля сразу
+          подсвечены, а под ними написано, у кого пересечение. */}
       <form className="mt-3 flex w-fit flex-col gap-3" action="">
         <div className="flex items-end gap-2">
           <label className="flex flex-col items-start text-xs text-muted">
@@ -153,7 +164,7 @@ export default async function AdminPayrollPage({
               type="date"
               name="from"
               defaultValue={fromDay}
-              className={`mt-1 ${NATIVE_PICKER} rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary`}
+              className={`mt-1 ${NATIVE_PICKER} rounded-xl border bg-surface px-3 py-2 text-sm outline-none ${dateFieldClass}`}
             />
           </label>
           <label className="flex flex-col items-start text-xs text-muted">
@@ -162,7 +173,7 @@ export default async function AdminPayrollPage({
               type="date"
               name="to"
               defaultValue={lastDay}
-              className={`mt-1 ${NATIVE_PICKER} rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary`}
+              className={`mt-1 ${NATIVE_PICKER} rounded-xl border bg-surface px-3 py-2 text-sm outline-none ${dateFieldClass}`}
             />
           </label>
         </div>
@@ -173,6 +184,14 @@ export default async function AdminPayrollPage({
           Показать
         </button>
       </form>
+
+      {payroll.blockedNames.length > 0 && (
+        <p className="mt-2 max-w-md text-xs font-semibold text-red-600">
+          За эти дни выплата уже была:{" "}
+          {payroll.blockedNames.join(", ")}. Отметить её второй раз нельзя —
+          сдвиньте период так, чтобы он не задевал закрытые дни.
+        </p>
+      )}
 
       <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
         <p className="text-xs text-muted">Итого к выплате за {label}</p>
@@ -273,7 +292,10 @@ export default async function AdminPayrollPage({
                 from={fromDay}
                 to={lastDay}
                 amount={i.total}
-                paidOut={i.paidOut}
+                payouts={i.payouts}
+                exactPayout={i.exactPayout}
+                blocked={i.blocked}
+                clash={clash === i.id}
               />
             </div>
           ))}

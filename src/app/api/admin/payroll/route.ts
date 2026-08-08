@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
       "Подтверждённые клиенты, шт",
       "Итого к выплате, VND",
       "Выплачено, VND",
+      "Выплачено за период",
     ],
   ];
   for (const i of payroll.instructors) {
@@ -75,7 +76,11 @@ export async function GET(request: NextRequest) {
       i.salaryFromSubs,
       "",
       i.total,
-      i.paidOut?.amount ?? "",
+      // Выплаты, задевающие период: их может быть несколько (например,
+      // недельные внутри выбранного месяца) — складываем и перечисляем даты,
+      // чтобы в файле было видно, за что именно платили.
+      i.payouts.reduce((sum, p) => sum + p.amount, 0) || "",
+      i.payouts.map((p) => `${p.from}…${p.to}`).join(", "),
     ]);
   }
   for (const a of payroll.agents) {
@@ -93,6 +98,7 @@ export async function GET(request: NextRequest) {
       "",
       a.confirmedCount,
       a.total,
+      "",
       "",
     ]);
   }
@@ -116,6 +122,7 @@ export async function GET(request: NextRequest) {
       "",
       payroll.crm.each,
       "",
+      "",
     ]);
   }
   rows.push([
@@ -133,6 +140,7 @@ export async function GET(request: NextRequest) {
     "",
     payroll.grandTotal,
     payroll.paidOutTotal,
+    "",
   ]);
 
   // В имени файла — обе границы периода: недельных выгрузок в папке будет

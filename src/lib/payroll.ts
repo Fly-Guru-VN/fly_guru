@@ -44,12 +44,20 @@ export interface InstructorPayout {
   salaryFromSubs: number; // доля котла
   total: number;
   employmentLabel: string | null; // «уволен 5 авг» / «с 12 авг» — иначе null
-  paidOut: PayoutMark | null; // отметка «ЗП за этот период выдана»
+  // Все выплаты, ЗАДЕВАЮЩИЕ выбранный период, — показываем их всегда, каким бы
+  // периодом человек ни смотрел. Иначе выплату за 1–5 не видно на экране 1–8,
+  // и ту же неделю выдают второй раз.
+  payouts: PayoutMark[];
+  exactPayout: PayoutMark | null; // выплата ровно за этот период (её можно снять)
+  blocked: boolean; // дни уже закрыты другой выплатой — новую ставить нельзя
 }
 
-// Отметка о выдаче: сумма и дата на момент, когда админ нажал «Выплачено».
-// Сумму храним снимком — поздняя правка сессии не должна переписывать историю.
+// Отметка о выдаче: за какой период, сколько и когда отдали. Сумму храним
+// снимком — поздняя правка сессии не должна переписывать историю выплаты.
 export interface PayoutMark {
+  id: string;
+  from: string; // первый день периода, включительно
+  to: string; // последний день, включительно
   amount: number;
   paidAt: string;
 }
@@ -69,30 +77,48 @@ export interface MonthlyPayroll {
   crmInTotal: boolean; // выбран ровно этот месяц → доля входит в «Итого»
   grandTotal: number;
   paidOutTotal: number; // сколько из этого уже отдано инструкторам
+  // Кому нельзя ставить выплату за выбранный период: эти дни уже закрыты
+  // другой отметкой. Имена нужны шапке — подсветить поля дат и объяснить.
+  blockedNames: string[];
 }
 
-// Отметки о выдаче за ТОЧНО этот период: «выплачено за неделю 3–9 августа».
-// Другой период — другая строка, поэтому недельные отметки не мешают месячным.
-async function loadPayouts(
+// Выплаты, ЗАДЕВАЮЩИЕ выбранный период (пересекающиеся хотя бы одним днём).
+//
+// Сначала брались только совпадающие точь-в-точь — и это давало дыру: отметил
+// выплату за 1–5, потом посмотрел 1–8 и отметил ещё раз. Второй период
+// накрывает первый, но строки разные, поэтому экран показывал чистую кнопку, и
+// одна и та же неделя оказывалась выданной дважды. Теперь пересечение видно
+// всегда: два периода пересекаются, если каждый начинается не позже, чем
+// заканчивается другой.
+export async function loadPayouts(
   supabase: Supabase,
   fromDay: string,
   lastDay: string,
-): Promise<Map<string, PayoutMark>> {
+): Promise<Map<string, PayoutMark[]>> {
   const { data, error } = await supabase
     .from("salary_payouts")
-    .select("instructor_id, amount, paid_at")
-    .eq("period_from", fromDay)
-    .eq("period_to", lastDay);
+    .select("id, instructor_id, period_from, period_to, amount, paid_at")
+    .lte("period_from", lastDay)
+    .gte("period_to", fromDay)
+    .order("period_from");
   // Таблицы нет — миграция 0036 ещё не накатана. Не роняем страницу: расчёт
   // работает и без отметок, просто ни у кого не стоит галочка.
   if (error) return new Map();
 
-  return new Map(
-    (data ?? []).map((r) => [
-      r.instructor_id as string,
-      { amount: Number(r.amount ?? 0), paidAt: r.paid_at as string },
-    ]),
-  );
+  const byInstructor = new Map<string, PayoutMark[]>();
+  for (const r of data ?? []) {
+    const id = r.instructor_id as string;
+    const list = byInstructor.get(id) ?? [];
+    list.push({
+      id: r.id as string,
+      from: r.period_from as string,
+      to: r.period_to as string,
+      amount: Number(r.amount ?? 0),
+      paidAt: r.paid_at as string,
+    });
+    byInstructor.set(id, list);
+  }
+  return byInstructor;
 }
 
 // Последний день периода (включительно) — в StatsRange хранится эксклюзивная
@@ -120,6 +146,10 @@ export async function getMonthlyPayroll(
   const unsorted: InstructorPayout[] = await Promise.all(
     staff.map(async (u: StaffMember) => {
       const s = await getInstructorStats(supabase, u.id, range, "instructor");
+      const mine = payouts.get(u.id) ?? [];
+      const exact = mine.find(
+        (p) => p.from === range.fromDay && p.to === lastDay,
+      );
       return {
         id: u.id,
         name: u.name,
@@ -134,7 +164,11 @@ export async function getMonthlyPayroll(
         salaryFromSubs: s.salaryFromSubs,
         total: s.salary,
         employmentLabel: employmentLabel(u),
-        paidOut: payouts.get(u.id) ?? null,
+        payouts: mine,
+        exactPayout: exact ?? null,
+        // Дни закрыты чужой отметкой: снимать её вслепую нельзя (там своя
+        // сумма и свой период), поэтому просто не даём отметить второй раз.
+        blocked: mine.length > 0 && !exact,
       };
     }),
   );
@@ -206,10 +240,19 @@ export async function getMonthlyPayroll(
     agents.reduce((s, a) => s + a.total, 0) +
     (crmInTotal ? crm.total : 0);
 
+  // «Уже выдано» — только выплаты, целиком лежащие ВНУТРИ выбранного периода:
+  // отметка за 1–5 честно входит в месяц, а месячная отметка не приплюсуется к
+  // недельному экрану, где ей взяться неоткуда.
   const paidOutTotal = instructors.reduce(
-    (s, i) => s + (i.paidOut?.amount ?? 0),
+    (s, i) =>
+      s +
+      i.payouts
+        .filter((p) => p.from >= range.fromDay && p.to <= lastDay)
+        .reduce((sum, p) => sum + p.amount, 0),
     0,
   );
+
+  const blockedNames = instructors.filter((i) => i.blocked).map((i) => i.name);
 
   return {
     instructors,
@@ -219,5 +262,6 @@ export async function getMonthlyPayroll(
     crmInTotal,
     grandTotal,
     paidOutTotal,
+    blockedNames,
   };
 }

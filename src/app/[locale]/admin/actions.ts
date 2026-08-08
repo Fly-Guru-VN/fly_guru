@@ -1679,6 +1679,31 @@ export async function markSalaryPaidAction(formData: FormData) {
 
   const amount = Number(formData.get("amount") ?? 0);
   const supabase = await createClient();
+
+  // Одни и те же дни нельзя закрыть дважды. Живой случай: отметили выплату за
+  // 1–5, потом открыли период 1–8 и отметили ещё раз — неделя посчиталась
+  // выданной два раза. Экран такую кнопку уже не покажет, но проверка нужна и
+  // здесь: старая вкладка отправит форму мимо неё.
+  // Пересечение: чужой период начинается не позже конца нашего и кончается не
+  // раньше его начала. Точное совпадение — не конфликт, это повторное нажатие
+  // той же кнопки, его гасит upsert ниже.
+  const { data: clash } = await supabase
+    .from("salary_payouts")
+    .select("period_from, period_to")
+    .eq("instructor_id", id)
+    .lte("period_from", to)
+    .gte("period_to", from);
+  const overlap = (clash ?? []).find(
+    (p) => !(p.period_from === from && p.period_to === to),
+  );
+  if (overlap) {
+    // Возвращаемся на тот же экран с пометкой: страница объяснит, за какие
+    // дни уже платили, и подсветит поля периода.
+    redirect(
+      `/admin/payroll?from=${from}&to=${to}&clash=${encodeURIComponent(id)}`,
+    );
+  }
+
   const { error } = await supabase.from("salary_payouts").upsert(
     {
       instructor_id: id,
