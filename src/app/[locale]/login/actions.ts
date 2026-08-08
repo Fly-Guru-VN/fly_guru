@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ROLE_HOME, safeNextPath, type AppRole } from "@/lib/auth";
 import { phoneDigits, phonesMatch } from "@/lib/phone";
+import { vnToday } from "@/lib/dates";
 
 // Вход по email ИЛИ телефону + пароль (архитектура, раздел 5: SMS не используем).
 // Supabase логинит только по email, поэтому телефон сперва превращаем в email:
@@ -63,11 +64,29 @@ export async function loginAction(
   // Роль берём из БД (источник правды), а не из JWT: токен отстаёт, если роль
   // сменили после его выдачи, и тогда вход кидал бы, например, повышенного до
   // admin инструктора обратно в кабинет инструктора. JWT — только фолбэк.
-  const { data: dbUser } = await supabase
+  let dbRes = await supabase
     .from("users")
-    .select("role")
+    .select("role, left_at")
     .eq("auth_id", data.user.id)
     .maybeSingle();
+  // left_at появился в 0036 — до наката читаем без него.
+  if (dbRes.error)
+    dbRes = await supabase
+      .from("users")
+      .select("role")
+      .eq("auth_id", data.user.id)
+      .maybeSingle();
+  const dbUser = dbRes.data as { role?: string; left_at?: string | null } | null;
+
+  // Уволенный (0036): пароль верный, но в школе он больше не работает.
+  // Аккаунт живёт дальше — на нём висит вся история занятий и выплат.
+  if (dbUser?.left_at && vnToday() > dbUser.left_at) {
+    await supabase.auth.signOut();
+    return {
+      error: "Доступ к кабинету закрыт: вы больше не числитесь в штате школы.",
+    };
+  }
+
   const role =
     (dbUser?.role as AppRole | undefined) ??
     (data.user.app_metadata?.role as AppRole | undefined) ??

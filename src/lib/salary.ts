@@ -1,7 +1,8 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
-import { vnToday } from "@/lib/dates";
+import { vnDay, vnToday } from "@/lib/dates";
 import { closeStatus, openStatus } from "@/lib/shiftRules";
+import { staffOn, type StaffMember } from "@/lib/staff";
 
 // Как школа платит инструкторам (пачка правок №9, пак 2 — новые правила от
 // 2026-07-24). Три слагаемых, два из них поменялись:
@@ -17,7 +18,8 @@ import { closeStatus, openStatus } from "@/lib/shiftRules";
 //    инструкторов и раскладываем её поровну между теми, кто в этот день
 //    ФАКТИЧЕСКИ вышел. Раньше каждый получал 15% со своих чеков — и тот, кто в
 //    паре оформлял записи на себя, забирал долю напарника.
-//  • доля абонементного котла — без изменений (см. lib/stats).
+//  • доля абонементного котла — с 08.08.2026 делится ПО ДАТЕ ОПЛАТЫ каждого
+//    абонемента, а не по всему периоду сразу (см. getSubsShares ниже).
 //
 // Кто «на смене» для дележа (правка от 28.07.2026). Раньше считалась любая
 // строка shifts — то есть назначенная админом смена давала долю, даже если
@@ -295,4 +297,81 @@ export async function getSessionShare(
   }
 
   return result;
+}
+
+export interface SubsShares {
+  pool: number; // весь котёл периода: 15% с абонементов инструкторов
+  shares: Map<string, number>; // инструктор → его доля
+  soldCount: Map<string, number>; // инструктор → сколько продал сам (справка)
+}
+
+interface PoolSubRow {
+  price: number | null;
+  paid_at: string | null;
+  sold_by: string | null;
+}
+
+// Котёл абонементов: 15% с каждого абонемента, ПРОДАННОГО инструктором и
+// оплаченного в периоде. Абонемент админа в котёл не идёт — он босс, его
+// продажа остаётся ему (та же логика, что с сессиями в lib/finance).
+//
+// Дележ (правка от 08.08.2026, пачка №25). Раньше котёл складывался за весь
+// период и делился поровну между всеми, кто числится инструктором СЕЙЧАС. Из-за
+// этого:
+//   • уволенный в середине недели получал долю с абонементов, оплаченных уже
+//     после его ухода — а стоило его удалить, он терял и заслуженную часть;
+//   • принятый в середине месяца, наоборот, получал долю за дни, когда его в
+//     школе ещё не было.
+// Теперь каждый абонемент делится отдельно — между теми, кто был в штате В ДЕНЬ
+// ЕГО ОПЛАТЫ (lib/staff → worksOn). Живой пример: четверо, Михаила уволили 5-го.
+// Абонемент, оплаченный до 5-го, делится на четверых (по 225 000 ₫), следующий —
+// на троих (по 300 000 ₫). Ровно так, как просил начальник, и без ручных правок.
+//
+// staff — ВЕСЬ список инструкторов, включая уволенных: их надо учитывать в
+// расчётах за прошлые периоды. Кто в доле за конкретный день, решают даты.
+export async function getSubsShares(
+  client: Supabase,
+  range: StatsRange,
+  staff: StaffMember[],
+): Promise<SubsShares> {
+  const { data } = await client
+    .from("subscriptions")
+    .select("price, paid_at, sold_by")
+    .not("paid_at", "is", null)
+    .gte("paid_at", range.fromIso)
+    .lt("paid_at", range.toIso);
+
+  const byId = new Map(staff.map((m) => [m.id, m]));
+  const shares = new Map<string, number>();
+  const soldCount = new Map<string, number>();
+  let pool = 0;
+
+  const add = (id: string, amount: number) =>
+    shares.set(id, (shares.get(id) ?? 0) + amount);
+
+  for (const raw of (data ?? []) as unknown as PoolSubRow[]) {
+    const seller = raw.sold_by;
+    // Продажа админа или неизвестно чья — мимо котла.
+    if (!seller || !byId.has(seller) || !raw.paid_at) continue;
+
+    soldCount.set(seller, (soldCount.get(seller) ?? 0) + 1);
+    const cut = Number(raw.price ?? 0) * SUBS_RATE;
+    if (cut <= 0) continue;
+    pool += cut;
+
+    // День оплаты по вьетнамскому времени: paid_at — timestamptz, а «в штате
+    // 5-го» считается по местному календарю, а не по UTC.
+    const day = vnDay(raw.paid_at);
+    const crew = staffOn(staff, day);
+    if (crew.length === 0) {
+      // Такого быть не должно (продавец сам был в штате в день продажи), но
+      // если даты выставили криво — деньги не растворяются, а остаются продавцу.
+      add(seller, cut);
+      continue;
+    }
+    const each = cut / crew.length;
+    for (const m of crew) add(m.id, each);
+  }
+
+  return { pool, shares, soldCount };
 }

@@ -5,8 +5,10 @@ import {
   SUBS_RATE,
   getSessionShare,
   getShiftPay,
+  getSubsShares,
   type ShiftPayRow,
 } from "@/lib/salary";
+import { activeStaff, loadInstructors } from "@/lib/staff";
 
 // Общий расчёт статистики инструктора — им пользуются главный экран кабинета
 // (цифры за текущий месяц) и экран «Статистика» (произвольный период).
@@ -17,8 +19,9 @@ import {
 //   • 200 000 ₫ за каждый выход, отработанный по регламенту (открыл до 9:00,
 //     закрыл после 18:00, смена закрыта) и не снятый админом вручную;
 //   • доля абонементного котла: 15% от абонементов, ПРОДАННЫХ ИНСТРУКТОРАМИ
-//     и оплаченных в периоде (paid_at не пуст), поделённые ПОРОВНУ между
-//     всеми инструкторами — неважно, кто именно продал.
+//     и оплаченных в периоде (paid_at не пуст). Каждый абонемент делится
+//     поровну между теми, кто был в штате В ДЕНЬ ЕГО ОПЛАТЫ — неважно, кто
+//     именно продал (правка от 08.08.2026, подробности в lib/salary).
 // Неоплаченные абонементы в ЗП не входят — показываются отдельной строкой.
 //
 // Админ — босс, а не наёмный: ЗП у него нет вообще. Со своей сессии он платит
@@ -68,7 +71,7 @@ export interface InstructorStats {
   sharedDays: number; // дней, где 15% делились со сменщиками
   ownDays: number; // дней без смен — 15% достались мне целиком
   subsPool: number; // весь котёл за период (15% продаж инструкторов) — справка
-  instructorsCount: number; // на скольких делится котёл
+  instructorsCount: number; // сколько инструкторов в штате сейчас — для подписи
   paidSubsCount: number; // абонементы, проданные мной и оплаченные в периоде
   unpaidSubsCount: number; // мои неоплаченные (за всё время) — ждут оплату
   unpaidSubsSum: number;
@@ -76,9 +79,10 @@ export interface InstructorStats {
   byCategory: { category: string; amount: number }[]; // выручка по видам услуг
 }
 
-// Кто в доле: все с ролью instructor. Флага «активен» у users нет — уволенного
-// инструктора админ удаляет из базы, иначе он продолжит делить котёл.
-// Инструктору этот список отдаёт политика users_select_staff (миграция 0015).
+// Все инструкторы школы, включая уволенных: их выходы и занятия за отработанные
+// дни считаются как обычно (уволенному платят за отработанную неделю). Кто
+// участвует в дележе денег КОНКРЕТНОГО дня, решают даты найма/увольнения —
+// см. lib/staff. Инструктору список отдаёт политика users_select_staff (0015).
 export async function getInstructorIds(supabase: Supabase): Promise<string[]> {
   const { data } = await supabase.from("users").select("id").eq("role", "instructor");
   return (data ?? []).map((u) => u.id as string);
@@ -152,18 +156,18 @@ export async function getInstructorStats(
     .map(([category, amount]) => ({ category, amount }))
     .sort((a, b) => b.amount - a.amount);
 
-  const [{ data: subs }, { data: poolSubs }, instructorIds] = await Promise.all([
+  const [{ data: subs }, staff] = await Promise.all([
     // Проданные мной — для справки «продал N» и строки «ждут оплату».
     supabase.from("subscriptions").select("price, paid_at").eq("sold_by", instructorId),
-    // Котёл: всё, что оплатили в периоде (чьё именно — отсеем ниже по sold_by).
-    supabase
-      .from("subscriptions")
-      .select("price, sold_by")
-      .not("paid_at", "is", null)
-      .gte("paid_at", range.fromIso)
-      .lt("paid_at", range.toIso),
-    getInstructorIds(supabase),
+    // Весь штат, включая уволенных: их выходы и занятия за отработанные дни
+    // считаются как обычно, а в дележе котла участвуют только дни, когда
+    // человек был в штате (см. lib/salary → getSubsShares).
+    loadInstructors(supabase),
   ]);
+  const instructorIds = staff.map((m) => m.id);
+
+  // Котёл абонементов делится по дате оплаты каждого абонемента.
+  const subsShares = await getSubsShares(supabase, range, staff);
 
   // Выходы и дележ 15% — через payClient: обе величины считаются по ВСЕМ
   // сменам и сессиям дня, а не только по моим (см. lib/salary).
@@ -190,21 +194,16 @@ export async function getInstructorStats(
   );
   const unpaid = subRows.filter((s) => !s.paid_at);
 
-  // Котёл наполняют ТОЛЬКО продажи инструкторов: абонемент, проданный админом,
-  // остаётся боссу — инструкторам с него ничего не идёт.
-  const instructorSet = new Set(instructorIds);
-  const poolBase = (poolSubs ?? [])
-    .filter((s) => s.sold_by && instructorSet.has(s.sold_by as string))
-    .reduce((s, r) => s + Number(r.price ?? 0), 0);
-  const subsPool = poolBase * SUBS_RATE;
+  const subsPool = subsShares.pool;
 
   const isInstructor = role === "instructor"; // у босса ЗП нет — все слагаемые нули
   // Моя доля 15% за период. Считает lib/salary: база дня делится между теми,
   // кто открыл смену, в дни без смен остаётся тому, кто записал.
   const salaryFromSessions = isInstructor ? myShare.amount : 0;
   const salaryFromShifts = isInstructor ? myShifts.amount : 0;
-  const salaryFromSubs =
-    isInstructor && instructorIds.length > 0 ? subsPool / instructorIds.length : 0;
+  // Доля котла — сумма долей по каждому абонементу: она зависит от того, кто был
+  // в штате в день его оплаты, а не от простого деления на «сколько нас сейчас».
+  const salaryFromSubs = isInstructor ? (subsShares.shares.get(instructorId) ?? 0) : 0;
 
   return {
     clientsCount: byClient.size,
@@ -223,7 +222,7 @@ export async function getInstructorStats(
     sharedDays: myShare.sharedDays,
     ownDays: myShare.ownDays,
     subsPool,
-    instructorsCount: instructorIds.length,
+    instructorsCount: activeStaff(staff).length,
     paidSubsCount: paidInRange.length,
     unpaidSubsCount: unpaid.length,
     unpaidSubsSum: unpaid.reduce((s, r) => s + Number(r.price ?? 0), 0),

@@ -6,23 +6,25 @@ import { SettingsForm } from "@/app/[locale]/instructor/settings/SettingsForm";
 import { DictionaryManager } from "./DictionaryManager";
 import { EquipmentManager } from "./EquipmentManager";
 import { StaffManager, type StaffRow } from "./StaffManager";
+import { employmentLabel, isFired, loadInstructors } from "@/lib/staff";
+import { vnToday } from "@/lib/dates";
 
-// Инструкторы с флагом «старший» (0033). Мягко: до наката миграции колонки нет,
-// и обычный select уронил бы весь экран настроек — тогда просто не показываем
-// блок (в этот момент старшинство ни на что и не влияет).
+// Штат: старшинство (0033) плюс трудовой период (0036). loadInstructors сам
+// переживает ненакатанную миграцию — читает без новых колонок, и тогда даты
+// просто пустые, а увольнение молча ничего не меняет до наката.
 async function loadStaff(
   supabase: Awaited<ReturnType<typeof createClient>>,
-): Promise<StaffRow[] | null> {
-  const { data, error } = await supabase
-    .from("users")
-    .select("id, name, senior")
-    .eq("role", "instructor")
-    .order("name");
-  if (error) return null;
-  return (data ?? []).map((u) => ({
-    id: u.id as string,
-    name: (u.name as string) ?? "Без имени",
-    senior: Boolean(u.senior),
+  today: string,
+): Promise<StaffRow[]> {
+  const staff = await loadInstructors(supabase);
+  return staff.map((m) => ({
+    id: m.id,
+    name: m.name || "Без имени",
+    senior: m.senior,
+    hiredAt: m.hiredAt,
+    leftAt: m.leftAt,
+    fired: isFired(m, today),
+    label: employmentLabel(m, today),
   }));
 }
 
@@ -37,10 +39,11 @@ export default async function AdminSettingsPage() {
   if (!user) return null; // layout уже средиректил бы; страховка для типов
 
   const supabase = await createClient();
+  const today = vnToday();
   const [methods, equipment, staff] = await Promise.all([
     getFullDict(supabase, "payment_methods"),
     getFullEquipment(supabase),
-    loadStaff(supabase),
+    loadStaff(supabase, today),
   ]);
 
   return (
@@ -60,9 +63,9 @@ export default async function AdminSettingsPage() {
         />
       </div>
 
-      {staff && (
+      {staff.length > 0 && (
         <div className="mt-6">
-          <StaffManager staff={staff} />
+          <StaffManager staff={staff} today={today} />
         </div>
       )}
 

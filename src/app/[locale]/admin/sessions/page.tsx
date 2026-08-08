@@ -12,6 +12,7 @@ import { SessionCreateForm } from "./SessionCreateForm";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 import { sortServicesByType } from "@/lib/serviceOrder";
+import { hiddenStaffIds } from "@/lib/staff";
 
 export const metadata: Metadata = { title: "Админка · Сессии" };
 
@@ -268,7 +269,7 @@ export default async function AdminSessionsPage({
 
   const supabase = await createClient();
   const paymentMethods = await getActiveDict(supabase, "payment_methods");
-  const [sessionsRes, clientsRes, servicesRes, staffRes] = await Promise.all([
+  const [sessionsRes, clientsRes, servicesRes, staffRes, hidden] = await Promise.all([
     supabase
       .from("sessions")
       .select(
@@ -293,6 +294,9 @@ export default async function AdminSessionsPage({
       .eq("active", true)
       .neq("category", "subscription"),
     supabase.from("users").select("id, name").in("role", ["instructor", "admin"]).order("name"),
+    // Уволенных в списке «кто провёл» быть не должно: выбрать его можно только
+    // по ошибке, а занятие уедет человеку, которого в школе уже нет (0036).
+    hiddenStaffIds(supabase),
   ]);
 
   const sessions = (sessionsRes.data ?? []) as unknown as SessionRow[];
@@ -305,7 +309,7 @@ export default async function AdminSessionsPage({
     ...s,
     price: Number(s.price ?? 0),
   }));
-  const staff = staffRes.data ?? [];
+  const staff = (staffRes.data ?? []).filter((u) => !hidden.has(u.id as string));
 
   const total = sessions.reduce((sum, s) => sum + (s.amount ?? 0), 0);
 

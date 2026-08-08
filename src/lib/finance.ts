@@ -1,6 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
-import { getInstructorIds, type StatsRange } from "@/lib/stats";
-import { SESSION_RATE, SUBS_RATE, getShiftPay } from "@/lib/salary";
+import type { StatsRange } from "@/lib/stats";
+import { SESSION_RATE, getShiftPay, getSubsShares } from "@/lib/salary";
+import { loadInstructors } from "@/lib/staff";
 
 // Финансовая модель школы за период — питает вкладку «Расходы».
 // Как делятся деньги (пачка правок №3, паки E + H2):
@@ -90,6 +91,7 @@ export interface Finance {
   instructorSubsPay: number; // 15% с абонементов, проданных инструкторами
   instructorShifts: number; // сколько выходов оплачиваем
   instructorShiftsUnpaid: number; // выходы, срезанные регламентом (справка)
+  instructorPaidOut: number; // из этой ЗП уже отдано на руки (отметки 0036)
   agentCommissions: number; // комиссии агентов по сессиям периода (пак D)
   crmCut: number; // 2% с сессий + абонементов
   crmEach: number; // доля одного (Дэвид / Ромчик) — половина crmCut
@@ -99,11 +101,29 @@ export interface Finance {
   netProfit: number; // выручка − авто − ручные
 }
 
+// Отметки «ЗП выдана» (0036) за периоды внутри выбранного. Таблицы может не
+// быть (миграция не накатана) — тогда просто ноль, вкладка работает как раньше.
+async function loadPaidOut(
+  supabase: Supabase,
+  range: StatsRange,
+): Promise<number> {
+  const lastDay = new Date(`${range.toDay}T00:00:00Z`);
+  lastDay.setUTCDate(lastDay.getUTCDate() - 1);
+
+  const { data, error } = await supabase
+    .from("salary_payouts")
+    .select("amount")
+    .gte("period_from", range.fromDay)
+    .lte("period_to", lastDay.toISOString().slice(0, 10));
+  if (error) return 0;
+  return (data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+}
+
 export async function getFinance(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<Finance> {
-  const [sessionsRes, subsRes, expensesRes, instructorIds] =
+  const [sessionsRes, subsRes, expensesRes, staff, instructorPaidOut] =
     await Promise.all([
       supabase
         .from("sessions")
@@ -124,12 +144,22 @@ export async function getFinance(
         .gte("date", range.fromDay)
         .lt("date", range.toDay)
         .order("amount", { ascending: false }),
-      getInstructorIds(supabase),
+      loadInstructors(supabase),
+      // Сколько из начисленной ЗП уже роздано: суммируем отметки «выплачено»
+      // по периодам, целиком лежащим внутри выбранного (недели внутри месяца).
+      // Начисление и выдача — разные события: в расчёт прибыли ЗП уходит сразу,
+      // а деньги на руки отдают раз в неделю и не всегда всем сразу.
+      loadPaidOut(supabase, range),
     ]);
+  const instructorIds = staff.map((m) => m.id);
 
-  // Выходы считает lib/salary — те же правила, что в кабинете инструктора и в
-  // «Расчёте месяца». Здесь нужен только итог по школе.
-  const shiftPay = await getShiftPay(supabase, range, instructorIds);
+  // Выходы и котёл абонементов считает lib/salary — те же правила, что в
+  // кабинете инструктора и в «Расчёте выплат». Здесь нужен итог по школе:
+  // сколько всего денег уходит людям.
+  const [shiftPay, subsShares] = await Promise.all([
+    getShiftPay(supabase, range, instructorIds),
+    getSubsShares(supabase, range, staff),
+  ]);
 
   const sessions = sessionsRes.data ?? [];
   const subs = subsRes.data ?? [];
@@ -158,9 +188,6 @@ export async function getFinance(
     (s, r) => s + Number(r.agent_commission ?? 0),
     0,
   );
-  const instructorSubsRevenue = subs
-    .filter((r) => r.sold_by && isInstructor.has(r.sold_by as string))
-    .reduce((s, r) => s + Number(r.price ?? 0), 0);
   let instructorShifts = 0;
   let instructorShiftsUnpaid = 0;
   let instructorShiftPay = 0;
@@ -172,7 +199,8 @@ export async function getFinance(
 
   const marina = revenue * MARINA_RATE;
   const instructorSessionPay = instructorSessionsBase * SESSION_RATE;
-  const instructorSubsPay = instructorSubsRevenue * SUBS_RATE;
+  // Котёл целиком (кому сколько досталось — дело lib/salary): школе важна сумма.
+  const instructorSubsPay = subsShares.pool;
   const instructorPay = instructorSessionPay + instructorShiftPay + instructorSubsPay;
   const crmCut = revenue * CRM_RATE;
   const crmEach = crmCut / 2;
@@ -203,6 +231,7 @@ export async function getFinance(
     instructorSubsPay,
     instructorShifts,
     instructorShiftsUnpaid,
+    instructorPaidOut,
     agentCommissions,
     crmCut,
     crmEach,

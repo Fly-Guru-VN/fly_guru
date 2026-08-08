@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { vnMonth } from "@/lib/dates";
+import { hiddenStaffIds } from "@/lib/staff";
 
 // Данные календаря за месяц — общий источник для админского и инструкторского
 // кабинетов (цифры не должны расходиться). Собираем карту «день → смены +
@@ -142,15 +143,20 @@ async function loadStaff(supabase: Supabase): Promise<StaffMember[]> {
   const query = (roles: string[]) =>
     supabase.from("users").select("id, name, role").in("role", roles).order("name");
 
+  // Уволенным смену не ставим (0036). Их ПРОШЛЫЕ смены из календаря никуда не
+  // деваются: имя в карточке дня приходит из самой смены, а не из этого списка.
+  const hidden = await hiddenStaffIds(supabase);
+  const visible = (rows: StaffMember[]) => rows.filter((u) => !hidden.has(u.id));
+
   const res = await query(["instructor", "admin", "mechanic"]);
-  if (!res.error) return (res.data ?? []) as StaffMember[];
+  if (!res.error) return visible((res.data ?? []) as StaffMember[]);
 
   const plain = await query(["instructor", "admin"]);
   if (plain.error) {
     console.error("[shifts] staff load error:", plain.error.message);
     return [];
   }
-  return (plain.data ?? []) as StaffMember[];
+  return visible((plain.data ?? []) as StaffMember[]);
 }
 
 export async function getMonthCalendar(

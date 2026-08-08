@@ -6,6 +6,7 @@ import { getActiveDict, embeddedName } from "@/lib/dictionaries";
 import { RecordClientForm, type RecordPrefill } from "./RecordClientForm";
 import { firstBasicTrainingByPhone } from "@/lib/agentReward";
 import { sortServicesByType } from "@/lib/serviceOrder";
+import { hiddenStaffIds } from "@/lib/staff";
 
 export const metadata: Metadata = { title: "Админка · Запись клиента" };
 
@@ -24,7 +25,7 @@ export default async function AdminRecordPage({
   const admin = await getAppUser();
   const paymentMethods = await getActiveDict(supabase, "payment_methods");
 
-  const [servicesRes, staffRes] = await Promise.all([
+  const [servicesRes, staffRes, hidden] = await Promise.all([
     // Без subscription: абонемент — не сессия (своя форма с минутами/членством).
     supabase
       .from("services")
@@ -32,6 +33,7 @@ export default async function AdminRecordPage({
       .eq("active", true)
       .neq("category", "subscription"),
     supabase.from("users").select("id, name").in("role", ["instructor", "admin"]).order("name"),
+    hiddenStaffIds(supabase), // уволенных не предлагаем (0036)
   ]);
   // Порядок «по типажам» (lib/serviceOrder.ts): базовое обучение первым,
   // похожие услуги рядом.
@@ -39,7 +41,7 @@ export default async function AdminRecordPage({
     ...s,
     price: Number(s.price ?? 0),
   }));
-  const staff = staffRes.data ?? [];
+  const staff = (staffRes.data ?? []).filter((u) => !hidden.has(u.id as string));
 
   const today = vnToday();
 

@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { vnToday } from "@/lib/dates";
 
 // «Кто сейчас залогинен» для серверных компонентов и server actions.
 //
@@ -19,6 +20,14 @@ export interface AppUser {
   photo_url: string | null;
   age: number | null;
   monthly_goal: number | null; // личная цель по ЗП на месяц, ₫
+  left_at: string | null; // последний рабочий день уволенного (0036)
+}
+
+// Уволенный (дата последнего рабочего дня уже прошла). Аккаунт не удаляем —
+// вместе с ним пропала бы вся история занятий и выплат, — но в кабинет не
+// пускаем: человек больше не работает в школе.
+export function isLeftStaff(user: { left_at: string | null }): boolean {
+  return Boolean(user.left_at && vnToday() > user.left_at);
 }
 
 // Домашняя страница каждой роли (куда отправлять после входа).
@@ -42,14 +51,17 @@ export const getAppUser = cache(async (): Promise<AppUser | null> => {
   if (!user) return null;
 
   // RLS: политика users_select_own разрешает читать только свою строку.
-  const { data } = await supabase
-    .from("users")
-    .select("id, role, name, phone, email, photo_url, age, monthly_goal")
-    .eq("auth_id", user.id)
-    .maybeSingle();
-  if (!data) return null;
+  // left_at появился в 0036: пока миграция не накатана, читаем без него —
+  // иначе вход развалился бы у всех разом.
+  const base = "id, role, name, phone, email, photo_url, age, monthly_goal";
+  const query = (columns: string) =>
+    supabase.from("users").select(columns).eq("auth_id", user.id).maybeSingle();
 
-  return data as AppUser;
+  let row = await query(`${base}, left_at`);
+  if (row.error) row = await query(base);
+  if (!row.data) return null;
+
+  return { left_at: null, ...(row.data as object) } as AppUser;
 });
 
 // Куда отправить человека сразу после входа.
@@ -79,6 +91,10 @@ export function safeNextPath(next: string, role: AppRole): string {
 export async function requireRole(role: AppRole, currentPath: string): Promise<AppUser> {
   const user = await getAppUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(currentPath)}`);
+  // Уволенного не пускаем никуда, даже если кука ещё жива. Страница входа
+  // покажет ему «доступ закрыт» и не станет редиректить обратно — иначе
+  // получилась бы петля.
+  if (isLeftStaff(user)) redirect("/login?closed=1");
   if (user.role !== role && user.role !== "admin") redirect(ROLE_HOME[user.role]);
   return user;
 }

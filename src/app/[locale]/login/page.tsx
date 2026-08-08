@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Container, Section } from "@/components/ui";
-import { getAppUser, ROLE_HOME } from "@/lib/auth";
+import { getAppUser, isLeftStaff, ROLE_HOME } from "@/lib/auth";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = { title: "Вход" };
@@ -11,13 +11,16 @@ export const metadata: Metadata = { title: "Вход" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; closed?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, closed } = await searchParams;
 
-  // Уже залогинен — незачем показывать форму.
+  // Уже залогинен — незачем показывать форму. Кроме уволенного (0036): его
+  // кука ещё жива, но кабинет закрыт, и отправлять его «домой» нельзя —
+  // requireRole вернёт сюда же, получится петля.
   const user = await getAppUser();
-  if (user) redirect(ROLE_HOME[user.role]);
+  if (user && !isLeftStaff(user)) redirect(ROLE_HOME[user.role]);
+  const left = closed === "1" || Boolean(user && isLeftStaff(user));
 
   return (
     <Section className="pt-10 sm:pt-14">
@@ -31,6 +34,12 @@ export default async function LoginPage({
             Для инструкторов, членов клуба и агентов. Нет аккаунта? Его создаёт
             администратор — напишите нам.
           </p>
+          {left && (
+            <p className="mt-4 rounded-2xl border border-line bg-line/20 p-3 text-sm">
+              Доступ к кабинету закрыт: вы больше не числитесь в штате школы.
+              Если это ошибка — напишите администратору.
+            </p>
+          )}
           <div className="mt-8">
             <LoginForm next={next} />
           </div>
