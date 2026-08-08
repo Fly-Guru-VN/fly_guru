@@ -49,6 +49,7 @@ interface BookingRow {
   accepted: { name: string } | null;
   payment_method_id: string | null;
   payment: { name: string } | null;
+  paid: boolean | null; // деньги получены до занятия (0036)
 }
 
 const TERMINAL = ["done", "cancelled", "archived"];
@@ -187,12 +188,23 @@ function BookingCard({
         {/* Чем платят. Отдельной заметной плашкой, а не строчкой в общем
             списке: способ оплаты ищут глазами (пачка №5, чек-лист админки).
             Проставляется сам, когда заявку доводят до занятия. */}
-        {b.payment ? (
+        {/* «Уже оплачено» (0036) — про то, что деньги УЖЕ у школы, а не про то,
+            чем платят. Живой случай: написал в инстаграм, сразу перевёл,
+            катается послезавтра. Отдельной плашкой, чтобы инструктор увидел её
+            на пляже и не спросил деньги второй раз. */}
+        {b.paid && (
+          <p className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-600">
+            <span aria-hidden>✅</span>
+            Клиент уже оплатил{b.payment ? ` · ${b.payment.name}` : ""}
+          </p>
+        )}
+
+        {!b.paid && b.payment ? (
           <p className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-600">
             <span aria-hidden>💵</span>
             Оплата: {b.payment.name}
           </p>
-        ) : (
+        ) : !b.paid && (
           // Заявку довели до занятия, а чем расплатились — не записано. Так
           // бывает, когда её закрыли кнопкой «Выполнена» вручную, минуя
           // «Записать клиента»: способ оплаты там никто не спрашивает. Раньше
@@ -303,6 +315,19 @@ function BookingCard({
                   </option>
                 )}
             </select>
+          </label>
+          {/* «Уже оплатил» (0036): гость перевёл деньги при переписке, а
+              катается позже. Инструктор увидит отметку в карточке и не станет
+              спрашивать деньги второй раз. На выручку не влияет — она
+              считается по занятию. */}
+          <label className="mt-2 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="paidMark"
+              defaultChecked={Boolean(b.paid)}
+              className="h-4 w-4 accent-primary"
+            />
+            Клиент уже оплатил
           </label>
           <label className="mt-2 block text-xs text-muted">
             Заметка (пожелания клиента, договорённости — видна инструкторам)
@@ -458,15 +483,22 @@ export default async function AdminBookingsPage({
     name: s.name as string,
   }));
 
-  const { data } = await supabase
-    .from("bookings")
-    .select(
-      "id, booking_no, client_name, phone, telegram_username, preferred_date, scheduled_time, age, weight, status, pinned, ref_code, src, city, utm, internal_note, client_id, rescheduled_at, created_at, payment_method_id, services(name, category), accepted:users!accepted_by(name), payment:payment_methods(name)",
-    )
-    .order("created_at", { ascending: false })
-    .limit(200);
+  // Колонка paid добавлена в 0036: до наката её нет, и с ней запрос падает
+  // целиком — а вместе с ним лента заявок. Поэтому при ошибке перечитываем без
+  // неё (та же страховка, что у колонок премии в lib/salary).
+  const bookingCols =
+    "id, booking_no, client_name, phone, telegram_username, preferred_date, scheduled_time, age, weight, status, pinned, ref_code, src, city, utm, internal_note, client_id, rescheduled_at, created_at, payment_method_id, services(name, category), accepted:users!accepted_by(name), payment:payment_methods(name)";
+  const bookingsQuery = (columns: string) =>
+    supabase
+      .from("bookings")
+      .select(columns)
+      .order("created_at", { ascending: false })
+      .limit(200);
 
-  const all = (data ?? []) as unknown as BookingRow[];
+  let res = await bookingsQuery(`${bookingCols}, paid`);
+  if (res.error) res = await bookingsQuery(bookingCols);
+
+  const all = (res.data ?? []) as unknown as BookingRow[];
 
   // Фильтр: «Все» скрывает архив, остальные чипсы показывают свой срез.
   let bookings = all;

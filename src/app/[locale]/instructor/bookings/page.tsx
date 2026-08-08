@@ -21,6 +21,7 @@ interface BookingRow {
   pinned: boolean;
   internal_note: string | null;
   city: string | null;
+  paid: boolean | null; // деньги уже получены до занятия (0036)
   accepted_by: string | null;
   services: { name: string; category: string } | null;
   accepted: { name: string } | null;
@@ -35,21 +36,27 @@ export default async function InstructorBookingsPage() {
 
   // Профиль и список записей не зависят друг от друга — грузим параллельно,
   // а не по очереди (каждый поход к базе в другом регионе стоит ~200 мс).
-  const [user, { data }] = await Promise.all([
-    getAppUser(),
+  // Колонка paid добавлена в 0036: пока миграция не накатана, читаем без неё —
+  // иначе лента записей у инструктора осталась бы пустой.
+  const cols =
+    "id, client_name, phone, preferred_date, scheduled_time, age, weight, pinned, internal_note, city, accepted_by, services(name, category), accepted:users!accepted_by(name)";
+  const bookingsQuery = (columns: string) =>
     supabase
       .from("bookings")
-      .select(
-        "id, client_name, phone, preferred_date, scheduled_time, age, weight, pinned, internal_note, city, accepted_by, services(name, category), accepted:users!accepted_by(name)",
-      )
+      .select(columns)
       .eq("status", "confirmed")
       .order("pinned", { ascending: false })
       .order("preferred_date", { ascending: true, nullsFirst: false })
-      .limit(50),
+      .limit(50);
+
+  const [user, first] = await Promise.all([
+    getAppUser(),
+    bookingsQuery(`${cols}, paid`),
   ]);
+  const res = first.error ? await bookingsQuery(cols) : first;
   if (!user) return null; // layout уже средиректил бы; страховка для типов
 
-  const bookings = (data ?? []) as unknown as BookingRow[];
+  const bookings = (res.data ?? []) as unknown as BookingRow[];
 
   return (
     <div>
@@ -125,6 +132,16 @@ export default async function InstructorBookingsPage() {
                 {b.city && <p>Город: {b.city}</p>}
                 {b.internal_note && <p className="italic">{b.internal_note}</p>}
               </div>
+
+              {/* Деньги уже у школы (0036): гость перевёл их при переписке.
+                  Плашкой, а не строчкой в общем списке, — чтобы на пляже её
+                  было видно сразу и никто не попросил заплатить второй раз. */}
+              {b.paid && (
+                <p className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-600">
+                  <span aria-hidden>✅</span>
+                  Клиент уже оплатил
+                </p>
+              )}
 
               {!b.accepted_by && (
                 <form action={acceptBookingAction} className="mt-3">
