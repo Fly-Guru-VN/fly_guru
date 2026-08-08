@@ -17,11 +17,14 @@ export const contacts = {
   zalo: `https://zalo.me/${PHONE_RAW.replace("+", "")}`,
   email: "flyguruvn@gmail.com",
   address: "Maryna Beach Club, Нячанг, Вьетнам",
-  mapLink: "https://maps.app.goo.gl/BSyEHxHpF8LJbj766",
+  // Метка ШКОЛЫ, а не пляжного клуба, на территории которого она стоит: раньше
+  // тут была карточка Maryna Beach Club, и человек с сайта попадал на чужой
+  // профиль — с чужими отзывами и без наших фото. Адрес рядом оставлен прежним:
+  // физически школа действительно на территории клуба.
+  mapLink: "https://maps.app.goo.gl/1rgSHUMUsvq3VUnT7",
   // Встраиваемая карта: iframe не принимает короткие ссылки maps.app.goo.gl,
-  // поэтому ищем клуб по названию.
-  mapEmbed:
-    "https://www.google.com/maps?q=Maryna+Beach+Club+Nha+Trang&output=embed",
+  // поэтому ищем точку по названию карточки в Google Maps.
+  mapEmbed: "https://www.google.com/maps?q=FlyGuru+Efoil+Nha+Trang&output=embed",
   hours: "Ежедневно 8:30 – 18:00",
 } as const;
 

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import { Container, Section, SectionHeading, Button } from "@/components/ui";
+import { Container, Section, SectionHeading, buttonClasses } from "@/components/ui";
 import { ReviewCard } from "@/components/ReviewCard";
 import { Media } from "@/components/Media";
+import { TrackedLink } from "@/components/TrackedLink";
 import { reviews } from "@/content/reviews";
+import { contacts } from "@/content/contacts";
 
 export const metadata: Metadata = { title: "Отзывы" };
 export const dynamic = "force-static"; // статичная страница, форсим SSG
@@ -31,9 +33,25 @@ export default function ReviewsPage() {
 
         <div className="mt-12 rounded-3xl border border-line bg-surface-2 p-8 text-center">
           <h2 className="text-xl font-bold">Уже катались с нами?</h2>
-          <p className="mt-2 text-muted">Будем рады вашему отзыву.</p>
+          <p className="mt-2 text-muted">
+            Будем рады вашему отзыву — он откроется прямо в нашей карточке
+            Google Maps.
+          </p>
+          {/* Ведём в карточку школы, а не на /contacts: человек дочитал чужие
+              отзывы, и это ровно тот момент, когда пишут свой. Раньше здесь
+              была ссылка на контакты, а оттуда карта вела на Maryna Beach Club
+              — то есть отзыв уходил чужому бизнесу. */}
           <div className="mt-5 flex justify-center">
-            <Button href="/contacts">Оставить отзыв</Button>
+            <TrackedLink
+              href={contacts.mapLink}
+              external
+              newTab
+              event="contact_click"
+              data={{ channel: "maps", place: "reviews" }}
+              className={buttonClasses()}
+            >
+              Оставить отзыв
+            </TrackedLink>
           </div>
         </div>
       </Container>

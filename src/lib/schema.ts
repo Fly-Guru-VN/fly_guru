@@ -20,8 +20,8 @@ import { SITE_URL } from "./site";
 export const ORG_ID = `${SITE_URL}/#business`;
 
 // Координаты — из той же метки на картах, что стоит в контактах
-// (maps.app.goo.gl/BSyEHxHpF8LJbj766 → 12.2932725, 109.2155467).
-const GEO = { lat: 12.2932725, lng: 109.2155467 };
+// (maps.app.goo.gl/1rgSHUMUsvq3VUnT7 → 12.2931615, 109.2155281).
+const GEO = { lat: 12.2931615, lng: 109.2155281 };
 
 const DESCRIPTION =
   "Школа электрофойлов в Нячанге: обучение с нуля, полёты в тандеме, прокат, " +
