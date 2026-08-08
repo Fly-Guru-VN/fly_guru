@@ -9,8 +9,17 @@ import {
   vnToday,
 } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
-import { loadAllSessions } from "@/lib/sessions";
 import { channelLabel } from "@/lib/channels";
+import {
+  NONE,
+  channelKey,
+  filterVisits,
+  isPaymentMissing,
+  loadVisits,
+  paymentKey,
+  serviceLabel,
+  sortVisits,
+} from "@/lib/visits";
 import { buildPaymentBreakdown, SUBS_CAT, type PaymentInput } from "@/lib/payments";
 import { getFinance } from "@/lib/finance";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
@@ -59,21 +68,6 @@ const presetClass = (active: boolean) =>
       : "border border-line text-muted hover:border-primary hover:text-primary"
   }`;
 
-interface VisitRow {
-  id: string;
-  date: string;
-  amount: number;
-  minutes_used: number | null;
-  subscription_id: string | null;
-  client_id: string | null;
-  instructor_id: string | null;
-  client: { name: string } | null;
-  service: { name: string; category: string } | null;
-  instructor: { name: string } | null;
-  creator: { name: string } | null;
-  payment: { name: string } | null;
-}
-
 // Колонки таблицы: ключ ?sort=, подпись, стартовое направление.
 const COLUMNS = [
   { key: "date", label: "Дата", startDir: "d" },
@@ -81,9 +75,12 @@ const COLUMNS = [
   { key: "service", label: "Занятие", startDir: "a" },
   { key: "amount", label: "Оплата", startDir: "d" },
   { key: "payment", label: "Чем оплатил", startDir: "a" },
+  { key: "channel", label: "Откуда", startDir: "a" },
   { key: "instructor", label: "Откатал", startDir: "a" },
   { key: "creator", label: "Записал", startDir: "a" },
-  { key: "visits", label: "Визитов всего", startDir: "d" },
+  // Подпись короткая (не «Визитов всего»): с появлением колонки «Откуда» ряд
+  // перестал влезать в колонку контента даже на широком экране.
+  { key: "visits", label: "Визитов", startDir: "d" },
 ] as const;
 
 function fmtDay(day: string): string {
@@ -151,12 +148,22 @@ export default async function AdminDashboardPage({
     to?: string;
     cat?: string;
     inst?: string;
+    pay?: string;
+    ch?: string;
     sort?: string;
     dir?: string;
   }>;
 }) {
-  const { from, to, cat = "", inst = "", sort = "date", dir = "d" } =
-    await searchParams;
+  const {
+    from,
+    to,
+    cat = "",
+    inst = "",
+    pay = "",
+    ch = "",
+    sort = "date",
+    dir = "d",
+  } = await searchParams;
   const today = vnToday();
   // По умолчанию — с 1-го числа по сегодня (не месяц целиком): в полях «С / По»
   // не должно быть дат из будущего, см. vnMonthToDate.
@@ -178,33 +185,38 @@ export default async function AdminDashboardPage({
   // Ссылка на этот же экран с изменёнными параметрами (сохраняет остальные).
   const href = (overrides: Record<string, string>) => {
     const params = new URLSearchParams();
-    const base: Record<string, string> = { from: from ?? "", to: to ?? "", cat, inst, sort, dir };
+    const base: Record<string, string> = {
+      from: from ?? "",
+      to: to ?? "",
+      cat,
+      inst,
+      pay,
+      ch,
+      sort,
+      dir,
+    };
     for (const [k, v] of Object.entries({ ...base, ...overrides })) {
       if (v) params.set(k, v);
     }
     const qs = params.toString();
     return qs ? `/admin/dashboard?${qs}` : "/admin/dashboard";
   };
+  // Тот же набор параметров, но для выгрузки: файл должен повторять то, что
+  // сейчас на экране, вместе с фильтрами и сортировкой.
+  const csvHref = href({}).replace("/admin/dashboard", "/api/admin/visits");
 
   const supabase = await createClient();
   const [
-    { rows: sessions },
-    { rows: allSessions },
+    { rows: sessions, visitsOf },
     paidSubsRes,
     unpaidSubsRes,
     clientsRes,
     bookingsRes,
     fin,
   ] = await Promise.all([
-    // Обе выборки постранично (lib/sessions): .limit(10000) молча срезал бы
-    // и выручку периода, и счётчик визитов клиента.
-    loadAllSessions<VisitRow>(
-      supabase,
-      "id, date, amount, minutes_used, subscription_id, client_id, instructor_id, client:clients!client_id(name), service:services!service_id(name, category), instructor:users!instructor_id(name), creator:users!created_by(name), payment:payment_methods!payment_method_id(name)",
-      { fromDay: range.fromDay, toDay: range.toDay },
-    ),
-    // Все сессии школы — для колонки «визитов всего» у клиента.
-    loadAllSessions<{ client_id: string | null }>(supabase, "client_id"),
+    // Строки таблицы + счётчик визитов клиента за всю историю (lib/visits —
+    // тот же расчёт использует выгрузка CSV).
+    loadVisits(supabase, range),
     // Способ оплаты — для блока «Деньги по способам оплаты»: абонемент
     // оплачивают теми же деньгами и в кассу дня он попадает наравне с чеками.
     supabase
@@ -237,21 +249,6 @@ export default async function AdminDashboardPage({
   const unpaid = (unpaidSubsRes.data ?? []).filter((r) => r.status !== "cancelled");
   const unpaidSum = unpaid.reduce((s, r) => s + (r.price ?? 0), 0);
 
-  // Визиты клиента за всё время (не за период).
-  const lifetimeVisits = new Map<string, number>();
-  for (const r of allSessions) {
-    if (!r.client_id) continue;
-    lifetimeVisits.set(
-      r.client_id as string,
-      (lifetimeVisits.get(r.client_id as string) ?? 0) + 1,
-    );
-  }
-  const visitsOf = (r: VisitRow) =>
-    r.client_id ? (lifetimeVisits.get(r.client_id) ?? 0) : 0;
-  // Способ оплаты для сортировки и для ячейки: у списания с абонемента денег
-  // в этот день не было, спрашивать способ не с чего.
-  const paymentKey = (r: VisitRow) => (r.amount > 0 ? (r.payment?.name ?? "") : "—");
-
   // Фильтры-чипсы собираем из сессий периода: только то, что реально было.
   const presentCats = [...new Set(sessions.map((r) => r.service?.category ?? ""))]
     .filter(Boolean)
@@ -262,37 +259,22 @@ export default async function AdminDashboardPage({
       presentInstructors.set(r.instructor_id, r.instructor?.name ?? "—");
     }
   }
+  // Способы оплаты и каналы записи — тоже чипсами. Отдельный чип «без способа
+  // оплаты» показываем, только если такие занятия есть: по ним не сходится
+  // касса, и это ровно тот список, который надо дозаполнить.
+  const presentPayments = [
+    ...new Set(sessions.filter((r) => r.amount > 0).map((r) => r.payment?.name ?? "")),
+  ]
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "ru"));
+  const missingPayments = sessions.filter(isPaymentMissing).length;
+  const presentChannels = [...new Set(sessions.map(channelKey))]
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, "ru"));
+  const missingChannels = sessions.filter((r) => channelKey(r) === "").length;
 
-  const filtered = sessions.filter(
-    (r) =>
-      (!cat || (r.service?.category ?? "") === cat) &&
-      (!inst || r.instructor_id === inst),
-  );
-
-  // Сортировка таблицы.
-  const dirMul = dir === "a" ? 1 : -1;
-  const sorted = [...filtered].sort((a, b) => {
-    switch (sort) {
-      case "client":
-        return dirMul * (a.client?.name ?? "").localeCompare(b.client?.name ?? "", "ru");
-      case "service":
-        return dirMul * (a.service?.name ?? "").localeCompare(b.service?.name ?? "", "ru");
-      case "amount":
-        return dirMul * (a.amount - b.amount);
-      case "payment":
-        // Ключ тот же, что и на экране: у списания с абонемента способа нет,
-        // даже если в строке сессии он зачем-то проставлен.
-        return dirMul * paymentKey(a).localeCompare(paymentKey(b), "ru");
-      case "instructor":
-        return dirMul * (a.instructor?.name ?? "").localeCompare(b.instructor?.name ?? "", "ru");
-      case "creator":
-        return dirMul * (a.creator?.name ?? "").localeCompare(b.creator?.name ?? "", "ru");
-      case "visits":
-        return dirMul * (visitsOf(a) - visitsOf(b));
-      default:
-        return dirMul * a.date.localeCompare(b.date);
-    }
-  });
+  const filtered = filterVisits(sessions, { cat, inst, pay, ch });
+  const sorted = sortVisits(filtered, sort, dir, visitsOf);
 
   // Готовые строки и шапка для клиентской таблицы: она умеет только рисовать
   // и сворачивать, форматирование и сортировка остаются здесь, на сервере.
@@ -300,11 +282,17 @@ export default async function AdminDashboardPage({
     id: r.id,
     date: fmtDay(r.date),
     client: r.client?.name ?? "—",
-    service: r.subscription_id
-      ? `Абонемент · ${r.minutes_used ?? 0} мин`
-      : (r.service?.name ?? "—"),
+    // Ссылка на карточку клиента — это список клиентов, отфильтрованный по
+    // имени: отдельной страницы клиента в админке нет, а «увидел странный чек →
+    // посмотрел, кто это» иначе превращается в ручной поиск во вкладке рядом.
+    clientHref: r.client?.name
+      ? `/admin/clients?q=${encodeURIComponent(r.client.name)}`
+      : null,
+    service: serviceLabel(r),
     amount: r.amount > 0 ? vnd(r.amount) : null,
-    payment: paymentKey(r) || null, // пусто → «не указан» серым
+    payment: paymentKey(r) || null, // пусто → «не указан», подсвечиваем
+    paymentMissing: isPaymentMissing(r),
+    channel: channelKey(r) || null,
     instructor: r.instructor?.name ?? "—",
     creator: r.creator?.name ?? "—",
     visits: String(visitsOf(r) || "—"),
@@ -550,18 +538,92 @@ export default async function AdminDashboardPage({
               ))}
             </div>
           )}
+          {/* Способ оплаты: сводить кассу по одному способу и, главное, за один
+              клик собрать занятия без способа — их потом дозаполняют в
+              «Сессиях». */}
+          {(presentPayments.length > 1 || missingPayments > 0) && (
+            <div className="flex flex-wrap gap-1.5">
+              <Link href={href({ ...catBase, pay: "" })} className={presetClass(!pay)}>
+                Любая оплата
+              </Link>
+              {presentPayments.map((name) => (
+                <Link
+                  key={name}
+                  href={href({ ...catBase, pay: name })}
+                  className={presetClass(pay === name)}
+                >
+                  {name}
+                </Link>
+              ))}
+              {missingPayments > 0 && (
+                <Link
+                  href={href({ ...catBase, pay: NONE })}
+                  className={
+                    pay === NONE
+                      ? "rounded-full bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white"
+                      : "rounded-full border border-amber-500/60 px-3 py-1.5 text-xs font-semibold text-amber-600 transition-colors hover:bg-amber-500/10"
+                  }
+                >
+                  Без способа оплаты · {missingPayments}
+                </Link>
+              )}
+            </div>
+          )}
+          {/* Канал записи: откуда пришёл гость на конкретное занятие. По
+              заявкам это видно давно, а по реальным занятиям — только теперь. */}
+          {presentChannels.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              <Link href={href({ ...catBase, ch: "" })} className={presetClass(!ch)}>
+                Все каналы
+              </Link>
+              {presentChannels.map((name) => (
+                <Link
+                  key={name}
+                  href={href({ ...catBase, ch: name })}
+                  className={presetClass(ch === name)}
+                >
+                  {name}
+                </Link>
+              ))}
+              {missingChannels > 0 && (
+                <Link
+                  href={href({ ...catBase, ch: NONE })}
+                  className={presetClass(ch === NONE)}
+                >
+                  Канал не указан · {missingChannels}
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {/* Таблица визитов: строка = одно занятие */}
       <section className="mt-4 rounded-2xl border border-line bg-surface">
-        <div className="flex items-baseline justify-between gap-2 p-4 pb-0">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 p-4 pb-0">
           <h2 className="font-bold">Визиты за период</h2>
-          <p className="text-xs text-muted">всего: {filtered.length}</p>
+          <div className="flex items-baseline gap-3">
+            <p className="text-xs text-muted">всего: {filtered.length}</p>
+            {/* Выгрузка ровно того, что на экране: тот же период, те же
+                фильтры и та же сортировка (см. csvHref). */}
+            {filtered.length > 0 && (
+              <a
+                href={csvHref}
+                download
+                className="rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+              >
+                Скачать CSV
+              </a>
+            )}
+          </div>
         </div>
 
         {filtered.length === 0 ? (
-          <p className="p-4 pt-2 text-sm text-muted">За этот период занятий не было.</p>
+          <p className="p-4 pt-2 text-sm text-muted">
+            {sessions.length === 0
+              ? "За этот период занятий не было."
+              : "Под выбранные фильтры не попало ни одного занятия — сбросьте лишние чипсы выше."}
+          </p>
         ) : (
           <VisitsTable columns={tableColumns} rows={tableRows} />
         )}
