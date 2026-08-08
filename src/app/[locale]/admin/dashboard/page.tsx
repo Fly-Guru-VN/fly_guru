@@ -207,8 +207,9 @@ export default async function AdminDashboardPage({
 
   const supabase = await createClient();
   const [
-    { rows: sessions, visitsOf },
-    paidSubsRes,
+    // rows — строки таблицы (занятия + продажи абонементов), sessions — только
+    // занятия: на них по-прежнему считаются графики и средний чек.
+    { rows, sessions, visitsOf },
     unpaidSubsRes,
     clientsRes,
     bookingsRes,
@@ -217,13 +218,6 @@ export default async function AdminDashboardPage({
     // Строки таблицы + счётчик визитов клиента за всю историю (lib/visits —
     // тот же расчёт использует выгрузка CSV).
     loadVisits(supabase, range),
-    // Способ оплаты — для блока «Деньги по способам оплаты»: абонемент
-    // оплачивают теми же деньгами и в кассу дня он попадает наравне с чеками.
-    supabase
-      .from("subscriptions")
-      .select("price, payment:payment_methods!payment_method_id(name)")
-      .gte("paid_at", range.fromIso)
-      .lt("paid_at", range.toIso),
     // Дебиторка всей школы (не периода): проданные, но неоплаченные.
     // Отменённые отсеиваем в JS ниже — с них уже никто не заплатит (п.13).
     supabase.from("subscriptions").select("price, status").is("paid_at", null),
@@ -241,20 +235,21 @@ export default async function AdminDashboardPage({
     getFinance(supabase, range),
   ]);
 
-  const paidSubs = (paidSubsRes.data ?? []) as unknown as {
-    price: number | null;
-    payment: { name: string } | null;
-  }[];
-  const paidSubsSum = paidSubs.reduce((s, r) => s + (r.price ?? 0), 0);
+  // Оплаченные в периоде абонементы приходят теми же строками, что и занятия
+  // (lib/visits) — отдельного запроса к subscriptions больше не нужно.
+  const paidSubs = rows.filter((r) => r.sale);
+  const paidSubsSum = paidSubs.reduce((s, r) => s + r.amount, 0);
   const unpaid = (unpaidSubsRes.data ?? []).filter((r) => r.status !== "cancelled");
   const unpaidSum = unpaid.reduce((s, r) => s + (r.price ?? 0), 0);
 
-  // Фильтры-чипсы собираем из сессий периода: только то, что реально было.
-  const presentCats = [...new Set(sessions.map((r) => r.service?.category ?? ""))]
+  // Фильтры-чипсы собираем из строк периода: только то, что реально было.
+  // Берём rows, а не sessions, — иначе к появившимся строкам продаж не было бы
+  // ни чипса «Абонементы», ни продавца в списке инструкторов.
+  const presentCats = [...new Set(rows.map((r) => r.service?.category ?? ""))]
     .filter(Boolean)
     .sort();
   const presentInstructors = new Map<string, string>();
-  for (const r of sessions) {
+  for (const r of rows) {
     if (r.instructor_id) {
       presentInstructors.set(r.instructor_id, r.instructor?.name ?? "—");
     }
@@ -263,18 +258,24 @@ export default async function AdminDashboardPage({
   // оплаты» показываем, только если такие занятия есть: по ним не сходится
   // касса, и это ровно тот список, который надо дозаполнить.
   const presentPayments = [
-    ...new Set(sessions.filter((r) => r.amount > 0).map((r) => r.payment?.name ?? "")),
+    ...new Set(rows.filter((r) => r.amount > 0).map((r) => r.payment?.name ?? "")),
   ]
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b, "ru"));
-  const missingPayments = sessions.filter(isPaymentMissing).length;
+  const missingPayments = rows.filter(isPaymentMissing).length;
+  // Канал записи бывает только у занятия: продажи абонементов в этот список не
+  // берём, иначе они раздули бы счётчик «без канала» (см. filterVisits).
   const presentChannels = [...new Set(sessions.map(channelKey))]
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b, "ru"));
   const missingChannels = sessions.filter((r) => channelKey(r) === "").length;
 
-  const filtered = filterVisits(sessions, { cat, inst, pay, ch });
+  const filtered = filterVisits(rows, { cat, inst, pay, ch });
   const sorted = sortVisits(filtered, sort, dir, visitsOf);
+  // Занятия и продажи из того, что осталось после фильтров: итоги и графики
+  // считаются по разным подмножествам (продажа абонемента — не визит).
+  const filteredSessions = filtered.filter((r) => !r.sale);
+  const filteredSales = filtered.filter((r) => r.sale);
 
   // Готовые строки и шапка для клиентской таблицы: она умеет только рисовать
   // и сворачивать, форматирование и сортировка остаются здесь, на сервере.
@@ -296,6 +297,7 @@ export default async function AdminDashboardPage({
     instructor: r.instructor?.name ?? "—",
     creator: r.creator?.name ?? "—",
     visits: String(visitsOf(r) || "—"),
+    sale: r.sale === true,
   }));
   const tableColumns: VisitColumn[] = COLUMNS.map((c) => {
     const active = sort === c.key;
@@ -311,10 +313,17 @@ export default async function AdminDashboardPage({
   });
 
   // Итоги под таблицей — по всем отфильтрованным строкам, не только показанным.
+  // Выручка считает и абонементы (это те же деньги в кассе), а «Визитов» и
+  // «Средний чек» — только занятия: продажа абонемента визитом не была, и,
+  // попав в средний чек, она раздула бы его вдвое.
   const tSum = filtered.reduce((s, r) => s + r.amount, 0);
   const tClients = new Set(filtered.map((r) => r.client_id).filter(Boolean)).size;
-  const tPaidCount = filtered.filter((r) => r.amount > 0).length;
-  const tAvg = tPaidCount > 0 ? Math.round(tSum / tPaidCount) : 0;
+  const tVisits = filteredSessions.length;
+  const tPaid = filteredSessions.filter((r) => r.amount > 0);
+  const tAvg = tPaid.length
+    ? Math.round(tPaid.reduce((s, r) => s + r.amount, 0) / tPaid.length)
+    : 0;
+  const tSalesSum = filteredSales.reduce((s, r) => s + r.amount, 0);
   const tMinutes = filtered.reduce(
     (s, r) => s + (r.subscription_id ? (r.minutes_used ?? 0) : 0),
     0,
@@ -330,7 +339,7 @@ export default async function AdminDashboardPage({
       category: r.service?.category ?? null,
     })),
     ...paidSubs.map<PaymentInput>((s) => ({
-      amount: Number(s.price ?? 0),
+      amount: s.amount,
       method: s.payment?.name ?? null,
       category: SUBS_CAT,
     })),
@@ -377,7 +386,7 @@ export default async function AdminDashboardPage({
   const spanDays =
     (Date.parse(range.toDay) - Date.parse(range.fromDay)) / 86400000;
   const monthly = spanDays > 35;
-  for (const r of filtered) {
+  for (const r of filteredSessions) {
     const c = r.service?.category ?? "extra";
     byCategory.set(c, (byCategory.get(c) ?? 0) + r.amount);
     const svc = r.service?.name ?? "без услуги";
@@ -393,10 +402,12 @@ export default async function AdminDashboardPage({
     d.count += 1;
     byDay.set(bucket, d);
   }
-  // Оплаченные абонементы — отдельная строка категорий (только без фильтров,
-  // к конкретной услуге/инструктору их не привязать).
-  if (!cat && !inst && paidSubsSum > 0) {
-    byCategory.set("subscription", (byCategory.get("subscription") ?? 0) + paidSubsSum);
+  // Оплаченные абонементы — отдельная строка категорий. Берём их из строк
+  // таблицы: там продажа уже прошла те же фильтры (по продавцу — тоже), и
+  // отдельная оговорка «только без фильтров» больше не нужна.
+  const salesSum = filteredSales.reduce((s, r) => s + r.amount, 0);
+  if (salesSum > 0) {
+    byCategory.set("subscription", (byCategory.get("subscription") ?? 0) + salesSum);
   }
 
   const catItems = [...byCategory.entries()]
@@ -598,7 +609,7 @@ export default async function AdminDashboardPage({
         </div>
       )}
 
-      {/* Таблица визитов: строка = одно занятие */}
+      {/* Строка = занятие либо продажа абонемента (по дню оплаты) */}
       <section className="mt-4 rounded-2xl border border-line bg-surface">
         <div className="flex flex-wrap items-baseline justify-between gap-2 p-4 pb-0">
           <h2 className="font-bold">Визиты за период</h2>
@@ -629,24 +640,49 @@ export default async function AdminDashboardPage({
             )}
           </div>
         </div>
+        {/* Три вида строк легко перепутать, поэтому подписываем прямо здесь. */}
+        <p className="px-4 pt-1 text-xs text-muted">
+          Занятия — по дате занятия, проданные абонементы — по дню оплаты
+          («продажа»). Прокат по абонементу — строка со списанными минутами и
+          без суммы: деньги за него взяли раньше.
+        </p>
 
         {filtered.length === 0 ? (
           <p className="p-4 pt-2 text-sm text-muted">
-            {sessions.length === 0
-              ? "За этот период занятий не было."
-              : "Под выбранные фильтры не попало ни одного занятия — сбросьте лишние чипсы выше."}
+            {rows.length === 0
+              ? "За этот период занятий и продаж не было."
+              : "Под выбранные фильтры не попало ни одной строки — сбросьте лишние чипсы выше."}
           </p>
         ) : (
           <VisitsTable columns={tableColumns} rows={tableRows} />
         )}
 
         {filtered.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 border-t border-line/70 p-4 sm:grid-cols-5">
-            <Total label="Выручка (сессии)" value={vnd(tSum)} />
-            <Total label="Визитов" value={String(filtered.length)} />
+          <div
+            className={`grid grid-cols-2 gap-3 border-t border-line/70 p-4 ${
+              // Колонок ровно столько, сколько плашек реально рисуем.
+              ["", "", "sm:grid-cols-2", "sm:grid-cols-3", "sm:grid-cols-4", "sm:grid-cols-5", "sm:grid-cols-6"][
+                2 + (tSalesSum > 0 ? 1 : 0) + (tVisits > 0 ? 3 : 0)
+              ]
+            }`}
+          >
+            <Total label="Выручка" value={vnd(tSum)} />
+            {/* Из чего сложилась выручка: иначе непонятно, почему она больше
+                суммы чеков за занятия. */}
+            {tSalesSum > 0 && (
+              <Total label="в т.ч. абонементы" value={vnd(tSalesSum)} />
+            )}
             <Total label="Клиентов" value={String(tClients)} />
-            <Total label="Средний чек" value={vnd(tAvg)} />
-            <Total label="Списано минут" value={`${tMinutes} мин`} />
+            {/* Занятийные итоги прячем, если под фильтром остались одни продажи
+                абонементов: «Визитов 0» при двух строках на экране читается как
+                поломка, хотя продажа визитом и не была. */}
+            {tVisits > 0 && (
+              <>
+                <Total label="Визитов" value={String(tVisits)} />
+                <Total label="Средний чек" value={vnd(tAvg)} />
+                <Total label="Списано минут" value={`${tMinutes} мин`} />
+              </>
+            )}
           </div>
         )}
       </section>

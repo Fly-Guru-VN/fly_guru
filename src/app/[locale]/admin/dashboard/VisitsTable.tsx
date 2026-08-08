@@ -31,6 +31,7 @@ export interface VisitCell {
   instructor: string;
   creator: string;
   visits: string;
+  sale: boolean; // строка — продажа абонемента, а не занятие
 }
 
 export interface VisitColumn {
@@ -143,9 +144,13 @@ export function VisitsTable({
                 </span>
               )}
             </div>
+            {/* У продажи абонемента нет «откатал»: там один человек — тот,
+                кто продал, и повторять его в двух подписях незачем. */}
             <p className="mt-1.5 text-xs text-muted">
-              Откатал: {r.instructor} · записал: {r.creator} · визитов:{" "}
-              {r.visits}
+              {r.sale
+                ? `Продал: ${r.instructor}`
+                : `Откатал: ${r.instructor} · записал: ${r.creator}`}{" "}
+              · визитов: {r.visits}
             </p>
           </div>
         ))}

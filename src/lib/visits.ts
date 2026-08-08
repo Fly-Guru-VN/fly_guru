@@ -1,12 +1,24 @@
 import type { createClient } from "@/lib/supabase/server";
 import { loadAllSessions } from "@/lib/sessions";
 import { channelLabel } from "@/lib/channels";
+import { vnDay } from "@/lib/dates";
+import { SUBS_CAT } from "@/lib/payments";
 import type { StatsRange } from "@/lib/stats";
 
 // Таблица визитов со «Статистики»: строка = одно занятие. Живёт отдельным
 // модулем, потому что тех же строк с теми же фильтрами и сортировкой просит
 // выгрузка CSV (/api/admin/visits) — считать их в двух местах значит однажды
 // отдать боссу файл, который не сходится с экраном.
+//
+// Кроме занятий в таблицу встают ПРОДАЖИ АБОНЕМЕНТОВ (флаг sale). Продажа
+// живёт в отдельной таблице subscriptions и занятием не является, но в кассе
+// периода лежит рядом с чеками, и без неё таблица не сходилась с блоком
+// «Деньги по способам оплаты». Дата строки — день ОПЛАТЫ (paid_at): тем же
+// правилом абонементы считает вся остальная статистика. Неоплаченные в
+// таблицу не попадают — они не деньги, их место в строке «ждут оплату».
+//
+// Не путать с прокатом ПО абонементу: списание минут — обычная сессия
+// (subscription_id заполнен, amount = 0), она была в таблице и осталась.
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -24,6 +36,8 @@ export interface VisitRow {
   instructor: { name: string } | null;
   creator: { name: string } | null;
   payment: { name: string } | null;
+  sale?: boolean; // строка — продажа абонемента, а не занятие
+  sub_minutes?: number | null; // минут в проданном абонементе
 }
 
 const SELECT =
@@ -55,6 +69,9 @@ export function channelKey(r: VisitRow): string {
 }
 
 export function serviceLabel(r: VisitRow): string {
+  // Три разных строки, которые легко перепутать: продажа абонемента (пришли
+  // деньги), прокат по абонементу (списали минуты) и обычное занятие.
+  if (r.sale) return `Абонемент ${r.sub_minutes ?? 0} мин · продажа`;
   return r.subscription_id
     ? `Абонемент · ${r.minutes_used ?? 0} мин`
     : (r.service?.name ?? "—");
@@ -76,6 +93,9 @@ export function filterVisits(rows: VisitRow[], f: VisitFilters): VisitRow[] {
         return false;
     }
     if (f.ch) {
+      // Канал записи — свойство занятия; у продажи абонемента его нет вовсе,
+      // поэтому под любой фильтр канала (включая «без канала») она не подходит.
+      if (r.sale) return false;
       const ch = channelKey(r);
       if (f.ch === NONE ? ch !== "" : ch !== f.ch) return false;
     }
@@ -117,24 +137,73 @@ export function sortVisits(
   });
 }
 
+// Проданный и оплаченный абонемент в том же виде, что строка занятия.
+const SUBS_SELECT =
+  "id, client_id, total_minutes, price, sold_by, paid_at, " +
+  "client:clients!client_id(name), seller:users!sold_by(name), " +
+  "payment:payment_methods!payment_method_id(name)";
+
+interface SubSaleRow {
+  id: string;
+  client_id: string | null;
+  total_minutes: number | null;
+  price: number | null;
+  sold_by: string | null;
+  paid_at: string | null;
+  client: { name: string } | null;
+  seller: { name: string } | null;
+  payment: { name: string } | null;
+}
+
+// Продажа → строка таблицы. Категорию ставим ту же, под которой абонементы
+// уже живут в блоке «Деньги по способам оплаты» и в выручке по видам: чипс
+// фильтра «Абонементы» и колонка в кассе появляются сами собой.
+function saleToRow(s: SubSaleRow): VisitRow {
+  return {
+    id: s.id,
+    date: vnDay(s.paid_at!),
+    amount: Number(s.price ?? 0),
+    minutes_used: null,
+    subscription_id: null, // не списание: сюда смотрит serviceLabel
+    client_id: s.client_id,
+    // «Откатал» у продажи нет — в обеих колонках тот, кто продал.
+    instructor_id: s.sold_by,
+    channel: null,
+    client: s.client,
+    service: { name: "Абонемент", category: SUBS_CAT },
+    instructor: s.seller,
+    creator: s.seller,
+    payment: s.payment,
+    sale: true,
+    sub_minutes: s.total_minutes,
+  };
+}
+
 export interface VisitsData {
-  rows: VisitRow[]; // сессии периода
+  rows: VisitRow[]; // занятия периода + продажи абонементов
+  sessions: VisitRow[]; // только занятия — счётчики визитов и графики
   visitsOf: (r: VisitRow) => number; // визитов клиента за всё время
 }
 
-// Сессии периода + счётчик визитов клиента за всю историю. Обе выборки
-// постранично (lib/sessions): .limit() молча срезал бы и выручку периода, и
-// счётчик визитов.
+// Сессии периода + продажи абонементов + счётчик визитов клиента за всю
+// историю. Сессии — постранично (lib/sessions): .limit() молча срезал бы и
+// выручку периода, и счётчик визитов.
 export async function loadVisits(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<VisitsData> {
-  const [{ rows }, { rows: all }] = await Promise.all([
+  const [{ rows: sessions }, { rows: all }, subsRes] = await Promise.all([
     loadAllSessions<VisitRow>(supabase, SELECT, {
       fromDay: range.fromDay,
       toDay: range.toDay,
     }),
     loadAllSessions<{ client_id: string | null }>(supabase, "client_id"),
+    supabase
+      .from("subscriptions")
+      .select(SUBS_SELECT)
+      .not("paid_at", "is", null)
+      .gte("paid_at", range.fromIso)
+      .lt("paid_at", range.toIso),
   ]);
 
   const lifetime = new Map<string, number>();
@@ -143,8 +212,11 @@ export async function loadVisits(
     lifetime.set(r.client_id, (lifetime.get(r.client_id) ?? 0) + 1);
   }
 
+  const sales = ((subsRes.data ?? []) as unknown as SubSaleRow[]).map(saleToRow);
+
   return {
-    rows,
+    rows: [...sessions, ...sales],
+    sessions,
     visitsOf: (r) => (r.client_id ? (lifetime.get(r.client_id) ?? 0) : 0),
   };
 }

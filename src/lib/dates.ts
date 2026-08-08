@@ -119,6 +119,14 @@ export function subscriptionExpiry(from: Date = new Date()): Date {
   return d;
 }
 
+// День в Нячанге для момента времени: 'YYYY-MM-DD'. Нужен, когда timestamptz
+// надо поставить в один ряд с колонками типа date — например продажу
+// абонемента (paid_at) в таблицу визитов рядом с занятиями.
+export function vnDay(iso: string | Date): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  return new Date(d.getTime() + VN_OFFSET_MS).toISOString().slice(0, 10);
+}
+
 // Час и минута момента по времени Нячанга. Нужны правилам смены (пак C):
 // «открыл до 9:00» и «закрыл после 18:00» считаются по местным часам, а не по
 // UTC сервера — иначе граница уезжала бы на семь часов.
