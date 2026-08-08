@@ -57,6 +57,10 @@ export function SellSubscriptionForm({
   // Способ оплаты спрашиваем только когда деньги уже получены: при продаже
   // «в долг» он ещё неизвестен, и заставлять выбирать наугад — врать отчёту.
   const [paid, setPaid] = useState(false);
+  // Дата продажи в состоянии, потому что от неё зависит дата оплаты: чаще
+  // всего платят в день покупки, и подставлять сюда «сегодня» было бы неверно
+  // для абонемента, внесённого задним числом.
+  const [soldDate, setSoldDate] = useState(today);
 
   return (
     <form action={formAction} className="space-y-3">
@@ -127,7 +131,8 @@ export function SellSubscriptionForm({
           <input
             type="date"
             name="soldDate"
-            defaultValue={today}
+            value={soldDate}
+            onChange={(e) => setSoldDate(e.target.value)}
             max={today}
             required
             className={`mt-1 ${NATIVE_PICKER} ${inputClass}`}
@@ -159,14 +164,35 @@ export function SellSubscriptionForm({
       </div>
 
       {paid && (
-        // Из заявки способ приезжает уже выбранным — он проставлен в её карточке.
-        <PaymentMethodField
-          methods={paymentMethods}
-          selectedId={prefill?.paymentMethodId}
-          selectedName={prefill?.paymentMethodName}
-          className={`mt-1 ${inputClass}`}
-          variant="compact"
-        />
+        <div className="space-y-3">
+          {/* Дата оплаты отдельно от даты продажи: человек мог купить абонемент
+              в конце июля, а деньги принести в августе. От даты оплаты зависит,
+              в чью выручку и в чей котёл 15% попадёт абонемент, — раньше она
+              жёстко равнялась дате продажи, и такие случаи уезжали в чужой
+              месяц. По умолчанию совпадает с продажей: так платят почти всегда. */}
+          <label className="block text-xs text-muted sm:w-1/2">
+            Дата оплаты
+            <input
+              type="date"
+              name="paidDate"
+              // key: без него React не обновит defaultValue при смене даты
+              // продажи — поле так и осталось бы с первым значением.
+              key={soldDate}
+              defaultValue={soldDate}
+              max={today}
+              required
+              className={`mt-1 ${NATIVE_PICKER} ${inputClass}`}
+            />
+          </label>
+          {/* Из заявки способ приезжает уже выбранным — он проставлен в её карточке. */}
+          <PaymentMethodField
+            methods={paymentMethods}
+            selectedId={prefill?.paymentMethodId}
+            selectedName={prefill?.paymentMethodName}
+            className={`mt-1 ${inputClass}`}
+            variant="compact"
+          />
+        </div>
       )}
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}

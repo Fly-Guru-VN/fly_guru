@@ -434,6 +434,14 @@ export async function sellSubscriptionAction(
   if (!name || !phone) return { error: "Заполните имя и телефон." };
   if (paid && !paymentMethodId) return { error: "Укажите формат оплаты." };
 
+  // Дата продажи (пачка №25, п.3). Раньше абонемент всегда писался «сейчас», и
+  // вчерашняя продажа уезжала не в тот день — а от даты оплаты зависят выручка
+  // месяца и котёл 15%. Коридор тот же, что у занятий: ±7 дней (lib/recordDate),
+  // дальше — через админа. Пустое поле = сегодня (старая вкладка).
+  const checkedSold = checkRecordDate(String(formData.get("date") ?? ""));
+  if ("error" in checkedSold) return { error: checkedSold.error };
+  const soldAt = new Date(`${checkedSold.date}T00:00:00Z`).toISOString();
+
   // Уже оформленную заявку вторично не проводим — та же защита, что в
   // recordClientAction, только там её поставили, а здесь забыли. Повторный
   // сабмит (кнопка «Назад», зависшая вкладка со старым ?booking=id) создавал
@@ -497,8 +505,14 @@ export async function sellSubscriptionAction(
   const row = {
     client_id: clientId,
     sold_by: user.id,
-    expires_at: subscriptionExpiry().toISOString(),
-    paid_at: paid ? new Date().toISOString() : null,
+    sold_at: soldAt,
+    // Минуты живут 3 месяца ОТ ДАТЫ ПРОДАЖИ — в том числе вчерашней.
+    expires_at: subscriptionExpiry(new Date(soldAt)).toISOString(),
+    // Инструктор отмечает оплату, только когда деньги принял сам, — значит
+    // платили в день продажи. Отдельного поля «дата оплаты» ему не даём: оно
+    // нужно для случая «купил в июле, заплатил в августе», а такие разбирает
+    // админ (см. форму в /admin/subscriptions).
+    paid_at: paid ? soldAt : null,
     payment_method_id: paymentMethodId,
     // Кто именно оставил заявление — видно админу: спрашивать «а кто это
     // написал» через неделю бессмысленно.

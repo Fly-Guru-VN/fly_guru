@@ -6,6 +6,7 @@ import { getActiveDict, embeddedName } from "@/lib/dictionaries";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 import { PaidBadge } from "@/components/cabinet/PaidBadge";
 import { loadPaymentClaims } from "@/lib/subscriptions";
+import { vnToday } from "@/lib/dates";
 import { SubscriptionForm, type SubscriptionPrefill } from "./SubscriptionForm";
 
 // Продажа абонемента: 300 минут / 6 млн ₫, минуты живут 3 месяца.
@@ -124,7 +125,11 @@ export default async function SubscriptionPage({
         </p>
       )}
       <div className="mt-6">
-        <SubscriptionForm prefill={prefill} paymentMethods={paymentMethods} />
+        <SubscriptionForm
+          prefill={prefill}
+          paymentMethods={paymentMethods}
+          today={vnToday()}
+        />
       </div>
       <p className="mt-4 text-xs text-muted">
         Если клиент ещё не обучен, первые 60 минут абонемента — обучающее занятие.

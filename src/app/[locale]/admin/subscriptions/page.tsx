@@ -15,6 +15,7 @@ import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
 import { loadPaymentClaims, type ClaimInfo } from "@/lib/subscriptions";
 import { PAYMENT_CLAIM_BADGE, PAYMENT_CLAIM_TEXT } from "@/lib/paymentClaim";
+import { hiddenStaffIds } from "@/lib/staff";
 import {
   SellSubscriptionForm,
   WriteOffMinutesForm,
@@ -390,7 +391,7 @@ export default async function AdminSubscriptionsPage({
     subsQuery = subsQuery.eq("status", "active");
   }
 
-  const [subsRes, clientsRes, staffRes, paymentMethods] = await Promise.all([
+  const [subsRes, clientsRes, staffRes, paymentMethods, hidden] = await Promise.all([
     subsQuery,
     // Полный список клиентов постранично (lib/clients): .limit(1000) молча
     // обрезал бы выпадающий список — клиента просто не было бы в выборе.
@@ -404,9 +405,11 @@ export default async function AdminSubscriptionsPage({
       .in("role", ["instructor", "admin"])
       .order("name"),
     getActiveDict(supabase, "payment_methods"),
+    hiddenStaffIds(supabase), // уволенных в «кто продал» не предлагаем (0036)
   ]);
 
   const subs = (subsRes.data ?? []) as unknown as SubRow[];
+  const staff = (staffRes.data ?? []).filter((u) => !hidden.has(u.id as string));
   const ids = subs.map((s) => s.id);
 
   // Заявления об оплате (0032): «деньги принял админ», «с оплатой непонятно».
@@ -510,7 +513,7 @@ export default async function AdminSubscriptionsPage({
           )}
           <SellSubscriptionForm
             clients={clients}
-            staff={staffRes.data ?? []}
+            staff={staff}
             today={today}
             paymentMethods={paymentMethods}
             prefill={bookingPrefill}
@@ -559,7 +562,7 @@ export default async function AdminSubscriptionsPage({
             left={leftOf(s)}
             history={historyBySub.get(s.id) ?? []}
             today={today}
-            staff={staffRes.data ?? []}
+            staff={staff}
             paymentName={paymentBySub.get(s.id)}
             paymentMethods={paymentMethods}
             claim={claimBySub.get(s.id)}

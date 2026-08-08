@@ -4,6 +4,8 @@ import { useActionState, useState } from "react";
 import { sellSubscriptionAction, type ActionState } from "../actions";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { Spinner } from "@/components/Spinner";
+import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { recordDateBounds } from "@/lib/recordDate";
 
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
@@ -41,10 +43,13 @@ export interface SubscriptionPrefill {
 export function SubscriptionForm({
   prefill,
   paymentMethods,
+  today,
 }: {
   prefill?: SubscriptionPrefill;
   paymentMethods: { id: string; name: string }[];
+  today: string; // «сегодня» по Нячангу — приходит с сервера, не с часов телефона
 }) {
+  const bounds = recordDateBounds(today);
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     sellSubscriptionAction,
     { error: null },
@@ -91,6 +96,27 @@ export function SubscriptionForm({
           required
           defaultValue={prefill?.phone ?? ""}
           className={inputClass}
+        />
+      </div>
+
+      {/* Дата продажи. Раньше её не было вовсе — абонемент всегда записывался
+          сегодняшним числом, и «клиент купил вчера, а оформить забыл» уезжало
+          не в тот день (а иногда и не в тот месяц: от даты оплаты зависит и
+          выручка, и котёл 15%). Коридор тот же, что у занятий, — ±7 дней: на
+          «забыл вчера» хватает, а промахнуться мимо месяца уже нельзя. Дальше
+          по времени вносит админ, у него дата свободная. */}
+      <div>
+        <label htmlFor="soldDate" className="mb-1 block text-sm font-medium">
+          Дата продажи
+        </label>
+        <input
+          id="soldDate"
+          name="date"
+          type="date"
+          defaultValue={today}
+          min={bounds.min}
+          max={bounds.max}
+          className={`${NATIVE_PICKER} ${inputClass}`}
         />
       </div>
 
