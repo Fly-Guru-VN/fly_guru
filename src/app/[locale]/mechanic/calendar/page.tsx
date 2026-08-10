@@ -17,6 +17,7 @@ import { DayModal } from "@/components/cabinet/DayModal";
 import { ShiftPhotos } from "@/components/cabinet/ShiftPhotos";
 import { ShiftTimes } from "@/components/cabinet/ShiftTimes";
 import { setShiftBonusAction } from "../../admin/actions";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Механик · Календарь" };
 
@@ -125,12 +126,21 @@ export default async function MechanicCalendarPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Календарь</h1>
-      <p className="mt-1 text-sm text-muted">
-        Кто на смене и какие записи по дням. Тап по дню — детали и фото смен.
-      </p>
+      {/* Переключатель месяца — в строке заголовка на ПК; на телефоне остаётся
+          широкой полосой под шапкой. */}
+      <PageHeader
+        title="Календарь"
+        hint="Кто на смене и какие записи по дням. Клик по дню — детали."
+        action={
+          <div className="hidden sm:block">
+            <CalMonthNav ym={ym} basePath="/mechanic/calendar" className="mt-0" />
+          </div>
+        }
+      />
 
-      <CalMonthNav ym={ym} basePath="/mechanic/calendar" />
+      <div className="sm:hidden">
+        <CalMonthNav ym={ym} basePath="/mechanic/calendar" />
+      </div>
 
       <div className="mt-3">
         <MonthGrid

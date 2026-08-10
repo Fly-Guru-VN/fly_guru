@@ -8,6 +8,7 @@ import { PaidBadge } from "@/components/cabinet/PaidBadge";
 import { loadPaymentClaims } from "@/lib/subscriptions";
 import { vnToday } from "@/lib/dates";
 import { SubscriptionForm, type SubscriptionPrefill } from "./SubscriptionForm";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 // Продажа абонемента: 300 минут / 6 млн ₫, минуты живут 3 месяца.
 // Создаёт subscription (sold_by = инструктор). Членом клуба клиент при этом
@@ -113,12 +114,10 @@ export default async function SubscriptionPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Продать абонемент</h1>
-      <p className="mt-1 text-sm text-muted">
-        {sub.durationMin} минут за {formatVnd(sub.price)}. Минуты действуют 3 месяца.
-        После оплаты 15% идут в общий котёл и делятся поровну между всеми
-        инструкторами — неважно, кто продал.
-      </p>
+      <PageHeader
+        title="Продать абонемент"
+        hint={`${sub.durationMin} минут за ${formatVnd(sub.price)}, действуют 3 месяца. 15% после оплаты идут в общий котёл.`}
+      />
       {prefill && (
         <p className="mt-3 rounded-xl bg-primary/10 px-3 py-2 text-sm text-primary">
           Заявка от <b>{prefill.name}</b> — продажа закроет её.

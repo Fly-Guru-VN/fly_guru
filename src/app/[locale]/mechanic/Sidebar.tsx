@@ -20,14 +20,29 @@ type NavItem = {
   primary?: boolean;
 };
 
-const NAV: NavItem[] = [
-  { href: "/mechanic/calendar", label: "Календарь", hint: "смены · записи", primary: true },
-  { href: "/mechanic/record", label: "Записать клиента", short: "Записать", hint: "новая заявка", primary: true },
-  { href: "/mechanic/shift", label: "Смена", hint: "открыть · закрыть · фото", primary: true },
-  { href: "/mechanic/sessions", label: "Сессии", hint: "что откатали", primary: true },
-  { href: "/mechanic/expenses", label: "Расходы", hint: "свои траты" },
-  { href: "/mechanic/settings", label: "Настройки", hint: "имя · фото" },
+// Разделы группами — как в админке и у инструктора (10.08.2026). Подписи под
+// названиями убраны: группа уже объясняет, зачем сюда идут, а на телефоне это
+// был лишний текст.
+const GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: "Каждый день",
+    items: [
+      { href: "/mechanic/calendar", label: "Календарь", hint: "смены · записи", primary: true },
+      { href: "/mechanic/record", label: "Записать клиента", short: "Записать", hint: "новая заявка", primary: true },
+      { href: "/mechanic/shift", label: "Смена", hint: "открыть · закрыть · фото", primary: true },
+      { href: "/mechanic/sessions", label: "Сессии", hint: "что откатали", primary: true },
+    ],
+  },
+  {
+    title: "Своё",
+    items: [
+      { href: "/mechanic/expenses", label: "Расходы", hint: "свои траты" },
+      { href: "/mechanic/settings", label: "Настройки", hint: "имя · фото" },
+    ],
+  },
 ];
+
+const NAV: NavItem[] = GROUPS.flatMap((g) => g.items);
 
 // Подписи в нижней панели — 11 пикселей, поэтому активная вкладка залита
 // цветом: на пляже под солнцем цвет читается, а оттенок текста нет.
@@ -57,8 +72,10 @@ export function Sidebar({
   const primaryItems = NAV.filter((item) => item.primary);
   const moreActive = !primaryItems.some((item) => pathname.startsWith(item.href));
 
-  const profile = (
-    <div className="flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-surface p-4">
+  // Карточка профиля: на ПК — шапка панели меню, в мобильном листе — прежняя
+  // отдельная карточка.
+  const profileBlock = (className: string) => (
+    <div className={`flex shrink-0 items-center gap-3 p-4 ${className}`}>
       {photoUrl ? (
         <Image
           src={photoUrl}
@@ -79,36 +96,41 @@ export function Sidebar({
     </div>
   );
 
-  const links = (
-    <nav className="flex flex-col gap-1">
-      {NAV.map((item) => {
-        const isActive = item.href === active.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setOpen(false)}
-            aria-current={isActive ? "page" : undefined}
-            className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
-              isActive ? "bg-primary text-white" : "text-foreground hover:bg-line/50"
-            }`}
-          >
-            <span className="min-w-0">
-              <span className="block truncate">{item.label}</span>
-              {item.hint && (
-                <span
-                  className={`block truncate text-xs font-normal ${
-                    isActive ? "text-white/70" : "text-muted"
-                  }`}
-                >
-                  {item.hint}
-                </span>
-              )}
+  const navLink = (item: NavItem, big: boolean) => {
+    const isActive = item.href === active.href;
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={() => setOpen(false)}
+        aria-current={isActive ? "page" : undefined}
+        className={`flex items-center justify-between gap-2 rounded-xl px-3 text-sm font-semibold transition-colors ${
+          big ? "py-3" : "py-2"
+        } ${isActive ? "bg-primary text-white" : "text-foreground hover:bg-line/50"}`}
+      >
+        <span className="min-w-0 truncate">{item.label}</span>
+        <LinkSpinner />
+      </Link>
+    );
+  };
+
+  // Заголовок группы — подпись полки, а не пункт меню: мелкий капс и линия до
+  // правого края (у кликабельных пунктов её нет).
+  const groupedLinks = (big: boolean) => (
+    <nav className="flex flex-col gap-3">
+      {GROUPS.map((group) => (
+        <div key={group.title}>
+          <div className="flex select-none items-center gap-2 px-3 pb-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted/80">
+              {group.title}
             </span>
-            <LinkSpinner />
-          </Link>
-        );
-      })}
+            <span aria-hidden className="h-px flex-1 bg-line" />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {group.items.map((item) => navLink(item, big))}
+          </div>
+        </div>
+      ))}
       <form action={logoutAction} className="mt-1">
         <button
           type="submit"
@@ -122,10 +144,13 @@ export function Sidebar({
 
   return (
     <aside className="md:h-full md:w-64 md:shrink-0">
-      {/* ПК: колонка на всю высоту со своим скроллом */}
-      <div className="scroll-soft hidden md:flex md:h-full md:flex-col md:gap-4 md:overflow-y-auto md:overscroll-contain md:py-6 md:pr-1">
-        {profile}
-        {links}
+      {/* ПК: меню — отдельная панель-карточка на всю высоту со своим скроллом,
+          чтобы навигация не сливалась с содержимым раздела. */}
+      <div className="hidden md:my-6 md:flex md:h-[calc(100%-3rem)] md:flex-col md:overflow-hidden md:rounded-2xl md:border md:border-line md:bg-surface md:shadow-[0_1px_3px_rgba(15,34,51,0.04)]">
+        {profileBlock("border-b border-line/70")}
+        <div className="scroll-soft min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+          {groupedLinks(false)}
+        </div>
       </div>
 
       {/* Телефон: фиксированная нижняя панель + выезжающий лист «Ещё» */}
@@ -139,8 +164,8 @@ export function Sidebar({
               className="animate-fade-in fixed inset-0 z-40 bg-black/40"
             />
             <div className="animate-sheet-up fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] space-y-3 overflow-y-auto rounded-t-2xl border-t border-line bg-bg p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-              {profile}
-              {links}
+              {profileBlock("rounded-2xl border border-line bg-surface")}
+              {groupedLinks(true)}
             </div>
           </>
         )}

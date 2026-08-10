@@ -8,6 +8,7 @@ import { CalendarDayCell } from "@/components/cabinet/CalendarDayCell";
 import { CalMonthNav, resolveCalYm } from "@/components/cabinet/CalMonthNav";
 import { DayModal } from "@/components/cabinet/DayModal";
 import { ShiftPhotos } from "@/components/cabinet/ShiftPhotos";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 // Календарь инструктора (пак H1) — read-only. Свои смены подсвечены, видно и
 // команду (кто когда работает), и записи клиентов по дням. Смены ставит админ.
@@ -50,13 +51,21 @@ export default async function InstructorCalendarPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Календарь</h1>
-      <p className="mt-1 text-sm text-muted">
-        Ваши смены подсвечены. Видно команду и записи клиентов по дням. Смены
-        ставит админ.
-      </p>
+      {/* Переключатель месяца — в строке заголовка на ПК; на телефоне остаётся
+          широкой полосой под шапкой, там в стрелки жмут пальцем. */}
+      <PageHeader
+        title="Календарь"
+        hint="Ваши смены подсвечены. Клик по дню — команда и записи."
+        action={
+          <div className="hidden sm:block">
+            <CalMonthNav ym={ym} basePath="/instructor/calendar" className="mt-0" />
+          </div>
+        }
+      />
 
-      <CalMonthNav ym={ym} basePath="/instructor/calendar" />
+      <div className="sm:hidden">
+        <CalMonthNav ym={ym} basePath="/instructor/calendar" />
+      </div>
 
       <div className="mt-3">
         <MonthGrid

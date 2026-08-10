@@ -10,6 +10,7 @@ import { RecordForm, type RecordPrefill } from "./RecordForm";
 import { createMyRefCodeAction } from "../actions";
 import { firstBasicTrainingByPhone } from "@/lib/agentReward";
 import { sortServicesByType } from "@/lib/serviceOrder";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 // «Записать клиента»: имя, телефон, услуга, дата → клиент + сессия.
 // Сценарий: оформить человека на пляже за 30 секунд сразу после занятия.
@@ -124,10 +125,10 @@ export default async function RecordPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Записать клиента</h1>
-      <p className="mt-1 text-sm text-muted">
-        Сессия запишется на вас — вы и получите 15% от чека.
-      </p>
+      <PageHeader
+        title="Записать клиента"
+        hint="Сессия запишется на вас — вы и получите 15% от чека."
+      />
 
       {todayStats && (
         <div className="mt-6 rounded-2xl border border-line bg-surface p-4">

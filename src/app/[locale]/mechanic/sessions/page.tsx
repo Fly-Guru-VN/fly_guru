@@ -4,6 +4,7 @@ import { vnCurrentMonth, vnPeriod, vnShiftDays, vnToday } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Механик · Сессии" };
 
@@ -112,11 +113,10 @@ export default async function MechanicSessionsPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Сессии</h1>
-      <p className="mt-1 text-sm text-muted">
-        Все занятия школы за период. Только просмотр — правит записи тот, кто её
-        оформил, и админ.
-      </p>
+      <PageHeader
+        title="Сессии"
+        hint="Все занятия школы за период. Только просмотр."
+      />
 
       {/* Фильтр периода — раскладка как в Статистике: два компактных поля рядом,
           кнопка под ними. Поля БЕЗ w-full — растянутый нативный датапикер ломает

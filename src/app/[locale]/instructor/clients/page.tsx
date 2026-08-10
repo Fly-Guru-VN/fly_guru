@@ -12,6 +12,7 @@ import {
   updateClientFromInstructorAction,
   uploadClientPhotoFromInstructorAction,
 } from "../actions";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 // «Клиенты» в кабинете инструктора (пачка №9, пак 1) — та же база, что у
 // админа: клиентов заводит сам инструктор в записи и списании, и опечатку в
@@ -346,11 +347,10 @@ export default async function InstructorClientsPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Клиенты</h1>
-      <p className="mt-1 text-sm text-muted">
-        Вся база школы — ищите по имени или телефону. «Занятий» и «потратил» —
-        по вашим записям.
-      </p>
+      <PageHeader
+        title="Клиенты"
+        hint="Вся база школы — ищите по имени или телефону."
+      />
 
       <form className="mt-4 flex gap-2">
         <input

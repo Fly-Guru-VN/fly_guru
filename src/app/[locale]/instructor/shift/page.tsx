@@ -8,6 +8,7 @@ import { getActiveEquipment } from "@/lib/equipment";
 import { getDayReport } from "@/lib/dayReport";
 import { ShiftPanel } from "@/components/cabinet/ShiftPanel";
 import { DayReportCard } from "@/components/cabinet/DayReportCard";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Смена" };
 
@@ -43,11 +44,10 @@ export default async function InstructorShiftPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Смена</h1>
-      <p className="mt-1 text-sm text-muted">
-        Утром сделайте одно фото на пляже — смена откроется сама. Вечером, когда
-        уходите, — одно фото у бара. Доску и крыло снимайте по надобности.
-      </p>
+      <PageHeader
+        title="Смена"
+        hint="Утром фото на пляже — смена откроется сама. Вечером — фото у бара."
+      />
 
       <div className="mt-6">
         <ShiftPanel

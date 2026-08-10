@@ -5,6 +5,7 @@ import { minutesLeft, loadPaymentClaims } from "@/lib/subscriptions";
 import { loadAllClients } from "@/lib/clients";
 import { PaidBadge } from "@/components/cabinet/PaidBadge";
 import { WriteOffForm } from "./WriteOffForm";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 // Списание минут: поиск клиента → остаток крупно → внести каталку.
 
@@ -178,8 +179,10 @@ export default async function WriteOffPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Списать минуты</h1>
-      <p className="mt-1 text-sm text-muted">Найдите клиента по имени или телефону.</p>
+      <PageHeader
+        title="Списать минуты"
+        hint="Найдите клиента по имени или телефону."
+      />
 
       <form method="get" className="mt-6 flex gap-2">
         <input

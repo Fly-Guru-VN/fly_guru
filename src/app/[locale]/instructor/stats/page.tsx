@@ -13,6 +13,7 @@ import { SHIFT_PAY, SHIFT_PAY_LABEL } from "@/lib/salary";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { setTourApprovedAction } from "../actions";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 // «Статистика» за произвольный период. По умолчанию — текущий месяц
 // (с 1-го числа); кнопка «Текущий месяц» всегда возвращает к нему, даже если
@@ -98,8 +99,7 @@ export default async function StatsPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Статистика</h1>
-      <p className="mt-1 text-sm text-muted first-letter:uppercase">{label}</p>
+      <PageHeader title="Статистика" hint={label} />
 
       {/* Пресеты + свой период */}
       <div className="mt-4 flex flex-wrap gap-2">

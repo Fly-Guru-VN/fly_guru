@@ -4,6 +4,7 @@ import { vnToday } from "@/lib/dates";
 import { getActiveDict } from "@/lib/dictionaries";
 import { BookingCreateForm } from "../../admin/bookings/BookingCreateForm";
 import { sortServicesByType } from "@/lib/serviceOrder";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Механик · Записать клиента" };
 
@@ -38,11 +39,10 @@ export default async function MechanicRecordPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Записать клиента</h1>
-      <p className="mt-1 text-sm text-muted">
-        Заявка уйдёт инструкторам — в их «Записи» и в общий чат. Занятие оформит
-        тот, кто её примет.
-      </p>
+      <PageHeader
+        title="Записать клиента"
+        hint="Заявка уйдёт инструкторам. Занятие оформит тот, кто её примет."
+      />
 
       {created && (
         <p className="mt-4 rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm font-semibold text-primary">

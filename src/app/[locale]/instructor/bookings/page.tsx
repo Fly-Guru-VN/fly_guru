@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAppUser } from "@/lib/auth";
 import { vnToday } from "@/lib/dates";
 import { acceptBookingAction, declineBookingAction } from "../actions";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 // «Записи»: заявки, которые админ подтвердил (созвонился, внёс время/возраст/
 // вес). Закреплённые админом — сверху. Любой инструктор может принять запись;
@@ -57,23 +58,26 @@ export default async function InstructorBookingsPage() {
   if (!user) return null; // layout уже средиректил бы; страховка для типов
 
   const bookings = (res.data ?? []) as unknown as BookingRow[];
+  const freeCount = bookings.filter((b) => !b.accepted_by).length;
 
   return (
     <div>
-      {/* Шапка: заголовок слева, оранжевая кнопка записи справа (пачка №6,
-          п.2). На телефоне кнопка занимает 40% строки и до неё дотягивается
-          большой палец; items-stretch тянет заголовок на высоту кнопки, чтобы
-          они читались одной строкой. Пояснительный текст убран — инструкторы
-          и так знают, что делать с записью. */}
-      <div className="flex items-stretch justify-between gap-3">
-        <h1 className="flex items-center text-3xl font-bold">Записи</h1>
-        <Link
-          href="/instructor/record"
-          className="flex w-2/5 shrink-0 items-center justify-center rounded-full bg-accent px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-accent-strong sm:w-auto sm:px-7"
-        >
-          Записать
-        </Link>
-      </div>
+      {/* Шапка как во всех кабинетах: заголовок с красным счётчиком свободных
+          записей и оранжевая кнопка записи справа. На телефоне кнопка занимает
+          40% строки и до неё дотягивается большой палец. Пояснительный текст
+          не нужен — инструкторы и так знают, что делать с записью. */}
+      <PageHeader
+        title="Записи"
+        badge={freeCount}
+        action={
+          <Link
+            href="/instructor/record"
+            className="flex w-2/5 shrink-0 items-center justify-center rounded-full bg-accent px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-accent-strong sm:w-auto sm:px-7"
+          >
+            Записать
+          </Link>
+        }
+      />
 
       {bookings.length === 0 && (
         <div className="mt-8 rounded-2xl border border-line bg-surface p-6 text-center text-muted">
@@ -84,19 +88,32 @@ export default async function InstructorBookingsPage() {
       <div className="mt-6 space-y-3">
         {bookings.map((b) => {
           const mine = b.accepted_by === user.id;
+          // Свободная — ещё никем не принята. Раньше такая карточка ничем не
+          // отличалась от уже принятой: рамка выделяла только закреплённые
+          // админом, и свободные записи висели незамеченными.
+          const free = !b.accepted_by;
 
           return (
             <div
               key={b.id}
               className={`rounded-2xl border bg-surface p-4 ${
-                b.pinned ? "border-accent" : "border-line"
+                b.pinned
+                  ? "border-accent"
+                  : free
+                    ? "border-red-500/40 ring-1 ring-red-500/15"
+                    : "border-line"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-bold">
+                  <p className="flex items-center gap-2 font-bold">
                     {b.pinned && <span title="Закреплена админом">📌 </span>}
-                    {b.client_name}
+                    <span className="min-w-0 truncate">{b.client_name}</span>
+                    {free && (
+                      <span className="shrink-0 rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-bold text-white">
+                        свободна
+                      </span>
+                    )}
                   </p>
                   <a href={`tel:${b.phone}`} className="text-sm text-primary underline">
                     {b.phone}

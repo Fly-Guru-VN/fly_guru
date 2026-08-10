@@ -5,6 +5,7 @@ import { vnToday } from "@/lib/dates";
 import { getShiftForDay } from "@/lib/shifts";
 import { getActiveEquipment } from "@/lib/equipment";
 import { ShiftPanel } from "@/components/cabinet/ShiftPanel";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Механик · Смена" };
 
@@ -24,11 +25,10 @@ export default async function MechanicShiftPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Смена</h1>
-      <p className="mt-1 text-sm text-muted">
-        Пришли — одно фото на пляже, оно откроет смену. Уходите — фото у бара.
-        Оборудование снимайте по надобности, время любое.
-      </p>
+      <PageHeader
+        title="Смена"
+        hint="Пришли — фото на пляже, оно откроет смену. Уходите — фото у бара."
+      />
 
       <div className="mt-6">
         <ShiftPanel

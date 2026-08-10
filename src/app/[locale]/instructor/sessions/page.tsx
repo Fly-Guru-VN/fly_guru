@@ -10,6 +10,7 @@ import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 import { updateMySessionAction } from "../actions";
 import { sortServicesByType } from "@/lib/serviceOrder";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 // «Сессии» инструктора (пачка №9, пак 1). Инструктор оформляет записи весь
 // день и до сих пор не видел, что именно записалось: список был только у
@@ -300,11 +301,10 @@ export default async function InstructorSessionsPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Сессии</h1>
-      <p className="mt-1 text-sm text-muted">
-        Все записи школы за период. Свои можно поправить прямо здесь — ошиблись
-        в сумме, услуге или оплате. Чужие только видно. Удаляет сессии админ.
-      </p>
+      <PageHeader
+        title="Сессии"
+        hint="Все записи школы за период. Свои можно поправить, чужие — только видно."
+      />
 
       {/* Фильтр периода — раскладка как в Статистике: два компактных поля
           рядом, кнопка под ними во всю их ширину, блок прижат влево (w-fit).

@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { vnToday } from "@/lib/dates";
 import { getDayReport } from "@/lib/dayReport";
 import { TodayBoard, type TodayBooking } from "@/components/cabinet/TodayBoard";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Сегодня" };
 
@@ -62,10 +63,10 @@ export default async function InstructorTodayPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Сегодня</h1>
-      <p className="mt-1 text-sm text-muted first-letter:uppercase">
-        {dateLabel} · цифры обновляются по мере записей
-      </p>
+      <PageHeader
+        title="Сегодня"
+        hint={`${dateLabel} · цифры обновляются по мере записей`}
+      />
 
       <TodayBoard report={report} bookings={bookings} />
     </div>

@@ -10,6 +10,7 @@ import {
   addInstructorExpenseAction,
   deleteInstructorExpenseAction,
 } from "../../instructor/actions";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Механик · Расходы" };
 
@@ -54,12 +55,19 @@ export default async function MechanicExpensesPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Расходы</h1>
-      <p className="mt-1 text-sm text-muted">
-        Рабочие траты, которые вы оплатили сами. Видите только свои.
-      </p>
+      <PageHeader
+        title="Расходы"
+        hint="Рабочие траты, которые вы оплатили сами. Видны только свои."
+        action={
+          <div className="hidden sm:block">
+            <CalMonthNav ym={ym} basePath="/mechanic/expenses" className="mt-0" />
+          </div>
+        }
+      />
 
-      <CalMonthNav ym={ym} basePath="/mechanic/expenses" />
+      <div className="sm:hidden">
+        <CalMonthNav ym={ym} basePath="/mechanic/expenses" />
+      </div>
 
       <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
         <p className="text-xs text-muted">Ваши расходы за {month.label}</p>

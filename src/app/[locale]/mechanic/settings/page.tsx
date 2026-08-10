@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getAppUser } from "@/lib/auth";
 import { SettingsForm } from "../../instructor/settings/SettingsForm";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Механик · Настройки" };
 
@@ -14,10 +15,10 @@ export default async function MechanicSettingsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Настройки</h1>
-      <p className="mt-1 text-sm text-muted">
-        Имя и фото видны в кабинете и в календаре у админа.
-      </p>
+      <PageHeader
+        title="Настройки"
+        hint="Имя и фото видны в кабинете и в календаре у админа."
+      />
       <div className="mt-6">
         <SettingsForm
           name={user.name}
