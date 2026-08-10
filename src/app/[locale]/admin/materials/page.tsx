@@ -4,6 +4,7 @@ import { CopyLink } from "../CopyLink";
 import { ConfirmSubmit } from "../ConfirmSubmit";
 import { deleteMaterialAction } from "../actions";
 import { MaterialCreateForm, MaterialEditForm } from "./MaterialForms";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Админка · Материалы" };
 
@@ -46,11 +47,10 @@ export default async function AdminMaterialsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Материалы</h1>
-      <p className="mt-1 text-sm text-muted">
-        Готовые ссылки для рекламы. Метка держится за гостем 30 дней и видна
-        в его заявке — так понятно, какой канал сработал.
-      </p>
+      <PageHeader
+        title="Материалы"
+        hint="Готовые ссылки для рекламы. Метка держится за гостем 30 дней и видна в его заявке — так понятно, какой канал сработал."
+      />
 
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-bold">Каналы</h2>

@@ -15,12 +15,24 @@ export function resolveCalYm(m: string | undefined): string {
   return /^\d{4}-\d{2}$/.test(m ?? "") ? m! : vnCurrentMonth().fromDay.slice(0, 7);
 }
 
-export function CalMonthNav({ ym, basePath }: { ym: string; basePath: string }) {
+export function CalMonthNav({
+  ym,
+  basePath,
+  // Отступ сверху — снаружи: в админке переключатель стоит в строке заголовка,
+  // где верхний отступ лишний. По умолчанию как было.
+  className = "mt-3",
+}: {
+  ym: string;
+  basePath: string;
+  className?: string;
+}) {
   const currentYm = vnCurrentMonth().fromDay.slice(0, 7);
   return (
     // Стрелки — круглые кнопки с подложкой: на телефоне в них проще попасть
     // пальцем, чем в голый символ, и переключатель перестал выглядеть текстом.
-    <div className="mt-3 flex items-center justify-between rounded-2xl border border-line bg-surface px-2 py-2">
+    <div
+      className={`flex items-center justify-between rounded-2xl border border-line bg-surface px-2 py-2 ${className}`}
+    >
       <Link
         href={`${basePath}?m=${shiftYm(ym, -1)}`}
         className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-2 text-lg text-muted transition-colors hover:bg-primary/10 hover:text-primary"

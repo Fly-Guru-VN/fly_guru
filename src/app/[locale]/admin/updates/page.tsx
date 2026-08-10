@@ -1,4 +1,5 @@
 import { UpdatesFeed } from "@/components/cabinet/UpdatesFeed";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 // «Обновления» в админке — та же лента, что видит инструктор, теми же словами.
 // Записи не фильтруем по кабинету: админу нужно знать, что нового появилось у
@@ -8,11 +9,10 @@ import { UpdatesFeed } from "@/components/cabinet/UpdatesFeed";
 export default function AdminUpdatesPage() {
   return (
     <div>
-      <h1 className="text-2xl font-bold">Обновления</h1>
-      <p className="mt-1 text-sm text-muted">
-        Что нового в системе, что починили и что убрали. Свежее — сверху.
-        Серая метка на карточке говорит, чьего кабинета касается правка.
-      </p>
+      <PageHeader
+        title="Обновления"
+        hint="Что нового в системе, что починили и что убрали. Свежее — сверху. Серая метка на карточке говорит, чьего кабинета касается правка."
+      />
 
       <UpdatesFeed />
 

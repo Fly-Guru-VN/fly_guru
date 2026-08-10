@@ -9,6 +9,7 @@ import { deleteExpenseAction, addExpenseAction } from "../actions";
 import { getActiveDict, getFullDict } from "@/lib/dictionaries";
 import { ExpenseFields } from "@/components/cabinet/ExpenseFields";
 import { DictionaryManager } from "../settings/DictionaryManager";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Админка · Расходы" };
 
@@ -56,11 +57,10 @@ export default async function AdminExpensesPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Расходы</h1>
-      <p className="mt-1 text-sm text-muted">
-        Куда уходят деньги за месяц: основные расходы (Marina, ЗП, СММ) считаются
-        из выручки автоматически, дополнительные вносите руками.
-      </p>
+      <PageHeader
+        title="Расходы"
+        hint="Куда уходят деньги за месяц: основные расходы (Marina, ЗП, СММ) считаются из выручки автоматически, дополнительные вносите руками."
+      />
 
       <MonthSwitcher ym={ym} basePath="/admin/expenses" />
 

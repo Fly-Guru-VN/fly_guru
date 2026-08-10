@@ -9,6 +9,7 @@ import { vnd } from "@/lib/stats";
 import { updateClientAction } from "../actions";
 import { SaveForm } from "../SaveForm";
 import { ClientPhoto } from "./ClientPhoto";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Админка · Клиенты" };
 
@@ -76,12 +77,37 @@ interface ClientStats {
   agentName: string | null;
 }
 
+// Ширины колонок свёрнутой строки. Один и тот же шаблон у карточки и у шапки
+// списка — иначе подписи разъезжаются с числами (10.08.2026, ревизия визуала).
+const ROW_COLS =
+  "xl:grid xl:grid-cols-[minmax(0,1fr)_9rem_5.5rem_8rem_6.5rem] xl:items-center xl:gap-3";
+
+// Шапка списка на ПК: без неё колонки читаются как случайные числа.
+function ClientsHead() {
+  return (
+    <div className="mt-3 hidden items-center gap-2 px-4 pb-1 text-[11px] font-bold uppercase tracking-wide text-muted xl:flex">
+      <div className="w-9 shrink-0" />
+      <div className={`min-w-0 flex-1 ${ROW_COLS}`}>
+        <span>Клиент</span>
+        <span>Телефон</span>
+        <span className="text-right">Занятий</span>
+        <span className="text-right">Потратил</span>
+        <span className="text-right">Был</span>
+      </div>
+      <div className="w-44 shrink-0" />
+      <div className="w-4 shrink-0" />
+    </div>
+  );
+}
+
 function ClientCard({ c, stats }: { c: ClientRow; stats: ClientStats }) {
   return (
     <details className="group rounded-2xl border border-line bg-surface">
       <summary className="flex cursor-pointer list-none items-center gap-2 p-4 [&::-webkit-details-marker]:hidden">
         {/* Миниатюра в свёрнутой строке: админ узнаёт человека в лицо,
-            не раскрывая карточку (пак B, пункт 7). */}
+            не раскрывая карточку (пак B, пункт 7). Без фото — кружок с
+            буквой: место занято всегда, иначе строки без фото сдвигались
+            влево и колонки переставали стоять друг под другом. */}
         {c.photo_url ? (
           <Image
             src={c.photo_url}
@@ -90,13 +116,36 @@ function ClientCard({ c, stats }: { c: ClientRow; stats: ClientStats }) {
             height={36}
             className="h-9 w-9 shrink-0 rounded-full object-cover"
           />
-        ) : null}
-        <div className="min-w-0 flex-1">
+        ) : (
+          <span
+            aria-hidden
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-line/40 text-sm font-bold text-muted"
+          >
+            {c.name.trim().charAt(0).toUpperCase()}
+          </span>
+        )}
+        <div className={`min-w-0 flex-1 ${ROW_COLS}`}>
           <p className="truncate font-bold">
             {stats.member && <span title="Член клуба">⭐ </span>}
             {c.name}
           </p>
-          <p className="truncate text-xs text-muted">
+          {/* ПК: те же данные колонками — глаз сравнивает клиентов сверху
+              вниз, а не выдёргивает числа из строки через « · ». */}
+          <p className="hidden truncate text-sm text-muted xl:block">
+            {c.phone ?? "—"}
+          </p>
+          <p className="hidden text-right text-sm tabular-nums text-muted xl:block">
+            {stats.sessions || "—"}
+          </p>
+          <p className="hidden text-right text-sm font-semibold tabular-nums xl:block">
+            {stats.spent > 0 ? vnd(stats.spent) : "—"}
+          </p>
+          {/* Последний визит раньше лежал внутри карточки, хотя смотрят на
+              него первым — «когда человек был у нас последний раз». */}
+          <p className="hidden text-right text-sm tabular-nums text-muted xl:block">
+            {stats.lastVisit ? fmtDay(stats.lastVisit) : "—"}
+          </p>
+          <p className="truncate text-xs text-muted xl:hidden">
             {[
               c.phone,
               `${stats.sessions} занятий`,
@@ -106,20 +155,26 @@ function ClientCard({ c, stats }: { c: ClientRow; stats: ClientStats }) {
               .join(" · ")}
           </p>
         </div>
-        {c.tour_approved && (
-          <span
-            title="Допущен к выездам (экскурсия/сафари)"
-            className="rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-semibold text-accent-strong"
-          >
-            🏝 Выезды
-          </span>
-        )}
-        {stats.activeSubs > 0 && (
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
-            Абонемент
-          </span>
-        )}
-        <span className="text-muted transition-transform group-open:rotate-180">▾</span>
+        {/* Фиксированная ширина на ПК — чтобы бейджи не сдвигали колонку
+            «Был» у тех строк, где бейджей нет. */}
+        <div className="flex shrink-0 items-center gap-1.5 xl:w-44 xl:justify-end">
+          {c.tour_approved && (
+            <span
+              title="Допущен к выездам (экскурсия/сафари)"
+              className="rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-semibold text-accent-strong"
+            >
+              🏝 Выезды
+            </span>
+          )}
+          {stats.activeSubs > 0 && (
+            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+              Абонемент
+            </span>
+          )}
+        </div>
+        <span className="w-4 shrink-0 text-center text-muted transition-transform group-open:rotate-180">
+          ▾
+        </span>
       </summary>
 
       <div className="border-t border-line/70 p-4 pt-3">
@@ -364,12 +419,15 @@ export default async function AdminClientsPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Клиенты</h1>
-      <p className="mt-1 text-sm text-muted">
-        Все, кто хоть раз занимался или покупал. Ищите по имени или телефону.
-      </p>
+      <PageHeader
+        title="Клиенты"
+        hint="Все, кто хоть раз занимался или покупал. Ищите по имени или телефону."
+      />
 
-      <form className="mt-4 flex gap-2">
+      {/* Поиск и сортировка — одной строкой на ПК: тремя ярусами подряд они
+          отжимали список вниз, хотя вкладку открывают ради списка. */}
+      <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <form className="flex gap-2 lg:w-96">
         <input
           type="search"
           name="q"
@@ -380,13 +438,13 @@ export default async function AdminClientsPage({
         {sort && <input type="hidden" name="sort" value={sort} />}
         <button
           type="submit"
-          className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+          className="shrink-0 rounded-full border border-line px-4 py-2 text-sm font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
         >
           Найти
         </button>
       </form>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
         {SORTS.map((s) => {
           const params = new URLSearchParams();
           if (q) params.set("q", q);
@@ -407,6 +465,7 @@ export default async function AdminClientsPage({
           );
         })}
       </div>
+      </div>
 
       <p className="mt-4 text-sm text-muted">
         {found.length === all.length
@@ -418,7 +477,8 @@ export default async function AdminClientsPage({
       {shown.length === 0 && (
         <p className="mt-4 text-sm text-muted">Никого не нашли.</p>
       )}
-      <div className="mt-3 space-y-3">
+      {shown.length > 0 && <ClientsHead />}
+      <div className="mt-3 space-y-3 xl:mt-1">
         {shown.map((c) => (
           <ClientCard key={c.id} c={c} stats={stat(c.id)} />
         ))}

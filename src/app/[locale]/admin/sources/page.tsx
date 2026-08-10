@@ -10,7 +10,8 @@ import {
 } from "@/lib/dates";
 import { vnd, type StatsRange } from "@/lib/stats";
 import { getSourcesReport, type SourceKind } from "@/lib/sources";
-import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { PageHeader } from "@/components/cabinet/PageHeader";
+import { PeriodBar } from "@/components/cabinet/PeriodBar";
 import { CopyLink } from "../CopyLink";
 
 export const metadata: Metadata = { title: "Админка · Источники" };
@@ -27,13 +28,6 @@ export const metadata: Metadata = { title: "Админка · Источники
 // сценарий СММщика, гонять его на другой экран незачем.
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-const presetClass = (active: boolean) =>
-  `rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
-    active
-      ? "bg-primary text-white"
-      : "border border-line text-muted hover:border-primary hover:text-primary"
-  }`;
 
 // Подпись породы источника — чтобы «0 переходов» у пляжей не читалось как сбой.
 const KIND_NOTE: Record<SourceKind, string> = {
@@ -69,58 +63,26 @@ export default async function AdminSourcesPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Источники</h1>
-      <p className="mt-1 text-sm text-muted first-letter:uppercase">{label}</p>
+      <PageHeader title="Источники" hint={label} />
 
-      {/* Период */}
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Link href="/admin/sources" className={presetClass(!custom)}>
-          Текущий месяц
-        </Link>
-        <Link
-          href={`/admin/sources?from=${prev.fromDay}&to=${prev.lastDay}`}
-          className={presetClass(custom && from === prev.fromDay && to === prev.lastDay)}
-        >
-          Прошлый месяц
-        </Link>
-        <Link
-          href={`/admin/sources?from=${vnShiftDays(today, -6)}&to=${today}`}
-          className={presetClass(custom && from === vnShiftDays(today, -6) && to === today)}
-        >
-          7 дней
-        </Link>
-      </div>
-
-      <form className="mt-3 flex w-fit flex-col gap-3" action="">
-        <div className="flex items-end gap-2">
-          <label className="flex flex-col items-start text-xs text-muted">
-            С
-            <input
-              type="date"
-              name="from"
-              defaultValue={range.fromDay}
-              max={today}
-              className={`mt-1 ${NATIVE_PICKER} rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary`}
-            />
-          </label>
-          <label className="flex flex-col items-start text-xs text-muted">
-            По
-            <input
-              type="date"
-              name="to"
-              defaultValue={lastDay}
-              max={today}
-              className={`mt-1 ${NATIVE_PICKER} rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary`}
-            />
-          </label>
-        </div>
-        <button
-          type="submit"
-          className="w-full rounded-xl border border-primary px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
-        >
-          Показать
-        </button>
-      </form>
+      <PeriodBar
+        presets={[
+          { label: "Текущий месяц", href: "/admin/sources", active: !custom },
+          {
+            label: "Прошлый месяц",
+            href: `/admin/sources?from=${prev.fromDay}&to=${prev.lastDay}`,
+            active: custom && from === prev.fromDay && to === prev.lastDay,
+          },
+          {
+            label: "7 дней",
+            href: `/admin/sources?from=${vnShiftDays(today, -6)}&to=${today}`,
+            active: custom && from === vnShiftDays(today, -6) && to === today,
+          },
+        ]}
+        fromDay={range.fromDay}
+        toDay={lastDay}
+        today={today}
+      />
 
       {/* Итоги периода */}
       <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">

@@ -30,26 +30,59 @@ type NavItem = {
 
 const UPDATES_HREF = "/admin/updates";
 
-const NAV: NavItem[] = [
-  { href: "/admin/bookings", label: "Заявки", hint: "актуальные", primary: true },
-  { href: "/admin/record", label: "Записать клиента", short: "Записать", hint: "провести занятие", primary: true },
-  { href: "/admin/calendar", label: "Календарь", hint: "смены · записи по дням", primary: true },
-  { href: "/admin/sessions", label: "Сессии", hint: "занятия · задним числом" },
-  { href: "/admin/subscriptions", label: "Абонементы", hint: "оплаты · минуты" },
-  { href: "/admin/clients", label: "Клиенты", hint: "поиск · карточки" },
-  { href: "/admin/agents", label: "Агенты", hint: "реф-ссылки · награды" },
-  { href: "/admin/members", label: "Члены клуба", hint: "инвайты · кабинеты" },
-  { href: "/admin/materials", label: "Материалы", hint: "ссылки для рекламы" },
-  { href: "/admin/sources", label: "Источники", hint: "переходы · заявки · выручка" },
-  { href: "/admin/dashboard", label: "Статистика", hint: "месяц цифрами", primary: true },
-  { href: "/admin/payroll", label: "Расчёт выплат", hint: "неделя · месяц · Excel" },
-  { href: "/admin/expenses", label: "Расходы", hint: "марина · зп · прочее" },
-  { href: "/admin/services", label: "Услуги", hint: "цены · справочник" },
-  // Не primary: шестую вкладку в нижнюю панель телефона не ставим (подписи там
-  // и так 11 пикселей), раздел живёт в листе «Ещё» — как у инструктора.
-  { href: UPDATES_HREF, label: "Обновления", hint: "что нового в системе" },
-  { href: "/admin/settings", label: "Настройки", hint: "имя · фото" },
+// Разделы сгруппированы по смыслу (10.08.2026). Шестнадцать пунктов подряд,
+// у каждого подпись под названием, — это полтора экрана серого текста, по
+// которому глаз каждый раз ищет заново. Группы дают опору: «деньги — вон тот
+// кусок списка», и до нужного пункта долетаешь не читая.
+//
+// Порядок групп — по частоте: сначала то, что открывают каждый день.
+const GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: "Каждый день",
+    items: [
+      { href: "/admin/bookings", label: "Заявки", hint: "актуальные", primary: true },
+      { href: "/admin/record", label: "Записать клиента", short: "Записать", hint: "провести занятие", primary: true },
+      { href: "/admin/calendar", label: "Календарь", hint: "смены · записи по дням", primary: true },
+      { href: "/admin/sessions", label: "Сессии", hint: "занятия · задним числом" },
+    ],
+  },
+  {
+    title: "Люди",
+    items: [
+      { href: "/admin/clients", label: "Клиенты", hint: "поиск · карточки" },
+      { href: "/admin/subscriptions", label: "Абонементы", hint: "оплаты · минуты" },
+      { href: "/admin/agents", label: "Агенты", hint: "реф-ссылки · награды" },
+      { href: "/admin/members", label: "Члены клуба", hint: "инвайты · кабинеты" },
+    ],
+  },
+  {
+    title: "Деньги",
+    items: [
+      { href: "/admin/dashboard", label: "Статистика", hint: "месяц цифрами", primary: true },
+      { href: "/admin/payroll", label: "Расчёт выплат", hint: "неделя · месяц · Excel" },
+      { href: "/admin/expenses", label: "Расходы", hint: "марина · зп · прочее" },
+    ],
+  },
+  {
+    title: "Реклама",
+    items: [
+      { href: "/admin/materials", label: "Материалы", hint: "ссылки для рекламы" },
+      { href: "/admin/sources", label: "Источники", hint: "переходы · заявки · выручка" },
+    ],
+  },
+  {
+    title: "Система",
+    items: [
+      { href: "/admin/services", label: "Услуги", hint: "цены · справочник" },
+      // Не primary: шестую вкладку в нижнюю панель телефона не ставим (подписи
+      // там и так 11 пикселей), раздел живёт в листе «Ещё» — как у инструктора.
+      { href: UPDATES_HREF, label: "Обновления", hint: "что нового в системе" },
+      { href: "/admin/settings", label: "Настройки", hint: "имя · фото" },
+    ],
+  },
 ];
+
+const NAV: NavItem[] = GROUPS.flatMap((g) => g.items);
 
 function CountBubble({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -116,8 +149,11 @@ export function Sidebar({
   const primaryItems = withBadges.filter((item) => item.primary);
   const moreActive = !primaryItems.some((item) => pathname.startsWith(item.href));
 
-  const profile = (
-    <div className="flex shrink-0 items-center gap-3 rounded-2xl border border-line bg-surface p-4">
+  // Карточка профиля. На ПК она — шапка панели меню (рамку и фон даёт сама
+  // панель, здесь остаётся только линия-отбивка), в мобильном листе —
+  // отдельная карточка, как была.
+  const profileBlock = (className: string) => (
+    <div className={`flex shrink-0 items-center gap-3 p-4 ${className}`}>
       {photoUrl ? (
         <Image
           src={photoUrl}
@@ -132,69 +168,115 @@ export function Sidebar({
         </div>
       )}
       <div className="min-w-0">
-        <p className="truncate text-sm font-bold">{name}</p>
-        <p className="truncate text-lg font-bold text-primary">{amountLabel}</p>
-        <p className="truncate text-xs text-muted">{amountSub}</p>
+        <p className="truncate text-xs text-muted">{name}</p>
+        {/* Прибыль — то, ради чего сюда смотрят, поэтому она и есть главная
+            строка карточки, а имя ушло наверх мелким: своё имя не читают. */}
+        <p className="truncate text-xl font-bold leading-tight text-primary">
+          {amountLabel}
+        </p>
+        <p className="truncate text-xs text-muted first-letter:uppercase">{amountSub}</p>
       </div>
     </div>
   );
 
-  const links = (
-    <nav className="flex flex-col gap-1">
-      {withBadges.map((item) => {
-        const isActive = item.href === active.href;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={() => setOpen(false)}
-            aria-current={isActive ? "page" : undefined}
-            className={`flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
-              isActive
-                ? "bg-primary text-white"
-                : "text-foreground hover:bg-line/50"
-            }`}
-          >
-            <span className="min-w-0">
-              <span className="block truncate">{item.label}</span>
-              {item.hint && (
-                <span
-                  className={`block truncate text-xs font-normal ${
-                    isActive ? "text-white/70" : "text-muted"
-                  }`}
-                >
-                  {item.hint}
-                </span>
-              )}
+  // Один пункт меню. withHint — показывать ли подпись под названием: на ПК
+  // она не нужна (группа над пунктом уже сказала, про что раздел, а подписи
+  // удваивали высоту списка), в мобильном листе остаётся — там опоры групп нет.
+  const navLink = (item: NavItem, withHint: boolean) => {
+    const isActive = item.href === active.href;
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={() => setOpen(false)}
+        aria-current={isActive ? "page" : undefined}
+        className={`flex items-center justify-between gap-2 rounded-xl px-3 text-sm font-semibold transition-colors ${
+          withHint ? "py-2.5" : "py-2"
+        } ${isActive ? "bg-primary text-white" : "text-foreground hover:bg-line/50"}`}
+      >
+        <span className="min-w-0">
+          <span className="block truncate">{item.label}</span>
+          {withHint && item.hint && (
+            <span
+              className={`block truncate text-xs font-normal ${
+                isActive ? "text-white/70" : "text-muted"
+              }`}
+            >
+              {item.hint}
             </span>
-            <LinkSpinner />
-            {item.badge ? <CountBubble count={item.badge} /> : null}
-            {item.dot ? (
-              <span
-                aria-label="есть новое"
-                className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500"
-              />
-            ) : null}
-          </Link>
-        );
-      })}
-      <form action={logoutAction} className="mt-1">
-        <button
-          type="submit"
-          className="w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-muted transition-colors hover:bg-line/50"
-        >
-          Выход
-        </button>
-      </form>
+          )}
+        </span>
+        <LinkSpinner />
+        {item.badge ? <CountBubble count={item.badge} /> : null}
+        {item.dot ? (
+          <span
+            aria-label="есть новое"
+            className="h-2.5 w-2.5 shrink-0 rounded-full bg-red-500"
+          />
+        ) : null}
+      </Link>
+    );
+  };
+
+  const logout = (
+    <form action={logoutAction} className="mt-1">
+      <button
+        type="submit"
+        className="w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-muted transition-colors hover:bg-line/50"
+      >
+        Выход
+      </button>
+    </form>
+  );
+
+  const byHref = new Map(withBadges.map((item) => [item.href, item]));
+
+  // ПК: разделы группами с тонкими заголовками.
+  //
+  // Заголовок группы — подпись полки, а не пункт меню: мелкий капс с разрядкой,
+  // приглушённый цвет и линия до правого края. Линия и есть главный сигнал —
+  // у кликабельных пунктов её нет, поэтому названия групп больше не читаются
+  // как ссылки, на которые почему-то не нажимается. select-none, чтобы они не
+  // выделялись при попытке ткнуть.
+  const desktopLinks = (
+    <nav className="flex flex-col gap-3">
+      {GROUPS.map((group) => (
+        <div key={group.title}>
+          <div className="flex select-none items-center gap-2 px-3 pb-1.5">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted/80">
+              {group.title}
+            </span>
+            <span aria-hidden className="h-px flex-1 bg-line" />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {group.items.map((item) => navLink(byHref.get(item.href) ?? item, false))}
+          </div>
+        </div>
+      ))}
+      {logout}
+    </nav>
+  );
+
+  // Телефон: один список с подписями — как было.
+  const sheetLinks = (
+    <nav className="flex flex-col gap-1">
+      {withBadges.map((item) => navLink(item, true))}
+      {logout}
     </nav>
   );
 
   return (
     <aside className="md:h-full md:w-64 md:shrink-0">
-      {/* ПК: колонка на всю высоту со своим скроллом (не уезжает с контентом) */}
-      <div className="scroll-soft hidden md:flex md:h-full md:flex-col md:gap-4 md:overflow-y-auto md:overscroll-contain md:py-6 md:pr-1">
-        {profile}
-        {links}
+      {/* ПК: меню — отдельная панель-карточка на всю высоту со своим скроллом
+          (не уезжает с контентом). Раньше пункты лежали прямо на фоне страницы
+          и сливались с содержимым раздела: где кончается навигация и начинается
+          сам раздел, глаз определял только по отступу. Высота — минус my-6,
+          чтобы панель стояла вровень с колонкой контента. */}
+      <div className="hidden md:my-6 md:flex md:h-[calc(100%-3rem)] md:flex-col md:overflow-hidden md:rounded-2xl md:border md:border-line md:bg-surface md:shadow-[0_1px_3px_rgba(15,34,51,0.04)]">
+        {profileBlock("border-b border-line/70")}
+        <div className="scroll-soft min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+          {desktopLinks}
+        </div>
       </div>
 
       {/* Телефон: фиксированная нижняя панель + выезжающий лист «Ещё» */}
@@ -208,8 +290,8 @@ export function Sidebar({
               className="animate-fade-in fixed inset-0 z-40 bg-black/40"
             />
             <div className="animate-sheet-up fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] space-y-3 overflow-y-auto rounded-t-2xl border-t border-line bg-bg p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-              {profile}
-              {links}
+              {profileBlock("rounded-2xl border border-line bg-surface")}
+              {sheetLinks}
             </div>
           </>
         )}

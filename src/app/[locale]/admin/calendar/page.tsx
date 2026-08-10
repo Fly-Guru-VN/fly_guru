@@ -23,6 +23,7 @@ import {
   setShiftBonusAction,
   setShiftTimesAction,
 } from "../actions";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Админка · Календарь" };
 
@@ -222,12 +223,22 @@ export default async function AdminCalendarPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Календарь</h1>
-      <p className="mt-1 text-sm text-muted">
-        Ставьте инструкторам смены и смотрите записи по дням. Тап по дню — детали.
-      </p>
+      {/* Шапка как на остальных вкладках, а переключатель месяца — в её же
+          строке: отдельным ярусом он занимал место над сеткой. На телефоне
+          остаётся широкой полосой под шапкой — там в стрелки жмут пальцем. */}
+      <PageHeader
+        title="Календарь"
+        hint="Ставьте инструкторам смены и смотрите записи по дням. Клик по дню — детали."
+        action={
+          <div className="hidden sm:block">
+            <CalMonthNav ym={ym} basePath="/admin/calendar" className="mt-0" />
+          </div>
+        }
+      />
 
-      <CalMonthNav ym={ym} basePath="/admin/calendar" />
+      <div className="sm:hidden">
+        <CalMonthNav ym={ym} basePath="/admin/calendar" />
+      </div>
 
       <div className="mt-3">
         <MonthGrid
@@ -250,7 +261,16 @@ export default async function AdminCalendarPage({
 
       {/* Карточка дня — поверх календаря */}
       {selected && (
-        <DayModal title={fmtFullDay(selected)} closeHref={`/admin/calendar?m=${ym}`}>
+        <DayModal
+          title={fmtFullDay(selected)}
+          closeHref={`/admin/calendar?m=${ym}`}
+          wide
+        >
+          {/* На ПК — две колонки: слева смены, справа касса и записи. Одной
+              простынёй касса и записи уезжали под список из пяти-шести смен, и
+              до них приходилось прокручивать всю карточку. */}
+          <div className="lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
+          <section>
           <h3 className="text-sm font-bold text-muted">Смены</h3>
           <div className="mt-2 space-y-2">
             {staff.map((u) => {
@@ -347,8 +367,10 @@ export default async function AdminCalendarPage({
               <p className="text-sm text-muted">Инструкторов нет.</p>
             )}
           </div>
+          </section>
 
-          <h3 className="mt-5 text-sm font-bold text-muted">Оплаты за день</h3>
+          <section className="mt-5 lg:mt-0">
+          <h3 className="text-sm font-bold text-muted">Оплаты за день</h3>
           {payments && payments.lines.length > 0 ? (
             <div className="mt-2 rounded-xl border border-line/70 px-3 py-2">
               {payments.lines.map((l) => (
@@ -409,6 +431,8 @@ export default async function AdminCalendarPage({
           ) : (
             <p className="mt-2 text-sm text-muted">Записей на этот день нет.</p>
           )}
+          </section>
+          </div>
         </DayModal>
       )}
     </div>

@@ -15,6 +15,7 @@ import { firstBasicTrainingByPhone } from "@/lib/agentReward";
 import { SaveForm } from "../SaveForm";
 import { getActiveDict } from "@/lib/dictionaries";
 import { BookingCreateForm } from "./BookingCreateForm";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { sortServicesByType } from "@/lib/serviceOrder";
 
@@ -67,7 +68,9 @@ function statusBadge(b: BookingRow): { label: string; cls: string } {
   if (b.status === "confirmed" && b.accepted)
     return { label: "Ожидает оплату", cls: "bg-purple-500/10 text-purple-600" };
   const map: Record<string, { label: string; cls: string }> = {
-    new: { label: "Новая", cls: "bg-red-500/10 text-red-600" },
+    // Залитый бейдж, а не бледная плашка: новая заявка — единственный статус,
+    // требующий действия прямо сейчас, и на телефоне её видно первой.
+    new: { label: "Новая", cls: "bg-red-500 text-white" },
     contacted: { label: "В обработке", cls: "bg-amber-500/10 text-amber-600" },
     confirmed: { label: "Подтверждена", cls: "bg-primary/10 text-primary" },
     done: { label: "Выполнена", cls: "bg-emerald-500/10 text-emerald-600" },
@@ -123,7 +126,11 @@ function BookingCard({
       className={`group rounded-2xl border bg-surface ${
         b.pinned && !terminal
           ? "border-red-400 shadow-[0_0_14px_rgba(248,113,113,0.35)]"
-          : "border-line"
+          : b.status === "new"
+            ? // Необработанная заявка выделяется и самой карточкой: в длинной
+              // ленте бейдж в правом краю строки взгляд проскакивал.
+              "border-red-300"
+            : "border-line"
       }`}
     >
       {/* Свёрнутая строка */}
@@ -553,21 +560,35 @@ export default async function AdminBookingsPage({
   return (
     <div>
       {/* Живое обновление ленты и бейджа — в layout кабинета (BookingsBadgeRefresh). */}
-      <h1 className="text-2xl font-bold">
-        Актуальные заявки
-        {freshCount > 0 && (
-          <span className="ml-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 align-middle text-xs font-bold text-white">
-            {freshCount}
-          </span>
-        )}
-      </h1>
-      <p className="mt-1 text-sm text-muted">
-        Тап по заявке раскрывает карточку. Созвонились → внесите время, возраст,
-        вес → «Подтвердить»: запись увидят инструкторы. Позвонили или написали
-        напрямую — заведите заявку сами кнопкой ниже.
-      </p>
+      <PageHeader
+        title="Актуальные заявки"
+        badge={freshCount}
+        hint={
+          freshCount > 0
+            ? `Новых, с которыми ещё не работали: ${freshCount}`
+            : "Новых заявок нет — все разобраны"
+        }
+      />
 
-      <div className="mt-4">
+      {/* Фильтры и создание заявки — одной строкой: это управление лентой, а не
+          её содержимое. Раньше форма стояла отдельным блоком над фильтрами и
+          отодвигала сами заявки вниз. */}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {FILTERS.map((f) => (
+            <Link
+              key={f.key}
+              href={f.key ? `/admin/bookings?status=${f.key}` : "/admin/bookings"}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                filter === f.key
+                  ? "bg-primary text-white"
+                  : "border border-line text-muted hover:border-primary hover:text-primary"
+              }`}
+            >
+              {f.label}
+            </Link>
+          ))}
+        </div>
         <BookingCreateForm
           services={services}
           today={today}
@@ -575,21 +596,18 @@ export default async function AdminBookingsPage({
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-1.5">
-        {FILTERS.map((f) => (
-          <Link
-            key={f.key}
-            href={f.key ? `/admin/bookings?status=${f.key}` : "/admin/bookings"}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-              filter === f.key
-                ? "bg-primary text-white"
-                : "border border-line text-muted hover:border-primary hover:text-primary"
-            }`}
-          >
-            {f.label}
-          </Link>
-        ))}
-      </div>
+      {/* Порядок работы держим под рукой, но свёрнутым: читают его один раз,
+          а место занимало всегда. */}
+      <details className="mt-3">
+        <summary className="cursor-pointer list-none text-xs font-semibold text-muted transition-colors hover:text-primary [&::-webkit-details-marker]:hidden">
+          Как работать с заявкой ▾
+        </summary>
+        <p className="mt-1 text-sm text-muted">
+          Клик по заявке раскрывает карточку. Созвонились → внесите время,
+          возраст, вес → «Подтвердить»: запись увидят инструкторы. Позвонили или
+          написали напрямую — заведите заявку сами кнопкой «Новая заявка».
+        </p>
+      </details>
 
       {bookings.length === 0 && (
         <p className="mt-6 text-sm text-muted">Здесь пока пусто.</p>

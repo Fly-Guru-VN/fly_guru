@@ -21,6 +21,7 @@ import {
   WriteOffMinutesForm,
   type SubscriptionPrefill,
 } from "./SubscriptionForms";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Админка · Абонементы" };
 
@@ -113,24 +114,30 @@ function SubscriptionCard({
           расплющивалось, а серая строка «дата · цена · продал» съедала место
           над плашками — она переехала внутрь карточки. */}
       <summary className="flex cursor-pointer list-none items-center gap-2 p-4 [&::-webkit-details-marker]:hidden">
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <div className="flex items-baseline justify-between gap-2">
+        {/* На ПК те же данные — колонками (lg:contents разворачивает мобильные
+            ряды в ячейки сетки): клиент | остаток | внесено | оплата. Раньше
+            на широком экране имя и остаток разъезжались по краям, а плашки
+            висели отдельным рядом под ними. */}
+        <div className="min-w-0 flex-1 space-y-1.5 lg:grid lg:grid-cols-[minmax(0,1fr)_10.5rem_11rem_11rem] lg:items-center lg:gap-3 lg:space-y-0">
+          <div className="flex items-baseline justify-between gap-2 lg:contents">
             <p className="min-w-0 truncate font-bold">
               {s.clients?.name ?? "Без клиента"}
             </p>
-            <span className={`shrink-0 font-bold ${statusLabel.cls}`}>
+            <span
+              className={`shrink-0 font-bold lg:whitespace-nowrap lg:text-right ${statusLabel.cls}`}
+            >
               {statusLabel.text}
             </span>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 lg:contents">
             {/* Когда абонемент реально внесли в базу — с точностью до минуты.
                 По дате продажи «24.07» не понять, кто из смены его оформил. */}
-            <EnteredBadge at={s.sold_at} />
+            <EnteredBadge at={s.sold_at} className="lg:justify-self-start" />
             {/* У отменённого отметки оплаты нет по определению — не пугаем
                 «ожидает оплаты» там, где платить уже нечего. */}
             {!cancelled && (
               <span
-                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold lg:justify-self-start ${
                   s.paid_at
                     ? "bg-emerald-500/10 text-emerald-600"
                     : "bg-amber-500/10 text-amber-600"
@@ -492,55 +499,76 @@ export default async function AdminSubscriptionsPage({
       ? subs.filter((s) => leftOf(s) > 0 && s.status !== "cancelled")
       : subs;
 
+  // Итог над списком: сколько абонементов ждут отметки оплаты и на какую сумму.
+  // Считаем по уже загруженному списку — лишних запросов не добавляем. Это то,
+  // ради чего вкладку и открывают: без отметки абонемент не входит ни в
+  // выручку, ни в комиссию продавца, а глазами жёлтые плашки не пересчитаешь.
+  const awaiting = visibleSubs.filter(
+    (s) => !s.paid_at && s.status !== "cancelled",
+  );
+  const awaitingSum = awaiting.reduce((n, s) => n + (s.price ?? 0), 0);
+
   return (
     <div>
-      <h1 className="text-2xl font-bold">Абонементы</h1>
-      <p className="mt-1 text-sm text-muted">
-        Пока нет отметки оплаты, абонемент — «ожидает»: он не входит в выручку
-        и комиссию продавца. Минуты списываются только прокатом — он попадает в
-        «Сессии» того дня, к нему можно добавить комментарий.
-      </p>
+      <PageHeader
+        title="Абонементы"
+        hint="Пока нет отметки оплаты, абонемент — «ожидает»: он не входит в выручку и комиссию продавца. Минуты списываются только прокатом — он попадает в «Сессии» того дня, к нему можно добавить комментарий."
+      />
 
-      <details className="mt-4 rounded-2xl border border-line bg-surface" open={Boolean(bookingPrefill)}>
-        <summary className="cursor-pointer list-none p-4 font-semibold text-primary [&::-webkit-details-marker]:hidden">
-          + Продать абонемент
-        </summary>
-        <div className="border-t border-line/70 p-4 pt-3">
-          {bookingPrefill && (
-            <p className="mb-3 rounded-xl bg-primary/10 px-3 py-2 text-xs text-primary">
-              Заявка на абонемент от <b>{bookingPrefill.name}</b> — продажа закроет её.
-            </p>
-          )}
-          <SellSubscriptionForm
-            clients={clients}
-            staff={staff}
-            today={today}
-            paymentMethods={paymentMethods}
-            prefill={bookingPrefill}
-          />
+      {/* Фильтры и продажа — одной строкой, как в «Заявках»: это управление
+          списком, а не его содержимое. Отдельным ярусом форма отжимала сами
+          абонементы вниз. Раскрытая форма занимает всю ширину (w-full в
+          flex-wrap переносит её на свою строку). */}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            { key: "", label: "Активные" },
+            { key: "burned", label: "Сгоревшие" },
+            { key: "archive", label: "Архив" },
+            { key: "cancelled", label: "Отменённые" },
+            { key: "all", label: "Все" },
+          ].map((tab) => (
+            <Link
+              key={tab.key}
+              href={tab.key ? `/admin/subscriptions?f=${tab.key}` : "/admin/subscriptions"}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                f === tab.key
+                  ? "bg-primary text-white"
+                  : "border border-line text-muted hover:border-primary hover:text-primary"
+              }`}
+            >
+              {tab.label}
+            </Link>
+          ))}
         </div>
-      </details>
 
-      <div className="mt-4 flex flex-wrap gap-1.5">
-        {[
-          { key: "", label: "Активные" },
-          { key: "burned", label: "Сгоревшие" },
-          { key: "archive", label: "Архив" },
-          { key: "cancelled", label: "Отменённые" },
-          { key: "all", label: "Все" },
-        ].map((tab) => (
-          <Link
-            key={tab.key}
-            href={tab.key ? `/admin/subscriptions?f=${tab.key}` : "/admin/subscriptions"}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-              f === tab.key
-                ? "bg-primary text-white"
-                : "border border-line text-muted hover:border-primary hover:text-primary"
-            }`}
-          >
-            {tab.label}
-          </Link>
-        ))}
+        <details
+          className="order-first w-full sm:order-none sm:w-auto sm:[&[open]]:w-full"
+          open={Boolean(bookingPrefill)}
+        >
+          {/* w-fit, а не w-auto: когда форма раскрыта, сам <details> занимает
+              всю ширину, и блочный summary растягивался в оранжевую полосу
+              через весь экран. */}
+          <summary className="w-full cursor-pointer list-none rounded-2xl bg-accent px-5 py-3 text-center text-white shadow-sm transition-colors hover:bg-accent-strong [&::-webkit-details-marker]:hidden sm:w-fit sm:rounded-full sm:py-2">
+            <span className="block text-base font-bold sm:text-sm">
+              + Продать абонемент
+            </span>
+          </summary>
+          <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
+            {bookingPrefill && (
+              <p className="mb-3 rounded-xl bg-primary/10 px-3 py-2 text-xs text-primary">
+                Заявка на абонемент от <b>{bookingPrefill.name}</b> — продажа закроет её.
+              </p>
+            )}
+            <SellSubscriptionForm
+              clients={clients}
+              staff={staff}
+              today={today}
+              paymentMethods={paymentMethods}
+              prefill={bookingPrefill}
+            />
+          </div>
+        </details>
       </div>
 
       {visibleSubs.length === 0 && (
@@ -554,7 +582,21 @@ export default async function AdminSubscriptionsPage({
                 : "Абонементов пока нет."}
         </p>
       )}
-      <div className="mt-4 space-y-3">
+      {visibleSubs.length > 0 && (
+        <p className="mt-4 text-sm text-muted">
+          Показано: {visibleSubs.length}
+          {awaiting.length > 0 && (
+            <>
+              {" · "}
+              <span className="font-semibold text-amber-600">
+                ждут оплаты {awaiting.length} на {vnd(awaitingSum)}
+              </span>
+            </>
+          )}
+        </p>
+      )}
+
+      <div className="mt-3 space-y-3">
         {visibleSubs.map((s) => (
           <SubscriptionCard
             key={s.id}

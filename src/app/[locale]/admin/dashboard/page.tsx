@@ -22,7 +22,8 @@ import {
 } from "@/lib/visits";
 import { buildPaymentBreakdown, SUBS_CAT, type PaymentInput } from "@/lib/payments";
 import { getFinance } from "@/lib/finance";
-import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
+import { PageHeader } from "@/components/cabinet/PageHeader";
+import { PeriodBar } from "@/components/cabinet/PeriodBar";
 import { VisitsTable, type VisitCell, type VisitColumn } from "./VisitsTable";
 
 export const metadata: Metadata = { title: "Админка · Статистика" };
@@ -452,81 +453,144 @@ export default async function AdminDashboardPage({
     // Ширину задаёт колонка контента в layout кабинета (как у остальных
     // вкладок) — отдельного «вырывания» на всю ширину больше нет.
     <div>
-      <h1 className="text-2xl font-bold">Статистика</h1>
-      <p className="mt-1 text-sm text-muted first-letter:uppercase">{label}</p>
+      <PageHeader title="Статистика" hint={label} />
 
-      {/* Пресеты периода + свой период */}
-      <div className="mt-4 flex flex-wrap gap-1.5">
-        <Link href={href({ from: "", to: "" })} className={presetClass(!custom)}>
-          Этот месяц
-        </Link>
-        <Link
-          href={href({ from: prev.fromDay, to: prev.lastDay })}
-          className={presetClass(custom && from === prev.fromDay && to === prev.lastDay)}
-        >
-          Прошлый месяц
-        </Link>
-        <Link
-          href={href({ from: vnShiftDays(today, -6), to: today })}
-          className={presetClass(custom && from === vnShiftDays(today, -6) && to === today)}
-        >
-          7 дней
-        </Link>
-        <Link
-          href={href({ from: vnShiftDays(today, -29), to: today })}
-          className={presetClass(custom && from === vnShiftDays(today, -29) && to === today)}
-        >
-          30 дней
-        </Link>
-        <Link
-          href={href({ from: ALL_FROM, to: today })}
-          className={presetClass(custom && from === ALL_FROM)}
-        >
-          Всё время
-        </Link>
+      {/* Период: готовые отрезки слева, свои даты справа — одной строкой
+          (PeriodBar). Раньше это занимало три яруса, и цифры начинались
+          на треть экрана ниже. */}
+      <PeriodBar
+        presets={[
+          { label: "Этот месяц", href: href({ from: "", to: "" }), active: !custom },
+          {
+            label: "Прошлый месяц",
+            href: href({ from: prev.fromDay, to: prev.lastDay }),
+            active: custom && from === prev.fromDay && to === prev.lastDay,
+          },
+          {
+            label: "7 дней",
+            href: href({ from: vnShiftDays(today, -6), to: today }),
+            active: custom && from === vnShiftDays(today, -6) && to === today,
+          },
+          {
+            label: "30 дней",
+            href: href({ from: vnShiftDays(today, -29), to: today }),
+            active: custom && from === vnShiftDays(today, -29) && to === today,
+          },
+          {
+            label: "Всё время",
+            href: href({ from: ALL_FROM, to: today }),
+            active: custom && from === ALL_FROM,
+          },
+        ]}
+        fromDay={range.fromDay}
+        toDay={lastDay}
+        today={today}
+        hidden={{ ...(cat ? { cat } : {}), ...(inst ? { inst } : {}) }}
+      />
+
+      {/* Деньги периода — сразу под выбором периода (10.08.2026). Раньше
+          выручка и чистая прибыль лежали в самом низу, под таблицей визитов
+          на сотню строк: чтобы увидеть главную цифру месяца, приходилось
+          прокручивать мимо всего остального. Фильтры стоят ниже, вплотную к
+          таблице, на которую они и действуют. */}
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        {/* Итоги периода — без фильтров, деньги только по факту оплаты */}
+        <div className="rounded-2xl border border-line bg-surface p-4">
+          <p className="text-xs text-muted">Выручка за период · только оплаченное</p>
+          <p className="mt-1 text-3xl font-bold text-primary">
+            {vnd(sessions.reduce((s, r) => s + r.amount, 0) + paidSubsSum)}
+          </p>
+          <div className="mt-3 space-y-1 text-sm text-muted">
+            <p>
+              Сессии ({sessions.length}):{" "}
+              <span className="font-semibold text-ink">
+                {vnd(sessions.reduce((s, r) => s + r.amount, 0))}
+              </span>
+            </p>
+            <p>
+              Оплачено абонементов ({paidSubs.length}):{" "}
+              <span className="font-semibold text-ink">{vnd(paidSubsSum)}</span>
+            </p>
+            <p>
+              Новых клиентов: {(clientsRes.data ?? []).length} · заявок: {bookings.length}{" "}
+              (выполнено {doneCount}, отменено {cancelledCount})
+            </p>
+            {lostSum > 0 && (
+              <p>
+                Потенциально потеряно на отменённых заявках:{" "}
+                <span className="font-semibold text-ink">{vnd(lostSum)}</span>
+              </p>
+            )}
+          </div>
+          {unpaid.length > 0 && (
+            <p className="mt-3 border-t border-line/70 pt-2 text-xs text-muted">
+              Ожидают оплату: {unpaid.length} абонемент(а) на {vnd(unpaidSum)} — в итоги
+              не входят (всего по школе).
+            </p>
+          )}
+        </div>
+
+        {/* Куда ушли деньги — тот же расчёт, что на вкладке «Расходы»
+            (lib/finance), но за выбранный здесь период: начальник видит
+            чистую прибыль, не уходя со «Статистики». */}
+        <div className="rounded-2xl border border-line bg-surface p-4">
+          <p className="text-xs text-muted">Чистая прибыль за период</p>
+          <p className="mt-1 text-3xl font-bold text-primary">{vnd(fin.netProfit)}</p>
+          <div className="mt-3 space-y-1 text-sm text-muted">
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Marina Beach · 35%</span>
+              <span className="font-semibold text-ink">−{vnd(fin.marina)}</span>
+            </p>
+            <p className="flex items-baseline justify-between gap-2">
+              <span>ЗП инструкторов</span>
+              <span className="font-semibold text-ink">−{vnd(fin.instructorPay)}</span>
+            </p>
+            {fin.agentCommissions > 0 && (
+              <p className="flex items-baseline justify-between gap-2">
+                <span>Комиссии агентов</span>
+                <span className="font-semibold text-ink">
+                  −{vnd(fin.agentCommissions)}
+                </span>
+              </p>
+            )}
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Дэвид + Ромчик · 2%</span>
+              <span className="font-semibold text-ink">−{vnd(fin.crmCut)}</span>
+            </p>
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Прочие расходы ({fin.manualExpenses.length})</span>
+              <span className="font-semibold text-ink">−{vnd(fin.manualTotal)}</span>
+            </p>
+          </div>
+          <p className="mt-3 border-t border-line/70 pt-2 text-xs text-muted">
+            Выручка {vnd(fin.revenue)} − расходы {vnd(fin.autoTotal + fin.manualTotal)}.
+            ЗП инструкторов — 15% с их занятий + {fin.instructorShifts} зачтённых
+            выходов + 15% с проданных ими абонементов. Расписать траты и внести
+            новые —{" "}
+            <Link href="/admin/expenses" className="font-semibold text-primary">
+              вкладка «Расходы»
+            </Link>{" "}
+            (она считает по месяцам).
+          </p>
+        </div>
       </div>
 
-      {/* Два компактных поля дат стоят рядом, кнопка «Показать» — под ними во
-          всю их ширину. w-fit прижимает весь блок к левому краю, в одну линию
-          с кнопками «Этот месяц» сверху и «Все услуги» снизу (пачка №5, п.8).
-          Сами поля без w-full/flex-1, иначе нативный датапикер растягивается
-          и вылезает за экран. */}
-      <form className="mt-3 flex w-fit flex-col gap-3" action="">
-        {cat && <input type="hidden" name="cat" value={cat} />}
-        {inst && <input type="hidden" name="inst" value={inst} />}
-        <div className="flex items-end gap-2">
-          <label className="flex flex-col items-start text-xs text-muted">
-            С
-            <input
-              type="date"
-              name="from"
-              defaultValue={range.fromDay}
-              max={today}
-              className={`mt-1 ${NATIVE_PICKER} rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary`}
-            />
-          </label>
-          <label className="flex flex-col items-start text-xs text-muted">
-            По
-            <input
-              type="date"
-              name="to"
-              defaultValue={lastDay}
-              max={today}
-              className={`mt-1 ${NATIVE_PICKER} rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary`}
-            />
-          </label>
-        </div>
-        <button
-          type="submit"
-          className="w-full rounded-xl border border-primary px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
-        >
-          Показать
-        </button>
-      </form>
-
-      {/* Фильтры: действуют на таблицу и графики занятий */}
+      {/* Фильтры: действуют на таблицу и графики занятий.
+          Свёрнуты по умолчанию (10.08.2026): четыре ряда чипсов — услуги,
+          инструкторы, способы оплаты, каналы — занимали пол-экрана перед
+          таблицей, а нужны они изредка. Если фильтр уже выбран, блок открыт
+          сам: иначе непонятно, почему в таблице половина строк. */}
       {sessions.length > 0 && (
-        <div className="mt-4 space-y-1.5">
+        <details open={Boolean(cat || inst || pay || ch)} className="mt-4 space-y-1.5">
+          <summary className="mb-1.5 inline-flex cursor-pointer list-none items-center gap-2 text-xs font-semibold text-muted transition-colors hover:text-primary [&::-webkit-details-marker]:hidden">
+            Фильтры
+            {[cat, inst, pay, ch].filter(Boolean).length > 0 && (
+              <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-bold text-white">
+                {[cat, inst, pay, ch].filter(Boolean).length}
+              </span>
+            )}
+            <span aria-hidden>▾</span>
+          </summary>
           <div className="flex flex-wrap gap-1.5">
             <Link href={href({ ...catBase, cat: "" })} className={presetClass(!cat)}>
               Все услуги
@@ -606,7 +670,7 @@ export default async function AdminDashboardPage({
               )}
             </div>
           )}
-        </div>
+        </details>
       )}
 
       {/* Строка = занятие либо продажа абонемента (по дню оплаты) */}
@@ -758,89 +822,9 @@ export default async function AdminDashboardPage({
         </section>
       )}
 
-      {/* Итоги и графики: на телефоне — колонкой, на ПК — сеткой в 2–3 ряда
+      {/* Графики: на телефоне — колонкой, на ПК — сеткой в 2–3 ряда
           с увеличенными отступами, чтобы блоки читались раздельно. */}
       <div className="mt-3 grid gap-3 lg:mt-6 lg:grid-cols-2 lg:gap-6 xl:grid-cols-3">
-        {/* Итоги периода — без фильтров, деньги только по факту оплаты */}
-        <div className="rounded-2xl border border-line bg-surface p-4">
-          <p className="text-xs text-muted">Выручка за период · только оплаченное</p>
-          <p className="mt-1 text-3xl font-bold text-primary">
-            {vnd(sessions.reduce((s, r) => s + r.amount, 0) + paidSubsSum)}
-          </p>
-          <div className="mt-3 space-y-1 text-sm text-muted">
-            <p>
-              Сессии ({sessions.length}):{" "}
-              <span className="font-semibold text-ink">
-                {vnd(sessions.reduce((s, r) => s + r.amount, 0))}
-              </span>
-            </p>
-            <p>
-              Оплачено абонементов ({paidSubs.length}):{" "}
-              <span className="font-semibold text-ink">{vnd(paidSubsSum)}</span>
-            </p>
-            <p>
-              Новых клиентов: {(clientsRes.data ?? []).length} · заявок: {bookings.length}{" "}
-              (выполнено {doneCount}, отменено {cancelledCount})
-            </p>
-            {lostSum > 0 && (
-              <p>
-                Потенциально потеряно на отменённых заявках:{" "}
-                <span className="font-semibold text-ink">{vnd(lostSum)}</span>
-              </p>
-            )}
-          </div>
-          {unpaid.length > 0 && (
-            <p className="mt-3 border-t border-line/70 pt-2 text-xs text-muted">
-              Ожидают оплату: {unpaid.length} абонемент(а) на {vnd(unpaidSum)} — в итоги
-              не входят (всего по школе).
-            </p>
-          )}
-        </div>
-
-        {/* Куда ушли деньги — тот же расчёт, что на вкладке «Расходы»
-            (lib/finance), но за выбранный здесь период: начальник видит
-            чистую прибыль, не уходя со «Статистики». */}
-        <div className="rounded-2xl border border-line bg-surface p-4">
-          <p className="text-xs text-muted">Чистая прибыль за период</p>
-          <p className="mt-1 text-3xl font-bold text-primary">{vnd(fin.netProfit)}</p>
-          <div className="mt-3 space-y-1 text-sm text-muted">
-            <p className="flex items-baseline justify-between gap-2">
-              <span>Marina Beach · 35%</span>
-              <span className="font-semibold text-ink">−{vnd(fin.marina)}</span>
-            </p>
-            <p className="flex items-baseline justify-between gap-2">
-              <span>ЗП инструкторов</span>
-              <span className="font-semibold text-ink">−{vnd(fin.instructorPay)}</span>
-            </p>
-            {fin.agentCommissions > 0 && (
-              <p className="flex items-baseline justify-between gap-2">
-                <span>Комиссии агентов</span>
-                <span className="font-semibold text-ink">
-                  −{vnd(fin.agentCommissions)}
-                </span>
-              </p>
-            )}
-            <p className="flex items-baseline justify-between gap-2">
-              <span>Дэвид + Ромчик · 2%</span>
-              <span className="font-semibold text-ink">−{vnd(fin.crmCut)}</span>
-            </p>
-            <p className="flex items-baseline justify-between gap-2">
-              <span>Прочие расходы ({fin.manualExpenses.length})</span>
-              <span className="font-semibold text-ink">−{vnd(fin.manualTotal)}</span>
-            </p>
-          </div>
-          <p className="mt-3 border-t border-line/70 pt-2 text-xs text-muted">
-            Выручка {vnd(fin.revenue)} − расходы {vnd(fin.autoTotal + fin.manualTotal)}.
-            ЗП инструкторов — 15% с их занятий + {fin.instructorShifts} зачтённых
-            выходов + 15% с проданных ими абонементов. Расписать траты и внести
-            новые —{" "}
-            <Link href="/admin/expenses" className="font-semibold text-primary">
-              вкладка «Расходы»
-            </Link>{" "}
-            (она считает по месяцам).
-          </p>
-        </div>
-
         {/* Динамика по дням/месяцам — на широком экране занимает два столбца */}
         {days.length > 1 && (
           <section className="rounded-2xl border border-line bg-surface p-4 xl:col-span-2">

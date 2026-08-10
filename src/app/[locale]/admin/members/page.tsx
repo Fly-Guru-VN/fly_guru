@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadAllClients } from "@/lib/clients";
 import { addMemberAction, createInviteAction } from "../actions";
 import { CopyLink } from "../CopyLink";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Админка · Члены клуба" };
 
@@ -164,11 +165,10 @@ export default async function AdminMembersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Члены клуба</h1>
-      <p className="mt-1 text-sm text-muted">
-        Членство появляется с первым абонементом. Инвайт-ссылка открывает
-        клиенту личный кабинет.
-      </p>
+      <PageHeader
+        title="Члены клуба"
+        hint="Членство появляется с первым абонементом. Инвайт-ссылка открывает клиенту личный кабинет."
+      />
 
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="mb-3 font-bold">Принять в клуб вручную</h2>

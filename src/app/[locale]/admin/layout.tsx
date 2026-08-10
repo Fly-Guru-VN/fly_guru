@@ -41,7 +41,10 @@ export default async function AdminLayout({
     // шапка ~4rem), сайдбар и контент скроллятся независимо (крутится та
     // колонка, над которой мышь; левый бар не уезжает). На телефоне — обычный
     // скролл страницы, меню в фиксированной нижней панели (pb-24 под неё).
-    <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-6 md:h-[calc(100dvh-4rem)] md:py-0">
+    // Ширина 7xl вместо 6xl (10.08.2026): в админке половина экранов — таблицы
+    // (Статистика, Источники, Расчёт выплат), и на мониторе они жались в
+    // колонку с горизонтальной прокруткой, пока справа пустовало поле.
+    <div className="mx-auto w-full max-w-7xl px-4 pb-24 pt-6 md:h-[calc(100dvh-4rem)] md:py-0">
       {/* Живой красный бейдж заявок на всех разделах админки */}
       <BookingsBadgeRefresh channel="admin-bookings-badge" />
       {/* Всплывающие уведомления («Фото загружено») — см. кабинет инструктора. */}
@@ -51,7 +54,7 @@ export default async function AdminLayout({
           name={user.name}
           photoUrl={user.photo_url}
           amountLabel={vnd(fin.netProfit)}
-          amountSub={`Чистая прибыль за ${month.label} · после всех расходов`}
+          amountSub={`чистая прибыль · ${month.label}`}
           freshCount={freshCount}
         />
         <main className="scroll-soft mt-4 min-w-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain md:py-6">

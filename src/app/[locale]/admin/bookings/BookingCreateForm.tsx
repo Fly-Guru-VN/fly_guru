@@ -41,13 +41,17 @@ export function BookingCreateForm({
     return (
       // Кнопка-CTA: заводить заявки руками приходится каждый день, а пунктирная
       // серая рамка читалась как заглушка — её просто не замечали.
+      //
+      // На ПК кнопка компактная и стоит в одной строке с фильтрами: полосой во
+      // всю ширину она отжимала саму ленту заявок вниз (10.08.2026). На
+      // телефоне остаётся во всю ширину — там до неё тянутся пальцем.
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full rounded-2xl bg-accent px-4 py-3 text-center text-white shadow-sm transition-colors hover:bg-accent-strong"
+        className="w-full rounded-2xl bg-accent px-5 py-3 text-center text-white shadow-sm transition-colors hover:bg-accent-strong sm:w-auto sm:rounded-full sm:py-2"
       >
-        <span className="block text-base font-bold">+ Новая заявка</span>
-        <span className="mt-0.5 block text-xs font-medium text-white/80">
+        <span className="block text-base font-bold sm:text-sm">+ Новая заявка</span>
+        <span className="mt-0.5 block text-xs font-medium text-white/80 sm:hidden">
           звонок · мессенджер · пришёл сам
         </span>
       </button>
@@ -57,7 +61,9 @@ export function BookingCreateForm({
   return (
     <form
       action={formAction}
-      className="space-y-3 rounded-2xl border border-line bg-surface p-4"
+      // w-full: форма стоит в одной строке с фильтрами и в раскрытом виде
+      // должна занимать всю ширину, а не остаток строки.
+      className="w-full space-y-3 rounded-2xl border border-line bg-surface p-4"
     >
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="font-bold">Новая заявка</h2>

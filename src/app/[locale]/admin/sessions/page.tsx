@@ -13,6 +13,7 @@ import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 import { sortServicesByType } from "@/lib/serviceOrder";
 import { hiddenStaffIds } from "@/lib/staff";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Админка · Сессии" };
 
@@ -315,11 +316,10 @@ export default async function AdminSessionsPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Сессии</h1>
-      <p className="mt-1 text-sm text-muted">
-        Все занятия школы. Инструктор забыл оформить — создайте сессию задним
-        числом, она войдёт в выручку и его ЗП за месяц её даты.
-      </p>
+      <PageHeader
+        title="Сессии"
+        hint="Все занятия школы. Инструктор забыл оформить — создайте сессию задним числом, она войдёт в выручку и его ЗП за месяц её даты."
+      />
 
       {/* Создание — свёрнуто, чтобы не мешать просмотру */}
       <details className="mt-4 rounded-2xl border border-line bg-surface">

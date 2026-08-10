@@ -8,6 +8,7 @@ import { CopyLink } from "../CopyLink";
 import { ConfirmSubmit } from "../ConfirmSubmit";
 import { getActiveDict, type DictItem } from "@/lib/dictionaries";
 import { vnToday } from "@/lib/dates";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Админка · Агенты" };
 
@@ -325,11 +326,10 @@ export default async function AdminAgentsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Агенты</h1>
-      <p className="mt-1 text-sm text-muted">
-        Партнёры с личной реф-ссылкой. Награда начисляется после выполненной
-        услуги приведённого клиента.
-      </p>
+      <PageHeader
+        title="Агенты"
+        hint="Партнёры с личной реф-ссылкой. Награда начисляется после выполненной услуги приведённого клиента."
+      />
 
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="mb-3 font-bold">Новый агент</h2>

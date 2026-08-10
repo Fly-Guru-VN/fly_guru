@@ -5,6 +5,7 @@ import { CATEGORY_LABELS, type ServiceCategory } from "@/content/services";
 import { toggleServiceActiveAction, updateServiceAction } from "../actions";
 import { SaveForm } from "../SaveForm";
 import { ServiceCreateForm } from "./ServiceCreateForm";
+import { PageHeader } from "@/components/cabinet/PageHeader";
 
 export const metadata: Metadata = { title: "Админка · Услуги" };
 
@@ -127,11 +128,10 @@ export default async function AdminServicesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Услуги</h1>
-      <p className="mt-1 text-sm text-muted">
-        Справочник для форм записи, сессий и статистики. Выключенная услуга
-        исчезает из форм, но история по ней остаётся.
-      </p>
+      <PageHeader
+        title="Услуги"
+        hint="Справочник для форм записи, сессий и статистики. Выключенная услуга исчезает из форм, но история по ней остаётся."
+      />
 
       {/* Цены сайта берутся отсюда (связь по services.code, миграция 0010). */}
       <p className="mt-3 rounded-xl border border-accent/40 bg-accent/5 p-3 text-xs text-muted">

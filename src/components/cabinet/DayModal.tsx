@@ -15,10 +15,13 @@ import { Link, useRouter } from "@/i18n/navigation";
 export function DayModal({
   title,
   closeHref,
+  wide = false,
   children,
 }: {
   title: string;
   closeHref: string;
+  /** Шире на ПК — для карточки дня админа, где содержимое идёт в две колонки. */
+  wide?: boolean;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -53,7 +56,11 @@ export function DayModal({
           Скроллится содержимое модалки, страница под ней стоит на месте.
           Движение под форму: на телефоне лист выезжает снизу, на ПК карточка
           коротко всплывает по центру (sm: перебивает мобильную анимацию). */}
-      <div className="animate-sheet-up sm:animate-pop-in relative flex max-h-[90vh] w-full flex-col rounded-t-3xl border border-line bg-surface shadow-xl sm:max-h-[85vh] sm:max-w-2xl sm:rounded-3xl">
+      <div
+        className={`animate-sheet-up sm:animate-pop-in relative flex max-h-[90vh] w-full flex-col rounded-t-3xl border border-line bg-surface shadow-xl sm:max-h-[85vh] sm:max-w-2xl sm:rounded-3xl ${
+          wide ? "lg:max-w-5xl" : ""
+        }`}
+      >
         <div className="flex items-start justify-between gap-3 border-b border-line/70 px-4 py-3 sm:px-6 sm:py-4">
           {/* first-letter, а не capitalize: в «пятница, 24 июля» capitalize
               поднимал и «Июля» — было «Пятница, 24 Июля». */}
