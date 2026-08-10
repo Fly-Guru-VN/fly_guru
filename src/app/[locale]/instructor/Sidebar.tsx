@@ -31,14 +31,15 @@ type NavItem = {
 const UPDATES_HREF = "/instructor/updates";
 
 const NAV: NavItem[] = [
+  // «Сегодня» — первым: сводка дня (ЗП, выручка, 35% Марине, касса) нужна
+  // каждый день и по несколько раз, в отличие от списка своих сессий, который
+  // ради неё уехал в лист «Ещё». Пятую вкладку в панель не ставим: подписи и
+  // так 11 пикселей.
+  { href: "/instructor/today", label: "Сегодня", hint: "ЗП · выручка · марина", primary: true },
   { href: "/instructor/bookings", label: "Записи", hint: "от админа", primary: true },
   { href: "/instructor/record", label: "Записать клиента", short: "Записать", hint: "новая сессия", primary: true },
   { href: "/instructor/shift", label: "Смена", hint: "открыть · закрыть · фото", primary: true },
-  // «Сессии» — в нижнюю панель телефона вместо «Списания»: проверять, что
-  // запись действительно ушла в базу, инструктор будет каждый день, а списание
-  // минут — реже (пачка №9, пак 1). Шестую вкладку в панель не ставим: подписи
-  // и так 11 пикселей.
-  { href: "/instructor/sessions", label: "Сессии", hint: "мои записи · правка", primary: true },
+  { href: "/instructor/sessions", label: "Сессии", hint: "мои записи · правка" },
   { href: "/instructor/clients", label: "Клиенты", hint: "база · поиск" },
   { href: "/instructor/calendar", label: "Календарь", hint: "смены · записи" },
   { href: "/instructor/stats", label: "Статистика", hint: "за любой период" },
