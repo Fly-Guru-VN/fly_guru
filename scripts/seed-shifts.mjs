@@ -11,14 +11,20 @@
 //   node scripts/seed-shifts.mjs             # показать, что будет записано
 //   node scripts/seed-shifts.mjs --apply     # записать
 //
-// Существующие смены НЕ трогаются: unique (instructor_id, date) из 0014 гасит
-// повтор, а Prefer: resolution=ignore-duplicates превращает конфликт в
-// «пропустить». Поэтому уже открытые сегодня смены останутся с их временем и
-// фотографиями — скрипт добавляет только недостающие дни.
+// Скрипт СВОДИТ базу с графиком, а не только досыпает дни (правка от
+// 10.08.2026 — Денис прислал новый график, и Никита с Евгением в базе стояли
+// не в свои дни):
+//   • нет в базе, есть в графике → добавить;
+//   • есть в базе, нет в графике → снять.
 //
-// Обратной стороны у этого нет: лишний день, которого в графике не должно быть,
-// скрипт не уберёт. Снимать смену — руками в календаре админки, там же, где её
-// видно.
+// Три рубежа, чтобы ничего не потерять:
+//   1. ПРОШЛОЕ НЕ ТРОГАЕМ ВООБЩЕ. Дни до сегодняшнего — это отработанная
+//      история: там открытия, фотографии и уже посчитанная ЗП. Расхождение с
+//      картинкой скрипт только покажет.
+//   2. Снимаем лишь ПУСТЫЕ строки — где нет ни открытия, ни закрытия. Смену,
+//      которую человек уже открыл, скрипт не удалит никогда.
+//   3. Повтор при добавлении гасит unique (instructor_id, date) из 0014 плюс
+//      Prefer: resolution=ignore-duplicates.
 //
 // Работает без supabase-js, напрямую через HTTP API (как create-user.mjs).
 // Ключи — из .env.local (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY).
@@ -29,19 +35,22 @@ import { readFileSync } from "node:fs";
 // ── График ──────────────────────────────────────────────────────────────────
 // Месяц и кто в какие числа работает. Имена — как в таблице users.
 //
-// Август 2026, с фотографии от Дениса (prompts/schedule_august_2026.jpg).
-// Пары работают через два дня: Денис с Евгением, Никита с Михаилом. Сергей
-// (механик) выходит почти каждый день — у него выходные вразбивку.
+// Август 2026 — график от 10.08.2026 (картинка «ГРАФИК АВГУСТ 2026»). Он
+// заменил июльскую раскладку: Михаил уволился 4 августа, и пары «через два
+// дня» рассыпались — теперь каждый ходит по своему рисунку, а на пляже почти
+// всегда трое. Сергей (механик) выходит почти каждый день, выходные вразбивку.
 const MONTH = "2026-08";
 
 const SCHEDULE = {
-  Денис: [1, 4, 5, 8, 9, 12, 13, 16, 17, 20, 21, 24, 25, 28, 29],
-  Евгений: [1, 4, 5, 8, 9, 12, 13, 16, 17, 20, 21, 24, 25, 28, 29],
-  Никита: [2, 3, 6, 7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31],
-  Михаил: [2, 3, 6, 7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31],
+  Денис: [1, 4, 5, 7, 8, 9, 11, 13, 14, 16, 17, 19, 20, 22, 23, 25, 26, 28, 29, 31],
+  Никита: [2, 3, 6, 7, 9, 10, 11, 12, 14, 15, 18, 20, 21, 23, 24, 26, 27, 29, 30],
+  Евгений: [
+    1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 15, 16, 18, 19, 21, 22, 24, 25, 27, 28, 30,
+    31,
+  ],
   Сергей: [
-    1, 2, 4, 5, 7, 8, 10, 11, 12, 14, 15, 17, 18, 19, 21, 22, 24, 25, 26, 28,
-    29, 31,
+    1, 2, 4, 5, 7, 8, 10, 11, 12, 14, 15, 17, 18, 19, 20, 21, 22, 24, 25, 26,
+    28, 29, 31,
   ],
 };
 
@@ -94,6 +103,7 @@ const main = async () => {
   // молча уехали бы смены не тому человеку — поэтому падаем на несовпадении.
   const users = await api("users?select=id,name,role");
   const byName = new Map(users.map((u) => [u.name, u]));
+  const byId = new Map(users.map((u) => [u.id, u.name]));
 
   const rows = [];
   for (const [name, days] of Object.entries(SCHEDULE)) {
@@ -107,11 +117,15 @@ const main = async () => {
     for (const d of days) rows.push({ instructor_id: user.id, date: day(d), name });
   }
 
-  // Что уже стоит — чтобы в отчёте было видно, сколько строк реально новых.
+  // Что уже стоит — и с открытиями: по ним решаем, можно ли строку снимать.
   const existing = await api(
-    `shifts?select=instructor_id,date&date=gte.${day(1)}&date=lte.${day(31)}`,
+    `shifts?select=id,instructor_id,date,opened_at,closed_at&date=gte.${day(1)}&date=lte.${day(31)}`,
   );
   const has = new Set(existing.map((s) => `${s.instructor_id}|${s.date}`));
+
+  // Сегодняшний день по Вьетнаму (UTC+7) — граница «прошлое / будущее».
+  const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  const wanted = new Set(rows.map((r) => `${r.instructor_id}|${r.date}`));
 
   // Таблица для сверки с фотографией: строка = день, столбцы = кто работает.
   const names = Object.keys(SCHEDULE);
@@ -126,35 +140,82 @@ const main = async () => {
   for (let d = 1; d <= lastDay; d++) {
     const cells = names.map((n) => {
       const works = SCHEDULE[n].includes(d);
-      if (!works) return "·".padEnd(width);
       const already = has.has(`${byName.get(n).id}|${day(d)}`);
-      return (already ? "V (есть)" : "V").padEnd(width);
+      if (!works) return (already ? "снять" : "·").padEnd(width);
+      return (already ? "V (есть)" : "V (+)").padEnd(width);
     });
     console.log(`${day(d)}   ${cells.join(" ")}`);
   }
 
-  const fresh = rows.filter((r) => !has.has(`${r.instructor_id}|${r.date}`));
-  console.log(
-    `\nВсего в графике: ${rows.length} · уже в базе: ${rows.length - fresh.length} · добавим: ${fresh.length}`,
+  // Добавляем только начиная с сегодняшнего дня: дорисовывать смены в уже
+  // прошедшие числа нельзя — это выдумывать людям выходы задним числом.
+  const fresh = rows.filter(
+    (r) => !has.has(`${r.instructor_id}|${r.date}`) && r.date >= today,
   );
+
+  // Снимаем лишнее — только пустые строки и только с сегодняшнего дня.
+  const stale = existing.filter(
+    (s) =>
+      !wanted.has(`${s.instructor_id}|${s.date}`) &&
+      s.date >= today &&
+      !s.opened_at &&
+      !s.closed_at,
+  );
+
+  // Что разошлось в прошлом — сказать, но не трогать: там уже история.
+  const pastMismatch = [
+    ...rows
+      .filter((r) => r.date < today && !has.has(`${r.instructor_id}|${r.date}`))
+      .map((r) => `${r.date} ${r.name} — в графике есть, в базе нет`),
+    ...existing
+      .filter((s) => s.date < today && !wanted.has(`${s.instructor_id}|${s.date}`))
+      .map(
+        (s) =>
+          `${s.date} ${byId.get(s.instructor_id) ?? "?"} — в базе есть, в графике нет${
+            s.opened_at ? " (смена отработана)" : ""
+          }`,
+      ),
+  ].sort();
+
+  console.log(
+    `\nВсего в графике: ${rows.length} · добавим: ${fresh.length} · снимем: ${stale.length}`,
+  );
+  for (const r of fresh) console.log(`  + ${r.date} ${r.name}`);
+  for (const s of stale)
+    console.log(`  − ${s.date} ${byId.get(s.instructor_id) ?? "?"}`);
+
+  if (pastMismatch.length > 0) {
+    console.log(`\nПрошедшие дни (не трогаем, только к сведению):`);
+    for (const line of pastMismatch) console.log(`  · ${line}`);
+  }
 
   if (!apply) {
     console.log("\nЭто просмотр. Записать — тем же вызовом с --apply\n");
     return;
   }
-  if (fresh.length === 0) {
-    console.log("\nДобавлять нечего — весь график уже в базе.\n");
+  if (fresh.length === 0 && stale.length === 0) {
+    console.log("\nМенять нечего — база уже сходится с графиком.\n");
     return;
   }
 
-  await api("shifts", {
-    method: "POST",
-    headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
-    body: JSON.stringify(
-      fresh.map(({ instructor_id, date }) => ({ instructor_id, date })),
-    ),
-  });
-  console.log(`\nГотово: добавлено ${fresh.length} смен.\n`);
+  if (fresh.length > 0) {
+    await api("shifts", {
+      method: "POST",
+      headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
+      body: JSON.stringify(
+        fresh.map(({ instructor_id, date }) => ({ instructor_id, date })),
+      ),
+    });
+  }
+  for (const s of stale) {
+    await api(`shifts?id=eq.${s.id}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    });
+  }
+  console.log(
+    `\nГотово: добавлено ${fresh.length}, снято ${stale.length}.\n`,
+  );
 };
 
 main().catch((e) => {
