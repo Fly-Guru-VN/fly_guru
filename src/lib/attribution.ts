@@ -24,7 +24,7 @@ const TRACKED_KEYS = [
 ] as const;
 
 type TrackedKey = (typeof TRACKED_KEYS)[number];
-type Attribution = Partial<Record<TrackedKey, string>>;
+export type Attribution = Partial<Record<TrackedKey, string>>;
 
 const STORAGE_KEY = "flyguru_attribution";
 const TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 дней в миллисекундах
@@ -78,11 +78,28 @@ function readFromUrl(): Attribution {
 // Главная функция «поймать метки». Вызывается на каждой странице при заходе.
 // Если в адресе есть хоть одна метка — сливаем её с уже сохранёнными
 // (новые перезаписывают старые) и обновляем срок жизни.
-export function captureAttribution(): void {
+//
+// Возвращает то, что нашла в адресе: вызывающий по этому решает, отмечать ли
+// переход в статистике (см. Attribution.tsx). Пустой объект — в адресе меток
+// не было, человек просто ходит по сайту.
+export function captureAttribution(): Attribution {
   const fromUrl = readFromUrl();
-  if (Object.keys(fromUrl).length === 0) return; // в адресе ничего нет — не трогаем
+  if (Object.keys(fromUrl).length === 0) return {}; // в адресе ничего нет — не трогаем
   const merged = { ...readStored(), ...fromUrl };
   writeStored(merged);
+  return fromUrl;
+}
+
+// Разложить метки адреса так, как их ждёт счётчик переходов (api/ref-visits):
+// src отдельно, всё остальное (utm_*, gclid, fbclid) — в кучу. Реф-код сюда не
+// попадает: переходы по /r/<code> отмечает сам лендинг.
+export function splitMarksForHit(marks: Attribution): {
+  src: string | null;
+  utm: Record<string, string>;
+} {
+  const { ref: _ref, src, ...rest } = marks;
+  void _ref;
+  return { src: src ?? null, utm: rest as Record<string, string> };
 }
 
 // Явно записать реф-код (используется на лендинге /r/[code], где код лежит не в

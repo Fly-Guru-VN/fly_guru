@@ -19,7 +19,8 @@ export function RefVisitLogger({ code }: { code: string }) {
     fetch("/api/ref-visits", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, path: `/r/${code}` }),
+      keepalive: true,
     }).catch(() => {});
   }, [code]);
 
