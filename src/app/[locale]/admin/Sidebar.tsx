@@ -179,10 +179,11 @@ export function Sidebar({
     </div>
   );
 
-  // Один пункт меню. withHint — показывать ли подпись под названием: на ПК
-  // она не нужна (группа над пунктом уже сказала, про что раздел, а подписи
-  // удваивали высоту списка), в мобильном листе остаётся — там опоры групп нет.
-  const navLink = (item: NavItem, withHint: boolean) => {
+  // Один пункт меню. big — крупная строка для мобильного листа (в неё целятся
+  // пальцем). Подписи (hint) не показываем нигде: на ПК про раздел уже сказала
+  // группа, а в листе «Ещё» шестнадцать подписей — те самые полтора экрана
+  // серого текста, ради которых лист приходилось прокручивать.
+  const navLink = (item: NavItem, big: boolean) => {
     const isActive = item.href === active.href;
     return (
       <Link
@@ -191,21 +192,10 @@ export function Sidebar({
         onClick={() => setOpen(false)}
         aria-current={isActive ? "page" : undefined}
         className={`flex items-center justify-between gap-2 rounded-xl px-3 text-sm font-semibold transition-colors ${
-          withHint ? "py-2.5" : "py-2"
+          big ? "py-3" : "py-2"
         } ${isActive ? "bg-primary text-white" : "text-foreground hover:bg-line/50"}`}
       >
-        <span className="min-w-0">
-          <span className="block truncate">{item.label}</span>
-          {withHint && item.hint && (
-            <span
-              className={`block truncate text-xs font-normal ${
-                isActive ? "text-white/70" : "text-muted"
-              }`}
-            >
-              {item.hint}
-            </span>
-          )}
-        </span>
+        <span className="min-w-0 truncate">{item.label}</span>
         <LinkSpinner />
         {item.badge ? <CountBubble count={item.badge} /> : null}
         {item.dot ? (
@@ -231,14 +221,18 @@ export function Sidebar({
 
   const byHref = new Map(withBadges.map((item) => [item.href, item]));
 
-  // ПК: разделы группами с тонкими заголовками.
+  // Разделы группами — и на ПК, и в мобильном листе «Ещё».
   //
   // Заголовок группы — подпись полки, а не пункт меню: мелкий капс с разрядкой,
   // приглушённый цвет и линия до правого края. Линия и есть главный сигнал —
   // у кликабельных пунктов её нет, поэтому названия групп больше не читаются
   // как ссылки, на которые почему-то не нажимается. select-none, чтобы они не
   // выделялись при попытке ткнуть.
-  const desktopLinks = (
+  //
+  // В листе «Ещё» раньше лежал плоский список всех шестнадцати разделов с
+  // подписями: на ПК их давно разложили по группам, а на телефоне — где
+  // экран меньше и текста должно быть меньше — осталось как было.
+  const groupedLinks = (big: boolean) => (
     <nav className="flex flex-col gap-3">
       {GROUPS.map((group) => (
         <div key={group.title}>
@@ -249,18 +243,10 @@ export function Sidebar({
             <span aria-hidden className="h-px flex-1 bg-line" />
           </div>
           <div className="flex flex-col gap-0.5">
-            {group.items.map((item) => navLink(byHref.get(item.href) ?? item, false))}
+            {group.items.map((item) => navLink(byHref.get(item.href) ?? item, big))}
           </div>
         </div>
       ))}
-      {logout}
-    </nav>
-  );
-
-  // Телефон: один список с подписями — как было.
-  const sheetLinks = (
-    <nav className="flex flex-col gap-1">
-      {withBadges.map((item) => navLink(item, true))}
       {logout}
     </nav>
   );
@@ -275,7 +261,7 @@ export function Sidebar({
       <div className="hidden md:my-6 md:flex md:h-[calc(100%-3rem)] md:flex-col md:overflow-hidden md:rounded-2xl md:border md:border-line md:bg-surface md:shadow-[0_1px_3px_rgba(15,34,51,0.04)]">
         {profileBlock("border-b border-line/70")}
         <div className="scroll-soft min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
-          {desktopLinks}
+          {groupedLinks(false)}
         </div>
       </div>
 
@@ -291,7 +277,7 @@ export function Sidebar({
             />
             <div className="animate-sheet-up fixed inset-x-0 bottom-0 z-50 max-h-[80dvh] space-y-3 overflow-y-auto rounded-t-2xl border-t border-line bg-bg p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
               {profileBlock("rounded-2xl border border-line bg-surface")}
-              {sheetLinks}
+              {groupedLinks(true)}
             </div>
           </>
         )}
@@ -309,6 +295,11 @@ export function Sidebar({
           >
           {primaryItems.map((item) => {
             const isActive = pathname.startsWith(item.href);
+            // Есть новые заявки, а админ не на этой вкладке — красим вкладку
+            // целиком, а не только уголок. Кружок в 16 пикселей на телефоне
+            // под солнцем не замечали (то же чинили инструктору), и новая
+            // заявка могла провисеть необработанной полдня.
+            const alerting = Boolean(item.badge) && !isActive;
             return (
               <Link
                 key={item.href}
@@ -316,11 +307,17 @@ export function Sidebar({
                 onClick={() => setOpen(false)}
                 data-tab={item.href}
                 aria-current={isActive ? "page" : undefined}
-                className={`${mobileTabClass} ${isActive ? mobileTabActive : mobileTabIdle}`}
+                className={`${mobileTabClass} ${
+                  isActive
+                    ? mobileTabActive
+                    : alerting
+                      ? "bg-red-500/10 text-red-600"
+                      : mobileTabIdle
+                }`}
               >
                 <span className="max-w-full truncate">{item.short ?? item.label}</span>
                 {item.badge ? (
-                  <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-surface">
+                  <span className="absolute right-0.5 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white ring-2 ring-surface">
                     {item.badge}
                   </span>
                 ) : null}

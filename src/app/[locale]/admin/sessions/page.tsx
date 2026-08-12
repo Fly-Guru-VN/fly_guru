@@ -14,6 +14,7 @@ import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 import { sortServicesByType } from "@/lib/serviceOrder";
 import { hiddenStaffIds } from "@/lib/staff";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { PageNote } from "@/components/cabinet/PageNote";
 
 export const metadata: Metadata = { title: "Админка · Сессии" };
 
@@ -318,8 +319,9 @@ export default async function AdminSessionsPage({
     <div>
       <PageHeader
         title="Сессии"
-        hint="Все занятия школы. Инструктор забыл оформить — создайте сессию задним числом, она войдёт в выручку и его ЗП за месяц её даты."
+        hint="Все занятия школы"
       />
+      <PageNote>Инструктор забыл оформить занятие — создайте сессию задним числом. Она войдёт в выручку и в его ЗП за месяц СВОЕЙ даты, а не сегодняшнего дня.</PageNote>
 
       {/* Создание — свёрнуто, чтобы не мешать просмотру */}
       <details className="mt-4 rounded-2xl border border-line bg-surface">

@@ -9,6 +9,7 @@ import { StaffManager, type StaffRow } from "./StaffManager";
 import { employmentLabel, isFired, loadInstructors } from "@/lib/staff";
 import { vnToday } from "@/lib/dates";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { PageNote } from "@/components/cabinet/PageNote";
 
 // Штат: старшинство (0033) плюс трудовой период (0036). loadInstructors сам
 // переживает ненакатанную миграцию — читает без новых колонок, и тогда даты
@@ -51,8 +52,9 @@ export default async function AdminSettingsPage() {
     <div>
       <PageHeader
         title="Настройки"
-        hint="Имя и фото видны в кабинете. Ниже — старшие инструкторы, форматы оплаты и инвентарь. Категории расходов редактируются во вкладке «Расходы»."
+        hint="Профиль, старшие инструкторы, форматы оплаты, инвентарь"
       />
+      <PageNote>Имя и фото видны всем в кабинете. Категории расходов редактируются не здесь, а во вкладке «Расходы».</PageNote>
       <div className="mt-6">
         <SettingsForm
           name={user.name}

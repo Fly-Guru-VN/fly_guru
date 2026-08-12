@@ -9,6 +9,7 @@ import { ConfirmSubmit } from "../ConfirmSubmit";
 import { getActiveDict, type DictItem } from "@/lib/dictionaries";
 import { vnToday } from "@/lib/dates";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { PageNote } from "@/components/cabinet/PageNote";
 
 export const metadata: Metadata = { title: "Админка · Агенты" };
 
@@ -328,8 +329,9 @@ export default async function AdminAgentsPage() {
     <div>
       <PageHeader
         title="Агенты"
-        hint="Партнёры с личной реф-ссылкой. Награда начисляется после выполненной услуги приведённого клиента."
+        hint="Партнёры с личной реф-ссылкой"
       />
+      <PageNote>Награда агенту начисляется после выполненной услуги приведённого им клиента.</PageNote>
 
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="mb-3 font-bold">Новый агент</h2>

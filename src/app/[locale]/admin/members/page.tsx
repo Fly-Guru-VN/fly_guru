@@ -4,6 +4,7 @@ import { loadAllClients } from "@/lib/clients";
 import { addMemberAction, createInviteAction } from "../actions";
 import { CopyLink } from "../CopyLink";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { PageNote } from "@/components/cabinet/PageNote";
 
 export const metadata: Metadata = { title: "Админка · Члены клуба" };
 
@@ -167,8 +168,9 @@ export default async function AdminMembersPage() {
     <div>
       <PageHeader
         title="Члены клуба"
-        hint="Членство появляется с первым абонементом. Инвайт-ссылка открывает клиенту личный кабинет."
+        hint="Клиенты с абонементом и доступом в кабинет"
       />
+      <PageNote>Членство появляется с первым абонементом. Инвайт-ссылка открывает клиенту личный кабинет.</PageNote>
 
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="mb-3 font-bold">Принять в клуб вручную</h2>

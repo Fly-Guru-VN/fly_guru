@@ -17,6 +17,7 @@ import { getMonthlyPayroll } from "@/lib/payroll";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { PaidOutToggle } from "./PaidOutToggle";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { PageNote } from "@/components/cabinet/PageNote";
 
 export const metadata: Metadata = { title: "Админка · Расчёт выплат" };
 
@@ -118,8 +119,9 @@ export default async function AdminPayrollPage({
     <div>
       <PageHeader
         title="Расчёт выплат"
-        hint="Выплаты по факту оплаты: абонемент попадает в расчёт в период оплаты, награда агента — в период подтверждения."
+        hint="Сколько отдать за период"
       />
+      <PageNote>Считаем по факту оплаты: абонемент попадает в расчёт в период своей оплаты, награда агента — в период подтверждения.</PageNote>
 
       {/* Пресеты периода. Неделя первой: инструкторам платят раз в неделю. */}
       <div className="mt-4 flex flex-wrap gap-1.5">

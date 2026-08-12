@@ -228,7 +228,7 @@ export default async function AdminCalendarPage({
           остаётся широкой полосой под шапкой — там в стрелки жмут пальцем. */}
       <PageHeader
         title="Календарь"
-        hint="Ставьте инструкторам смены и смотрите записи по дням. Клик по дню — детали."
+        hint="Смены и записи по дням; клик по дню — детали"
         action={
           <div className="hidden sm:block">
             <CalMonthNav ym={ym} basePath="/admin/calendar" className="mt-0" />

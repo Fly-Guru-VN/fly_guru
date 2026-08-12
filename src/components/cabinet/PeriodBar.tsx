@@ -50,7 +50,12 @@ export function PeriodBar({
         ))}
       </div>
 
-      <form className="flex shrink-0 items-end gap-2" action="">
+      {/* flex-wrap до lg: на телефоне два нативных поля даты и кнопка в одну
+          строку не помещаются (390 px), а сжиматься нативный календарь не
+          умеет (NATIVE_PICKER) — кнопка «Показать» уезжала за правый край
+          экрана и нажать её было нельзя. Теперь она переносится под даты, а на
+          ПК строка остаётся одной, как и была. */}
+      <form className="flex flex-wrap items-end gap-2 lg:shrink-0 lg:flex-nowrap" action="">
         {Object.entries(hidden ?? {}).map(([name, value]) => (
           <input key={name} type="hidden" name={name} value={value} />
         ))}

@@ -6,6 +6,7 @@ import { toggleServiceActiveAction, updateServiceAction } from "../actions";
 import { SaveForm } from "../SaveForm";
 import { ServiceCreateForm } from "./ServiceCreateForm";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { PageNote } from "@/components/cabinet/PageNote";
 
 export const metadata: Metadata = { title: "Админка · Услуги" };
 
@@ -130,8 +131,9 @@ export default async function AdminServicesPage() {
     <div>
       <PageHeader
         title="Услуги"
-        hint="Справочник для форм записи, сессий и статистики. Выключенная услуга исчезает из форм, но история по ней остаётся."
+        hint="Справочник услуг и цен"
       />
+      <PageNote>Отсюда услуги попадают в формы записи, сессии и статистику. Выключенная услуга исчезает из форм, но история занятий по ней остаётся.</PageNote>
 
       {/* Цены сайта берутся отсюда (связь по services.code, миграция 0010). */}
       <p className="mt-3 rounded-xl border border-accent/40 bg-accent/5 p-3 text-xs text-muted">

@@ -5,6 +5,7 @@ import { ConfirmSubmit } from "../ConfirmSubmit";
 import { deleteMaterialAction } from "../actions";
 import { MaterialCreateForm, MaterialEditForm } from "./MaterialForms";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { PageNote } from "@/components/cabinet/PageNote";
 
 export const metadata: Metadata = { title: "Админка · Материалы" };
 
@@ -49,8 +50,9 @@ export default async function AdminMaterialsPage() {
     <div>
       <PageHeader
         title="Материалы"
-        hint="Готовые ссылки для рекламы. Метка держится за гостем 30 дней и видна в его заявке — так понятно, какой канал сработал."
+        hint="Готовые ссылки для рекламы"
       />
+      <PageNote>Метка из ссылки держится за гостем 30 дней и видна в его заявке — так понятно, какой канал сработал.</PageNote>
 
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-bold">Каналы</h2>

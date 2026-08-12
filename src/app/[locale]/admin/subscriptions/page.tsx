@@ -22,6 +22,7 @@ import {
   type SubscriptionPrefill,
 } from "./SubscriptionForms";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { PageNote } from "@/components/cabinet/PageNote";
 
 export const metadata: Metadata = { title: "Админка · Абонементы" };
 
@@ -512,8 +513,9 @@ export default async function AdminSubscriptionsPage({
     <div>
       <PageHeader
         title="Абонементы"
-        hint="Пока нет отметки оплаты, абонемент — «ожидает»: он не входит в выручку и комиссию продавца. Минуты списываются только прокатом — он попадает в «Сессии» того дня, к нему можно добавить комментарий."
+        hint="Абонементы, оплаты и остаток минут"
       />
+      <PageNote>Пока нет отметки оплаты, абонемент «ожидает»: он не входит ни в выручку, ни в комиссию продавца. Минуты списываются только прокатом — он попадает в «Сессии» того дня, и к нему можно добавить комментарий.</PageNote>
 
       {/* Фильтры и продажа — одной строкой, как в «Заявках»: это управление
           списком, а не его содержимое. Отдельным ярусом форма отжимала сами
