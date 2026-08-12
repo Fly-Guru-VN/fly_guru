@@ -169,6 +169,15 @@ export function vnDay(iso: string | Date): string {
   return new Date(d.getTime() + VN_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+// Чистый день 'YYYY-MM-DD' → «12.07.2026». Разбором строки, а не через Date:
+// у даты без времени часового пояса нет, и new Date() увёл бы её на день назад
+// (сервер живёт в UTC, а школа — в UTC+7).
+export function dayLabel(day: string | null | undefined): string {
+  if (!day) return "—";
+  const [y, m, d] = day.split("-");
+  return y && m && d ? `${d}.${m}.${y}` : day;
+}
+
 // Час и минута момента по времени Нячанга. Нужны правилам смены (пак C):
 // «открыл до 9:00» и «закрыл после 18:00» считаются по местным часам, а не по
 // UTC сервера — иначе граница уезжала бы на семь часов.

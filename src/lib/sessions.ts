@@ -33,6 +33,32 @@ export interface LoadSessionsOptions {
   fromDay?: string;
   /** Конец периода исключительно, 'YYYY-MM-DD'. */
   toDay?: string;
+  /**
+   * По какой дате отбирать период (0042):
+   *  • "work" (по умолчанию) — день занятия. Так считается ЗП: платят за работу.
+   *  • "money" — денежная дата, money_date = coalesce(paid_on, date). Так
+   *    считаются выручка и всё, что от неё пляшет: чек, оплаченный в прошлом
+   *    месяце, лежит в кассе прошлого месяца.
+   */
+  by?: "work" | "money";
+}
+
+// Колонка money_date приехала в 0042. Пока миграция не накатана, запрос по ней
+// падает целиком — а вместе с ним «Статистика» и «Расходы». Поэтому колонку
+// подбираем один раз и при ошибке откатываемся на дату занятия: до наката всё
+// работает ровно как раньше (та же страховка, что у колонок премии в
+// lib/salary и у переходов в lib/sources).
+export const MONEY_DATE = "money_date";
+
+function periodColumn(by: LoadSessionsOptions["by"]): string {
+  return by === "money" ? MONEY_DATE : "date";
+}
+
+// Ошибка «такой колонки нет» — единственная, из-за которой имеет смысл
+// перечитывать по-старому. Всё остальное (нет связи, нет прав) повторный
+// запрос не вылечит.
+export function isMissingColumn(message: string | undefined | null): boolean {
+  return Boolean(message && /money_date|paid_on/.test(message));
 }
 
 /**
@@ -48,14 +74,23 @@ export async function loadAllSessions<T>(
   options: LoadSessionsOptions = {},
 ): Promise<{ rows: T[]; error: string | null }> {
   const rows: T[] = [];
+  let column = periodColumn(options.by);
 
   for (let from = 0; ; from += PAGE_SIZE) {
-    let query = supabase.from("sessions").select(columns).order("id");
-    if (options.instructorId) query = query.eq("instructor_id", options.instructorId);
-    if (options.fromDay) query = query.gte("date", options.fromDay);
-    if (options.toDay) query = query.lt("date", options.toDay);
+    const fetchPage = (col: string) => {
+      let query = supabase.from("sessions").select(columns).order("id");
+      if (options.instructorId) query = query.eq("instructor_id", options.instructorId);
+      if (options.fromDay) query = query.gte(col, options.fromDay);
+      if (options.toDay) query = query.lt(col, options.toDay);
+      return query.range(from, from + PAGE_SIZE - 1);
+    };
 
-    const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+    let { data, error } = await fetchPage(column);
+    // 0042 не накатана — перечитываем по дате занятия и дальше идём так же.
+    if (error && column === MONEY_DATE && isMissingColumn(error.message)) {
+      column = "date";
+      ({ data, error } = await fetchPage(column));
+    }
     if (error) return { rows, error: error.message };
 
     const page = (data ?? []) as unknown as T[];

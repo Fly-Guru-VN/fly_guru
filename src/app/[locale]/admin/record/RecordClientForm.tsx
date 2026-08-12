@@ -35,6 +35,7 @@ export interface RecordPrefill {
   paymentMethodName?: string | null;
   city?: string | null; // город из заявки — второй раз его не спрашиваем
   channel?: string | null; // канал записи из заявки (bookings.src)
+  paidOn?: string | null; // дата оплаты из заявки (bookings.paid_on, 0042)
 }
 
 // Единая высота h-10 у всех полей. Дата — компактная (задаёт ширину сама, как
@@ -156,6 +157,21 @@ export function RecordClientForm({
         className={`mt-1 ${inputClass}`}
         variant="compact"
       />
+
+      {/* Когда пришли деньги (0042). Пусто — значит в день занятия. Из заявки
+          приезжает заполненной, если гость платил заранее: чек тогда ляжет в
+          кассу и в прибыль ТОГО месяца, а ЗП инструктора всё равно считается
+          по дню занятия. */}
+      <label className="block text-xs text-muted">
+        Дата оплаты (если платили не в день занятия)
+        <input
+          type="date"
+          name="paidOn"
+          defaultValue={prefill?.paidOn ?? ""}
+          max={today}
+          className={`mt-1 ${inputClass}`}
+        />
+      </label>
 
       {/* Город обязателен (пачка №20): без него не видно, откуда к нам едут.
           У нового клиента он попадёт в карточку, у существующего — заполнит

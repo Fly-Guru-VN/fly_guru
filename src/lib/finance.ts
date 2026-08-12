@@ -2,6 +2,7 @@ import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
 import { SESSION_RATE, getShiftPay, getSubsShares } from "@/lib/salary";
 import { loadInstructors } from "@/lib/staff";
+import { loadAllSessions } from "@/lib/sessions";
 
 // Финансовая модель школы за период — питает вкладку «Расходы».
 // Как делятся деньги (пачка правок №3, паки E + H2):
@@ -18,12 +19,34 @@ import { loadInstructors } from "@/lib/staff";
 //  • Остаток — чистая прибыль, деньги босса, из неё вычитаем ручные расходы
 //    (таблица expenses: аренда, топливо, инвентарь…).
 //
+// ДВЕ ДАТЫ У ОДНОГО ЗАНЯТИЯ (0042, решение David от 12.08.2026). Гость мог
+// заплатить в прошлом месяце, а кататься в этом. Поэтому период считается по
+// двум разным колонкам, и это не описка:
+//  • ДЕНЬГИ ШКОЛЫ — по денежной дате (money_date): выручка, 35% Marina, 2% CRM
+//    и, как следствие, прибыль. Чек лежит в том месяце, когда деньги пришли.
+//  • ВЫПЛАТЫ ЛЮДЯМ — по дате занятия: 15% инструкторам, выходы, котёл
+//    абонементов, комиссии агентов. Это плата за работу, а работали в день
+//    занятия; недели уже закрыты выплатами, пересчитывать их задним числом
+//    нельзя.
+// Из-за этого 15% в отдельно взятом месяце могут считаться не с той выручки,
+// что показана выше, — ровно на сумму «оплачено в другом месяце».
+//
 // Важно: сессии и абонементы АДМИНА в ЗП не попадают — он босс и оставляет
 // себе всё, кроме 35% Marina и 2% CRM. Его деньги и есть эта чистая прибыль.
 // Если считать 15% со всей выручки без разбора, вкладка покажет фантомный
 // расход и занизит прибыль.
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+interface SessionMoneyRow {
+  amount: number | null;
+}
+
+interface SessionWorkRow {
+  amount: number | null;
+  agent_commission: number | null;
+  instructor_id: string | null;
+}
 
 export const MARINA_RATE = 0.35; // Marina Beach — со всей выручки
 export const CRM_RATE = 0.02; // Дэвид + Ромчик — с сессий + абонементов (пополам)
@@ -44,12 +67,13 @@ export async function getCrmPayout(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<CrmPayout> {
-  const [sessionsRes, subsRes] = await Promise.all([
-    supabase
-      .from("sessions")
-      .select("amount")
-      .gte("date", range.fromDay)
-      .lt("date", range.toDay),
+  const [sessions, subsRes] = await Promise.all([
+    // Деньги — по денежной дате (0042).
+    loadAllSessions<{ amount: number | null }>(supabase, "amount", {
+      fromDay: range.fromDay,
+      toDay: range.toDay,
+      by: "money",
+    }),
     supabase
       .from("subscriptions")
       .select("price")
@@ -59,7 +83,7 @@ export async function getCrmPayout(
   ]);
 
   const revenue =
-    (sessionsRes.data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0) +
+    sessions.rows.reduce((s, r) => s + Number(r.amount ?? 0), 0) +
     (subsRes.data ?? []).reduce((s, r) => s + Number(r.price ?? 0), 0);
   const total = revenue * CRM_RATE;
 
@@ -123,13 +147,22 @@ export async function getFinance(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<Finance> {
-  const [sessionsRes, subsRes, expensesRes, staff, instructorPaidOut] =
+  // Два набора занятий, потому что даты у денег и у работы разные (0042):
+  //  • moneySessions — что оплачено в этом периоде: выручка школы;
+  //  • workSessions — что откатано в этом периоде: с них 15% и комиссии агентов.
+  // У занятия без paid_on обе даты совпадают, и наборы одинаковы — как раньше.
+  const [moneySessions, workSessions, subsRes, expensesRes, staff, instructorPaidOut] =
     await Promise.all([
-      supabase
-        .from("sessions")
-        .select("amount, agent_commission, instructor_id")
-        .gte("date", range.fromDay)
-        .lt("date", range.toDay),
+      loadAllSessions<SessionMoneyRow>(supabase, "amount", {
+        fromDay: range.fromDay,
+        toDay: range.toDay,
+        by: "money",
+      }),
+      loadAllSessions<SessionWorkRow>(
+        supabase,
+        "amount, agent_commission, instructor_id",
+        { fromDay: range.fromDay, toDay: range.toDay },
+      ),
       supabase
         .from("subscriptions")
         .select("price, sold_by")
@@ -161,16 +194,18 @@ export async function getFinance(
     getSubsShares(supabase, range, staff),
   ]);
 
-  const sessions = sessionsRes.data ?? [];
   const subs = subsRes.data ?? [];
-  const sessionsRevenue = sessions.reduce((s, r) => s + Number(r.amount ?? 0), 0);
+  const sessionsRevenue = moneySessions.rows.reduce(
+    (s, r) => s + Number(r.amount ?? 0),
+    0,
+  );
   const paidSubsRevenue = subs.reduce((s, r) => s + Number(r.price ?? 0), 0);
   const revenue = sessionsRevenue + paidSubsRevenue;
 
   // Выручка школы — вся; а вот ЗП платим только за работу инструкторов.
   // Всё, что откатал/продал сам админ, мимо ЗП — это его прибыль.
   const isInstructor = new Set(instructorIds);
-  const instructorSessions = sessions.filter(
+  const instructorSessions = workSessions.rows.filter(
     (r) => r.instructor_id && isInstructor.has(r.instructor_id as string),
   );
   // База 15%: чек минус комиссия агента по КАЖДОЙ сессии (пак D — агент
@@ -184,7 +219,7 @@ export async function getFinance(
   );
   // Все комиссии агентов за период — отдельная статья расхода школы: агент
   // забирает их «сверху» чека, из прибыли босса это надо вычесть.
-  const agentCommissions = sessions.reduce(
+  const agentCommissions = workSessions.rows.reduce(
     (s, r) => s + Number(r.agent_commission ?? 0),
     0,
   );

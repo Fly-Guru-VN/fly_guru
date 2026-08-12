@@ -123,6 +123,12 @@ function bookingFields(formData: FormData) {
     // бы в отчёты дважды. Ключ добавляем только если чекбокс был в форме —
     // формы без него (карточка заявки с сайта) не должны стирать отметку.
     ...(formData.has("paidMark") ? { paid: formData.get("paidMark") === "on" } : {}),
+    // Когда именно заплатили (0042). Нужна для случая «перевёл в прошлом
+    // месяце, катается в этом»: дата переедет в занятие, и чек ляжет в кассу
+    // того месяца, когда деньги пришли. Пусто = платили в день занятия.
+    ...(formData.has("paidOn")
+      ? { paid_on: String(formData.get("paidOn") ?? "").trim() || null }
+      : {}),
   };
 }
 
@@ -150,9 +156,10 @@ async function updateBooking(
   // Колонка paid появилась в 0036, а деплой у David едет раньше наката: без
   // этой страховки карточка заявки перестала бы сохраняться целиком из-за
   // одной галочки (тот же приём, что у payment_method_id абонемента в 0025).
-  if (error?.code === "PGRST204" && "paid" in patch) {
+  if (error?.code === "PGRST204" && ("paid" in patch || "paid_on" in patch)) {
     const legacy = { ...patch };
     delete legacy.paid;
+    delete legacy.paid_on; // колонка из 0042 — та же история
     ({ error } = await supabase.from("bookings").update(legacy).eq("id", id));
   }
   failIfError(error, "не удалось сохранить заявку");
@@ -237,9 +244,10 @@ export async function createBookingAction(
     .single();
   // 0036 может быть ещё не накатана — создаём заявку без отметки об оплате,
   // чтобы форма не отказывала целиком из-за одной колонки.
-  if (error?.code === "PGRST204" && "paid" in row) {
+  if (error?.code === "PGRST204" && ("paid" in row || "paid_on" in row)) {
     const legacy: Partial<typeof row> = { ...row };
     delete legacy.paid;
+    delete legacy.paid_on;
     ({ data: created, error } = await supabase
       .from("bookings")
       .insert(legacy)
@@ -547,6 +555,24 @@ export async function createSessionAction(
   const paymentMethodId = String(formData.get("paymentMethodId") ?? "").trim();
   if (!paymentMethodId) return { error: "Укажите формат оплаты." };
 
+  // Когда пришли деньги (0042). Форма может прислать свою дату («Записать
+  // клиента» у админа), иначе берём ту, что стоит в заявке: гость заплатил
+  // при переписке в прошлом месяце, а катается сейчас. Отдельным запросом —
+  // чтобы до наката 0042 отсутствие колонки не роняло чтение заявки целиком.
+  const paidOnRaw = String(formData.get("paidOn") ?? "").trim();
+  if (paidOnRaw && !DAY_RE.test(paidOnRaw)) {
+    return { error: "Дата оплаты — в формате ГГГГ-ММ-ДД." };
+  }
+  let paidOn: string | null = paidOnRaw || null;
+  if (!paidOn && bookingId) {
+    const { data: paidRow } = await supabase
+      .from("bookings")
+      .select("paid_on")
+      .eq("id", bookingId)
+      .maybeSingle();
+    paidOn = (paidRow?.paid_on as string | null) ?? null;
+  }
+
   // Заявку занимаем ДО записи занятия: пометка «выполнена» ставится одним
   // запросом с условием «если ещё не выполнена», поэтому из двух одновременных
   // оформлений (админ и инструктор с разных устройств) проходит ровно одно.
@@ -568,24 +594,38 @@ export async function createSessionAction(
   // Комиссию агента фиксируем на сессии — из неё вычтется база инструктора
   // (15% с чека минус комиссия). Ставим её там же, где положена награда, даже
   // если сумму админ ввёл руками: агент привёл клиента независимо от чека.
-  const { data: session, error: insError } = await supabase
+  const sessionRow = {
+    client_id: clientId,
+    service_id: serviceId,
+    instructor_id: instructorId,
+    date,
+    amount,
+    agent_commission: rewarded ? agent!.commission_fixed : 0,
+    payment_method_id: paymentMethodId,
+    // Как человек записался на это занятие (0034). Заявка не создаётся, когда
+    // клиента оформляют сразу на пляже, — иначе канал терялся бы совсем.
+    channel,
+    // Пусто = платили в день занятия (0042).
+    ...(paidOn ? { paid_on: paidOn } : {}),
+    note: String(formData.get("note") ?? "").trim() || null,
+    created_by: user.id,
+  };
+  let { data: session, error: insError } = await supabase
     .from("sessions")
-    .insert({
-      client_id: clientId,
-      service_id: serviceId,
-      instructor_id: instructorId,
-      date,
-      amount,
-      agent_commission: rewarded ? agent!.commission_fixed : 0,
-      payment_method_id: paymentMethodId,
-      // Как человек записался на это занятие (0034). Заявка не создаётся, когда
-      // клиента оформляют сразу на пляже, — иначе канал терялся бы совсем.
-      channel,
-      note: String(formData.get("note") ?? "").trim() || null,
-      created_by: user.id,
-    })
+    .insert(sessionRow)
     .select("id")
     .single();
+  // 0042 не накатана — записываем занятие без даты оплаты: потерять дату
+  // хуже, чем потерять всё занятие, и дописать её потом можно в карточке.
+  if (insError?.code === "PGRST204" && "paid_on" in sessionRow) {
+    const legacy: Partial<typeof sessionRow> = { ...sessionRow };
+    delete legacy.paid_on;
+    ({ data: session, error: insError } = await supabase
+      .from("sessions")
+      .insert(legacy)
+      .select("id")
+      .single());
+  }
   if (insError) {
     // Занятие не записалось — заявка не должна остаться «проведённой».
     if (bookingId && bookingBefore) await releaseBooking(supabase, bookingId, bookingBefore);
@@ -651,6 +691,13 @@ export async function updateSessionAction(formData: FormData) {
   if (formData.has("note")) {
     patch.note = String(formData.get("note") ?? "").trim() || null;
   }
+  // Дата оплаты (0042): пусто — значит платили в день занятия, и чек считается
+  // в месяце занятия, как раньше. Стирать разрешаем по той же причине, что и
+  // способ оплаты: поле приходит с каждой отправкой формы.
+  if (formData.has("paidOn")) {
+    const paidOn = String(formData.get("paidOn") ?? "").trim();
+    if (!paidOn || DAY_RE.test(paidOn)) patch.paid_on = paidOn || null;
+  }
 
   const supabase = await officeClient(user);
   const serviceId = String(formData.get("serviceId") ?? "");
@@ -664,7 +711,14 @@ export async function updateSessionAction(formData: FormData) {
     if (svc && svc.category !== "subscription") patch.service_id = serviceId;
   }
   if (Object.keys(patch).length === 0) return;
-  const { error } = await supabase.from("sessions").update(patch).eq("id", id);
+  let { error } = await supabase.from("sessions").update(patch).eq("id", id);
+  // 0042 ещё не накатана — сохраняем всё остальное, а не отказываем целиком
+  // из-за одной колонки (та же страховка, что у paid в заявке).
+  if (error?.code === "PGRST204" && "paid_on" in patch) {
+    const legacy = { ...patch };
+    delete legacy.paid_on;
+    ({ error } = await supabase.from("sessions").update(legacy).eq("id", id));
+  }
   failIfError(error, "не удалось сохранить сессию");
   revalidatePath("/", "layout");
 }

@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
   const out: (string | number)[][] = [
     [
       "Дата",
+      "Дата оплаты",
       "Клиент",
       "Занятие",
       "Оплата, VND",
@@ -72,6 +73,9 @@ export async function GET(request: NextRequest) {
   for (const r of sorted) {
     out.push([
       r.date,
+      // Пусто = платили в день занятия (0042). Отдельной колонкой, а не
+      // припиской к дате: в Excel по ней фильтруют и сортируют.
+      r.paid_on ?? "",
       r.client?.name ?? "",
       serviceLabel(r),
       // Списание минут — это не ноль в кассе, а «денег не было»: пустая ячейка

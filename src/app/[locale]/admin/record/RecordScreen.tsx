@@ -15,6 +15,23 @@ import { hiddenStaffIds } from "@/lib/staff";
 // Может закрыть заявку и учесть агентскую скидку/награду (?booking=id).
 // Постит в общий createSessionAction (см. bookingId там).
 
+// Заявка, из которой заполняется форма. paid_on может не приехать (0042 не
+// накатана) — поэтому поле необязательное.
+interface BookingPrefillRow {
+  id: string;
+  client_name: string;
+  phone: string;
+  service_id: string | null;
+  ref_code: string | null;
+  preferred_date: string | null;
+  telegram_username: string | null;
+  payment_method_id: string | null;
+  city: string | null;
+  src: string | null;
+  payment: unknown;
+  paid_on?: string | null;
+}
+
 export async function RecordScreen({
   searchParams,
 }: {
@@ -50,13 +67,14 @@ export async function RecordScreen({
 
   let prefill: RecordPrefill | undefined;
   if (bookingId) {
-    const { data: booking } = await supabase
-      .from("bookings")
-      .select(
-        "id, client_name, phone, service_id, ref_code, preferred_date, telegram_username, payment_method_id, city, src, payment:payment_methods(name)",
-      )
-      .eq("id", bookingId)
-      .maybeSingle();
+    // paid_on приехала в 0042 — при ненакатанной миграции перечитываем без неё.
+    const bookingCols =
+      "id, client_name, phone, service_id, ref_code, preferred_date, telegram_username, payment_method_id, city, src, payment:payment_methods(name)";
+    const bookingQuery = (columns: string) =>
+      supabase.from("bookings").select(columns).eq("id", bookingId).maybeSingle();
+    let bookingRes = await bookingQuery(`${bookingCols}, paid_on`);
+    if (bookingRes.error) bookingRes = await bookingQuery(bookingCols);
+    const booking = bookingRes.data as unknown as BookingPrefillRow | null;
     if (booking) {
       // Дату занятия берём из заявки: админ уже договорился с клиентом на этот
       // день, и запись должна лечь именно туда, а не на «сегодня». Будущую дату
@@ -78,6 +96,9 @@ export async function RecordScreen({
         // раз незачем, но поменять можно (поля обычные).
         city: booking.city,
         channel: booking.src,
+        // Дата оплаты из заявки: гость мог заплатить в прошлом месяце, и чек
+        // должен лечь в кассу ТОГО месяца (0042).
+        paidOn: booking.paid_on ?? null,
       };
       // Чей это код и положена ли гостю скидка — та же проверка, что делает
       // расчёт чека: скидку даёт только активный агент и только за первое
@@ -89,10 +110,11 @@ export async function RecordScreen({
           .eq("ref_code", booking.ref_code)
           .eq("active", true)
           .maybeSingle();
-        prefill.refIsAgent = Boolean(agent);
-        if (prefill.refIsAgent) {
+        const filled = prefill;
+        filled.refIsAgent = Boolean(agent);
+        if (filled.refIsAgent) {
           const known = await firstBasicTrainingByPhone(supabase, [booking.phone]);
-          prefill.refDiscount = known.get(booking.phone as string);
+          filled.refDiscount = known.get(booking.phone);
         }
       }
     }

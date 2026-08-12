@@ -2,7 +2,7 @@
 // поток заявок они ведут вдвоём. Базовый путь для ссылок приходит параметром.
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { vnToday } from "@/lib/dates";
+import { dayLabel, vnToday } from "@/lib/dates";
 import {
   confirmBookingAction,
   saveBookingAction,
@@ -58,6 +58,7 @@ interface BookingRow {
   payment_method_id: string | null;
   payment: { name: string } | null;
   paid: boolean | null; // деньги получены до занятия (0036)
+  paid_on?: string | null; // когда именно заплатили, если не в день занятия (0042)
   // Чем закрыта заявка (0038): занятием или продажей абонемента. null у всех
   // заявок, закрытых до этой миграции, и у закрытых кнопкой «Выполнена».
   subscription_id: string | null;
@@ -267,6 +268,7 @@ function BookingCard({
           <p className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-600">
             <span aria-hidden>✅</span>
             Клиент уже оплатил{b.payment ? ` · ${b.payment.name}` : ""}
+            {b.paid_on ? ` · оплачено ${dayLabel(b.paid_on)}` : ""}
           </p>
         )}
 
@@ -437,6 +439,19 @@ function BookingCard({
               className="h-4 w-4 accent-primary"
             />
             Клиент уже оплатил
+          </label>
+          {/* Дата оплаты (0042): нужна, когда деньги пришли не в день занятия —
+              «перевёл в июле, катается в августе». Она переедет в занятие, и
+              чек ляжет в кассу и в прибыль ТОГО месяца, когда заплатили. ЗП
+              инструктора это не двигает — её считают по дню занятия. */}
+          <label className="mt-2 block text-xs text-muted">
+            Дата оплаты (если платили не в день занятия)
+            <input
+              type="date"
+              name="paidOn"
+              defaultValue={b.paid_on ?? ""}
+              className={`mt-1 ${NATIVE_PICKER} ${inputClass}`}
+            />
           </label>
           <label className="mt-2 block text-xs text-muted">
             Заметка (пожелания клиента, договорённости — видна инструкторам)
@@ -671,9 +686,13 @@ export async function BookingsScreen({
   // отваливаемся на прежний набор, лента продолжает работать.
   const sessionCols =
     "subscription_id, session:sessions!session_id(id, date, amount, services(name), instructor:users!instructor_id(name))";
-  let res = await bookingsQuery(`${bookingCols}, paid, ${sessionCols}`);
-  // Первый запрос прошёл — значит колонки связи в базе есть, и «занятие не
-  // привязано» действительно означает дыру, а не ненакатанную миграцию.
+  // paid_on приехала в 0042 — третья колонка, живущая по тому же правилу.
+  let res = await bookingsQuery(`${bookingCols}, paid, paid_on, ${sessionCols}`);
+  if (res.error) res = await bookingsQuery(`${bookingCols}, paid, ${sessionCols}`);
+  // Прошёл любой из запросов С КОЛОНКАМИ СВЯЗИ — значит они в базе есть, и
+  // «занятие не привязано» означает дыру, а не ненакатанную миграцию. Считаем
+  // это после второй попытки: без paid_on (0042) первая падает и на накатанной
+  // 0038, и подсказки пропали бы на ровном месте.
   const linksReady = !res.error;
   if (res.error) res = await bookingsQuery(`${bookingCols}, paid`);
   if (res.error) res = await bookingsQuery(bookingCols);

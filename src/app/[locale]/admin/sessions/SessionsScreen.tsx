@@ -30,6 +30,7 @@ interface SessionRow {
   service_id: string | null;
   instructor_id: string | null;
   payment_method_id: string | null;
+  paid_on?: string | null; // день оплаты, если платили не в день занятия (0042)
   channel: string | null;
   note: string | null;
   created_at: string;
@@ -47,6 +48,11 @@ const dayInputClass =
   "rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary";
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Колонки карточки. paid_on приехала в 0042 и запрашивается отдельной строкой:
+// пока миграция не накатана, читаем без неё — список занятий важнее одной даты.
+const SESSION_COLS =
+  "id, date, amount, minutes_used, subscription_id, service_id, instructor_id, payment_method_id, channel, note, created_at, clients(name), services(name), instructor:users!instructor_id(name), payment:payment_methods(name)";
 
 function SessionCard({
   s,
@@ -211,6 +217,20 @@ function SessionCard({
             </select>
           </label>
         )}
+        {/* Дата оплаты (0042): деньги могли прийти раньше занятия, иногда в
+            прошлом месяце. По ней занятие попадает в кассу и в прибыль своего
+            месяца; ЗП инструктора всё равно считается по дате занятия. */}
+        {!isWriteoff && (
+          <label className="mt-2 block text-xs text-muted">
+            Дата оплаты (если платили не в день занятия)
+            <input
+              type="date"
+              name="paidOn"
+              defaultValue={s.paid_on ?? ""}
+              className={`mt-1 ${inputClass}`}
+            />
+          </label>
+        )}
         <label className="mt-2 block text-xs text-muted">
           Примечание
           <textarea
@@ -270,17 +290,19 @@ export async function SessionsScreen({
 
   const supabase = await createClient();
   const paymentMethods = await getActiveDict(supabase, "payment_methods");
-  const [sessionsRes, clientsRes, servicesRes, staffRes, hidden] = await Promise.all([
+  // Период здесь по дате ЗАНЯТИЯ, а не по денежной (0042): это список работы —
+  // что откатали, то и правим. Деньги по месяцам смотрят в «Статистике».
+  const sessionsQuery = (columns: string) =>
     supabase
       .from("sessions")
-      .select(
-        "id, date, amount, minutes_used, subscription_id, service_id, instructor_id, payment_method_id, channel, note, created_at, clients(name), services(name), instructor:users!instructor_id(name), payment:payment_methods(name)",
-      )
+      .select(columns)
       .gte("date", range.fromDay)
       .lt("date", range.toDay)
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(300),
+      .limit(300);
+  const [firstTry, clientsRes, servicesRes, staffRes, hidden] = await Promise.all([
+    sessionsQuery(`${SESSION_COLS}, paid_on`),
     // Полный список клиентов постранично (lib/clients): .limit(1000) молча
     // обрезал бы выпадающий список — клиента просто не было бы в выборе.
     loadAllClients<{ id: string; name: string; phone: string | null }>(
@@ -300,6 +322,8 @@ export async function SessionsScreen({
     hiddenStaffIds(supabase),
   ]);
 
+  // 0042 не накатана — перечитываем прежним набором колонок.
+  const sessionsRes = firstTry.error ? await sessionsQuery(SESSION_COLS) : firstTry;
   const sessions = (sessionsRes.data ?? []) as unknown as SessionRow[];
   // По алфавиту — см. комментарий в admin/members: загрузчик отдаёт по id.
   const clients = [...clientsRes.rows].sort((a, b) =>

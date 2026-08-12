@@ -300,7 +300,12 @@ export async function DashboardScreen({
   // и сворачивать, форматирование и сортировка остаются здесь, на сервере.
   const tableRows: VisitCell[] = sorted.map((r) => ({
     id: r.id,
-    date: fmtDay(r.date),
+    // Дата занятия, а рядом — дата оплаты, если платили в другой день (0042).
+    // Без этой приписки строка в кассе прошлого месяца с датой занятия из
+    // этого читается как ошибка.
+    date: r.paid_on
+      ? `${fmtDay(r.date)} · оплата ${fmtDay(r.paid_on)}`
+      : fmtDay(r.date),
     client: r.client?.name ?? "—",
     // Ссылка на карточку клиента — это список клиентов, отфильтрованный по
     // имени: отдельной страницы клиента в админке нет, а «увидел странный чек →
@@ -518,7 +523,9 @@ export async function DashboardScreen({
       <div className={`mt-4 grid gap-3 ${showProfit ? "lg:grid-cols-2" : ""}`}>
         {/* Итоги периода — без фильтров, деньги только по факту оплаты */}
         <div className="rounded-2xl border border-line bg-surface p-4">
-          <p className="text-xs text-muted">Выручка за период · только оплаченное</p>
+          <p className="text-xs text-muted">
+            Выручка за период · только оплаченное · по дате оплаты
+          </p>
           <p className="mt-1 text-3xl font-bold text-primary">
             {vnd(sessions.reduce((s, r) => s + r.amount, 0) + paidSubsSum)}
           </p>

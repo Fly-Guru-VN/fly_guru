@@ -1,5 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
-import { loadAllSessions } from "@/lib/sessions";
+import { isMissingColumn, loadAllSessions } from "@/lib/sessions";
 import { channelLabel } from "@/lib/channels";
 import { vnDay } from "@/lib/dates";
 import { SUBS_CAT } from "@/lib/payments";
@@ -19,12 +19,18 @@ import type { StatsRange } from "@/lib/stats";
 //
 // Не путать с прокатом ПО абонементу: списание минут — обычная сессия
 // (subscription_id заполнен, amount = 0), она была в таблице и осталась.
+//
+// Период — ДЕНЕЖНЫЙ (money_date, 0042): таблица стоит на «Статистике» под
+// выручкой и кассой, и строки в ней обязаны быть теми же, из которых эти суммы
+// сложены. Поэтому занятие, оплаченное в прошлом месяце, показывается в
+// прошлом — со своей датой занятия и пометкой об оплате (см. paid_on ниже).
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 export interface VisitRow {
   id: string;
-  date: string;
+  date: string; // день занятия
+  paid_on?: string | null; // день оплаты, если платили не в день занятия (0042)
   amount: number;
   minutes_used: number | null;
   subscription_id: string | null;
@@ -40,11 +46,16 @@ export interface VisitRow {
   sub_minutes?: number | null; // минут в проданном абонементе
 }
 
-const SELECT =
+// Без paid_on — набор колонок, который работал до 0042. На него откатываемся,
+// если миграцию ещё не накатили: «Статистика» тогда считает по дате занятия,
+// как раньше, вместо того чтобы падать целиком.
+const SELECT_CORE =
   "id, date, amount, minutes_used, subscription_id, client_id, instructor_id, channel, " +
   "client:clients!client_id(name), service:services!service_id(name, category), " +
   "instructor:users!instructor_id(name), creator:users!created_by(name), " +
   "payment:payment_methods!payment_method_id(name)";
+
+const SELECT = `${SELECT_CORE}, paid_on`;
 
 // Значение фильтра «пусто»: способ оплаты не проставлен / канал не указан.
 // Обычное пустое значение в адресе не отличить от «фильтр не выбран».
@@ -192,11 +203,9 @@ export async function loadVisits(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<VisitsData> {
-  const [{ rows: sessions }, { rows: all }, subsRes] = await Promise.all([
-    loadAllSessions<VisitRow>(supabase, SELECT, {
-      fromDay: range.fromDay,
-      toDay: range.toDay,
-    }),
+  const period = { fromDay: range.fromDay, toDay: range.toDay };
+  const [firstTry, { rows: all }, subsRes] = await Promise.all([
+    loadAllSessions<VisitRow>(supabase, SELECT, { ...period, by: "money" }),
     loadAllSessions<{ client_id: string | null }>(supabase, "client_id"),
     supabase
       .from("subscriptions")
@@ -205,6 +214,11 @@ export async function loadVisits(
       .gte("paid_at", range.fromIso)
       .lt("paid_at", range.toIso),
   ]);
+
+  // 0042 не накатана — перечитываем прежним набором колонок и по дате занятия.
+  const sessions = isMissingColumn(firstTry.error)
+    ? (await loadAllSessions<VisitRow>(supabase, SELECT_CORE, period)).rows
+    : firstTry.rows;
 
   const lifetime = new Map<string, number>();
   for (const r of all) {

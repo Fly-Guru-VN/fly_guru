@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { vnPeriod } from "@/lib/dates";
+import { MONEY_DATE } from "@/lib/sessions";
 import type { StatsRange } from "@/lib/stats";
 
 // Сколько денег пришло каждым способом оплаты (пачка №15, п.4; разбивка по
@@ -103,7 +104,9 @@ export function buildPaymentBreakdown(payments: PaymentInput[]): PaymentBreakdow
   };
 }
 
-// Оплаты за произвольный период — тем же запросом, что и за день.
+// Оплаты за произвольный период — тем же запросом, что и за день. Период здесь
+// денежный (money_date, 0042): это касса, а в кассе чек лежит в том дне, когда
+// пришли деньги, а не когда катались.
 export async function getPeriodPayments(
   supabase: Supabase,
   range: StatsRange,
@@ -112,8 +115,8 @@ export async function getPeriodPayments(
     supabase
       .from("sessions")
       .select("amount, payment_methods(name), services(category)")
-      .gte("date", range.fromDay)
-      .lt("date", range.toDay)
+      .gte(MONEY_DATE, range.fromDay)
+      .lt(MONEY_DATE, range.toDay)
       .gt("amount", 0),
     supabase
       .from("subscriptions")
