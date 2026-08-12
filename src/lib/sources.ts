@@ -1,6 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
-import { channelLabel, LEGACY_CHANNELS } from "@/lib/channels";
+import { channelLabel, channelNaming, normChannel, LEGACY_CHANNELS } from "@/lib/channels";
 
 // «Источники» — откуда к нам приходят люди и что из этого выходит (10.08.2026,
 // просьба СММщика: он ставит ссылки в шапку Instagram и в описания роликов на
@@ -64,14 +64,6 @@ export interface SourcesReport {
 
 const DIRECT_KEY = "__direct__";
 
-// Метку в заявку кладут двумя разными путями: ссылка приносит её как есть
-// (?src=instagram), а инструктор может вписать канал руками пунктом «Другой…»
-// — и пишет «Instagram» с большой буквы. Без приведения к одному виду в
-// таблице появлялись две строки «Instagram» с разными цифрами, и обе неверные.
-function normKey(raw: string): string {
-  return raw.trim().toLowerCase();
-}
-
 // Красивое имя источника. Метки берём из «Материалов» (их админ и заводит),
 // ручные каналы — из справочника, реф-коды подписываем именем владельца.
 function labelFor(
@@ -83,7 +75,7 @@ function labelFor(
 ): string {
   if (kind === "direct") return "Прямые заходы";
   if (kind === "ref") return refOwners.get(key) ?? `Реф-ссылка ${key}`;
-  // Ключ приведён к нижнему регистру (normKey), а показать надо как в
+  // Ключ приведён к нижнему регистру (normChannel), а показать надо как в
   // справочнике: «Пляжи», а не «пляжи».
   if (kind === "manual") return channels.get(key) ?? channelLabel(key) ?? key;
   return materials.get(key) ?? key;
@@ -143,7 +135,7 @@ export async function getSourcesReport(
 
   const materials = new Map(
     ((materialsRes.data ?? []) as { src: string; label: string }[]).map((m) => [
-      normKey(m.src),
+      normChannel(m.src),
       m.label,
     ]),
   );
@@ -153,11 +145,15 @@ export async function getSourcesReport(
   const channels = new Map<string, string>();
   for (const [key, name] of Object.entries(LEGACY_CHANNELS)) {
     channels.set(key, name);
-    channels.set(normKey(name), name);
+    channels.set(normChannel(name), name);
   }
   for (const c of (channelsRes.data ?? []) as { name: string }[]) {
-    channels.set(normKey(c.name), c.name);
+    channels.set(normChannel(c.name), c.name);
   }
+
+  const naming = channelNaming(
+    (materialsRes.data ?? []) as { src: string; label: string }[],
+  );
 
   const refOwners = new Map<string, string>();
   for (const a of (agentsRes.data ?? []) as unknown as {
@@ -202,7 +198,7 @@ export async function getSourcesReport(
     if (v.code) {
       row(v.code, "ref").hits += 1;
     } else if (v.src) {
-      const key = normKey(v.src);
+      const key = normChannel(v.src);
       row(key, "tag").hits += 1;
       if (!materials.has(key)) unknown.add(key);
     }
@@ -218,11 +214,13 @@ export async function getSourcesReport(
     ref_code: string | null;
     client_id: string | null;
   }[]) {
-    // Метка «Материалов» главнее справочника: канал, заведённый и там и там
-    // (Instagram), должен лечь в одну строку с переходами по своей ссылке.
-    // Незнакомая метка (?src=gads из рекламы) — тоже метка, а не ручной канал:
-    // переходы по ней считаются, и разводить их с заявками нельзя.
-    const srcKey = b.src ? normKey(b.src) : null;
+    // Метка «Материалов» главнее справочника: канал, заведённый и там и там,
+    // должен лечь в одну строку с переходами по своей ссылке. Из справочника
+    // приезжает НАЗВАНИЕ («Реклама гугл»), а переходы считаются по метке
+    // («gads») — сводим одно к другому через naming.tagOf.
+    // Незнакомая метка — тоже метка, а не ручной канал: переходы по ней
+    // считаются, и разводить их с заявками нельзя.
+    const srcKey = b.src ? (naming.tagOf(b.src) ?? normChannel(b.src)) : null;
     const kind: SourceKind = b.ref_code
       ? "ref"
       : srcKey

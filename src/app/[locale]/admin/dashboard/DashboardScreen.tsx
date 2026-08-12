@@ -11,7 +11,7 @@ import {
   vnToday,
 } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
-import { channelLabel } from "@/lib/channels";
+import { channelNaming } from "@/lib/channels";
 import {
   NONE,
   channelKey,
@@ -226,6 +226,7 @@ export async function DashboardScreen({
     unpaidSubsRes,
     clientsRes,
     bookingsRes,
+    materialsRes,
     fin,
   ] = await Promise.all([
     // Строки таблицы + счётчик визитов клиента за всю историю (lib/visits —
@@ -244,6 +245,9 @@ export async function DashboardScreen({
       .select("status, src, ref_code, service:services!service_id(price)")
       .gte("created_at", range.fromIso)
       .lt("created_at", range.toIso),
+    // Названия рекламных меток: по ним «Instagram», выбранный руками в форме,
+    // и метка ?src=instagram из ссылки сходятся в один источник (lib/channels).
+    supabase.from("materials").select("src, label"),
     // Финмодель периода — та же, что на вкладке «Расходы» (lib/finance).
     // Без блока прибыли её не считаем вовсе: лишний поход в базу, а у СММщика
     // ещё и нет доступа к расходам школы (0040).
@@ -372,19 +376,23 @@ export async function DashboardScreen({
     ref_code: string | null;
     service: { price: number | null } | null;
   }[];
+  const naming = channelNaming(
+    (materialsRes.data ?? []) as { src: string; label: string }[],
+  );
   const byStatus = new Map<string, number>();
   const bySource = new Map<string, number>();
   let lostSum = 0;
   for (const b of bookings) {
     byStatus.set(b.status, (byStatus.get(b.status) ?? 0) + 1);
-    // Ручные каналы (пляжи/звонок/мессенджер) показываем по-человечески,
-    // вписанный руками канал и сайтовые метки (instagram/qr/flyer) — как есть:
-    // с тех пор как канал можно вписать своими словами, отличить одно от
-    // другого нечем, а «src: instagram» и так читалось как техническая строка.
+    // Канал показываем по-человечески: у рекламных метк — название из
+    // «Материалов» («gads» → «Реклама гугл»), у остальных — как записано.
+    // Свёртка нужна ради одной строки на канал: с 0041 «Instagram» выбирают
+    // из справочника, а по ссылке та же заявка приходит меткой «instagram» —
+    // без неё источник делился надвое (та же логика во вкладке «Источники»).
     const source = b.ref_code
       ? "по реф-ссылке"
       : b.src
-        ? (channelLabel(b.src) ?? "прямые")
+        ? (naming.labelOf(b.src) ?? "прямые")
         : "прямые";
     bySource.set(source, (bySource.get(source) ?? 0) + 1);
     if (b.status === "cancelled") lostSum += b.service?.price ?? 0;

@@ -49,6 +49,42 @@ export function channelLabel(src: string | null | undefined): string | null {
   return LEGACY_CHANNELS[src] ?? src;
 }
 
+// Регистр и пробелы: ссылка приносит метку как есть (?src=instagram), а из
+// справочника приезжает «Instagram». Без приведения к одному виду это два
+// разных источника в отчётах.
+export function normChannel(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+// Один и тот же канал школа знает под двумя именами: метка рекламной ссылки
+// (materials.src — «gads») и её человеческое название, оно же позиция
+// справочника («Реклама гугл»). Гость по ссылке приносит первое, инструктор
+// руками выбирает второе, а в отчётах это обязан быть один источник.
+//
+// Отсюда общая свёртка: строим её из «Материалов» один раз на экран и просим
+// у неё либо метку (для группировки), либо подпись (для показа).
+export function channelNaming(materials: { src: string; label: string }[]) {
+  const labelByTag = new Map<string, string>();
+  const tagByAny = new Map<string, string>();
+  for (const m of materials) {
+    const tag = normChannel(m.src);
+    labelByTag.set(tag, m.label);
+    tagByAny.set(tag, tag);
+    if (m.label) tagByAny.set(normChannel(m.label), tag);
+  }
+  return {
+    /** Метка рекламной ссылки, к которой относится значение, — или null, если это ручной канал. */
+    tagOf(value: string | null | undefined): string | null {
+      return value ? (tagByAny.get(normChannel(value)) ?? null) : null;
+    },
+    /** Как показать канал: у рекламных — название из «Материалов», у остальных — как записано. */
+    labelOf(value: string | null | undefined): string | null {
+      const tag = this.tagOf(value);
+      return tag ? (labelByTag.get(tag) ?? tag) : channelLabel(value);
+    },
+  };
+}
+
 // Канал из формы: либо выбранное имя из справочника, либо то, что вписали в
 // «Другой…». null — не указан вовсе; вызывающий решает, ошибка это или пустое
 // поле. Значение мимо справочника (скрыли позицию, пока форма была открыта)
