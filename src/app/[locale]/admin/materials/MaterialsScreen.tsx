@@ -9,9 +9,14 @@ import { MaterialCreateForm, MaterialEditForm } from "./MaterialForms";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 
-// Шпаргалка владельца: готовые меченые ссылки для рекламы. Метка ?src=
-// приклеивается к гостю на 30 дней (lib/attribution.ts) и приходит вместе
-// с его заявкой — так видно, какой канал реально приводит людей.
+// Шпаргалка владельца: готовые меченые ссылки для рекламы. Метка приклеивается
+// к гостю на 30 дней (lib/attribution.ts) и приходит вместе с его заявкой —
+// так видно, какой канал реально приводит людей.
+//
+// Ссылок на канал две (12.08.2026): «на сайт» ведёт на главную, «на запись» —
+// сразу к форме, где человек вводит данные (для кнопки в шапке профиля и под
+// роликом). Обе короткие: раньше раздавали «/?src=instagram», и метка торчала
+// у гостя в адресной строке.
 // Каналы живут в таблице materials (0009) — админ добавляет и правит их сам.
 // Плюс реф-ссылки активных агентов — раздать не заходя в «Агентов».
 
@@ -52,7 +57,7 @@ export async function MaterialsScreen() {
         title="Материалы"
         hint="Готовые ссылки для рекламы"
       />
-      <PageNote>Метка из ссылки держится за гостем 30 дней и видна в его заявке — так понятно, какой канал сработал.</PageNote>
+      <PageNote>Метка из ссылки держится за гостем 30 дней и видна в его заявке — так понятно, какой канал сработал. «На запись» открывает сразу форму, «на сайт» — главную.</PageNote>
 
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-bold">Каналы</h2>
@@ -68,8 +73,9 @@ export async function MaterialsScreen() {
                 {m.label}
                 {m.hint && <span className="font-normal text-muted"> · {m.hint}</span>}
               </p>
-              <div className="mt-1">
-                <CopyLink path={`/?src=${m.src}`} />
+              <div className="mt-1 space-y-1">
+                <CopyLink path={`/i/${m.src}`} note="на сайт" />
+                <CopyLink path={`/b/${m.src}`} note="на запись" />
               </div>
               <details className="mt-1">
                 <summary className="cursor-pointer list-none text-xs font-semibold text-muted hover:text-primary [&::-webkit-details-marker]:hidden">

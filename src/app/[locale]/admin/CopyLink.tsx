@@ -5,8 +5,11 @@ import { useState } from "react";
 // Ссылка с кнопкой копирования (реф-ссылки агентов, инвайты членов клуба).
 // Домен берём из window.location — одна и та же кнопка работает на локалке,
 // превью и проде без env-переменных.
+//
+// note — короткая подпись слева от адреса: у одного канала ссылок бывает две
+// («на сайт» и «на запись»), и без подписи их не различить.
 
-export function CopyLink({ path }: { path: string }) {
+export function CopyLink({ path, note }: { path: string; note?: string }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -22,6 +25,9 @@ export function CopyLink({ path }: { path: string }) {
 
   return (
     <div className="flex min-w-0 items-center gap-2">
+      {note && (
+        <span className="w-16 shrink-0 text-xs font-semibold text-muted">{note}</span>
+      )}
       <code className="min-w-0 truncate rounded-lg bg-primary/10 px-2.5 py-1 text-sm font-semibold text-primary">
         {path}
       </code>

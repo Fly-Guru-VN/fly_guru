@@ -102,6 +102,15 @@ export function splitMarksForHit(marks: Attribution): {
   return { src: src ?? null, utm: rest as Record<string, string> };
 }
 
+// Явно записать источник (короткие ссылки /i/<метка> и /b/<метка>): метка там
+// лежит в самом пути, а не в query-параметре, поэтому readFromUrl её не видит.
+// Правила те же, что у обычной метки: last-touch и окно 30 дней.
+export function captureSrc(src: string): void {
+  if (!src) return;
+  const merged = { ...readStored(), src: src.slice(0, 200) };
+  writeStored(merged);
+}
+
 // Явно записать реф-код (используется на лендинге /r/[code], где код лежит не в
 // query-параметре, а в самом пути). Тоже продлевает 30-дневное окно.
 export function captureRefCode(code: string): void {
