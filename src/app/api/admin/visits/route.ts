@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAppUser } from "@/lib/auth";
+import { getAppUser, isOffice } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { vnMonthToDate, vnPeriod } from "@/lib/dates";
 import {
@@ -26,8 +26,10 @@ function cell(v: string | number): string {
 }
 
 export async function GET(request: NextRequest) {
+  // Выгрузку качают и админ, и СММщик: таблица визитов есть в обоих кабинетах,
+  // а файл обязан повторять то, что человек видит на экране.
   const user = await getAppUser();
-  if (!user || user.role !== "admin") {
+  if (!user || !isOffice(user.role)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 

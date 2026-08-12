@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAppUser } from "@/lib/auth";
+import { cabinetBase, getAppUser, isOffice, type AppRole } from "@/lib/auth";
 import {
   phoneDigits,
   phonesMatch,
@@ -51,6 +51,44 @@ async function requireAdminOrMechanic() {
     redirect("/login?next=/admin");
   }
   return user;
+}
+
+// «Офис» — админ и СММщик (0039). У СММщика те же разделы, что у админа, за
+// вычетом календаря, выплат, услуг и членов клуба; экшены этих разделов
+// по-прежнему требуют requireAdmin, чтобы их нельзя было дёрнуть запросом
+// мимо интерфейса.
+// Завести заявку может кто угодно из тех, к кому приходит гость: админ,
+// механик (подошли на пляже) и СММщик (написали в директ). Премию за смену
+// или ленту заявок это право не открывает — для них свои проверки.
+async function requireBookingAuthor() {
+  const user = await getAppUser();
+  if (!user || !["admin", "mechanic", "smm"].includes(user.role)) {
+    redirect("/login?next=/admin");
+  }
+  return user;
+}
+
+async function requireOffice() {
+  const user = await getAppUser();
+  if (!user || !isOffice(user.role)) redirect("/login?next=/admin");
+  return user;
+}
+
+// Клиент для ЗАПИСИ от лица офиса. Админ пишет своим (у него полные политики
+// *_admin_all), СММщику политик на запись не выдано вовсе (0040) — он пишет
+// служебным ключом, как инструктор с 0030. Смысл тот же: что именно меняется,
+// решает этот код, а не RLS, который не умеет ограничивать набор колонок.
+// Побочный эффект приятный: своим ключом мимо интерфейса СММщик не изменит
+// ничего.
+async function officeClient(user: { role: AppRole }) {
+  return user.role === "admin" ? await createClient() : createAdminClient();
+}
+
+// Куда возвращать после сохранения: в кабинет того, кто сохранял. Раньше все
+// эти экшены редиректили жёстко в /admin/... — СММщика оттуда выбросил бы
+// middleware, и он видел бы не результат, а свою же ленту заявок.
+function officeRedirect(user: { role: AppRole }, path: string): never {
+  redirect(`${cabinetBase(user.role)}${path}`);
 }
 
 // Числовое поле формы → integer или null (пустое/мусор не пишем в базу).
@@ -102,8 +140,12 @@ function failIfError(error: { message: string } | null, what: string): void {
 
 // Обновить заявку и перерисовать всё, где висят счётчики (админка, кабинет,
 // бейдж в шапке) — на масштабе школы дешевле, чем целиться в пути.
-async function updateBooking(id: string, patch: Record<string, unknown>) {
-  const supabase = await createClient();
+async function updateBooking(
+  user: { role: AppRole },
+  id: string,
+  patch: Record<string, unknown>,
+) {
+  const supabase = await officeClient(user);
   let { error } = await supabase.from("bookings").update(patch).eq("id", id);
   // Колонка paid появилась в 0036, а деплой у David едет раньше наката: без
   // этой страховки карточка заявки перестала бы сохраняться целиком из-за
@@ -120,7 +162,10 @@ async function updateBooking(id: string, patch: Record<string, unknown>) {
 // Сообщение в группу инструкторов: «появилась новая запись, кто примет?»
 // Телефон клиента в группу не шлём — только номер, услуга и время.
 async function notifyInstructors(id: string) {
-  const supabase = await createClient();
+  // Служебным ключом: это чтение ради сообщения в Telegram, и оно должно
+  // работать одинаково у админа и у СММщика (политик на bookings ему хватает,
+  // но зависеть от них тут незачем).
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("bookings")
     .select("booking_no, scheduled_time, preferred_date, services(name)")
@@ -145,7 +190,7 @@ export async function createBookingAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const author = await requireAdminOrMechanic();
+  const author = await requireBookingAuthor();
 
   const clientName = String(formData.get("clientName") ?? "").trim();
   if (!clientName) return { error: "Укажите имя клиента." };
@@ -167,7 +212,11 @@ export async function createBookingAction(
   const serviceId = String(formData.get("serviceId") ?? "");
   const confirmed = formData.get("status") !== "new";
 
-  const supabase = await createClient();
+  // У механика есть своя политика на вставку заявки (0029), у админа — полный
+  // доступ, а у СММщика политик на запись нет вовсе (0040) — он пишет
+  // служебным ключом, как и во всех остальных своих действиях.
+  const supabase =
+    author.role === "smm" ? createAdminClient() : await createClient();
   const row = {
     client_name: clientName,
     phone,
@@ -206,16 +255,18 @@ export async function createBookingAction(
 
   revalidatePath("/", "layout");
   // У механика ленты заявок нет — возвращаем его на ту же форму с плашкой
-  // «заявка ушла инструкторам», чтобы он мог записать следующего.
-  redirect(author.role === "mechanic" ? "/mechanic/record?created=1" : "/admin/bookings");
+  // «заявка ушла инструкторам», чтобы он мог записать следующего. Остальные
+  // идут в ленту своего кабинета.
+  if (author.role === "mechanic") redirect("/mechanic/record?created=1");
+  officeRedirect(author, "/bookings");
 }
 
 // «Подтвердить»: сохранить данные созвона и опубликовать запись инструкторам.
 export async function confirmBookingAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await updateBooking(id, { ...bookingFields(formData), status: "confirmed" });
+  await updateBooking(user, id, { ...bookingFields(formData), status: "confirmed" });
   await notifyInstructors(id).catch(() => {});
 }
 
@@ -226,7 +277,7 @@ export async function confirmBookingAction(formData: FormData) {
 // name/value кнопки в FormData при formAction-функции — через name="status"
 // сюда приходила пустота, и все кнопки статусов молча не работали.
 export async function setStatusAction(status: string, formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   const allowed = ["contacted", "confirmed", "done", "cancelled", "archived"];
   if (!id || !allowed.includes(status)) return;
@@ -240,7 +291,7 @@ export async function setStatusAction(status: string, formData: FormData) {
   if (status === "done" || status === "cancelled" || status === "archived") {
     patch.pinned = false;
   }
-  await updateBooking(id, patch);
+  await updateBooking(user, id, patch);
   if (status === "confirmed") await notifyInstructors(id).catch(() => {});
 }
 
@@ -253,12 +304,12 @@ export async function setStatusAction(status: string, formData: FormData) {
 // «Выполнена» и указывает на то же занятие — денег это не добавляет (выручка
 // живёт на сессии, а сессия одна).
 export async function coverBookingAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   const sessionId = String(formData.get("sessionId") ?? "");
   if (!id || !sessionId) return;
 
-  const supabase = await createClient();
+  const supabase = await officeClient(user);
   // Занятие должно существовать: id приходит из формы, а формам не верим.
   // Заодно берём его клиента — заявка-спутник должна указывать на того же
   // человека, иначе она не попадёт в «закрытые занятием» (isClosedDeal).
@@ -382,8 +433,8 @@ export async function createSessionAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdmin();
-  const supabase = await createClient();
+  const user = await requireOffice();
+  const supabase = await officeClient(user);
 
   const date = String(formData.get("date") ?? "").trim();
   if (!DAY_RE.test(date)) return { error: "Укажите дату сессии." };
@@ -471,7 +522,7 @@ export async function createSessionAction(
 
   // Клиент — последним из проверок: всё, что могло отказать, уже отказало.
   // created_at = дате занятия (см. resolveClient).
-  const clientRes = await resolveClient(supabase, admin.id, formData, dayToIso(date));
+  const clientRes = await resolveClient(supabase, user.id, formData, dayToIso(date));
   if ("error" in clientRes) return clientRes;
   const clientId = clientRes.id;
 
@@ -531,7 +582,7 @@ export async function createSessionAction(
       // клиента оформляют сразу на пляже, — иначе канал терялся бы совсем.
       channel,
       note: String(formData.get("note") ?? "").trim() || null,
-      created_by: admin.id,
+      created_by: user.id,
     })
     .select("id")
     .single();
@@ -571,13 +622,13 @@ export async function createSessionAction(
 
   // Сессия влияет на выручку, статистику и ЗП — перерисовываем всё.
   revalidatePath("/", "layout");
-  redirect("/admin/sessions");
+  officeRedirect(user, "/sessions");
 }
 
 // Правка сессии: дата / сумма / услуга / инструктор. Минуты списаний здесь
 // не трогаем — для баланса абонемента есть корректировки с комментарием (4.3).
 export async function updateSessionAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
@@ -601,7 +652,7 @@ export async function updateSessionAction(formData: FormData) {
     patch.note = String(formData.get("note") ?? "").trim() || null;
   }
 
-  const supabase = await createClient();
+  const supabase = await officeClient(user);
   const serviceId = String(formData.get("serviceId") ?? "");
   if (serviceId) {
     // Ту же сессию нельзя ПЕРЕДЕЛАТЬ в абонемент — см. createSessionAction.
@@ -622,11 +673,11 @@ export async function updateSessionAction(formData: FormData) {
 // с абонемента — минуты возвращаются (остаток считается по сессиям), статус
 // абонемента пересчитывается.
 export async function deleteSessionAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = await createClient();
+  const supabase = await officeClient(user);
   const { data: s } = await supabase
     .from("sessions")
     .select("subscription_id, client_id, agent_commission")
@@ -709,8 +760,8 @@ export async function adminSellSubscriptionAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdmin();
-  const supabase = await createClient();
+  const user = await requireOffice();
+  const supabase = await officeClient(user);
 
   const sellerId = String(formData.get("sellerId") ?? "");
   if (!sellerId) return { error: "Укажите, кто продал абонемент." };
@@ -753,7 +804,7 @@ export async function adminSellSubscriptionAction(
 
   // created_at клиента = дате продажи: абонемент, проданный задним числом, не
   // должен делать клиента «новым в этом месяце» (см. resolveClient).
-  const clientRes = await resolveClient(supabase, admin.id, formData, soldAt);
+  const clientRes = await resolveClient(supabase, user.id, formData, soldAt);
   if ("error" in clientRes) return clientRes;
   const clientId = clientRes.id;
 
@@ -833,14 +884,14 @@ export async function adminSellSubscriptionAction(
   // (как и у инструктора). Членство добавляется руками на вкладке «Члены клуба».
 
   revalidatePath("/", "layout");
-  redirect("/admin/subscriptions");
+  officeRedirect(user, "/subscriptions");
 }
 
 // Тумблер оплаты. Поставить — с датой (по умолчанию сегодня; месяц оплаты
 // решает, куда упадут выручка и комиссия). Снять — подтверждение на клиенте:
 // отметка уже могла войти в расчёты.
 export async function togglePaidAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
@@ -853,7 +904,7 @@ export async function togglePaidAction(formData: FormData) {
     paidAt = DAY_RE.test(day) ? dayToIso(day) : new Date().toISOString();
     paymentMethodId = String(formData.get("paymentMethodId") ?? "").trim() || null;
   }
-  const supabase = await createClient();
+  const supabase = await officeClient(user);
   // Заявление инструктора «оплату принял админ» (0032) снимаем в обоих случаях:
   // админ на вопрос уже ответил — либо подтвердил оплату, либо снял отметку.
   // Висящая после этого плашка была бы просто мусором на карточке.
@@ -895,8 +946,8 @@ export async function writeOffMinutesAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdmin();
-  const supabase = await createClient();
+  const user = await requireOffice();
+  const supabase = await officeClient(user);
 
   const subId = String(formData.get("subscriptionId") ?? "");
   const minutes = Math.trunc(Number(formData.get("minutes")));
@@ -932,7 +983,7 @@ export async function writeOffMinutesAction(
     minutes_used: minutes,
     amount: 0, // прокат по абонементу — деньги получены при его продаже
     instructor_id: instructorId || null,
-    created_by: admin.id,
+    created_by: user.id,
     note: comment || null,
     date,
   });
@@ -941,7 +992,7 @@ export async function writeOffMinutesAction(
   await recalcSubscriptionStatus(supabase, subId);
 
   revalidatePath("/", "layout");
-  redirect("/admin/subscriptions");
+  officeRedirect(user, "/subscriptions");
 }
 
 // Корректировки минут (таблица subscription_adjustments) больше не заводятся:
@@ -958,11 +1009,11 @@ export async function writeOffMinutesAction(
 // месяца и в комиссии продавца. Обратно её ставят руками — старую дату оплаты
 // мы не помним и выдумывать её нельзя.
 export async function cancelSubscriptionAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = await createClient();
+  const supabase = await officeClient(user);
 
   if (formData.get("set") === "0") {
     // Возврат из отменённых: статус пересчитываем по факту — срок мог выйти,
@@ -996,11 +1047,11 @@ export async function cancelSubscriptionAction(formData: FormData) {
 // «пустые» сессии без абонемента) и корректировки (cascade в БД). Выручка и
 // комиссия месяца оплаты пересчитаются сами. Членство клиента не трогаем.
 export async function deleteSubscriptionAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = await createClient();
+  const supabase = await officeClient(user);
   const { error: sessionsError } = await supabase
     .from("sessions")
     .delete()
@@ -1024,8 +1075,8 @@ export async function payAgentAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const admin = await requireAdmin();
-  const supabase = await createClient();
+  const user = await requireOffice();
+  const supabase = await officeClient(user);
 
   const agentId = String(formData.get("agentId") ?? "");
   if (!agentId) return { error: "Не понял, какому агенту выплата." };
@@ -1044,22 +1095,22 @@ export async function payAgentAction(
     method_id: String(formData.get("methodId") ?? "") || null,
     paid_on: day,
     comment: String(formData.get("comment") ?? "").trim() || null,
-    created_by: admin.id,
+    created_by: user.id,
   });
   if (error) return { error: `Не удалось сохранить выплату: ${error.message}` };
 
   revalidatePath("/", "layout");
-  redirect("/admin/agents");
+  officeRedirect(user, "/agents");
 }
 
 // Ошиблись суммой или датой — выплату можно снести. Отдельного «редактировать»
 // не делаем: удалить и внести заново проще и честнее в истории.
 export async function deleteAgentPayoutAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = await createClient();
+  const supabase = await officeClient(user);
   const { error } = await supabase.from("agent_payouts").delete().eq("id", id);
   failIfError(error, "не удалось удалить выплату");
   revalidatePath("/", "layout");
@@ -1069,7 +1120,7 @@ export async function deleteAgentPayoutAction(formData: FormData) {
 // Правка карточки клиента: имя, телефон, внутренняя заметка. Телефон храним
 // цифрами (как resolveClient) — так работает дедуп при следующих оформлениях.
 export async function updateClientAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   if (!id || !name) return;
@@ -1093,7 +1144,7 @@ export async function updateClientAction(formData: FormData) {
 
   // Возраст: пусто или мусор → null («не указан»).
   const ageNum = Math.floor(Number(formData.get("age")));
-  const supabase = await createClient();
+  const supabase = await officeClient(user);
   const { error } = await supabase
     .from("clients")
     .update({
@@ -1121,7 +1172,9 @@ export async function uploadClientPhotoAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireAdmin();
+  // Фото клиента и так пишется служебным ключом (ниже) — здесь только проверка
+  // прав, сам пользователь дальше не нужен.
+  await requireOffice();
 
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Клиент не найден." };
@@ -1175,8 +1228,8 @@ export async function createAgentAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireAdmin();
-  const supabase = await createClient();
+  const author = await requireOffice();
+  const supabase = await officeClient(author);
 
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
@@ -1218,17 +1271,17 @@ export async function createAgentAction(
   }
 
   revalidatePath("/", "layout");
-  redirect("/admin/agents");
+  officeRedirect(author, "/agents");
 }
 
 // Выключить/включить агента. Выключенный: лендинг /r/<код> перестаёт принимать
 // гостей (мягкий редирект на /training), но история и награды остаются.
 export async function toggleAgentActiveAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = await createClient();
+  const supabase = await officeClient(user);
   const { error } = await supabase
     .from("agents")
     .update({ active: formData.get("active") !== "1" })
@@ -1293,11 +1346,11 @@ export async function addMemberAction(formData: FormData) {
 // «Перенести»: новая дата/время, статус живой — в ленте появится бейдж
 // «Перенесена» (по rescheduled_at), но запись продолжает свой цикл.
 export async function rescheduleAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   const date = String(formData.get("newDate") ?? "").trim();
   if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-  await updateBooking(id, {
+  await updateBooking(user, id, {
     preferred_date: date,
     scheduled_time: String(formData.get("newTime") ?? "").trim() || null,
     rescheduled_at: new Date().toISOString(),
@@ -1306,18 +1359,18 @@ export async function rescheduleAction(formData: FormData) {
 
 // «Сохранить»: обновить поля уже подтверждённой записи, статус не трогаем.
 export async function saveBookingAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await updateBooking(id, bookingFields(formData));
+  await updateBooking(user, id, bookingFields(formData));
 }
 
 // «Закрепить/Открепить»: закреплённые записи висят сверху у инструкторов.
 export async function togglePinAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await updateBooking(id, { pinned: formData.get("pinned") !== "1" });
+  await updateBooking(user, id, { pinned: formData.get("pinned") !== "1" });
 }
 
 // ── Услуги (подэтап 4.10) ────────────────────────────────────────────────────
@@ -1415,7 +1468,7 @@ export async function createMaterialAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireAdmin();
+  const user = await requireOffice();
 
   const fields = materialFields(formData);
   if (!fields.label) return { error: "Укажите название канала." };
@@ -1423,7 +1476,7 @@ export async function createMaterialAction(
     return { error: "Метка: 2–30 символов, латиница, цифры, дефис." };
   }
 
-  const supabase = await createClient();
+  const supabase = await officeClient(user);
   const { error } = await supabase.from("materials").insert(fields);
   if (error) {
     return {
@@ -1434,14 +1487,14 @@ export async function createMaterialAction(
     };
   }
   revalidatePath("/", "layout");
-  redirect("/admin/materials"); // redirect = чистая форма после успеха
+  officeRedirect(user, "/materials"); // redirect = чистая форма после успеха
 }
 
 export async function updateMaterialAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireAdmin();
+  const user = await requireOffice();
 
   const id = String(formData.get("id") ?? "");
   const fields = materialFields(formData);
@@ -1450,7 +1503,7 @@ export async function updateMaterialAction(
     return { error: "Метка: 2–30 символов, латиница, цифры, дефис." };
   }
 
-  const supabase = await createClient();
+  const supabase = await officeClient(user);
   const { error } = await supabase.from("materials").update(fields).eq("id", id);
   if (error) {
     return {
@@ -1467,11 +1520,11 @@ export async function updateMaterialAction(
 // Удаление безопасно: bookings.src хранит метку текстом, FK нет — история
 // заявок и статистика источников не трогаются.
 export async function deleteMaterialAction(formData: FormData) {
-  await requireAdmin();
+  const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = await createClient();
+  const supabase = await officeClient(user);
   const { error } = await supabase.from("materials").delete().eq("id", id);
   failIfError(error, "не удалось удалить канал");
   revalidatePath("/", "layout");

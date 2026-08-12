@@ -13,6 +13,7 @@ import { LATEST_UPDATE } from "@/content/updates";
 
 export const INSTRUCTOR_UPDATES_SEEN_KEY = "flyguru:updates-seen";
 export const ADMIN_UPDATES_SEEN_KEY = "flyguru:updates-seen:admin";
+export const SMM_UPDATES_SEEN_KEY = "flyguru:updates-seen:smm";
 
 const UPDATES_SEEN_EVENT = "flyguru:updates-seen-changed";
 

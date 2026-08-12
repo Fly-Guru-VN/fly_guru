@@ -1,26 +1,10 @@
-import { UpdatesFeed } from "@/components/cabinet/UpdatesFeed";
-import { PageHeader } from "@/components/cabinet/PageHeader";
-import { PageNote } from "@/components/cabinet/PageNote";
+import type { Metadata } from "next";
+import { UpdatesScreen } from "@/components/cabinet/UpdatesScreen";
 
-// «Обновления» в админке — та же лента, что видит инструктор, теми же словами.
-// Записи не фильтруем по кабинету: админу нужно знать, что нового появилось у
-// инструкторов (он же им это и объясняет по телефону), а метка на карточке
-// сразу говорит, где именно искать изменение.
+export const metadata: Metadata = { title: "Админка · Обновления" };
 
+// Сам экран — общий для кабинетов (components/cabinet/UpdatesScreen): лента
+// одна на всех, и расходиться её версиям незачем.
 export default function AdminUpdatesPage() {
-  return (
-    <div>
-      <PageHeader
-        title="Обновления"
-        hint="Что нового в системе; свежее сверху"
-      />
-      <PageNote>Серая метка на карточке говорит, чьего кабинета касается правка.</PageNote>
-
-      <UpdatesFeed />
-
-      <p className="mt-8 text-xs text-muted">
-        Эту же ленту инструкторы видят у себя во вкладке «Обновления».
-      </p>
-    </div>
-  );
+  return <UpdatesScreen />;
 }

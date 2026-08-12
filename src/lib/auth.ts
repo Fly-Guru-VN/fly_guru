@@ -9,7 +9,13 @@ import { vnToday } from "@/lib/dates";
 // в middleware) и в таблице users (источник правды). Здесь читаем users:
 // кабинетам нужны и id, и имя.
 
-export type AppRole = "admin" | "instructor" | "mechanic" | "member" | "agent";
+export type AppRole =
+  | "admin"
+  | "instructor"
+  | "mechanic"
+  | "smm"
+  | "member"
+  | "agent";
 
 export interface AppUser {
   id: string; // users.id — им подписываются sessions/subscriptions
@@ -35,9 +41,26 @@ export const ROLE_HOME: Record<AppRole, string> = {
   admin: "/admin",
   instructor: "/instructor",
   mechanic: "/mechanic",
+  smm: "/smm",
   member: "/member",
   agent: "/agent",
 };
+
+// Кабинет «офиса»: админ и СММщик работают с одними и теми же разделами (0039).
+// Кабинет СММщика — те же экраны, но по адресам /smm и с урезанным меню:
+// календаря, выплат, услуг и членов клуба у него нет.
+export const OFFICE_ROLES: AppRole[] = ["admin", "smm"];
+
+export function isOffice(role: AppRole): boolean {
+  return OFFICE_ROLES.includes(role);
+}
+
+// Базовый путь кабинета, в котором человек сейчас работает. Экраны админки
+// переиспользуются СММщиком, и ссылки внутри них должны вести в ЕГО кабинет,
+// а не в /admin, куда его не пустит middleware.
+export function cabinetBase(role: AppRole): string {
+  return ROLE_HOME[role] ?? "/admin";
+}
 
 // Возвращает пользователя приложения или null (не залогинен / нет строки в users).
 // cache(): layout и страница вызывают getAppUser в одном запросе — без кеша это

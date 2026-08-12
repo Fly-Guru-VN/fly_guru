@@ -48,27 +48,28 @@ async function requireStaff(): Promise<AppUser> {
   return user;
 }
 
-// Часть экранов кабинета один в один переиспользует механик: смена с
-// фотофиксацией, свои расходы, настройки профиля. Отдельная проверка (а не
-// «пустить механика в requireStaff») намеренно: денежные действия — запись
-// клиента, продажа абонемента, списание минут, правка сессии — остаются за
-// инструктором, и RLS это подтверждает второй раз.
+// Часть экранов кабинета один в один переиспользуют механик и СММщик: свои
+// расходы и настройки профиля (у механика ещё и смена с фотофиксацией).
+// Отдельная проверка (а не «пустить их в requireStaff») намеренно: денежные
+// действия — запись клиента, продажа абонемента, списание минут, правка
+// сессии — остаются за инструктором, и RLS это подтверждает второй раз.
+const FIELD_ROLES = ["instructor", "mechanic", "smm", "admin"];
+
 async function requireFieldStaff(): Promise<AppUser> {
   const user = await getAppUser();
-  if (
-    !user ||
-    (user.role !== "instructor" && user.role !== "mechanic" && user.role !== "admin")
-  ) {
+  if (!user || !FIELD_ROLES.includes(user.role)) {
     redirect("/login?next=/instructor");
   }
   return user;
 }
 
-// Тот же экран лежит по двум адресам (/instructor/... и /mechanic/...) —
-// revalidatePath должен указывать на кабинет того, кто нажал кнопку, иначе
-// человек увидит старые данные.
+// Тот же экран лежит по нескольким адресам (/instructor/…, /mechanic/…,
+// /smm/…) — revalidatePath должен указывать на кабинет того, кто нажал кнопку,
+// иначе человек увидит старые данные.
 function cabinetBase(user: AppUser): string {
-  return user.role === "mechanic" ? "/mechanic" : "/instructor";
+  if (user.role === "mechanic") return "/mechanic";
+  if (user.role === "smm") return "/smm";
+  return "/instructor";
 }
 
 // Найти клиента по телефону (гибкое сравнение цифр) или создать нового.
