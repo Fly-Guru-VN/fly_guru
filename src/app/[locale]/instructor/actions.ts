@@ -21,7 +21,12 @@ import { checkPhoto } from "@/lib/photos";
 import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
 import { pickChannel } from "@/lib/channels";
-import { claimBooking, releaseBooking, type BookingClaimState } from "@/lib/bookingClaim";
+import {
+  claimBooking,
+  linkBookingResult,
+  releaseBooking,
+  type BookingClaimState,
+} from "@/lib/bookingClaim";
 
 // Server actions кабинета инструктора. Общий принцип безопасности:
 // instructor_id / sold_by / created_by берутся из СЕССИИ на сервере (user.id),
@@ -179,6 +184,57 @@ export async function declineBookingAction(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
+// «Клиент учтён в другом занятии» (0038): вторая заявка парного занятия.
+//
+// Мама записывает себя и дочку двумя заявками, а катаются они по одному
+// парному обучению за 3,5 млн — сессия одна. Раньше вторую заявку инструктор
+// закрыть не мог вообще: у него есть только «Записать клиента», а записать
+// второй раз — это второй чек в выручке и вторые 15%. Заявка висела в ленте,
+// пока админ не отменял её руками, и человек, который реально катался,
+// оставался в CRM отказом. Теперь она закрывается ссылкой на то же занятие.
+//
+// Деньги не меняются: выручка живёт на сессии, а сессия остаётся одна.
+export async function coverBookingAction(formData: FormData) {
+  await requireStaff();
+  const id = String(formData.get("id") ?? "");
+  const sessionId = String(formData.get("sessionId") ?? "");
+  if (!id || !sessionId) return;
+
+  // Через service_role, как и остальные записи инструктора (0030): решает, что
+  // именно меняется, этот код, а не RLS.
+  const admin = createAdminClient();
+
+  // Занятие берём из базы, а не со слов формы: id в разметке подменяется.
+  const { data: session } = await admin
+    .from("sessions")
+    .select("id, client_id")
+    .eq("id", sessionId)
+    .maybeSingle();
+  if (!session) return;
+
+  // Закрыть так можно только живую подтверждённую заявку. Условие на статус
+  // заодно держит гонку: заявку, которую в этот момент оформляют через
+  // «Записать клиента», перехватить уже не выйдет.
+  const { error } = await admin
+    .from("bookings")
+    .update({
+      status: "done",
+      pinned: false,
+      session_id: session.id,
+      client_id: session.client_id,
+    })
+    .eq("id", id)
+    .eq("status", "confirmed");
+  // 0038 не накатана — колонки нет. Тихо «закрывать» заявку без связи нельзя:
+  // получится ровно та дыра, ради которой всё и затевалось.
+  if (error) {
+    console.error("[instructor] cover booking error:", error.message);
+    return;
+  }
+
+  revalidatePath("/", "layout");
+}
+
 // ── «Записать клиента» ────────────────────────────────────────────────────────
 export async function recordClientAction(
   _prev: ActionState,
@@ -331,26 +387,36 @@ export async function recordClientAction(
 
   // Комиссию агента фиксируем на сессии: из неё вычтется база инструктора
   // (15% с чека минус комиссия). См. миграцию 0021.
-  const { error: sessionError } = await supabase.from("sessions").insert({
-    client_id: clientId,
-    service_id: service.id,
-    instructor_id: user.id,
-    date,
-    amount,
-    agent_commission: rewarded ? agent!.commission_fixed : 0,
-    payment_method_id: paymentMethodId,
-    // Как человек записался на это занятие (0034): заявки у записи с пляжа
-    // нет, и канал терялся бы совсем.
-    channel,
-    note: String(formData.get("note") ?? "").trim() || null,
-    created_by: user.id,
-  });
+  const { data: session, error: sessionError } = await supabase
+    .from("sessions")
+    .insert({
+      client_id: clientId,
+      service_id: service.id,
+      instructor_id: user.id,
+      date,
+      amount,
+      agent_commission: rewarded ? agent!.commission_fixed : 0,
+      payment_method_id: paymentMethodId,
+      // Как человек записался на это занятие (0034): заявки у записи с пляжа
+      // нет, и канал терялся бы совсем.
+      channel,
+      note: String(formData.get("note") ?? "").trim() || null,
+      created_by: user.id,
+    })
+    .select("id")
+    .single();
   if (sessionError) {
     // Занятие не записалось — заявка не должна остаться «выполненной».
     if (bookingId && bookingBefore) {
       await releaseBooking(createAdminClient(), bookingId, bookingBefore);
     }
     return { error: `Не удалось записать: ${sessionError.message}` };
+  }
+
+  // Заявка теперь знает своё занятие (0038): в ленте админа видно «Занятие:
+  // услуга, дата, сумма», а закрытые «в никуда» заявки не теряются.
+  if (bookingId && session) {
+    await linkBookingResult(createAdminClient(), bookingId, { session_id: session.id as string });
   }
 
   // Награда агенту — за первое базовое обучение приведённого клиента. Занятие
@@ -523,7 +589,11 @@ export async function sellSubscriptionAction(
     payment_claim_by: claim ? user.id : null,
     payment_claim_at: claim ? new Date().toISOString() : null,
   };
-  let { error: subError } = await admin.from("subscriptions").insert(row);
+  let { data: sub, error: subError } = await admin
+    .from("subscriptions")
+    .insert(row)
+    .select("id")
+    .single();
   // Миграцию 0025 (способ оплаты) или 0032 (заявление об оплате) ещё не
   // накатили — колонок нет. Продажу из-за этого не роняем: пишем абонемент без
   // них, иначе деплой до миграции убил бы весь поток продаж. Заявление в этом
@@ -535,7 +605,11 @@ export async function sellSubscriptionAction(
     delete legacy.payment_claim_note;
     delete legacy.payment_claim_by;
     delete legacy.payment_claim_at;
-    ({ error: subError } = await admin.from("subscriptions").insert(legacy));
+    ({ data: sub, error: subError } = await admin
+      .from("subscriptions")
+      .insert(legacy)
+      .select("id")
+      .single());
   }
   if (subError) {
     // Абонемент не создался — заявка не должна остаться «выполненной».
@@ -545,6 +619,11 @@ export async function sellSubscriptionAction(
 
   // Заявка уже закрыта захватом выше — там же ей проставлены клиент и способ
   // оплаты, чтобы админ видел его прямо в ленте, а не выбирал заново руками.
+  // Заявку на абонемент закрывает продажа, а не занятие (0038): без этой ссылки
+  // она выглядела бы «выполненной, но без занятия».
+  if (bookingId && sub) {
+    await linkBookingResult(admin, bookingId, { subscription_id: sub.id as string });
+  }
 
   // Клуб пока не запускаем: продажа абонемента НЕ делает клиента членом клуба.
   // Членство добавляется вручную на вкладке «Члены клуба» (вернём авто-выдачу,

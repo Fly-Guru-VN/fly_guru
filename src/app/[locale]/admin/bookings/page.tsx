@@ -8,7 +8,10 @@ import {
   togglePinAction,
   setStatusAction,
   rescheduleAction,
+  coverBookingAction,
 } from "../actions";
+import { ConfirmSubmit } from "../ConfirmSubmit";
+import { vnd } from "@/lib/stats";
 import { channelLabel } from "@/lib/channels";
 import { resolveRefOwners, refOwnerLabel, type RefOwner } from "@/lib/refOwner";
 import { firstBasicTrainingByPhone } from "@/lib/agentReward";
@@ -25,6 +28,11 @@ export const metadata: Metadata = { title: "Админка · Заявки" };
 // done/cancelled/archived. «Ожидает оплату» — не отдельный статус, а
 // подтверждённая запись, которую уже принял инструктор (accepted_by).
 // «Перенесена» — бейдж по rescheduled_at, статус при этом живёт дальше.
+//
+// Галочка «Клиент уже оплатил» (paid, 0036) отменяет «Ожидает оплату»: деньги
+// у школы, ждём только занятия. Раньше бейдж считался по одному accepted_by, и
+// оплаченная заявка после принятия инструктором всё равно писала «Ожидает
+// оплату» — админ видел в ленте долг, которого нет.
 
 interface BookingRow {
   id: string;
@@ -51,6 +59,21 @@ interface BookingRow {
   payment_method_id: string | null;
   payment: { name: string } | null;
   paid: boolean | null; // деньги получены до занятия (0036)
+  // Чем закрыта заявка (0038): занятием или продажей абонемента. null у всех
+  // заявок, закрытых до этой миграции, и у закрытых кнопкой «Выполнена».
+  subscription_id: string | null;
+  session: SessionLink | null;
+}
+
+// Занятие, которым закрыта заявка. Одно занятие может закрывать несколько
+// заявок — парное обучение записывают одной сессией на двоих.
+interface SessionLink {
+  id: string;
+  date: string;
+  amount: number | null;
+  services: { name: string } | null;
+  instructor: { name: string } | null;
+  clients?: { name: string } | null;
 }
 
 const TERMINAL = ["done", "cancelled", "archived"];
@@ -63,10 +86,31 @@ function isClosedDeal(b: BookingRow): boolean {
   return b.status === "done" || (b.status === "archived" && b.client_id !== null);
 }
 
+// Заявка закрыта, а чем — неизвестно: занятия нет, абонемента нет (0038).
+// Так выглядят заявки, закрытые кнопкой «Выполнена» мимо «Записать клиента»:
+// клиент откатал, а в выручке, статистике и ЗП инструктора этого нет.
+//
+// linksReady — накатана ли 0038. Пока колонок нет, связи нет НИ У ОДНОЙ заявки,
+// и подсказка висела бы на всех закрытых сразу, пугая на ровном месте. Заявки,
+// закрытые до наката, останутся без связи и после него — их привязывают руками
+// один раз, кнопкой «Клиент учтён в другом занятии»; поэтому формулировка
+// нейтральная («не привязано»), а не обвинительная.
+function isDealWithoutSession(b: BookingRow, linksReady: boolean): boolean {
+  return linksReady && isClosedDeal(b) && !b.session && !b.subscription_id;
+}
+
+// Заявка принята инструктором и ждёт занятия. Именно здесь бейдж говорит про
+// деньги — поэтому здесь же учитывается отметка «уже оплатил».
+function isAwaiting(b: BookingRow): boolean {
+  return b.status === "confirmed" && Boolean(b.accepted);
+}
+
 // Подпись и цвет бейджа. «Ожидает оплату» вычисляем из accepted.
 function statusBadge(b: BookingRow): { label: string; cls: string } {
-  if (b.status === "confirmed" && b.accepted)
-    return { label: "Ожидает оплату", cls: "bg-purple-500/10 text-purple-600" };
+  if (isAwaiting(b))
+    return b.paid
+      ? { label: "Оплачена", cls: "bg-emerald-500/10 text-emerald-600" }
+      : { label: "Ожидает оплату", cls: "bg-purple-500/10 text-purple-600" };
   const map: Record<string, { label: string; cls: string }> = {
     // Залитый бейдж, а не бледная плашка: новая заявка — единственный статус,
     // требующий действия прямо сейчас, и на телефоне её видно первой.
@@ -106,6 +150,8 @@ function BookingCard({
   refOwner,
   refDiscount,
   paymentMethods,
+  coverCandidates,
+  linksReady,
 }: {
   b: BookingRow;
   today: string;
@@ -116,6 +162,12 @@ function BookingCard({
   // Положена ли скидка этому гостю на самом деле; undefined — не проверяли.
   refDiscount?: boolean;
   paymentMethods: { id: string; name: string }[];
+  // Занятия, к которым эту заявку можно привязать: соседние по дате, чтобы в
+  // списке не оказалась вся история школы.
+  coverCandidates: SessionLink[];
+  // Накатана ли 0038: до неё связей нет ни у кого, и подсказки про
+  // непривязанное занятие показывать нельзя.
+  linksReady: boolean;
 }) {
   const badge = statusBadge(b);
   const terminal = TERMINAL.includes(b.status);
@@ -159,6 +211,16 @@ function BookingCard({
         {b.rescheduled_at && !terminal && (
           <span className="rounded-full bg-sky-500/10 px-2 py-1 text-[11px] font-semibold text-sky-600">
             Перенесена
+          </span>
+        )}
+        {/* Деньги уже у школы, а бейдж статуса про это не говорит (заявка ещё
+            новая, в обработке или её не принял инструктор). Плашка нужна прямо
+            в свёрнутой строке: раньше отметку было видно только внутри
+            раскрытой карточки, и в ленте оплаченная заявка ничем не
+            отличалась от неоплаченной. */}
+        {b.paid && !terminal && !isAwaiting(b) && (
+          <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-600">
+            ✅ Оплачена
           </span>
         )}
         <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${badge.cls}`}>
@@ -224,6 +286,44 @@ function BookingCard({
               Оплата: не указана
             </p>
           )
+        )}
+
+        {/* Чем закрыта заявка (0038). Раньше между заявкой и занятием не было
+            связи вообще: по «Выполнена» нельзя было сказать, состоялось ли
+            занятие и на какую сумму, — приходилось искать клиента в «Сессиях»
+            руками. */}
+        {b.session && (
+          <Link
+            href="/admin/sessions"
+            className="mt-2 flex items-center gap-2 rounded-xl border border-line bg-line/20 px-3 py-2 text-sm text-muted transition-colors hover:border-primary"
+          >
+            <span aria-hidden>🏄</span>
+            <span className="min-w-0">
+              Занятие:{" "}
+              <span className="font-semibold text-ink">
+                {b.session.services?.name ?? "услуга не указана"}
+              </span>{" "}
+              · {b.session.date} · {vnd(b.session.amount ?? 0)}
+              {b.session.instructor?.name ? ` · ${b.session.instructor.name}` : ""}
+            </span>
+          </Link>
+        )}
+
+        {b.subscription_id && !b.session && (
+          <p className="mt-2 flex items-center gap-2 rounded-xl border border-line bg-line/20 px-3 py-2 text-sm text-muted">
+            <span aria-hidden>🎟️</span>
+            Закрыта продажей абонемента
+          </p>
+        )}
+
+        {/* Закрыта, а занятия за ней не числится. */}
+        {isDealWithoutSession(b, linksReady) && (
+          <p className="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700">
+            <span className="font-bold">Занятие не привязано.</span> Заявка
+            закрыта, но занятия за ней в базе нет — значит, выручка и 15%
+            инструктору по ней не посчитаны. Если клиент катался, проведите её
+            через «Записать клиента» или укажите занятие, в котором он учтён.
+          </p>
         )}
 
         {/* Атрибуция: откуда пришёл клиент */}
@@ -367,12 +467,21 @@ function BookingCard({
             )}
             {b.status === "confirmed" && (
               <>
-                <button
+                {/* «Выполнена» закрывает заявку БЕЗ занятия: сессия не пишется,
+                    деньги и 15% инструктору не считаются. Кнопка выглядела как
+                    обычное «готово», и ею закрывали проведённых клиентов — в
+                    отчётах их потом не было. Правильный путь — «Записать
+                    клиента» рядом; для второго человека из парного занятия —
+                    «Учтена в занятии» ниже. */}
+                <ConfirmSubmit
+                  message={
+                    "Закрыть заявку БЕЗ занятия?\n\nВыручка и 15% инструктору по ней не посчитаются.\n\nЕсли клиент катался — нажмите «Записать клиента».\nЕсли он уже внутри чужого занятия (парное обучение) — «Учтена в занятии»."
+                  }
                   formAction={setStatusAction.bind(null, "done")}
                   className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
                 >
                   Выполнена
-                </button>
+                </ConfirmSubmit>
                 <button formAction={togglePinAction} className={btnGhost}>
                   {b.pinned ? "Открепить" : "Закрепить"}
                 </button>
@@ -420,7 +529,55 @@ function BookingCard({
           </div>
         </SaveForm>
 
-        {/* Перенос: новая дата/время, статус остаётся живым */}
+        {/* «Учтена в занятии» (0038). Парное обучение — это одна сессия на
+            двоих, а заявок две. Вторую раньше оставалось только отменить, и
+            человек, который реально катался, оказывался в CRM отказом. Теперь
+            она встаёт «Выполнена» и указывает на то же занятие; денег это не
+            добавляет — выручка живёт на сессии, а сессия одна.
+            Свёрнуто в details: нужно это редко, а место в карточке дорогое. */}
+        {/* Отменённым блок тоже нужен, и это главный случай: заявку-спутника
+            до сих пор закрывали именно «Отменить» (заявка 76 от 11.08 —
+            дочка, которая каталась в парном занятии мамы). Такую отмену
+            исправляют здесь: заявка станет выполненной и укажет на занятие. */}
+        {linksReady &&
+          b.status !== "new" &&
+          (!terminal ||
+            b.status === "cancelled" ||
+            isDealWithoutSession(b, linksReady)) &&
+          coverCandidates.length > 0 && (
+          <details className="mt-3 rounded-xl border border-line bg-line/10 p-3">
+            <summary className="cursor-pointer text-xs font-semibold text-muted">
+              Клиент учтён в другом занятии
+            </summary>
+            <form action={coverBookingAction} className="mt-2 flex flex-wrap items-end gap-2">
+              <input type="hidden" name="id" value={b.id} />
+              <label className="min-w-0 flex-1 text-xs text-muted">
+                Занятие
+                <select name="sessionId" required className={`mt-1 ${inputClass}`}>
+                  {coverCandidates.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {[
+                        s.clients?.name ?? "клиент",
+                        s.services?.name ?? "услуга",
+                        s.date,
+                        vnd(s.amount ?? 0),
+                      ].join(" · ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="submit" className={btnGhost}>
+                Учтена
+              </button>
+            </form>
+            <p className="mt-2 text-[11px] text-muted">
+              Для второго человека из парного занятия: заявка закроется как
+              выполненная, второй раз деньги не посчитаются.
+            </p>
+          </details>
+        )}
+
+      {/* Перенос: новая дата/время, статус остаётся живым */}
         {!terminal && (
           <form action={rescheduleAction} className="mt-3 flex items-end gap-2">
             <input type="hidden" name="id" value={b.id} />
@@ -502,7 +659,15 @@ export default async function AdminBookingsPage({
       .order("created_at", { ascending: false })
       .limit(200);
 
-  let res = await bookingsQuery(`${bookingCols}, paid`);
+  // Колонки 0038 (чем закрыта заявка) читаем тем же приёмом: не накатили —
+  // отваливаемся на прежний набор, лента продолжает работать.
+  const sessionCols =
+    "subscription_id, session:sessions!session_id(id, date, amount, services(name), instructor:users!instructor_id(name))";
+  let res = await bookingsQuery(`${bookingCols}, paid, ${sessionCols}`);
+  // Первый запрос прошёл — значит колонки связи в базе есть, и «занятие не
+  // привязано» действительно означает дыру, а не ненакатанную миграцию.
+  const linksReady = !res.error;
+  if (res.error) res = await bookingsQuery(`${bookingCols}, paid`);
   if (res.error) res = await bookingsQuery(bookingCols);
 
   const all = (res.data ?? []) as unknown as BookingRow[];
@@ -510,7 +675,9 @@ export default async function AdminBookingsPage({
   // Фильтр: «Все» скрывает архив, остальные чипсы показывают свой срез.
   let bookings = all;
   if (filter === "awaiting") {
-    bookings = all.filter((b) => b.status === "confirmed" && b.accepted);
+    // Оплаченные сюда не попадают: в этом срезе админ ищет, с кого ещё взять
+    // деньги, — заявка с галочкой «уже оплатил» там только мешает.
+    bookings = all.filter((b) => isAwaiting(b) && !b.paid);
   } else if (filter === "confirmed") {
     bookings = all.filter((b) => b.status === "confirmed" && !b.accepted);
   } else if (filter) {
@@ -556,6 +723,35 @@ export default async function AdminBookingsPage({
   const refDiscounts = await firstBasicTrainingByPhone(supabase, agentPhones);
 
   const freshCount = all.filter((b) => b.status === "new").length;
+
+  // Занятия последних двух недель — из них выбирают «в каком занятии учтён»
+  // второй человек парной записи. Две недели, а не вся история: привязывают
+  // заявку к занятию по горячим следам, а длинный список на телефоне
+  // нелистаемый. В карточке из них остаются соседние по дате (±3 дня).
+  const coverFrom = new Date(`${today}T00:00:00Z`);
+  coverFrom.setUTCDate(coverFrom.getUTCDate() - 14);
+  const { data: recentSessionRows } = await supabase
+    .from("sessions")
+    .select("id, date, amount, clients(name), services(name), instructor:users!instructor_id(name)")
+    .gte("date", coverFrom.toISOString().slice(0, 10))
+    .order("date", { ascending: false })
+    .limit(200);
+  const recentSessions = (recentSessionRows ?? []) as unknown as SessionLink[];
+
+  // Соседние по дате занятия: считаем от дня, на который записан гость, а если
+  // даты нет — от дня создания заявки.
+  const coverCandidatesFor = (b: BookingRow): SessionLink[] => {
+    const anchor = b.preferred_date ?? b.created_at.slice(0, 10);
+    const from = new Date(`${anchor}T00:00:00Z`);
+    const to = new Date(from);
+    from.setUTCDate(from.getUTCDate() - 3);
+    to.setUTCDate(to.getUTCDate() + 3);
+    const fromDay = from.toISOString().slice(0, 10);
+    const toDay = to.toISOString().slice(0, 10);
+    return recentSessions.filter(
+      (s) => s.date >= fromDay && s.date <= toDay && s.id !== b.session?.id,
+    );
+  };
 
   return (
     <div>
@@ -622,6 +818,8 @@ export default async function AdminBookingsPage({
             refOwner={b.ref_code ? refOwners.get(b.ref_code) : undefined}
             refDiscount={refDiscounts.get(b.phone)}
             paymentMethods={paymentMethods}
+            coverCandidates={coverCandidatesFor(b)}
+            linksReady={linksReady}
           />
         ))}
       </div>

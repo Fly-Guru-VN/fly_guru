@@ -22,7 +22,12 @@ import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
 import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
-import { claimBooking, releaseBooking, type BookingClaimState } from "@/lib/bookingClaim";
+import {
+  claimBooking,
+  linkBookingResult,
+  releaseBooking,
+  type BookingClaimState,
+} from "@/lib/bookingClaim";
 import type { ActionState } from "../instructor/actions";
 
 // Server actions админки: полный цикл заявки. Админ созванивается с гостем,
@@ -237,6 +242,52 @@ export async function setStatusAction(status: string, formData: FormData) {
   }
   await updateBooking(id, patch);
   if (status === "confirmed") await notifyInstructors(id).catch(() => {});
+}
+
+// «Учтена в занятии» (0038): заявка-спутник закрывается ЧУЖИМ занятием.
+//
+// Живой случай — мама записала себя и дочку двумя заявками, а инструктор
+// провёл одно парное обучение за 3,5 млн. Раньше вторую заявку оставалось
+// только «Отменить»: в CRM дочка выглядела отказом, хотя каталась, и воронка
+// «Источников» считала её потерянным клиентом. Теперь заявка встаёт
+// «Выполнена» и указывает на то же занятие — денег это не добавляет (выручка
+// живёт на сессии, а сессия одна).
+export async function coverBookingAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const sessionId = String(formData.get("sessionId") ?? "");
+  if (!id || !sessionId) return;
+
+  const supabase = await createClient();
+  // Занятие должно существовать: id приходит из формы, а формам не верим.
+  // Заодно берём его клиента — заявка-спутник должна указывать на того же
+  // человека, иначе она не попадёт в «закрытые занятием» (isClosedDeal).
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("id, client_id")
+    .eq("id", sessionId)
+    .maybeSingle();
+  if (!session) return;
+
+  const { error } = await supabase
+    .from("bookings")
+    .update({
+      status: "done",
+      pinned: false,
+      session_id: session.id,
+      client_id: session.client_id,
+    })
+    .eq("id", id);
+  // Колонки нет — 0038 ещё не накатана. Молча делать вид, что заявка закрыта
+  // занятием, нельзя: человек увидит «Выполнена» без связи и решит, что всё в
+  // порядке. Честно говорим, чего не хватает.
+  if (error?.code === "PGRST204") {
+    throw new Error(
+      "не удалось привязать занятие: в базе нет колонки bookings.session_id — накатите миграцию 0038",
+    );
+  }
+  failIfError(error, "не удалось привязать занятие");
+  revalidatePath("/", "layout");
 }
 
 // ── Сессии (подэтап 4.2) ─────────────────────────────────────────────────────
@@ -466,24 +517,34 @@ export async function createSessionAction(
   // Комиссию агента фиксируем на сессии — из неё вычтется база инструктора
   // (15% с чека минус комиссия). Ставим её там же, где положена награда, даже
   // если сумму админ ввёл руками: агент привёл клиента независимо от чека.
-  const { error: insError } = await supabase.from("sessions").insert({
-    client_id: clientId,
-    service_id: serviceId,
-    instructor_id: instructorId,
-    date,
-    amount,
-    agent_commission: rewarded ? agent!.commission_fixed : 0,
-    payment_method_id: paymentMethodId,
-    // Как человек записался на это занятие (0034). Заявка не создаётся, когда
-    // клиента оформляют сразу на пляже, — иначе канал терялся бы совсем.
-    channel,
-    note: String(formData.get("note") ?? "").trim() || null,
-    created_by: admin.id,
-  });
+  const { data: session, error: insError } = await supabase
+    .from("sessions")
+    .insert({
+      client_id: clientId,
+      service_id: serviceId,
+      instructor_id: instructorId,
+      date,
+      amount,
+      agent_commission: rewarded ? agent!.commission_fixed : 0,
+      payment_method_id: paymentMethodId,
+      // Как человек записался на это занятие (0034). Заявка не создаётся, когда
+      // клиента оформляют сразу на пляже, — иначе канал терялся бы совсем.
+      channel,
+      note: String(formData.get("note") ?? "").trim() || null,
+      created_by: admin.id,
+    })
+    .select("id")
+    .single();
   if (insError) {
     // Занятие не записалось — заявка не должна остаться «проведённой».
     if (bookingId && bookingBefore) await releaseBooking(supabase, bookingId, bookingBefore);
     return { error: `Не удалось создать сессию: ${insError.message}` };
+  }
+
+  // Заявка запоминает своё занятие (0038): в ленте видно, чем она закрыта, а
+  // заявки, закрытые в никуда, перестают теряться.
+  if (bookingId && session) {
+    await linkBookingResult(supabase, bookingId, { session_id: session.id as string });
   }
 
   // Награда агенту (за первое базовое обучение клиента) и закрытие заявки:
@@ -741,13 +802,21 @@ export async function adminSellSubscriptionAction(
     paid_at: paidAt,
     payment_method_id: paymentMethodId,
   };
-  let { error: subError } = await supabase.from("subscriptions").insert(row);
+  let { data: sub, error: subError } = await supabase
+    .from("subscriptions")
+    .insert(row)
+    .select("id")
+    .single();
   // До миграции 0025 колонки payment_method_id нет — не роняем продажу из-за
   // неё, сохраняем абонемент без способа оплаты (см. кабинет инструктора).
   if (subError?.code === "PGRST204") {
     const legacy: Partial<typeof row> = { ...row };
     delete legacy.payment_method_id;
-    ({ error: subError } = await supabase.from("subscriptions").insert(legacy));
+    ({ data: sub, error: subError } = await supabase
+      .from("subscriptions")
+      .insert(legacy)
+      .select("id")
+      .single());
   }
   if (subError) {
     // Абонемент не создался — заявка не должна остаться «проведённой».
@@ -755,7 +824,10 @@ export async function adminSellSubscriptionAction(
     return { error: `Не удалось создать абонемент: ${subError.message}` };
   }
 
-  // Заявка уже закрыта захватом выше.
+  // Заявка уже закрыта захватом выше; здесь запоминаем, ЧЕМ она закрыта (0038).
+  if (bookingId && sub) {
+    await linkBookingResult(supabase, bookingId, { subscription_id: sub.id as string });
+  }
 
   // Клуб пока не запускаем: продажа абонемента НЕ делает клиента членом клуба
   // (как и у инструктора). Членство добавляется руками на вкладке «Члены клуба».

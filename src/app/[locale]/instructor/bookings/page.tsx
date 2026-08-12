@@ -2,8 +2,10 @@ import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUser } from "@/lib/auth";
 import { vnToday } from "@/lib/dates";
-import { acceptBookingAction, declineBookingAction } from "../actions";
+import { acceptBookingAction, coverBookingAction, declineBookingAction } from "../actions";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { vnd } from "@/lib/stats";
 
 // «Записи»: заявки, которые админ подтвердил (созвонился, внёс время/возраст/
 // вес). Закреплённые админом — сверху. Любой инструктор может принять запись;
@@ -28,6 +30,16 @@ interface BookingRow {
   accepted: { name: string } | null;
 }
 
+// Занятие, которым можно закрыть заявку-спутника (0038).
+interface SessionOption {
+  id: string;
+  date: string;
+  amount: number | null;
+  clients: { name: string } | null;
+  services: { name: string } | null;
+  instructor: { name: string } | null;
+}
+
 const actionButton =
   "inline-flex w-full items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition-colors";
 
@@ -50,15 +62,48 @@ export default async function InstructorBookingsPage() {
       .order("preferred_date", { ascending: true, nullsFirst: false })
       .limit(50);
 
-  const [user, first] = await Promise.all([
+  // Занятия последней недели — из них выбирают, в каком уже учтён второй
+  // человек парной записи. Список общий, как и вкладка «Сессии» (пачка №11):
+  // катать мог напарник, а закрывать заявку — тот, кто сейчас на пляже.
+  // Поэтому service_role: своя RLS отдаёт инструктору только его сессии.
+  const coverFrom = new Date(`${today}T00:00:00Z`);
+  coverFrom.setUTCDate(coverFrom.getUTCDate() - 7);
+
+  const [user, first, recent] = await Promise.all([
     getAppUser(),
-    bookingsQuery(`${cols}, paid`),
+    // session_id в первом запросе — заодно проверка, накатана ли 0038: пока
+    // колонки нет, привязывать заявку к занятию нечем, и кнопку показывать
+    // незачем (нажатие всё равно ничего бы не сделало).
+    bookingsQuery(`${cols}, paid, session_id`),
+    createAdminClient()
+      .from("sessions")
+      .select("id, date, amount, clients(name), services(name), instructor:users!instructor_id(name)")
+      .gte("date", coverFrom.toISOString().slice(0, 10))
+      .order("date", { ascending: false })
+      .limit(100),
   ]);
-  const res = first.error ? await bookingsQuery(cols) : first;
+  const linksReady = !first.error;
+  let res = first;
+  if (res.error) res = await bookingsQuery(`${cols}, paid`);
+  if (res.error) res = await bookingsQuery(cols);
   if (!user) return null; // layout уже средиректил бы; страховка для типов
 
   const bookings = (res.data ?? []) as unknown as BookingRow[];
+  const recentSessions = (recent.data ?? []) as unknown as SessionOption[];
   const freeCount = bookings.filter((b) => !b.accepted_by).length;
+
+  // Занятия, соседние по дате с заявкой: клиента учитывают в занятии того же
+  // дня, а не месячной давности.
+  const coverCandidatesFor = (b: BookingRow): SessionOption[] => {
+    const anchor = b.preferred_date ?? today;
+    const from = new Date(`${anchor}T00:00:00Z`);
+    const to = new Date(from);
+    from.setUTCDate(from.getUTCDate() - 3);
+    to.setUTCDate(to.getUTCDate() + 3);
+    const fromDay = from.toISOString().slice(0, 10);
+    const toDay = to.toISOString().slice(0, 10);
+    return recentSessions.filter((s) => s.date >= fromDay && s.date <= toDay);
+  };
 
   return (
     <div>
@@ -203,6 +248,50 @@ export default async function InstructorBookingsPage() {
                   <p className="mt-2 text-sm font-semibold text-muted">
                     Принял: {mine ? "вы" : b.accepted?.name ?? "другой инструктор"}
                   </p>
+
+                  {/* Второй человек парной записи. Мама записывает себя и
+                      дочку двумя заявками, а занятие одно — парное обучение за
+                      3,5 млн. Записать вторую как отдельное занятие нельзя:
+                      это второй чек в выручке и вторые 15%. Раньше такая
+                      заявка просто висела в ленте до админа, и человек,
+                      который реально катался, числился отказом.
+                      Свёрнуто: нужно это редко. */}
+                  {linksReady && coverCandidatesFor(b).length > 0 && (
+                    <details className="mt-3 rounded-xl border border-line bg-line/10 p-3">
+                      <summary className="cursor-pointer text-sm font-semibold text-muted">
+                        Клиент уже учтён в другом занятии
+                      </summary>
+                      <form action={coverBookingAction} className="mt-2 space-y-2">
+                        <input type="hidden" name="id" value={b.id} />
+                        <select
+                          name="sessionId"
+                          required
+                          className="w-full rounded-xl border border-line bg-surface px-3 py-3 text-sm outline-none focus:border-primary"
+                        >
+                          {coverCandidatesFor(b).map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {[
+                                s.clients?.name ?? "клиент",
+                                s.services?.name ?? "услуга",
+                                s.date,
+                                vnd(s.amount ?? 0),
+                              ].join(" · ")}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="submit"
+                          className={`${actionButton} border border-line text-muted hover:border-primary hover:text-primary`}
+                        >
+                          Закрыть заявку этим занятием
+                        </button>
+                      </form>
+                      <p className="mt-2 text-xs text-muted">
+                        Заявка станет выполненной, второй раз деньги не
+                        посчитаются.
+                      </p>
+                    </details>
+                  )}
                 </>
               )}
             </div>
