@@ -1,6 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
-import { channelLabel, MANUAL_CHANNELS } from "@/lib/channels";
+import { channelLabel, LEGACY_CHANNELS } from "@/lib/channels";
 
 // «Источники» — откуда к нам приходят люди и что из этого выходит (10.08.2026,
 // просьба СММщика: он ставит ссылки в шапку Instagram и в описания роликов на
@@ -15,8 +15,14 @@ import { channelLabel, MANUAL_CHANNELS } from "@/lib/channels";
 //  • РЕФ-ССЫЛКА агента или инструктора /r/<код>. Переходы тоже считаются, но
 //    смысл другой: это конкретный человек привёл гостя.
 //  • РУЧНОЙ КАНАЛ — «Пляжи», «Звонок», «WhatsApp» и прочее, что инструктор
-//    ставит руками в форме записи (lib/channels). Переходов там не бывает
-//    никогда: человек подошёл ногами, а не кликнул.
+//    ставит руками в форме записи (справочник booking_channels, 0041).
+//    Переходов там не бывает никогда: человек подошёл ногами, а не кликнул.
+//
+// Один и тот же канал может быть в обоих списках — Instagram и висит ссылкой в
+// «Материалах», и выбирается руками, когда гость написал в директ. Такие
+// сводим в ОДНУ строку, метка главнее: у неё есть переходы, а у ручного
+// выбора их не бывает, и разведя их по двум строкам мы бы делили одну воронку
+// пополам.
 //
 // Что здесь НЕ считается, чтобы цифры не выглядели умнее, чем есть:
 //  • Выручка привязана к заявке: берём клиентов, чьи заявки пришли в этом
@@ -72,11 +78,14 @@ function labelFor(
   key: string,
   kind: SourceKind,
   materials: Map<string, string>,
+  channels: Map<string, string>,
   refOwners: Map<string, string>,
 ): string {
   if (kind === "direct") return "Прямые заходы";
   if (kind === "ref") return refOwners.get(key) ?? `Реф-ссылка ${key}`;
-  if (kind === "manual") return channelLabel(key) ?? key;
+  // Ключ приведён к нижнему регистру (normKey), а показать надо как в
+  // справочнике: «Пляжи», а не «пляжи».
+  if (kind === "manual") return channels.get(key) ?? channelLabel(key) ?? key;
   return materials.get(key) ?? key;
 }
 
@@ -110,7 +119,7 @@ export async function getSourcesReport(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<SourcesReport> {
-  const [visits, bookingsRes, materialsRes, agentsRes, instructorsRes] =
+  const [visits, bookingsRes, materialsRes, channelsRes, agentsRes, instructorsRes] =
     await Promise.all([
       loadVisits(supabase, range),
       supabase
@@ -120,6 +129,10 @@ export async function getSourcesReport(
         .lt("created_at", range.toIso)
         .limit(5000),
       supabase.from("materials").select("src, label"),
+      // Справочник каналов (0041). Пока миграция не накатана, запрос вернёт
+      // ошибку — тогда остаются старые ключи из LEGACY_CHANNELS, и экран
+      // продолжает работать (та же страховка, что у переходов выше).
+      supabase.from("booking_channels").select("name"),
       supabase.from("agents").select("ref_code, user:users!user_id(name)"),
       supabase
         .from("users")
@@ -134,6 +147,17 @@ export async function getSourcesReport(
       m.label,
     ]),
   );
+
+  // Ручные каналы: нижний регистр → как показывать. Старые ключи (beach) тоже
+  // тут — заявки до 0041 их ещё помнят, если миграцию накатили не сразу.
+  const channels = new Map<string, string>();
+  for (const [key, name] of Object.entries(LEGACY_CHANNELS)) {
+    channels.set(key, name);
+    channels.set(normKey(name), name);
+  }
+  for (const c of (channelsRes.data ?? []) as { name: string }[]) {
+    channels.set(normKey(c.name), c.name);
+  }
 
   const refOwners = new Map<string, string>();
   for (const a of (agentsRes.data ?? []) as unknown as {
@@ -158,7 +182,7 @@ export async function getSourcesReport(
     if (!entry) {
       entry = {
         key,
-        label: labelFor(key, kind, materials, refOwners),
+        label: labelFor(key, kind, materials, channels, refOwners),
         kind,
         hits: 0,
         bookings: 0,
@@ -194,13 +218,19 @@ export async function getSourcesReport(
     ref_code: string | null;
     client_id: string | null;
   }[]) {
+    // Метка «Материалов» главнее справочника: канал, заведённый и там и там
+    // (Instagram), должен лечь в одну строку с переходами по своей ссылке.
+    // Незнакомая метка (?src=gads из рекламы) — тоже метка, а не ручной канал:
+    // переходы по ней считаются, и разводить их с заявками нельзя.
     const srcKey = b.src ? normKey(b.src) : null;
     const kind: SourceKind = b.ref_code
       ? "ref"
       : srcKey
-        ? srcKey in MANUAL_CHANNELS
-          ? "manual"
-          : "tag"
+        ? materials.has(srcKey)
+          ? "tag"
+          : channels.has(srcKey)
+            ? "manual"
+            : "tag"
         : "direct";
     const key = b.ref_code ?? srcKey ?? DIRECT_KEY;
     const entry = row(key, kind);

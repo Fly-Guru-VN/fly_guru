@@ -27,10 +27,12 @@ export function BookingCreateForm({
   services,
   today,
   paymentMethods,
+  channels,
 }: {
   services: ServiceOption[];
   today: string;
   paymentMethods: { id: string; name: string }[];
+  channels: string[];
 }) {
   const [state, formAction, pending] = useActionState(createBookingAction, {
     error: null,
@@ -88,9 +90,10 @@ export function BookingCreateForm({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        {/* Канал записи: по умолчанию «Пляжи», любой другой можно вписать
-            руками (пункт «Другой…» в списке). */}
-        <ChannelField variant="compact" className={inputClass} />
+        {/* Канал записи: список ведёт админ в «Настройках» (0041), по
+            умолчанию «Пляжи». Разовую точку можно вписать руками — пункт
+            «Другой…» в конце списка. */}
+        <ChannelField variant="compact" className={inputClass} channels={channels} />
         <label className="text-xs text-muted">
           Услуга
           <select name="serviceId" className={`mt-1 ${inputClass}`}>

@@ -50,6 +50,7 @@ export function RecordClientForm({
   today,
   defaultInstructorId,
   paymentMethods,
+  channels,
   prefill,
 }: {
   services: ServiceOption[];
@@ -57,6 +58,7 @@ export function RecordClientForm({
   today: string;
   defaultInstructorId: string;
   paymentMethods: Option[];
+  channels: string[];
   prefill?: RecordPrefill;
 }) {
   const [state, formAction, pending] = useActionState(createSessionAction, {
@@ -170,11 +172,12 @@ export function RecordClientForm({
         />
       </label>
 
-      {/* Канал записи: по умолчанию «Пляжи», свой вариант — пункт «Другой…».
-          Из заявки приезжает её канал. */}
+      {/* Канал записи: список из справочника (0041), по умолчанию «Пляжи»,
+          свой вариант — пункт «Другой…». Из заявки приезжает её канал. */}
       <ChannelField
         variant="compact"
         className={inputClass}
+        channels={channels}
         defaultValue={prefill?.channel}
       />
 

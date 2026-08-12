@@ -33,6 +33,7 @@ interface RecordFormProps {
   services: { id: string; name: string }[];
   today: string; // 'YYYY-MM-DD' по Вьетнаму — с сервера, чтобы не зависеть от часов телефона
   paymentMethods: { id: string; name: string }[];
+  channels: string[]; // справочник каналов записи (0041)
   prefill?: RecordPrefill;
 }
 
@@ -40,6 +41,7 @@ export function RecordForm({
   services,
   today,
   paymentMethods,
+  channels,
   prefill,
 }: RecordFormProps) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
@@ -119,8 +121,13 @@ export function RecordForm({
         />
       </div>
 
-      {/* Канал записи: по умолчанию «Пляжи», любой свой — через «Другой…». */}
-      <ChannelField className={inputClass} defaultValue={prefill?.channel} />
+      {/* Канал записи: список из справочника (0041), по умолчанию «Пляжи»,
+          любой свой — через «Другой…». */}
+      <ChannelField
+        className={inputClass}
+        channels={channels}
+        defaultValue={prefill?.channel}
+      />
 
       <div>
         <label htmlFor="serviceId" className="mb-1 block text-sm font-medium">

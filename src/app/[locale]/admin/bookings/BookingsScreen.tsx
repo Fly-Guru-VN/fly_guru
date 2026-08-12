@@ -17,7 +17,7 @@ import { channelLabel } from "@/lib/channels";
 import { resolveRefOwners, refOwnerLabel, type RefOwner } from "@/lib/refOwner";
 import { firstBasicTrainingByPhone } from "@/lib/agentReward";
 import { SaveForm } from "../SaveForm";
-import { getActiveDict } from "@/lib/dictionaries";
+import { getActiveDict, getChannelNames } from "@/lib/dictionaries";
 import { BookingCreateForm } from "./BookingCreateForm";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
@@ -636,7 +636,10 @@ export async function BookingsScreen({
   const { status: filter = "" } = await searchParams;
   const supabase = await createClient();
   const today = vnToday();
-  const paymentMethods = await getActiveDict(supabase, "payment_methods");
+  const [paymentMethods, channels] = await Promise.all([
+    getActiveDict(supabase, "payment_methods"),
+    getChannelNames(supabase),
+  ]);
 
   // Услуги для формы ручной заявки. Абонемент отсюда исключён намеренно: его
   // продают через /admin/subscriptions, иначе продажа пройдёт мимо минут
@@ -794,6 +797,7 @@ export async function BookingsScreen({
           services={services}
           today={today}
           paymentMethods={paymentMethods}
+          channels={channels}
         />
       </div>
 

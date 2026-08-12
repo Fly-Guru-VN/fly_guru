@@ -42,8 +42,9 @@ export default async function AdminSettingsPage() {
 
   const supabase = await createClient();
   const today = vnToday();
-  const [methods, equipment, staff] = await Promise.all([
+  const [methods, channels, equipment, staff] = await Promise.all([
     getFullDict(supabase, "payment_methods"),
+    getFullDict(supabase, "booking_channels"),
     getFullEquipment(supabase),
     loadStaff(supabase, today),
   ]);
@@ -52,7 +53,7 @@ export default async function AdminSettingsPage() {
     <div>
       <PageHeader
         title="Настройки"
-        hint="Профиль, старшие инструкторы, форматы оплаты, инвентарь"
+        hint="Профиль, старшие инструкторы, справочники форм, инвентарь"
       />
       <PageNote>Имя и фото видны всем в кабинете. Категории расходов редактируются не здесь, а во вкладке «Расходы».</PageNote>
       <div className="mt-6">
@@ -78,6 +79,13 @@ export default async function AdminSettingsPage() {
           hint="Чем платил клиент. Обязателен при записи сессии, необязателен в заявке."
           placeholder="QR"
           items={methods}
+        />
+        <DictionaryManager
+          table="booking_channels"
+          title="Каналы записи"
+          hint="Откуда пришёл гость. Выпадашка в «Новой заявке» и в «Записать клиента»; канал из «Материалов» добавляйте с тем же названием — тогда переходы по ссылке и записи руками сойдутся в одну строку «Источников»."
+          placeholder="Instagram"
+          items={channels}
         />
       </div>
 

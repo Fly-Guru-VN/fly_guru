@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { vnToday } from "@/lib/dates";
-import { getActiveDict } from "@/lib/dictionaries";
+import { getActiveDict, getChannelNames } from "@/lib/dictionaries";
 import { BookingCreateForm } from "../../admin/bookings/BookingCreateForm";
 import { sortServicesByType } from "@/lib/serviceOrder";
 import { PageHeader } from "@/components/cabinet/PageHeader";
@@ -22,7 +22,10 @@ export default async function MechanicRecordPage({
   const { created } = await searchParams;
   const supabase = await createClient();
   const today = vnToday();
-  const paymentMethods = await getActiveDict(supabase, "payment_methods");
+  const [paymentMethods, channels] = await Promise.all([
+    getActiveDict(supabase, "payment_methods"),
+    getChannelNames(supabase),
+  ]);
 
   // Абонемент из списка исключён намеренно: его продаёт инструктор отдельной
   // формой, иначе клиент не получит минуты и членство.
@@ -55,6 +58,7 @@ export default async function MechanicRecordPage({
           services={services}
           today={today}
           paymentMethods={paymentMethods}
+          channels={channels}
         />
       </div>
     </div>

@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAppUser } from "@/lib/auth";
 import { vnPeriod, vnToday } from "@/lib/dates";
-import { getActiveDict, embeddedName } from "@/lib/dictionaries";
+import { getActiveDict, getChannelNames, embeddedName } from "@/lib/dictionaries";
 import { getInstructorStats, vnd } from "@/lib/stats";
 import { SHIFT_PAY, SHIFT_PAY_LABEL } from "@/lib/salary";
 import { CopyLink } from "@/app/[locale]/admin/CopyLink";
@@ -69,7 +69,10 @@ export default async function RecordPage({
     .neq("category", "subscription");
   const services = sortServicesByType(serviceRows ?? []);
 
-  const paymentMethods = await getActiveDict(supabase, "payment_methods");
+  const [paymentMethods, channels] = await Promise.all([
+    getActiveDict(supabase, "payment_methods"),
+    getChannelNames(supabase),
+  ]);
 
   let prefill: RecordPrefill | undefined;
   if (bookingId) {
@@ -223,6 +226,7 @@ export default async function RecordPage({
           services={services ?? []}
           today={today}
           paymentMethods={paymentMethods}
+          channels={channels}
           prefill={prefill}
         />
       </div>

@@ -4,7 +4,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getAppUser } from "@/lib/auth";
 import { vnToday } from "@/lib/dates";
-import { getActiveDict, embeddedName } from "@/lib/dictionaries";
+import { getActiveDict, getChannelNames, embeddedName } from "@/lib/dictionaries";
 import { RecordClientForm, type RecordPrefill } from "./RecordClientForm";
 import { firstBasicTrainingByPhone } from "@/lib/agentReward";
 import { sortServicesByType } from "@/lib/serviceOrder";
@@ -23,7 +23,10 @@ export async function RecordScreen({
   const { booking: bookingId } = await searchParams;
   const supabase = await createClient();
   const admin = await getAppUser();
-  const paymentMethods = await getActiveDict(supabase, "payment_methods");
+  const [paymentMethods, channels] = await Promise.all([
+    getActiveDict(supabase, "payment_methods"),
+    getChannelNames(supabase),
+  ]);
 
   const [servicesRes, staffRes, hidden] = await Promise.all([
     // Без subscription: абонемент — не сессия (своя форма с минутами/членством).
@@ -109,6 +112,7 @@ export async function RecordScreen({
           today={today}
           defaultInstructorId={admin?.id ?? staff[0]?.id ?? ""}
           paymentMethods={paymentMethods}
+          channels={channels}
           prefill={prefill}
         />
       </div>

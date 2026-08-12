@@ -1681,12 +1681,16 @@ export async function removeShiftAction(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
-// ── Справочники: категории расходов и форматы оплаты (пачка №4, пак A) ────────
-// Обе таблицы устроены одинаково (name + active), поэтому экшены общие, а какой
-// именно справочник править — приходит полем формы. Валидируем имя таблицы по
-// белому списку: иначе значением из формы можно было бы дотянуться до любой
-// таблицы базы.
-const DICT_TABLES: DictTable[] = ["expense_categories", "payment_methods"];
+// ── Справочники: категории расходов, форматы оплаты, каналы записи ───────────
+// (пачка №4, пак A; каналы добавлены в 0041.) Все таблицы устроены одинаково
+// (name + active), поэтому экшены общие, а какой именно справочник править —
+// приходит полем формы. Валидируем имя таблицы по белому списку: иначе
+// значением из формы можно было бы дотянуться до любой таблицы базы.
+const DICT_TABLES: DictTable[] = [
+  "expense_categories",
+  "payment_methods",
+  "booking_channels",
+];
 
 function dictTable(formData: FormData): DictTable | null {
   const table = String(formData.get("table") ?? "");
