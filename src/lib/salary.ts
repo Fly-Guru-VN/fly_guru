@@ -339,35 +339,19 @@ export function getSmmFixedPay(
   return { weeks, spareDays: days - weeks * 7, amount: weeks * SMM_WEEK_PAY };
 }
 
-// Подпись расхода, который создаёт отметка «выплачено» (см. admin/actions →
-// markSalaryPaidAction). Одной функцией, потому что по этой же строке расход
-// потом ищется и удаляется, если отметку снимут: связку через отдельную
-// колонку заводить ради этого не стали — миграции в этой правке нет.
-//
-// Имя в подписи нужно человеку («Зарплата — кому?»), но искать по нему нельзя:
-// СММщик может переименовать себя в своих «Настройках» между отметкой и её
-// снятием, и тогда строка перестанет находиться — расход остался бы висеть и
-// вечно занижать прибыль. Поэтому поиск идёт по хвосту с периодом
-// (smmPayoutPeriod), который от имени не зависит.
-export const SMM_PAYOUT_PREFIX = "ЗП СММ";
-
-export function smmPayoutPeriod(fromDay: string, lastDay: string): string {
-  const d = (day: string) =>
-    new Date(`${day}T00:00:00Z`).toLocaleDateString("ru-RU", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      timeZone: "UTC",
-    });
-  return `${d(fromDay)} — ${d(lastDay)}`;
-}
-
-export function smmPayoutComment(
-  name: string,
-  fromDay: string,
-  lastDay: string,
-): string {
-  return `${SMM_PAYOUT_PREFIX} · ${name} · ${smmPayoutPeriod(fromDay, lastDay)}`;
+// Подпись расхода, который заводит выплата СММщику (см. admin/actions →
+// paySalaryAction). Она только для человека, читающего «Расходы»: обратно
+// расход находится не по тексту, а по прямой ссылке из выплаты (0043,
+// salary_payouts.expense_id) — подпись можно спокойно править руками, и связь
+// от этого не порвётся.
+export function smmPayoutComment(name: string, paidOn: string): string {
+  const day = new Date(`${paidOn}T00:00:00Z`).toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return `ЗП СММ · ${name} · выплата ${day}`;
 }
 
 export interface SubsShares {

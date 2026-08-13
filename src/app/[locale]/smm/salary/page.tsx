@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getAppUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCrmPayout } from "@/lib/finance";
-import { vnMonth } from "@/lib/dates";
+import { vnMonth, vnShiftDays } from "@/lib/dates";
 import { SMM_WEEK_PAY } from "@/lib/salary";
 import { vnd } from "@/lib/stats";
 import { CalMonthNav, resolveCalYm } from "@/components/cabinet/CalMonthNav";
@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "СММ · Моя ЗП" };
 // «Моя ЗП» в кабинете СММщика (prompt 11, п.3).
 //
 // Показываем ровно то, о чём просил David: фикс появляется ТОЛЬКО после того,
-// как начальник отметил выплату на «Расчёте выплат». Начисленного здесь нет
+// как начальник отметил выплату во «Выплате зарплаты». Начисленного здесь нет
 // вовсе — у инструктора в кабинете видно «заработано на сейчас», а у СММщика
 // нет: пока деньги не отданы, спорить не о чем, а недельный фикс всё равно не
 // зависит от того, сколько он сегодня наработал.
@@ -29,11 +29,11 @@ export const metadata: Metadata = { title: "СММ · Моя ЗП" };
 // в таблице лежат выплаты всей школы. Служебным ключом берём строго свои
 // строки, наружу уходит только его собственная выплата.
 
-function paidLabel(iso: string): string {
-  return new Date(iso).toLocaleDateString("ru-RU", {
+function dayLabel(day: string): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "short",
-    timeZone: "Asia/Ho_Chi_Minh",
+    timeZone: "UTC",
   });
 }
 
@@ -60,26 +60,28 @@ export default async function SmmSalaryPage({
   if (!user) return null; // layout уже средиректил бы; страховка для типов
 
   const admin = createAdminClient();
+  const lastDay = vnShiftDays(month.toDay, -1);
   const [payoutsRes, crm] = await Promise.all([
     admin
       .from("salary_payouts")
-      .select("id, period_from, period_to, amount, paid_at")
+      .select("id, period_from, period_to, amount, paid_on, comment")
       .eq("instructor_id", user.id)
-      .gte("paid_at", month.fromIso)
-      .lt("paid_at", month.toIso)
-      .order("paid_at", { ascending: false }),
+      .gte("paid_on", month.fromDay)
+      .lte("paid_on", lastDay)
+      .order("paid_on", { ascending: false }),
     getCrmPayout(admin, month),
   ]);
 
-  // Выплаты считаем по дате ОТМЕТКИ, а не по периоду: вопрос, на который
-  // отвечает экран, — «сколько мне отдали в этом месяце», а выплата за
-  // последнюю неделю июля попадает на руки уже в августе.
+  // Выплаты считаем по ДНЮ ВЫДАЧИ (0043): вопрос, на который отвечает экран, —
+  // «сколько мне отдали в этом месяце», а деньги за последнюю неделю июля
+  // попадают на руки уже в августе.
   const payouts = (payoutsRes.data ?? []).map((p) => ({
     id: p.id as string,
-    from: p.period_from as string,
-    to: p.period_to as string,
+    from: (p.period_from as string | null) ?? null,
+    to: (p.period_to as string | null) ?? null,
     amount: Number(p.amount ?? 0),
-    paidAt: p.paid_at as string,
+    paidOn: p.paid_on as string,
+    comment: (p.comment as string | null) ?? null,
   }));
   const paidTotal = payouts.reduce((s, p) => s + p.amount, 0);
 
@@ -128,11 +130,11 @@ export default async function SmmSalaryPage({
               className="flex items-baseline justify-between gap-2 border-b border-line/70 pb-2 last:border-0 last:pb-0"
             >
               <div className="min-w-0">
-                <p className="text-sm font-semibold">
-                  За {periodLabel(p.from, p.to)}
-                </p>
+                <p className="text-sm font-semibold">{dayLabel(p.paidOn)}</p>
                 <p className="text-xs text-muted">
-                  отмечено {paidLabel(p.paidAt)}
+                  {p.from && p.to ? `за ${periodLabel(p.from, p.to)}` : ""}
+                  {p.from && p.comment ? " · " : ""}
+                  {p.comment ?? ""}
                 </p>
               </div>
               <p className="shrink-0 font-bold text-primary">{vnd(p.amount)}</p>

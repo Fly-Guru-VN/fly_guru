@@ -2,13 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAppUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { vnMonth, vnPeriod, vnShiftDays, vnWeekOf } from "@/lib/dates";
-import { getMonthlyPayroll } from "@/lib/payroll";
+import {
+  getMonthlyPayroll,
+  getPayoutHistory,
+  type DueRow,
+} from "@/lib/payroll";
 import { buildXlsx, xlsxHeaders } from "@/lib/xlsx";
 
 // Выгрузка расчёта выплат: /api/admin/payroll?from=YYYY-MM-DD&to=YYYY-MM-DD
 // (старое ?m=YYYY-MM тоже понимаем — месяц целиком). Данные — та же функция,
 // что у страницы /admin/payroll, файл не может разойтись с экраном.
 // /api не проходит через middleware (см. matcher), поэтому роль проверяем сами.
+
+// Подписи ролей в файле — те же слова, что на вкладке.
+const KIND: Record<DueRow["kind"], string> = {
+  instructor: "инструктор",
+  smm: "СММ",
+  mechanic: "штат",
+  agent: "агент",
+  crm: "справка",
+};
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -40,131 +53,53 @@ export async function GET(request: NextRequest) {
       : week.lastDay;
 
   const supabase = await createClient();
-  const payroll = await getMonthlyPayroll(supabase, vnPeriod(fromDay, lastDay));
+  const range = vnPeriod(fromDay, lastDay);
+  const [payroll, history] = await Promise.all([
+    getMonthlyPayroll(supabase, range),
+    getPayoutHistory(supabase),
+  ]);
 
+  // Файл повторяет экран: сначала «кому сколько осталось» за период, потом
+  // выплаты этого периода отдельным блоком. Широкой шапки с выходами и
+  // абонементами больше нет — подробности расчёта живут на самой вкладке, а в
+  // файле начальник сводит деньги, а не проверяет регламент смен.
   const rows: (string | number)[][] = [
-    [
-      "Тип",
-      "Имя",
-      "Сессии, шт",
-      "Выручка сессий, VND",
-      "Доля 15% занятий, VND",
-      "Выходы зачтены, шт",
-      "Выходы не зачтены, шт",
-      "Смены впереди, шт",
-      "За выходы, VND",
-      "Продал абонементов, шт",
-      "Доля абонементов, VND",
-      "Подтверждённые клиенты, шт",
-      "Итого к выплате, VND",
-      "Выплачено, VND",
-      "Выплачено за период",
-    ],
+    ["Кто", "Роль", "Начислено, VND", "Выплачено, VND", "Осталось, VND"],
   ];
-  for (const i of payroll.instructors) {
+  for (const r of payroll.rows) {
     rows.push([
-      "Инструктор",
-      i.name,
-      i.sessionsCount,
-      i.sessionsRevenue,
-      i.salaryFromSessions,
-      i.shiftsCount,
-      i.shiftsUnpaidCount,
-      i.shiftsPlannedCount,
-      i.salaryFromShifts,
-      i.paidSubsCount,
-      i.salaryFromSubs,
-      "",
-      i.total,
-      // Выплаты, задевающие период: их может быть несколько (например,
-      // недельные внутри выбранного месяца) — складываем и перечисляем даты,
-      // чтобы в файле было видно, за что именно платили.
-      i.payouts.reduce((sum, p) => sum + p.amount, 0) || "",
-      i.payouts.map((p) => `${p.from}…${p.to}`).join(", "),
-    ]);
-  }
-  // СММщик: фикс за полные недели периода. Сколько их было — пишем прямо в
-  // тип строки, отдельной колонки под это заводить не стали (у инструкторов
-  // такого поля нет, а шапка файла и так широкая). Его 1% в этой строке не
-  // участвует — он ниже, в строках CRM.
-  for (const s of payroll.smm) {
-    rows.push([
-      `СММ · ${s.weeks} нед`,
-      s.name,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      s.fixed,
-      s.payouts.reduce((sum, p) => sum + p.amount, 0) || "",
-      s.payouts.map((p) => `${p.from}…${p.to}`).join(", "),
-    ]);
-  }
-  for (const a of payroll.agents) {
-    rows.push([
-      "Агент",
-      a.name,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      a.confirmedCount,
-      a.total,
-      "",
-      "",
-    ]);
-  }
-  // Доля за CRM (Дэвид + Ромчик) — такая же строка выплаты, как инструктор или
-  // агент: файл должен совпадать с экраном, включая «Итого». Считается за
-  // календарный месяц целиком, поэтому в тип пишем, за какой именно: в
-  // недельной выгрузке эта сумма в «Итого» не входит (см. lib/payroll).
-  for (const name of payroll.crm.partners) {
-    rows.push([
-      `CRM · ${payroll.crmMonthLabel}${payroll.crmInTotal ? "" : " (не входит в итог)"}`,
-      name,
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      payroll.crm.each,
-      "",
-      "",
+      r.name,
+      KIND[r.kind],
+      Math.round(r.accrued),
+      Math.round(r.paid),
+      r.payee ? Math.round(r.left) : "",
     ]);
   }
   rows.push([
     "Итого",
     "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    payroll.grandTotal,
-    payroll.paidOutTotal,
-    "",
+    Math.round(payroll.accruedTotal),
+    Math.round(payroll.paidTotal),
+    Math.round(payroll.leftTotal),
   ]);
+
+  // Выплаты выбранного периода — по дню выдачи, как на экране.
+  const inPeriod = history.filter(
+    (h) => h.paidOn >= fromDay && h.paidOn <= lastDay,
+  );
+  if (inPeriod.length > 0) {
+    rows.push([]);
+    rows.push(["Выплаты за период", "Дата", "Сумма, VND", "Комментарий", ""]);
+    for (const h of inPeriod) {
+      rows.push([
+        h.name,
+        h.paidOn,
+        Math.round(h.amount),
+        h.comment ?? (h.period ? `за ${h.period.from}…${h.period.to}` : ""),
+        "",
+      ]);
+    }
+  }
 
   // В имени файла — обе границы периода: недельных выгрузок в папке будет
   // четыре в месяц, и «payroll-2026-08» их уже не различает.
@@ -173,7 +108,7 @@ export async function GET(request: NextRequest) {
   // Книга Excel — основной формат: русский Excel не считает точку с запятой
   // разделителем, и CSV открывается одной склеенной колонкой (см. lib/xlsx).
   if (p.get("format") === "xlsx") {
-    return new NextResponse(new Uint8Array(buildXlsx("Расчёт выплат", rows, { totalRow: true })), {
+    return new NextResponse(new Uint8Array(buildXlsx("Выплата зарплаты", rows, { totalRow: true })), {
       headers: xlsxHeaders(`${name}.xlsx`),
     });
   }

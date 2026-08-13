@@ -59,7 +59,7 @@ const GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Деньги",
     items: [
       { href: "/admin/dashboard", label: "Статистика", hint: "месяц цифрами", primary: true },
-      { href: "/admin/payroll", label: "Расчёт выплат", hint: "неделя · месяц · Excel" },
+      { href: "/admin/payroll", label: "Выплата зарплаты", hint: "кому должны · история" },
       { href: "/admin/expenses", label: "Расходы", hint: "марина · зп · прочее" },
     ],
   },

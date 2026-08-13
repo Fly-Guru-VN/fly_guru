@@ -9,40 +9,30 @@ import {
   vnPrevWeek,
   vnRangeLabel,
   vnShiftDays,
+  vnToday,
   vnWeekOf,
 } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
-import { SHIFT_PAY, SMM_WEEK_PAY } from "@/lib/salary";
-import { getMonthlyPayroll } from "@/lib/payroll";
+import { getMonthlyPayroll, getPayoutHistory, type DueRow, type PayoutRow } from "@/lib/payroll";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
-import { PaidOutToggle } from "./PaidOutToggle";
+import { PayoutForm } from "./PayoutForm";
+import { deleteSalaryPayoutAction } from "../actions";
+import { ConfirmSubmit } from "../ConfirmSubmit";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 
-export const metadata: Metadata = { title: "Админка · Расчёт выплат" };
+export const metadata: Metadata = { title: "Админка · Выплата зарплаты" };
 
-// Расчёт выплат: кому и сколько отдать за выбранный период. Инструкторы —
-// 15% занятий + выходы + доля абонементов, оплаченных В ЭТОМ периоде (по дате
-// оплаты, не продажи — цифры совпадают со статистикой в кабинете инструктора).
-// Агенты — награды, подтверждённые в периоде. Excel/CSV — та же таблица файлом.
+// Выплата зарплаты. Три блока сверху вниз, ровно в том порядке, в каком с
+// вкладкой работают: чем платим → кому сколько осталось → что уже отдали.
 //
-// Период любой, а не только месяц: инструкторам платят раз в неделю, и раньше
-// начальник считал недельную выплату руками по месячной таблице. Все слагаемые
-// привязаны к датам (смена — к своей дате, занятие — к своей, абонемент — к
-// дате оплаты, награда — к дате подтверждения), поэтому недели складываются в
-// месяц без нахлёста и потерь.
+// Раньше это был «Расчёт выплат»: длинные пояснения, у каждого человека четыре
+// строки подробностей и кнопка «отметить выплачено за период». Считать он
+// считал, а отдать деньги было нечем — сумма и дата выдачи в систему не
+// вводились. Теперь наоборот: форма выплаты стоит первой, подробности расчёта
+// спрятаны под «подробнее», а правила — в свёрнутом «Как это работает».
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-// «1 неделя / 2 недели / 5 недель» — цифра рядом со словом читается сама, без
-// неё подпись «Фикс · 2» выглядит обрубком.
-function plural(n: number, one: string, few: string, many: string): string {
-  if (n % 10 === 1 && n % 100 !== 11) return one;
-  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) return few;
-  return many;
-}
-const weekWord = (n: number) => plural(n, "неделя", "недели", "недель");
-const dayWord = (n: number) => plural(n, "день", "дня", "дней");
 
 const presetClass = (active: boolean) =>
   `rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
@@ -51,32 +41,126 @@ const presetClass = (active: boolean) =>
       : "border border-line text-muted hover:border-primary hover:text-primary"
   }`;
 
-// Строка выплаты: за что платим — слева, сумма — справа, подробности мелким
-// под ней. Раньше все подробности («занятия (12) · 10 000 000 ₫») лезли в саму
-// подпись, и на телефоне их срезало `truncate`: строка обрывалась на середине,
-// а из-за подписи «Занятия (0) · 0 ₫» рядом с суммой 562 500 ₫ расчёт выглядел
-// сломанным. Теперь подпись короткая (не обрезается), а цифры — отдельной
-// строкой под ней. Пунктирная выноска осталась только на широком экране: на
-// телефоне она превращалась в обрубок в пару пикселей.
-function Row({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
+const KIND_LABEL: Record<DueRow["kind"], string> = {
+  instructor: "инструктор",
+  smm: "СММ",
+  mechanic: "штат",
+  agent: "агент",
+  crm: "справка",
+};
+
+function monthLabel(day: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${day}T00:00:00Z`));
+}
+
+function dayLabel(day: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${day}T00:00:00Z`));
+}
+
+// Строка долга. Крупным — то, ради чего сюда зашли: имя и сколько осталось
+// отдать. Всё остальное мелким и в одну строку; из чего сложилось начисление —
+// под «подробнее», иначе на четверых инструкторов это полтора экрана текста.
+function DueCard({ row }: { row: DueRow }) {
+  const settled = row.left <= 0;
   return (
-    <div>
-      <div className="flex items-baseline gap-2 text-sm">
-        <span className="min-w-0 text-muted">{label}</span>
-        <span className="hidden min-w-4 flex-1 border-b border-dotted border-line sm:block" />
-        <span className="ml-auto shrink-0 font-semibold tabular-nums sm:ml-0">
-          {value}
-        </span>
+    <div className="border-b border-line/70 py-3 last:border-0 last:pb-0">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="min-w-0 font-semibold">
+          {row.name}
+          <span className="ml-2 text-[11px] font-normal text-muted">
+            {KIND_LABEL[row.kind]}
+            {row.employmentLabel ? ` · ${row.employmentLabel}` : ""}
+          </span>
+        </p>
+        {row.payee ? (
+          <p
+            className={`shrink-0 text-lg font-bold tabular-nums ${
+              settled ? "text-muted" : "text-primary"
+            }`}
+          >
+            {settled ? "выплачено" : vnd(row.left)}
+          </p>
+        ) : (
+          <p className="shrink-0 text-lg font-bold tabular-nums">
+            {vnd(row.accrued)}
+          </p>
+        )}
       </div>
-      {hint && <p className="text-xs text-muted/80">{hint}</p>}
+
+      <p className="mt-0.5 text-xs text-muted">
+        начислено {vnd(row.accrued)}
+        {row.payee ? ` · выплачено ${vnd(row.paid)}` : ""}
+        {row.left < 0 ? ` · переплата ${vnd(-row.left)}` : ""}
+      </p>
+
+      {row.details.length > 0 && (
+        <details className="mt-1">
+          <summary className="cursor-pointer list-none text-[11px] font-semibold text-muted transition-colors hover:text-primary [&::-webkit-details-marker]:hidden">
+            подробнее ▾
+          </summary>
+          <div className="mt-1 space-y-0.5">
+            {row.details.map((d) => (
+              <div
+                key={d.label}
+                className="flex items-baseline justify-between gap-2 text-xs text-muted"
+              >
+                <span className="min-w-0">
+                  {d.label}
+                  {d.hint ? ` · ${d.hint}` : ""}
+                </span>
+                <span className="shrink-0 tabular-nums">{vnd(d.value)}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+// Одна выплата в истории. Кнопка удаления — на случай «ткнул не туда»:
+// правки суммы нет намеренно, удалить и внести заново честнее.
+function HistoryRow({ p }: { p: PayoutRow }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-line/70 py-2 last:border-0">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">
+          {p.name}
+          <span className="ml-2 text-[11px] font-normal text-muted">
+            {dayLabel(p.paidOn)}
+          </span>
+        </p>
+        {(p.comment || p.period) && (
+          <p className="truncate text-xs text-muted">
+            {p.period
+              ? `за ${dayLabel(p.period.from)} — ${dayLabel(p.period.to)}`
+              : ""}
+            {p.period && p.comment ? " · " : ""}
+            {p.comment ?? ""}
+          </p>
+        )}
+      </div>
+      <div className="flex shrink-0 items-baseline gap-3">
+        <p className="font-bold tabular-nums">{vnd(p.amount)}</p>
+        <form action={deleteSalaryPayoutAction}>
+          <input type="hidden" name="id" value={p.id} />
+          <input type="hidden" name="kind" value={p.kind} />
+          <ConfirmSubmit
+            message={`Удалить выплату ${vnd(p.amount)} (${p.name})?`}
+            className="text-[11px] font-semibold text-muted transition-colors hover:text-red-600"
+          >
+            удалить
+          </ConfirmSubmit>
+        </form>
+      </div>
     </div>
   );
 }
@@ -84,9 +168,9 @@ function Row({
 export default async function AdminPayrollPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; m?: string; clash?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; m?: string }>;
 }) {
-  const { from, to, m, clash } = await searchParams;
+  const { from, to, m } = await searchParams;
 
   const week = vnWeekOf(); // текущая неделя, пн–вс
   const prevWeek = vnPrevWeek();
@@ -94,11 +178,9 @@ export default async function AdminPayrollPage({
   const monthLast = vnShiftDays(curMonth.toDay, -1);
   const prevMonth = vnPrevMonth();
 
-  // Период целиком, без обрезки по «сегодня»: в середине недели полезно видеть
-  // не только заработанное, но и строку «в графике ещё N смен».
   const custom = Boolean(from && to && DAY_RE.test(from) && DAY_RE.test(to) && from <= to);
-  // Старые ссылки вида ?m=2026-07 (их раздавал переключатель месяцев) должны
-  // продолжать открываться — теперь как обычный период «месяц целиком».
+  // Старые ссылки вида ?m=2026-07 должны продолжать открываться — теперь как
+  // обычный период «месяц целиком».
   const legacy = !custom && /^\d{4}-\d{2}$/.test(m ?? "") ? vnMonth(m!) : null;
 
   const fromDay = custom ? from! : (legacy?.fromDay ?? week.fromDay);
@@ -111,30 +193,49 @@ export default async function AdminPayrollPage({
   const range = vnPeriod(fromDay, lastDay);
   const label = vnRangeLabel(fromDay, lastDay);
   const periodQs = `from=${fromDay}&to=${lastDay}`;
-
-  // Пресет активен, если совпали обе границы: так «Эта неделя» подсвечена и
-  // при заходе без параметров, и по прямой ссылке с датами.
   const isPreset = (f: string, l: string) => fromDay === f && lastDay === l;
 
   const supabase = await createClient();
-  const payroll = await getMonthlyPayroll(supabase, range);
+  const [payroll, history] = await Promise.all([
+    getMonthlyPayroll(supabase, range),
+    getPayoutHistory(supabase),
+  ]);
 
-  // Поля дат краснеют, если выбранные дни хоть у кого-то уже закрыты выплатой.
-  const dateFieldClass =
-    payroll.blockedNames.length > 0
-      ? "border-red-500 text-red-600 focus:border-red-600"
-      : "border-line focus:border-primary";
+  // История — по месяцам, свежее сверху. Группируем на странице: запрос уже
+  // отсортирован, а выплат в школе десятки в год.
+  const months = [...new Set(history.map((p) => p.paidOn.slice(0, 7)))];
 
   return (
     <div>
-      <PageHeader
-        title="Расчёт выплат"
-        hint="Сколько отдать за период"
-      />
-      <PageNote>Считаем по факту оплаты: абонемент попадает в расчёт в период своей оплаты, награда агента — в период подтверждения.</PageNote>
+      <PageHeader title="Выплата зарплаты" hint="Кому должны и что уже отдали" />
+      <PageNote>
+        <p>
+          «Начислено» считается за выбранный период, «выплачено» — по дню, когда
+          деньги реально отдали. Поэтому выплата за прошлую неделю попадёт в ту
+          неделю, в которую вы её выдали.
+        </p>
+        <p>
+          Инструктору: доля 15% с занятий дня + 200 000 ₫ за каждый выход по
+          регламенту (открыл до 9:00, закрыл после 18:00) + доля котла
+          абонементов. СММщику: 2 000 000 ₫ за полную неделю плюс 1% с выручки —
+          он закрывается раз в месяц и входит в начисление, только когда выбран
+          ровно месяц. Агенту: награды за клиентов, дошедших до услуги.
+        </p>
+        <p>
+          На чистую прибыль выплата не влияет: зарплаты и комиссии попадают в
+          расходы школы в момент начисления. Исключение — фикс СММщика: он
+          нигде не начисляется, поэтому его выплата сразу заводит расход.
+        </p>
+      </PageNote>
 
-      {/* Пресеты периода. Неделя первой: инструкторам платят раз в неделю. */}
-      <div className="mt-4 flex flex-wrap gap-1.5">
+      {/* 1. Чем платим — самый верх: это то, ради чего вкладку открывают. */}
+      <section className="mt-4 rounded-2xl border border-primary/30 bg-surface p-4 shadow-[0_1px_3px_rgba(15,34,51,0.04)]">
+        <h2 className="text-lg font-bold">Выплатить</h2>
+        <PayoutForm payees={payroll.payees} today={vnToday()} />
+      </section>
+
+      {/* 2. Период — маленькой строкой: он влияет только на «начислено». */}
+      <div className="mt-6 flex flex-wrap items-center gap-1.5">
         <Link
           href={`/admin/payroll?from=${week.fromDay}&to=${week.lastDay}`}
           className={presetClass(isPreset(week.fromDay, week.lastDay))}
@@ -161,265 +262,88 @@ export default async function AdminPayrollPage({
         </Link>
       </div>
 
-      {/* Свой период. Поля без w-full: нативный датапикер на телефоне
-          растягивается и вылезает за экран (см. «Статистику»).
-
-          Красная рамка — когда выбранные дни уже закрыты чьей-то выплатой.
-          Так двойная выдача видна ДО того, как искать её глазами по списку:
-          отметил за 1–5, потом развернул период до 1–8 — и поля сразу
-          подсвечены, а под ними написано, у кого пересечение. */}
-      <form className="mt-3 flex w-fit flex-col gap-3" action="">
-        <div className="flex items-end gap-2">
-          <label className="flex flex-col items-start text-xs text-muted">
-            С
-            <input
-              type="date"
-              name="from"
-              defaultValue={fromDay}
-              className={`mt-1 ${NATIVE_PICKER} rounded-xl border bg-surface px-3 py-2 text-sm outline-none ${dateFieldClass}`}
-            />
-          </label>
-          <label className="flex flex-col items-start text-xs text-muted">
-            По
-            <input
-              type="date"
-              name="to"
-              defaultValue={lastDay}
-              className={`mt-1 ${NATIVE_PICKER} rounded-xl border bg-surface px-3 py-2 text-sm outline-none ${dateFieldClass}`}
-            />
-          </label>
-        </div>
+      <form className="mt-2 flex flex-wrap items-end gap-2" action="">
+        <label className="flex flex-col items-start text-xs text-muted">
+          С
+          <input
+            type="date"
+            name="from"
+            defaultValue={fromDay}
+            className={`mt-1 ${NATIVE_PICKER} rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary`}
+          />
+        </label>
+        <label className="flex flex-col items-start text-xs text-muted">
+          По
+          <input
+            type="date"
+            name="to"
+            defaultValue={lastDay}
+            className={`mt-1 ${NATIVE_PICKER} rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary`}
+          />
+        </label>
         <button
           type="submit"
-          className="w-full rounded-xl border border-primary px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
+          className="rounded-xl border border-primary px-4 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
         >
           Показать
         </button>
+        <a
+          href={`/api/admin/payroll?${periodQs}&format=xlsx`}
+          download
+          className="ml-auto rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+        >
+          Excel
+        </a>
       </form>
 
-      {payroll.blockedNames.length > 0 && (
-        <p className="mt-2 max-w-md text-xs font-semibold text-red-600">
-          За эти дни выплата уже была:{" "}
-          {payroll.blockedNames.join(", ")}. Отметить её второй раз нельзя —
-          сдвиньте период так, чтобы он не задевал закрытые дни.
-        </p>
-      )}
-
-      <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
-        <p className="text-xs text-muted">Итого к выплате за {label}</p>
-        <p className="mt-1 text-3xl font-bold text-primary">{vnd(payroll.grandTotal)}</p>
-        {/* Сколько из этого уже роздано: начисление и выдача — разные события,
-            и раньше их путали (в «Расходах» ЗП уже списана, а деньги ещё в
-            кармане). Отметки ставятся кнопкой у каждого инструктора ниже. */}
-        {payroll.paidOutTotal > 0 && (
-          <p className="mt-1 text-xs text-muted">
-            Уже выдано на руки: {vnd(payroll.paidOutTotal)}
+      {/* 3. Кому сколько осталось. */}
+      <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="font-bold">Осталось отдать</h2>
+          <p className="text-2xl font-bold text-primary tabular-nums">
+            {vnd(payroll.leftTotal)}
           </p>
+        </div>
+        <p className="mt-0.5 text-xs text-muted">
+          за {label} · начислено {vnd(payroll.accruedTotal)} · выплачено{" "}
+          {vnd(payroll.paidTotal)}
+        </p>
+
+        <div className="mt-2">
+          {payroll.rows.map((row) => (
+            <DueCard key={row.key} row={row} />
+          ))}
+          {payroll.rows.length === 0 && (
+            <p className="py-2 text-sm text-muted">
+              За этот период никому ничего не начислено.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* 4. Что уже отдали — вся история, свежее сверху. */}
+      <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
+        <h2 className="font-bold">История выплат</h2>
+        {months.length === 0 && (
+          <p className="mt-2 text-sm text-muted">Выплат пока не было.</p>
         )}
-        {/* Excel — первой кнопкой: CSV русский Excel открывает одной склеенной
-            колонкой (разделителем он считает запятую, а не точку с запятой).
-            CSV оставлен рядом — он нужен, если файл заряжают в другую
-            программу или в таблицы Google. */}
-        <div className="mt-3 flex flex-wrap gap-2">
-          <a
-            href={`/api/admin/payroll?${periodQs}&format=xlsx`}
-            download
-            className="rounded-full border border-primary px-4 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
-          >
-            Скачать Excel
-          </a>
-          <a
-            href={`/api/admin/payroll?${periodQs}`}
-            download
-            className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
-          >
-            CSV
-          </a>
-        </div>
-      </div>
-
-      <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-bold">
-          Инструкторы · {vnd(SHIFT_PAY)} за выход + 15% занятий + доля абонементов
-        </h2>
-        <p className="mt-1 text-xs text-muted">
-          За выход платим, если смена закрыта, открыта до 9:00 и закрыта после
-          18:00 (премию можно снять руками в календаре). 15% с занятий дня
-          делятся поровну между теми, кто в этот день открыл смену — даже если
-          смена не стояла в календаре; если не открылся никто, делим между
-          назначенными, а в дни совсем без смен 15% идут тому, кто записал. 15% с абонементов, проданных инструкторами,
-          делится между ними поровну. Ваши сессии и абонементы в расчёт не идут.
-        </p>
-        <div className="mt-3 space-y-4">
-          {payroll.instructors.map((i) => (
-            <div key={i.id}>
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="min-w-0 font-semibold">
-                  {i.name}
-                  {i.employmentLabel && (
-                    <span className="ml-2 text-[11px] font-normal text-muted">
-                      {i.employmentLabel}
-                    </span>
-                  )}
-                </p>
-                <p className="shrink-0 font-bold text-primary">{vnd(i.total)}</p>
+        {months.map((ym) => {
+          const rows = history.filter((p) => p.paidOn.slice(0, 7) === ym);
+          const total = rows.reduce((s, p) => s + p.amount, 0);
+          return (
+            <div key={ym} className="mt-4">
+              <div className="flex items-baseline justify-between gap-3 border-b border-line pb-1">
+                <h3 className="text-sm font-semibold text-muted first-letter:uppercase">
+                  {monthLabel(`${ym}-01`)}
+                </h3>
+                <p className="text-sm font-bold tabular-nums">{vnd(total)}</p>
               </div>
-              <div className="mt-1 space-y-1.5">
-                {/* Сумма тут — доля с занятий ДНЯ, а не 15% со своих чеков:
-                    она делится между вышедшими на смену. Поэтому подпись
-                    говорит про долю, а собственные занятия ушли в пояснение —
-                    иначе «Занятия (0)» рядом с полумиллионом читалось как сбой
-                    (у человека действительно бывает 0 своих записей и при этом
-                    доля за день, отработанный в паре). */}
-                <Row
-                  label="Доля 15% с занятий дня"
-                  value={vnd(i.salaryFromSessions)}
-                  hint={`свои занятия: ${i.sessionsCount} на ${vnd(i.sessionsRevenue)}`}
-                />
-                <Row
-                  label={`Выходы · зачтено ${i.shiftsCount} из ${i.shiftsCount + i.shiftsUnpaidCount}`}
-                  value={vnd(i.salaryFromShifts)}
-                  hint={[
-                    i.shiftsUnpaidCount > 0
-                      ? `не зачтено ${i.shiftsUnpaidCount} — регламент или снятая премия`
-                      : null,
-                    // Будущие смены месяца больше не висят в «не зачтено»
-                    // (см. getShiftPay), но показать их полезно: видно, сколько
-                    // ещё добавится к выплате, если график отработают.
-                    i.shiftsPlannedCount > 0
-                      ? `в графике ещё ${i.shiftsPlannedCount} — до ${vnd(i.shiftsPlannedCount * SHIFT_PAY)}`
-                      : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                />
-                <Row
-                  label="Доля с абонементов"
-                  value={vnd(i.salaryFromSubs)}
-                  hint={`продал сам: ${i.paidSubsCount}`}
-                />
-              </div>
-              <PaidOutToggle
-                instructorId={i.id}
-                from={fromDay}
-                to={lastDay}
-                amount={i.total}
-                payouts={i.payouts}
-                exactPayout={i.exactPayout}
-                blocked={i.blocked}
-                clash={clash === i.id}
-              />
+              {rows.map((p) => (
+                <HistoryRow key={`${p.kind}-${p.id}`} p={p} />
+              ))}
             </div>
-          ))}
-          {payroll.instructors.length === 0 && (
-            <p className="text-sm text-muted">Инструкторов нет.</p>
-          )}
-        </div>
-      </section>
-
-      {/* СММщик. Считается не как инструктор: смен и занятий у него нет, есть
-          фикс за ПОЛНЫЕ недели периода (решение David от 12.08.2026). Кнопка
-          закрывает только фикс — 1% ниже, в блоке CRM: он копится и
-          выплачивается в конце месяца, поэтому в недельную выдачу не входит. */}
-      {payroll.smm.length > 0 && (
-        <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
-          <h2 className="font-bold">
-            СММ · {vnd(SMM_WEEK_PAY)} за неделю + 1% с выручки
-          </h2>
-          <p className="mt-1 text-xs text-muted">
-            Платим за полные недели выбранного периода: остаток дней ждёт
-            следующей выплаты, а не пропадает. Отметка «выплачено» сразу
-            записывает расход школы — вносить его руками во вкладке «Расходы»
-            больше не нужно. 1% с выручки сюда не входит: он считается за
-            календарный месяц целиком и показан ниже, в блоке «CRM».
-          </p>
-          <div className="mt-3 space-y-4">
-            {payroll.smm.map((s) => (
-              <div key={s.id}>
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="min-w-0 font-semibold">
-                    {s.name}
-                    {s.employmentLabel && (
-                      <span className="ml-2 text-[11px] font-normal text-muted">
-                        {s.employmentLabel}
-                      </span>
-                    )}
-                  </p>
-                  <p className="shrink-0 font-bold text-primary">{vnd(s.fixed)}</p>
-                </div>
-                <div className="mt-1 space-y-1.5">
-                  <Row
-                    label={`Фикс · ${s.weeks} ${weekWord(s.weeks)}`}
-                    value={vnd(s.fixed)}
-                    hint={
-                      s.spareDays > 0
-                        ? `${s.spareDays} ${dayWord(s.spareDays)} до полной недели не хватило — уйдут в следующую выплату`
-                        : undefined
-                    }
-                  />
-                  <Row
-                    label={`1% с выручки · ${payroll.crmMonthLabel}`}
-                    value={vnd(s.crmShare)}
-                    hint="копится и выплачивается в конце месяца — эта кнопка его не закрывает"
-                  />
-                </div>
-                <PaidOutToggle
-                  instructorId={s.id}
-                  from={fromDay}
-                  to={lastDay}
-                  amount={s.fixed}
-                  payouts={s.payouts}
-                  exactPayout={s.exactPayout}
-                  blocked={s.blocked}
-                  clash={clash === s.id}
-                  kind="smm"
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Доля за CRM. Считается ВСЕГДА за календарный месяц, даже когда выбрана
-          неделя: инструкторам платят понедельно, а эта доля закрывается раз в
-          месяц (решение David от 08.08.2026). Поэтому в «Итого к выплате» за
-          неделю она не входит — иначе к недельной сумме прибавлялась бы
-          месячная, и цифра в шапке не сходилась бы ни с чем. */}
-      <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-bold">CRM · 2% с выручки пополам</h2>
-        <p className="mt-1 text-xs text-muted">
-          Считается помесячно: {payroll.crmMonthLabel} целиком. База — занятия
-          месяца плюс абонементы, оплаченные в нём: {vnd(payroll.crm.revenue)}.
-          {!payroll.crmInTotal &&
-            " В «Итого к выплате» за выбранный период эта сумма не входит."}
-        </p>
-        <div className="mt-3 space-y-1">
-          {payroll.crm.partners.map((name) => (
-            <Row key={name} label={`${name} · 1%`} value={vnd(payroll.crm.each)} />
-          ))}
-          <div className="flex items-baseline justify-between gap-2 pt-1">
-            <p className="text-sm font-semibold">Итого CRM</p>
-            <p className="font-bold text-primary">{vnd(payroll.crm.total)}</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-bold">Агенты · за приведённых клиентов</h2>
-        <div className="mt-3 space-y-3">
-          {payroll.agents.map((a) => (
-            <div key={a.id}>
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="font-semibold">{a.name}</p>
-                <p className="font-bold text-primary">{vnd(a.total)}</p>
-              </div>
-              <p className="text-xs text-muted">Приведено клиентов: {a.confirmedCount}</p>
-            </div>
-          ))}
-          {payroll.agents.length === 0 && (
-            <p className="text-sm text-muted">Выплат агентам за этот период нет.</p>
-          )}
-        </div>
+          );
+        })}
       </section>
     </div>
   );

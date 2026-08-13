@@ -133,6 +133,9 @@ export interface Finance {
 // выдано на руки» и сравнивается с начисленной ЗП инструкторов, куда фикс
 // СММщика не входит вовсе. Без фильтра его выплата задирала бы «выдано» и
 // подпись врала бы «выплачено полностью», когда инструкторам ещё должны.
+// С 0043 период у выплаты необязателен, зато обязателен день выдачи — по нему
+// и считаем. Колонки может не быть (миграция не накатана) — тогда читаем
+// по-старому, по периоду.
 async function loadPaidOut(
   supabase: Supabase,
   range: StatsRange,
@@ -142,15 +145,27 @@ async function loadPaidOut(
 
   const lastDay = new Date(`${range.toDay}T00:00:00Z`);
   lastDay.setUTCDate(lastDay.getUTCDate() - 1);
+  const lastDayStr = lastDay.toISOString().slice(0, 10);
+
+  const sum = (rows: { amount: number | null }[] | null) =>
+    (rows ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
 
   const { data, error } = await supabase
     .from("salary_payouts")
     .select("amount")
     .in("instructor_id", instructorIds)
+    .gte("paid_on", range.fromDay)
+    .lte("paid_on", lastDayStr);
+  if (!error) return sum(data);
+
+  const { data: legacy, error: legacyError } = await supabase
+    .from("salary_payouts")
+    .select("amount")
+    .in("instructor_id", instructorIds)
     .gte("period_from", range.fromDay)
-    .lte("period_to", lastDay.toISOString().slice(0, 10));
-  if (error) return 0;
-  return (data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+    .lte("period_to", lastDayStr);
+  if (legacyError) return 0;
+  return sum(legacy);
 }
 
 export async function getFinance(

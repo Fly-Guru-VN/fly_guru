@@ -19,11 +19,7 @@ import { pickChannel } from "@/lib/channels";
 import { DICT_LABEL, type DictTable } from "@/lib/dictionaries";
 import type { EquipmentKind } from "@/lib/equipment";
 import { parseVnd } from "@/lib/money";
-import {
-  SMM_PAYOUT_PREFIX,
-  smmPayoutComment,
-  smmPayoutPeriod,
-} from "@/lib/salary";
+import { smmPayoutComment } from "@/lib/salary";
 import { checkPhoto } from "@/lib/photos";
 import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
@@ -1849,188 +1845,150 @@ export async function setSeniorAction(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
-// «ЗП за период выдана» (0036). Вкладка «Расходы» показывает НАЧИСЛЕННУЮ ЗП —
-// она уходит в расчёт прибыли в тот же момент, когда занятие записано. А на
-// руки деньги отдают раз в неделю и не всегда всем сразу: кто-то в отъезде,
-// кто-то заберёт в понедельник. Отметка отвечает ровно на вопрос «кому я уже
-// отдал» и на прибыль не влияет — иначе цифра прибыли скакала бы от того,
-// успел начальник раздать деньги или нет.
+// ── Выплата зарплаты (0043) ──────────────────────────────────────────────────
 //
-// Сумму пишем снимком: если потом поправят занятие внутри уже закрытой недели,
-// история выплаты не должна задним числом стать другой.
-export async function markSalaryPaidAction(formData: FormData) {
+// Одна форма на всех: выбрал работника, вписал сумму, поставил дату — «Выплачено».
+// До 13.08.2026 выплата была кнопкой у строки расчёта и жёстко закрывала период
+// («за 3—9 августа выдано столько-то»), причём одни и те же дни нельзя было
+// закрыть дважды. Живая касса так не работает: аванс в среду, остаток в
+// понедельник, иногда частями — ни один такой платёж в «период» не ложится.
+// Теперь выплата это просто «кому, сколько и какого числа», а от двойной выдачи
+// защищает не запрет, а видимая на экране разница «начислено − выплачено».
+//
+// Штат пишем в salary_payouts, агентов — в agent_payouts (0023, там же их
+// выплаты показывает вкладка «Агенты»): таблицы разные, потому что агент — не
+// сотрудник, у него своя ссылка и свои награды.
+//
+// На чистую прибыль выплата НЕ влияет: ЗП инструкторов и комиссии агентов уже
+// сидят в расходах школы по начислению (lib/finance). Исключение — фикс
+// СММщика: он нигде не начисляется, поэтому его выплата заводит расход, и
+// связь с ним хранится прямо в строке выплаты (expense_id).
+export async function paySalaryAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const admin = await requireAdmin();
-  const id = String(formData.get("instructorId") ?? "");
-  const from = String(formData.get("from") ?? "");
-  const to = String(formData.get("to") ?? "");
-  // «smm» — та же кнопка у СММщика. Отличие одно: его фикс нигде в финмодели
-  // не начисляется (в отличие от ЗП инструкторов, которая списывается в момент
-  // записи занятия), поэтому отметка ещё и создаёт расход школы — иначе эти
-  // деньги ушли бы из кассы, не тронув чистую прибыль.
-  const isSmm = String(formData.get("kind") ?? "") === "smm";
-  if (!id || !DAY_RE.test(from) || !DAY_RE.test(to)) return;
 
-  const amount = Number(formData.get("amount") ?? 0);
-  const supabase = await createClient();
-
-  // Одни и те же дни нельзя закрыть дважды. Живой случай: отметили выплату за
-  // 1–5, потом открыли период 1–8 и отметили ещё раз — неделя посчиталась
-  // выданной два раза. Экран такую кнопку уже не покажет, но проверка нужна и
-  // здесь: старая вкладка отправит форму мимо неё.
-  // Пересечение: чужой период начинается не позже конца нашего и кончается не
-  // раньше его начала. Точное совпадение — не конфликт, это повторное нажатие
-  // той же кнопки, его гасит upsert ниже.
-  const { data: clash } = await supabase
-    .from("salary_payouts")
-    .select("period_from, period_to")
-    .eq("instructor_id", id)
-    .lte("period_from", to)
-    .gte("period_to", from);
-  const overlap = (clash ?? []).find(
-    (p) => !(p.period_from === from && p.period_to === to),
-  );
-  if (overlap) {
-    // Возвращаемся на тот же экран с пометкой: страница объяснит, за какие
-    // дни уже платили, и подсветит поля периода.
-    redirect(
-      `/admin/payroll?from=${from}&to=${to}&clash=${encodeURIComponent(id)}`,
-    );
+  // «staff:<uuid>» или «agent:<uuid>» — одним полем, чтобы форма осталась
+  // одним выпадающим списком, а не двумя связанными.
+  const [payeeKind, payeeId] = String(formData.get("payee") ?? "").split(":");
+  if ((payeeKind !== "staff" && payeeKind !== "agent") || !payeeId) {
+    return { error: "Выберите, кому выплата." };
   }
 
-  const { error } = await supabase.from("salary_payouts").upsert(
-    {
-      instructor_id: id,
-      period_from: from,
-      period_to: to,
-      amount: Math.round(amount),
-      paid_at: new Date().toISOString(),
-      created_by: admin.id,
-    },
-    { onConflict: "instructor_id,period_from,period_to" },
-  );
-  failIfError(error, "не удалось отметить выплату");
+  const amount = parseVnd(String(formData.get("amount") ?? "").trim());
+  if (amount === null || amount <= 0) {
+    return { error: "Сумма — число в донгах больше нуля, например 2 000 000." };
+  }
 
-  // Расход датируем ДНЁМ ВЫПЛАТЫ, а не концом периода: деньги вышли из кассы
-  // сегодня, и прибыль проседает в этом месяце — ровно так David вносил
-  // «Зарплату Роме» руками. Категорию не ставим: справочник у каждого свой,
-  // навязывать ему статью не хочется, а комментарий и так всё объясняет.
-  if (isSmm && amount > 0) {
-    const name = await personName(supabase, id);
-    // Повторное нажатие той же кнопки (upsert выше молчит) не должно плодить
-    // вторую строку расхода: сначала смотрим, нет ли уже такой.
-    const already = await findSmmExpense(
-      supabase,
-      name,
-      from,
-      to,
-      Math.round(amount),
-    );
-    if (!already) {
-      const { error: expenseError } = await supabase.from("expenses").insert({
-        date: vnToday(),
-        amount: Math.round(amount),
+  const paidOn = String(formData.get("paidOn") ?? "").trim();
+  if (!DAY_RE.test(paidOn)) return { error: "Укажите дату выплаты." };
+
+  const comment = String(formData.get("comment") ?? "").trim() || null;
+  const supabase = await createClient();
+
+  if (payeeKind === "agent") {
+    const { error } = await supabase.from("agent_payouts").insert({
+      agent_id: payeeId,
+      amount,
+      paid_on: paidOn,
+      comment,
+      created_by: admin.id,
+    });
+    if (error) return { error: `Не удалось сохранить выплату: ${error.message}` };
+    revalidatePath("/", "layout");
+    return { error: null };
+  }
+
+  // Расход заводим ДО выплаты, чтобы записать его id в саму выплату. Дата
+  // расхода — день выдачи: деньги вышли из кассы именно тогда.
+  const { data: person } = await supabase
+    .from("users")
+    .select("name, role")
+    .eq("id", payeeId)
+    .maybeSingle();
+
+  let expenseId: string | null = null;
+  if (person?.role === "smm") {
+    const { data: expense, error: expenseError } = await supabase
+      .from("expenses")
+      .insert({
+        date: paidOn,
+        amount,
         category_id: null,
-        comment: smmPayoutComment(name, from, to),
+        comment: smmPayoutComment((person?.name as string) ?? "СММ", paidOn),
         created_by: admin.id,
-      });
-      failIfError(expenseError, "не удалось записать расход по ЗП СММщика");
+      })
+      .select("id")
+      .maybeSingle();
+    if (expenseError) {
+      return { error: `Не удалось записать расход: ${expenseError.message}` };
     }
+    expenseId = (expense?.id as string) ?? null;
+  }
+
+  const { error } = await supabase.from("salary_payouts").insert({
+    instructor_id: payeeId,
+    amount,
+    paid_on: paidOn,
+    comment,
+    expense_id: expenseId,
+    paid_at: new Date().toISOString(),
+    created_by: admin.id,
+  });
+  if (error) {
+    // Расход уже завели — убираем, иначе он повиснет без своей выплаты.
+    if (expenseId) await supabase.from("expenses").delete().eq("id", expenseId);
+    // Самая частая причина — миграция 0043 ещё не накатана: в базе выплата
+    // пока обязана быть привязана к периоду, а полей даты выдачи и
+    // комментария нет вовсе. Говорим это словами, а не показываем ошибку базы.
+    const needsMigration = /paid_on|comment|expense_id|period_from/.test(
+      error.message,
+    );
+    return {
+      error: needsMigration
+        ? "Свободная выплата заработает после наката миграции 0043 — сейчас в базе выплата обязана быть привязана к периоду."
+        : `Не удалось сохранить выплату: ${error.message}`,
+    };
   }
 
   revalidatePath("/", "layout");
+  return { error: null };
 }
 
-async function personName(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  id: string,
-): Promise<string> {
-  const { data } = await supabase
-    .from("users")
-    .select("name")
-    .eq("id", id)
-    .maybeSingle();
-  return (data?.name as string) ?? "СММ";
-}
-
-// Найти расход, заведённый отметкой о выплате СММщику. Сначала точное
-// совпадение подписи; если не нашлось — человек мог переименовать себя в своих
-// «Настройках» между отметкой и её снятием, поэтому ищем по хвосту с периодом
-// и сумме. Такую находку принимаем, ТОЛЬКО если кандидат ровно один: два
-// СММщика с одинаковым периодом и одинаковым фиксом отличаются лишь именем, и
-// удалить чужой расход хуже, чем не удалить свой (лишнюю строку начальник
-// видит и стирает во вкладке «Расходы» сам).
-async function findSmmExpense(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  name: string,
-  from: string,
-  to: string,
-  amount: number | null,
-): Promise<string | null> {
-  const { data: exact } = await supabase
-    .from("expenses")
-    .select("id")
-    .eq("comment", smmPayoutComment(name, from, to))
-    .limit(1);
-  if ((exact ?? []).length > 0) return exact![0].id as string;
-
-  let query = supabase
-    .from("expenses")
-    .select("id")
-    .like("comment", `${SMM_PAYOUT_PREFIX} · %${smmPayoutPeriod(from, to)}`)
-    .limit(2);
-  if (amount != null) query = query.eq("amount", amount);
-
-  const { data: candidates } = await query;
-  return (candidates ?? []).length === 1
-    ? ((candidates![0].id as string) ?? null)
-    : null;
-}
-
-// Снять отметку — ткнули не в того. Подтверждение спрашивает кнопка.
-export async function unmarkSalaryPaidAction(formData: FormData) {
+// Ошиблись суммой, датой или человеком — выплату можно снести. Отдельного
+// «редактировать» не делаем: удалить и внести заново честнее в истории.
+// Вместе с выплатой СММщика уходит и заведённый ею расход — иначе снятая
+// выплата продолжала бы занижать прибыль.
+export async function deleteSalaryPayoutAction(formData: FormData) {
   await requireAdmin();
-  const id = String(formData.get("instructorId") ?? "");
-  const from = String(formData.get("from") ?? "");
-  const to = String(formData.get("to") ?? "");
-  const isSmm = String(formData.get("kind") ?? "") === "smm";
-  if (!id || !DAY_RE.test(from) || !DAY_RE.test(to)) return;
+  const id = String(formData.get("id") ?? "");
+  const kind = String(formData.get("kind") ?? "");
+  if (!id) return;
 
   const supabase = await createClient();
 
-  // Сумму читаем ДО удаления отметки: по ней ищется заведённый ею расход.
-  const { data: mark } = isSmm
-    ? await supabase
-        .from("salary_payouts")
-        .select("amount")
-        .eq("instructor_id", id)
-        .eq("period_from", from)
-        .eq("period_to", to)
-        .maybeSingle()
-    : { data: null };
+  if (kind === "agent") {
+    const { error } = await supabase.from("agent_payouts").delete().eq("id", id);
+    failIfError(error, "не удалось удалить выплату");
+    revalidatePath("/", "layout");
+    return;
+  }
 
-  const { error } = await supabase
+  // Колонки expense_id может не быть (0043 не накатана) — тогда просто удаляем
+  // выплату, как раньше.
+  const { data: payout } = await supabase
     .from("salary_payouts")
-    .delete()
-    .eq("instructor_id", id)
-    .eq("period_from", from)
-    .eq("period_to", to);
-  failIfError(error, "не удалось снять отметку о выплате");
+    .select("expense_id")
+    .eq("id", id)
+    .maybeSingle();
 
-  // Вместе с отметкой убираем и созданный ею расход — иначе снятая выплата
-  // продолжала бы занижать прибыль. Если начальник успел отредактировать
-  // подпись расхода, строка не найдётся и останется на месте: молча удалять
-  // чужие правки хуже, чем не удалить.
-  if (isSmm) {
-    const expenseId = await findSmmExpense(
-      supabase,
-      await personName(supabase, id),
-      from,
-      to,
-      mark ? Math.round(Number(mark.amount ?? 0)) : null,
-    );
-    if (expenseId) {
-      await supabase.from("expenses").delete().eq("id", expenseId);
-    }
+  const { error } = await supabase.from("salary_payouts").delete().eq("id", id);
+  failIfError(error, "не удалось удалить выплату");
+
+  const expenseId = payout?.expense_id as string | null | undefined;
+  if (expenseId) {
+    await supabase.from("expenses").delete().eq("id", expenseId);
   }
 
   revalidatePath("/", "layout");
