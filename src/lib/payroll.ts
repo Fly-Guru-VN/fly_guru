@@ -2,10 +2,12 @@ import type { createClient } from "@/lib/supabase/server";
 import { getInstructorStats, type StatsRange } from "@/lib/stats";
 import { getCrmPayout, type CrmPayout } from "@/lib/finance";
 import { vnMonth } from "@/lib/dates";
+import { getSmmFixedPay } from "@/lib/salary";
 import {
   employedDuring,
   employmentLabel,
   loadInstructors,
+  loadSmm,
   type StaffMember,
 } from "@/lib/staff";
 
@@ -25,6 +27,9 @@ import {
 // инструкторам платят понедельно, а эта доля закрывается раз в месяц, и
 // недельные её куски никому не нужны — их только путали с суммой к выдаче.
 // Поэтому в «Итого к выплате» она попадает, лишь когда выбран ровно этот месяц.
+// СММщик: фикс 2 000 000 ₫ за каждую ПОЛНУЮ неделю периода (lib/salary) плюс
+// его 1% — но 1% здесь только показан: это половина доли CRM, она уже считается
+// помесячно вместе с долей Дэвида, и второй раз её никто не начисляет.
 // Админа тут нет намеренно: он босс, а не наёмный — школа сама себе не платит.
 // Его деньги (сессия минус 35% Marina и 2% CRM) видны как прибыль в lib/finance.
 
@@ -62,6 +67,22 @@ export interface PayoutMark {
   paidAt: string;
 }
 
+// СММщик в расчёте выплат. Фикс — единственное, что ему тут начисляют;
+// crmShare показан справкой, чтобы начальник видел обе части его денег на
+// одном экране и не искал вторую в блоке «CRM».
+export interface SmmPayout {
+  id: string;
+  name: string;
+  weeks: number; // полных недель в периоде
+  spareDays: number; // отработанные дни, не добравшие до недели
+  fixed: number; // фикс за период — его и выплачиваем кнопкой
+  crmShare: number; // его 1% за календарный месяц (в фикс не входит)
+  employmentLabel: string | null;
+  payouts: PayoutMark[];
+  exactPayout: PayoutMark | null;
+  blocked: boolean;
+}
+
 export interface AgentPayout {
   id: string;
   name: string;
@@ -71,6 +92,7 @@ export interface AgentPayout {
 
 export interface MonthlyPayroll {
   instructors: InstructorPayout[];
+  smm: SmmPayout[];
   agents: AgentPayout[];
   crm: CrmPayout; // Дэвид + Ромчик: 2% с выручки МЕСЯЦА пополам
   crmMonthLabel: string; // «август 2026» — за какой месяц посчитан CRM
@@ -138,9 +160,19 @@ export async function getMonthlyPayroll(
   // Только наёмные инструкторы: админ-босс себе ЗП не начисляет. Уволенных
   // отсеиваем не по факту увольнения, а по периоду: если человек отработал в
   // нём хоть день — он в списке.
-  const staff = (await loadInstructors(supabase)).filter((m) =>
+  const [allInstructors, allSmm] = await Promise.all([
+    loadInstructors(supabase),
+    loadSmm(supabase),
+  ]);
+  const staff = allInstructors.filter((m) =>
     employedDuring(m, range.fromDay, lastDay),
   );
+  const smmStaff = allSmm.filter((m) =>
+    employedDuring(m, range.fromDay, lastDay),
+  );
+  // Отметки о выплате общие: в salary_payouts колонка instructor_id — обычная
+  // ссылка на users, роль там не проверяется, поэтому СММщику отдельная таблица
+  // не нужна (и миграция под эту правку тоже).
   const payouts = await loadPayouts(supabase, range.fromDay, lastDay);
 
   const unsorted: InstructorPayout[] = await Promise.all(
@@ -229,6 +261,28 @@ export async function getMonthlyPayroll(
   }
   const agents = [...byAgent.values()].sort((a, b) => b.total - a.total);
 
+  // СММщик. Кнопка «выплачено» закрывает ФИКС — 1% в неё не входит: он живёт в
+  // блоке CRM, закрывается раз в месяц и уже сидит в авто-расходах школы.
+  // Проверка «эти дни уже закрыты» та же, что у инструкторов: одни и те же дни
+  // нельзя выдать дважды.
+  const smm: SmmPayout[] = smmStaff.map((u) => {
+    const pay = getSmmFixedPay(range.fromDay, lastDay, u);
+    const mine = payouts.get(u.id) ?? [];
+    const exact = mine.find((p) => p.from === range.fromDay && p.to === lastDay);
+    return {
+      id: u.id,
+      name: u.name,
+      weeks: pay.weeks,
+      spareDays: pay.spareDays,
+      fixed: pay.amount,
+      crmShare: crm.each,
+      employmentLabel: employmentLabel(u),
+      payouts: mine,
+      exactPayout: exact ?? null,
+      blocked: mine.length > 0 && !exact,
+    };
+  });
+
   // «Итого к выплате» = деньги, которые школа раздаёт по итогам ВЫБРАННОГО
   // периода. Доля за CRM входит в него только когда выбран ровно её месяц:
   // иначе к недельной выплате приплюсовывалась бы месячная сумма, и цифра в
@@ -237,25 +291,28 @@ export async function getMonthlyPayroll(
     range.fromDay === crmMonth.fromDay && range.toDay === crmMonth.toDay;
   const grandTotal =
     instructors.reduce((s, i) => s + i.total, 0) +
+    smm.reduce((s, m) => s + m.fixed, 0) +
     agents.reduce((s, a) => s + a.total, 0) +
     (crmInTotal ? crm.total : 0);
 
   // «Уже выдано» — только выплаты, целиком лежащие ВНУТРИ выбранного периода:
   // отметка за 1–5 честно входит в месяц, а месячная отметка не приплюсуется к
   // недельному экрану, где ей взяться неоткуда.
-  const paidOutTotal = instructors.reduce(
-    (s, i) =>
-      s +
-      i.payouts
-        .filter((p) => p.from >= range.fromDay && p.to <= lastDay)
-        .reduce((sum, p) => sum + p.amount, 0),
-    0,
-  );
+  const inside = (marks: PayoutMark[]) =>
+    marks
+      .filter((p) => p.from >= range.fromDay && p.to <= lastDay)
+      .reduce((sum, p) => sum + p.amount, 0);
+  const paidOutTotal =
+    instructors.reduce((s, i) => s + inside(i.payouts), 0) +
+    smm.reduce((s, m) => s + inside(m.payouts), 0);
 
-  const blockedNames = instructors.filter((i) => i.blocked).map((i) => i.name);
+  const blockedNames = [...instructors, ...smm]
+    .filter((p) => p.blocked)
+    .map((p) => p.name);
 
   return {
     instructors,
+    smm,
     agents,
     crm,
     crmMonthLabel: crmMonth.label,

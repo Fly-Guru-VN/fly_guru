@@ -60,6 +60,7 @@ export function PaidOutToggle({
   exactPayout,
   blocked,
   clash,
+  kind = "instructor",
 }: {
   instructorId: string;
   from: string;
@@ -69,12 +70,15 @@ export function PaidOutToggle({
   exactPayout: PayoutMark | null; // ровно за этот период — её можно снять
   blocked: boolean; // дни закрыты другой выплатой
   clash: boolean; // сюда только что пришёл отказ от сервера
+  /** Кому платим. У СММщика отметка ещё и заводит расход — см. actions. */
+  kind?: "instructor" | "smm";
 }) {
   const hidden = (
     <>
       <input type="hidden" name="instructorId" value={instructorId} />
       <input type="hidden" name="from" value={from} />
       <input type="hidden" name="to" value={to} />
+      <input type="hidden" name="kind" value={kind} />
     </>
   );
 
@@ -111,7 +115,11 @@ export function PaidOutToggle({
         <form action={unmarkSalaryPaidAction}>
           {hidden}
           <ConfirmSubmit
-            message="Снять отметку о выплате за этот период?"
+            message={
+              kind === "smm"
+                ? "Снять отметку о выплате за этот период? Расход, который она завела, тоже удалится."
+                : "Снять отметку о выплате за этот период?"
+            }
             className="text-[11px] font-semibold text-muted transition-colors hover:text-red-600"
           >
             Снять отметку
@@ -130,6 +138,13 @@ export function PaidOutToggle({
           >
             Отметить «выплачено»
           </button>
+          {/* У СММщика кнопка не только помечает, но и тратит деньги школы —
+              человек должен знать это до нажатия, а не после. */}
+          {kind === "smm" && (
+            <p className="mt-1 text-[11px] text-muted">
+              и запишем это в «Расходы» сегодняшним числом
+            </p>
+          )}
         </form>
       )}
     </div>

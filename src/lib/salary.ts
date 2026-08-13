@@ -299,6 +299,77 @@ export async function getSessionShare(
   return result;
 }
 
+// ── ЗП СММщика (prompt 11, п.3; решение David от 12.08.2026) ─────────────────
+//
+// Считается не как у инструкторов: смен и занятий у него нет, есть фикс —
+// 2 000 000 ₫ за неделю работы. Платим ТОЛЬКО за ПОЛНЫЕ недели выбранного
+// периода: «Эта неделя» = 2 млн, месяц из 31 дня = четыре недели, а три
+// оставшихся дня в расчёт не идут (выбор David — дробить неделю на дни по
+// 285 714 ₫ он не захотел: такую цифру нельзя проверить в уме). Экран
+// показывает остаток отдельной подписью, чтобы это не читалось как недостача.
+//
+// Второе слагаемое, 1% с выручки, здесь НЕ считается вовсе: он уже живёт в
+// lib/finance как половина CRM_RATE («Ромчик (СММ)») и закрывается помесячно.
+// Начислить его ещё раз значило бы задвоить расход школы.
+export const SMM_WEEK_PAY = 2_000_000; // ₫ за неделю работы СММщика
+
+export interface SmmFixedPay {
+  weeks: number; // полных недель в периоде
+  spareDays: number; // дни-остаток: отработаны, но до недели не добрали
+  amount: number; // weeks × SMM_WEEK_PAY
+}
+
+// Сколько дней периода человек реально был в штате. Обе границы включительно,
+// приём и увольнение обрезают период с краёв (даты из 0036).
+function workedDays(from: string, to: string, m?: StaffMember): number {
+  const start = m?.hiredAt && m.hiredAt > from ? m.hiredAt : from;
+  const end = m?.leftAt && m.leftAt < to ? m.leftAt : to;
+  if (end < start) return 0;
+  const ms = Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`);
+  return Math.round(ms / 86_400_000) + 1;
+}
+
+export function getSmmFixedPay(
+  fromDay: string,
+  lastDay: string,
+  member?: StaffMember,
+): SmmFixedPay {
+  const days = workedDays(fromDay, lastDay, member);
+  const weeks = Math.floor(days / 7);
+  return { weeks, spareDays: days - weeks * 7, amount: weeks * SMM_WEEK_PAY };
+}
+
+// Подпись расхода, который создаёт отметка «выплачено» (см. admin/actions →
+// markSalaryPaidAction). Одной функцией, потому что по этой же строке расход
+// потом ищется и удаляется, если отметку снимут: связку через отдельную
+// колонку заводить ради этого не стали — миграции в этой правке нет.
+//
+// Имя в подписи нужно человеку («Зарплата — кому?»), но искать по нему нельзя:
+// СММщик может переименовать себя в своих «Настройках» между отметкой и её
+// снятием, и тогда строка перестанет находиться — расход остался бы висеть и
+// вечно занижать прибыль. Поэтому поиск идёт по хвосту с периодом
+// (smmPayoutPeriod), который от имени не зависит.
+export const SMM_PAYOUT_PREFIX = "ЗП СММ";
+
+export function smmPayoutPeriod(fromDay: string, lastDay: string): string {
+  const d = (day: string) =>
+    new Date(`${day}T00:00:00Z`).toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+  return `${d(fromDay)} — ${d(lastDay)}`;
+}
+
+export function smmPayoutComment(
+  name: string,
+  fromDay: string,
+  lastDay: string,
+): string {
+  return `${SMM_PAYOUT_PREFIX} · ${name} · ${smmPayoutPeriod(fromDay, lastDay)}`;
+}
+
 export interface SubsShares {
   pool: number; // весь котёл периода: 15% с абонементов инструкторов
   shares: Map<string, number>; // инструктор → его доля

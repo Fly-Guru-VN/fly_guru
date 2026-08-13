@@ -83,6 +83,29 @@ export async function GET(request: NextRequest) {
       i.payouts.map((p) => `${p.from}…${p.to}`).join(", "),
     ]);
   }
+  // СММщик: фикс за полные недели периода. Сколько их было — пишем прямо в
+  // тип строки, отдельной колонки под это заводить не стали (у инструкторов
+  // такого поля нет, а шапка файла и так широкая). Его 1% в этой строке не
+  // участвует — он ниже, в строках CRM.
+  for (const s of payroll.smm) {
+    rows.push([
+      `СММ · ${s.weeks} нед`,
+      s.name,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      s.fixed,
+      s.payouts.reduce((sum, p) => sum + p.amount, 0) || "",
+      s.payouts.map((p) => `${p.from}…${p.to}`).join(", "),
+    ]);
+  }
   for (const a of payroll.agents) {
     rows.push([
       "Агент",

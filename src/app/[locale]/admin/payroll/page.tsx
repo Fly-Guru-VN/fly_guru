@@ -12,7 +12,7 @@ import {
   vnWeekOf,
 } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
-import { SHIFT_PAY } from "@/lib/salary";
+import { SHIFT_PAY, SMM_WEEK_PAY } from "@/lib/salary";
 import { getMonthlyPayroll } from "@/lib/payroll";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { PaidOutToggle } from "./PaidOutToggle";
@@ -33,6 +33,16 @@ export const metadata: Metadata = { title: "Админка · Расчёт вы�
 // месяц без нахлёста и потерь.
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+// «1 неделя / 2 недели / 5 недель» — цифра рядом со словом читается сама, без
+// неё подпись «Фикс · 2» выглядит обрубком.
+function plural(n: number, one: string, few: string, many: string): string {
+  if (n % 10 === 1 && n % 100 !== 11) return one;
+  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) return few;
+  return many;
+}
+const weekWord = (n: number) => plural(n, "неделя", "недели", "недель");
+const dayWord = (n: number) => plural(n, "день", "дня", "дней");
 
 const presetClass = (active: boolean) =>
   `rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
@@ -203,7 +213,7 @@ export default async function AdminPayrollPage({
             кармане). Отметки ставятся кнопкой у каждого инструктора ниже. */}
         {payroll.paidOutTotal > 0 && (
           <p className="mt-1 text-xs text-muted">
-            Инструкторам уже выдано: {vnd(payroll.paidOutTotal)}
+            Уже выдано на руки: {vnd(payroll.paidOutTotal)}
           </p>
         )}
         {/* Excel — первой кнопкой: CSV русский Excel открывает одной склеенной
@@ -306,6 +316,69 @@ export default async function AdminPayrollPage({
           )}
         </div>
       </section>
+
+      {/* СММщик. Считается не как инструктор: смен и занятий у него нет, есть
+          фикс за ПОЛНЫЕ недели периода (решение David от 12.08.2026). Кнопка
+          закрывает только фикс — 1% ниже, в блоке CRM: он копится и
+          выплачивается в конце месяца, поэтому в недельную выдачу не входит. */}
+      {payroll.smm.length > 0 && (
+        <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
+          <h2 className="font-bold">
+            СММ · {vnd(SMM_WEEK_PAY)} за неделю + 1% с выручки
+          </h2>
+          <p className="mt-1 text-xs text-muted">
+            Платим за полные недели выбранного периода: остаток дней ждёт
+            следующей выплаты, а не пропадает. Отметка «выплачено» сразу
+            записывает расход школы — вносить его руками во вкладке «Расходы»
+            больше не нужно. 1% с выручки сюда не входит: он считается за
+            календарный месяц целиком и показан ниже, в блоке «CRM».
+          </p>
+          <div className="mt-3 space-y-4">
+            {payroll.smm.map((s) => (
+              <div key={s.id}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="min-w-0 font-semibold">
+                    {s.name}
+                    {s.employmentLabel && (
+                      <span className="ml-2 text-[11px] font-normal text-muted">
+                        {s.employmentLabel}
+                      </span>
+                    )}
+                  </p>
+                  <p className="shrink-0 font-bold text-primary">{vnd(s.fixed)}</p>
+                </div>
+                <div className="mt-1 space-y-1.5">
+                  <Row
+                    label={`Фикс · ${s.weeks} ${weekWord(s.weeks)}`}
+                    value={vnd(s.fixed)}
+                    hint={
+                      s.spareDays > 0
+                        ? `${s.spareDays} ${dayWord(s.spareDays)} до полной недели не хватило — уйдут в следующую выплату`
+                        : undefined
+                    }
+                  />
+                  <Row
+                    label={`1% с выручки · ${payroll.crmMonthLabel}`}
+                    value={vnd(s.crmShare)}
+                    hint="копится и выплачивается в конце месяца — эта кнопка его не закрывает"
+                  />
+                </div>
+                <PaidOutToggle
+                  instructorId={s.id}
+                  from={fromDay}
+                  to={lastDay}
+                  amount={s.fixed}
+                  payouts={s.payouts}
+                  exactPayout={s.exactPayout}
+                  blocked={s.blocked}
+                  clash={clash === s.id}
+                  kind="smm"
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Доля за CRM. Считается ВСЕГДА за календарный месяц, даже когда выбрана
           неделя: инструкторам платят понедельно, а эта доля закрывается раз в

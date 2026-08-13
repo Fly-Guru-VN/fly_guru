@@ -127,16 +127,26 @@ export interface Finance {
 
 // Отметки «ЗП выдана» (0036) за периоды внутри выбранного. Таблицы может не
 // быть (миграция не накатана) — тогда просто ноль, вкладка работает как раньше.
+//
+// Считаем ТОЛЬКО инструкторов. С 13.08.2026 в той же таблице лежат выплаты
+// СММщика (его фикс), а строка на вкладке подписана «ЗП инструкторов — из них
+// выдано на руки» и сравнивается с начисленной ЗП инструкторов, куда фикс
+// СММщика не входит вовсе. Без фильтра его выплата задирала бы «выдано» и
+// подпись врала бы «выплачено полностью», когда инструкторам ещё должны.
 async function loadPaidOut(
   supabase: Supabase,
   range: StatsRange,
+  instructorIds: string[],
 ): Promise<number> {
+  if (instructorIds.length === 0) return 0;
+
   const lastDay = new Date(`${range.toDay}T00:00:00Z`);
   lastDay.setUTCDate(lastDay.getUTCDate() - 1);
 
   const { data, error } = await supabase
     .from("salary_payouts")
     .select("amount")
+    .in("instructor_id", instructorIds)
     .gte("period_from", range.fromDay)
     .lte("period_to", lastDay.toISOString().slice(0, 10));
   if (error) return 0;
@@ -151,7 +161,7 @@ export async function getFinance(
   //  • moneySessions — что оплачено в этом периоде: выручка школы;
   //  • workSessions — что откатано в этом периоде: с них 15% и комиссии агентов.
   // У занятия без paid_on обе даты совпадают, и наборы одинаковы — как раньше.
-  const [moneySessions, workSessions, subsRes, expensesRes, staff, instructorPaidOut] =
+  const [moneySessions, workSessions, subsRes, expensesRes, staff] =
     await Promise.all([
       loadAllSessions<SessionMoneyRow>(supabase, "amount", {
         fromDay: range.fromDay,
@@ -178,20 +188,22 @@ export async function getFinance(
         .lt("date", range.toDay)
         .order("amount", { ascending: false }),
       loadInstructors(supabase),
-      // Сколько из начисленной ЗП уже роздано: суммируем отметки «выплачено»
-      // по периодам, целиком лежащим внутри выбранного (недели внутри месяца).
-      // Начисление и выдача — разные события: в расчёт прибыли ЗП уходит сразу,
-      // а деньги на руки отдают раз в неделю и не всегда всем сразу.
-      loadPaidOut(supabase, range),
     ]);
   const instructorIds = staff.map((m) => m.id);
 
   // Выходы и котёл абонементов считает lib/salary — те же правила, что в
   // кабинете инструктора и в «Расчёте выплат». Здесь нужен итог по школе:
   // сколько всего денег уходит людям.
-  const [shiftPay, subsShares] = await Promise.all([
+  //
+  // Сколько из начисленной ЗП уже роздано: суммируем отметки «выплачено» по
+  // периодам, целиком лежащим внутри выбранного (недели внутри месяца).
+  // Начисление и выдача — разные события: в расчёт прибыли ЗП уходит сразу, а
+  // деньги на руки отдают раз в неделю и не всегда всем сразу. Список
+  // инструкторов нужен ей фильтром, поэтому запрос ждёт staff.
+  const [shiftPay, subsShares, instructorPaidOut] = await Promise.all([
     getShiftPay(supabase, range, instructorIds),
     getSubsShares(supabase, range, staff),
+    loadPaidOut(supabase, range, instructorIds),
   ]);
 
   const subs = subsRes.data ?? [];

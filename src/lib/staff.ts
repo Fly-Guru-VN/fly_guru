@@ -58,11 +58,25 @@ export function notStarted(m: StaffMember, today: string = vnToday()): boolean {
 // наката миграции — при «нет такой колонки» перечитываем без них (та же
 // страховка, что у bonus_cancelled в lib/salary).
 export async function loadInstructors(client: Supabase): Promise<StaffMember[]> {
+  return loadByRole(client, "instructor");
+}
+
+// СММщик считается тем же штатом: у него есть даты приёма и увольнения, он
+// попадает в «Расчёт выплат» и получает отметки о выплате в той же таблице.
+// Отличается только формула ЗП (фикс за неделю — см. lib/salary), а не список.
+export async function loadSmm(client: Supabase): Promise<StaffMember[]> {
+  return loadByRole(client, "smm");
+}
+
+async function loadByRole(
+  client: Supabase,
+  role: "instructor" | "smm",
+): Promise<StaffMember[]> {
   const base = "id, name, senior";
   const full = `${base}, hired_at, left_at`;
 
   const query = (columns: string) =>
-    client.from("users").select(columns).eq("role", "instructor").order("name");
+    client.from("users").select(columns).eq("role", role).order("name");
 
   let rows: Record<string, unknown>[] | null = null;
   const { data, error } = await query(full);
