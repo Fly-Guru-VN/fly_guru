@@ -19,7 +19,7 @@ import { pickChannel } from "@/lib/channels";
 import { DICT_LABEL, type DictTable } from "@/lib/dictionaries";
 import type { EquipmentKind } from "@/lib/equipment";
 import { parseVnd } from "@/lib/money";
-import { smmPayoutComment } from "@/lib/salary";
+import { payoutExpenseComment } from "@/lib/salary";
 import { checkPhoto } from "@/lib/photos";
 import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
@@ -1863,6 +1863,20 @@ export async function setSeniorAction(formData: FormData) {
 // сидят в расходах школы по начислению (lib/finance). Исключение — фикс
 // СММщика: он нигде не начисляется, поэтому его выплата заводит расход, и
 // связь с ним хранится прямо в строке выплаты (expense_id).
+// Категория «З/П» из справочника — чтобы выданная зарплата не сваливалась в
+// «без категории» и её было видно среди прочих расходов. Ищем по названию, а
+// не по жёсткому id: справочник ведёт David руками, и названия там живые
+// («Зп», «З/П»). Не нашли — оставляем без категории: расход важнее ярлыка.
+async function salaryCategoryId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<string | null> {
+  const { data } = await supabase.from("expense_categories").select("id, name");
+  const found = (data ?? []).find((c) =>
+    /^\s*з\s*\/?\s*п\s*$|зарплат/i.test(String(c.name ?? "")),
+  );
+  return (found?.id as string | undefined) ?? null;
+}
+
 export async function paySalaryAction(
   _prev: ActionState,
   formData: FormData,
@@ -1908,15 +1922,25 @@ export async function paySalaryAction(
     .eq("id", payeeId)
     .maybeSingle();
 
+  // Заводить расход или нет — решает тот, кто платит, а не роль получателя.
+  // Раньше правило было «платим СММщику → расход», и оно врало в обе стороны:
+  // зарплата механика и своя мимо расходов вовсе не попадали (прибыль
+  // завышалась на всю сумму), а выплата СММщику его 1% с оборота, наоборот,
+  // списывалась дважды — этот процент уже вычтен из прибыли автоматически.
+  const asExpense = formData.get("asExpense") === "1";
+
   let expenseId: string | null = null;
-  if (person?.role === "smm") {
+  if (asExpense) {
     const { data: expense, error: expenseError } = await supabase
       .from("expenses")
       .insert({
         date: paidOn,
         amount,
-        category_id: null,
-        comment: smmPayoutComment((person?.name as string) ?? "СММ", paidOn),
+        category_id: await salaryCategoryId(supabase),
+        comment: payoutExpenseComment(
+          (person?.name as string) ?? "сотрудник",
+          paidOn,
+        ),
         created_by: admin.id,
       })
       .select("id")

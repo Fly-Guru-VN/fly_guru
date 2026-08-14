@@ -68,9 +68,21 @@ export async function loadSmm(client: Supabase): Promise<StaffMember[]> {
   return loadByRole(client, "smm");
 }
 
+// Механик и админ зарплату НЕ зарабатывают по формуле — им платят фиксом, о
+// котором система знать не может. В расчёте долгов их поэтому нет, а вот в
+// форме выплаты они нужны: иначе выдачу этих денег некуда записать, и она
+// оседает только в ручных расходах (см. payroll → payees).
+export async function loadMechanics(client: Supabase): Promise<StaffMember[]> {
+  return loadByRole(client, "mechanic");
+}
+
+export async function loadAdmins(client: Supabase): Promise<StaffMember[]> {
+  return loadByRole(client, "admin");
+}
+
 async function loadByRole(
   client: Supabase,
-  role: "instructor" | "smm",
+  role: "instructor" | "smm" | "mechanic" | "admin",
 ): Promise<StaffMember[]> {
   const base = "id, name, senior";
   const full = `${base}, hired_at, left_at`;

@@ -27,6 +27,8 @@ export function PayoutForm({
   });
   const [payee, setPayee] = useState("");
   const [amount, setAmount] = useState("");
+  // Записывать ли выдачу расходом школы — см. Payee.expenseByDefault.
+  const [asExpense, setAsExpense] = useState(false);
 
   const groups = [...new Set(payees.map((p) => p.group))];
   const chosen = payees.find((p) => `${p.kind}:${p.id}` === payee);
@@ -37,6 +39,7 @@ export function PayoutForm({
     setPayee(value);
     const next = payees.find((p) => `${p.kind}:${p.id}` === value);
     setAmount(next && next.suggested > 0 ? String(next.suggested) : "");
+    setAsExpense(next?.expenseByDefault ?? false);
   };
 
   return (
@@ -99,6 +102,50 @@ export function PayoutForm({
           className={field}
         />
       </label>
+
+      {/* Развилка «за что платим». Она решает судьбу цифры прибыли, поэтому
+          стоит прямо в форме, а не в настройках: заработанную долю списывать
+          расходом нельзя (она уже вычтена в день занятия), а фикс — обязательно
+          нужно, иначе прибыль окажется выше настоящей на всю выданную сумму. */}
+      {chosen && (
+        <fieldset className="rounded-xl border border-line p-3">
+          <legend className="px-1 text-sm font-semibold">За что платим</legend>
+          <label className="flex gap-2 text-sm">
+            <input
+              type="radio"
+              name="asExpense"
+              value="0"
+              checked={!asExpense}
+              onChange={() => setAsExpense(false)}
+              className="mt-1 h-4 w-4 accent-primary"
+            />
+            <span>
+              <span className="font-semibold">Из начисленного</span>
+              <span className="block text-xs text-muted">
+                Доля инструктора, комиссия агента, 1% с оборота. Эти деньги уже
+                посчитаны расходом в день занятия — второй раз списывать нельзя.
+              </span>
+            </span>
+          </label>
+          <label className="mt-2 flex gap-2 text-sm">
+            <input
+              type="radio"
+              name="asExpense"
+              value="1"
+              checked={asExpense}
+              onChange={() => setAsExpense(true)}
+              className="mt-1 h-4 w-4 accent-primary"
+            />
+            <span>
+              <span className="font-semibold">Отдельная зарплата</span>
+              <span className="block text-xs text-muted">
+                Фикс СММщика, зарплата механика, своя зарплата. Нигде не
+                начисляется — запишем расходом школы за день выдачи.
+              </span>
+            </span>
+          </label>
+        </fieldset>
+      )}
 
       {chosen && chosen.suggested > 0 && (
         <p className="text-xs text-muted">

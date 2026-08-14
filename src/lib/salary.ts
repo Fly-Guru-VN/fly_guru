@@ -339,19 +339,19 @@ export function getSmmFixedPay(
   return { weeks, spareDays: days - weeks * 7, amount: weeks * SMM_WEEK_PAY };
 }
 
-// Подпись расхода, который заводит выплата СММщику (см. admin/actions →
+// Подпись расхода, который заводит выплата зарплаты (см. admin/actions →
 // paySalaryAction). Она только для человека, читающего «Расходы»: обратно
 // расход находится не по тексту, а по прямой ссылке из выплаты (0043,
 // salary_payouts.expense_id) — подпись можно спокойно править руками, и связь
 // от этого не порвётся.
-export function smmPayoutComment(name: string, paidOn: string): string {
+export function payoutExpenseComment(name: string, paidOn: string): string {
   const day = new Date(`${paidOn}T00:00:00Z`).toLocaleDateString("ru-RU", {
     day: "numeric",
     month: "short",
     year: "numeric",
     timeZone: "UTC",
   });
-  return `ЗП СММ · ${name} · выплата ${day}`;
+  return `ЗП · ${name} · выплата ${day}`;
 }
 
 export interface SubsShares {
