@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireRole } from "@/lib/auth";
+import { isAdminLike, requireRole } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminViewBanner } from "@/components/cabinet/AdminViewBanner";
 import { BookingsBadgeRefresh } from "@/components/BookingsBadgeRefresh";
@@ -38,7 +38,7 @@ export default async function SmmLayout({
       <div className="md:flex md:h-full md:gap-6">
         <Sidebar name={user.name} photoUrl={user.photo_url} freshCount={count ?? 0} />
         <main className="scroll-soft mt-4 min-w-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain md:py-6">
-          {user.role === "admin" && <AdminViewBanner cabinet="СММ" />}
+          {isAdminLike(user.role) && <AdminViewBanner cabinet="СММ" />}
           {children}
         </main>
       </div>

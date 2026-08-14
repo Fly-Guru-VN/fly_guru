@@ -312,6 +312,7 @@ export async function getSessionShare(
 // lib/finance как половина CRM_RATE («Ромчик (СММ)») и закрывается помесячно.
 // Начислить его ещё раз значило бы задвоить расход школы.
 export const SMM_WEEK_PAY = 2_000_000; // ₫ за неделю работы СММщика
+export const DEV_WEEK_PAY = 2_500_000; // ₫ за неделю работы разработчика (0044)
 
 export interface SmmFixedPay {
   weeks: number; // полных недель в периоде
@@ -329,14 +330,26 @@ function workedDays(from: string, to: string, m?: StaffMember): number {
   return Math.round(ms / 86_400_000) + 1;
 }
 
-export function getSmmFixedPay(
+// Недельный фикс: платим только за ПОЛНЫЕ недели периода, остаток дней ждёт
+// следующей выплаты. Правило David'а, одно на всех, у кого ставка недельная —
+// СММщик (2 млн) и разработчик (2,5 млн).
+export function getWeeklyFixedPay(
+  weekPay: number,
   fromDay: string,
   lastDay: string,
   member?: StaffMember,
 ): SmmFixedPay {
   const days = workedDays(fromDay, lastDay, member);
   const weeks = Math.floor(days / 7);
-  return { weeks, spareDays: days - weeks * 7, amount: weeks * SMM_WEEK_PAY };
+  return { weeks, spareDays: days - weeks * 7, amount: weeks * weekPay };
+}
+
+export function getSmmFixedPay(
+  fromDay: string,
+  lastDay: string,
+  member?: StaffMember,
+): SmmFixedPay {
+  return getWeeklyFixedPay(SMM_WEEK_PAY, fromDay, lastDay, member);
 }
 
 export interface SubsShares {

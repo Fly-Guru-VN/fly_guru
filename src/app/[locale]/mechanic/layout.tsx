@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireRole } from "@/lib/auth";
+import { isAdminLike, requireRole } from "@/lib/auth";
 import { AdminViewBanner } from "@/components/cabinet/AdminViewBanner";
 import { ToastHost } from "@/components/cabinet/Toast";
 import { Sidebar } from "./Sidebar";
@@ -27,7 +27,7 @@ export default async function MechanicLayout({
       <div className="md:flex md:h-full md:gap-6">
         <Sidebar name={user.name} photoUrl={user.photo_url} />
         <main className="scroll-soft mt-4 min-w-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain md:py-6">
-          {user.role === "admin" && <AdminViewBanner cabinet="механика" />}
+          {isAdminLike(user.role) && <AdminViewBanner cabinet="механика" />}
           {children}
         </main>
       </div>

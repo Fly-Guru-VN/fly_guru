@@ -2,11 +2,17 @@ import type { createClient } from "@/lib/supabase/server";
 import { getInstructorStats, type StatsRange } from "@/lib/stats";
 import { getCrmPayout } from "@/lib/finance";
 import { vnMonth } from "@/lib/dates";
-import { getSmmFixedPay, SMM_WEEK_PAY } from "@/lib/salary";
+import {
+  DEV_WEEK_PAY,
+  getSmmFixedPay,
+  getWeeklyFixedPay,
+  SMM_WEEK_PAY,
+} from "@/lib/salary";
 import {
   employedDuring,
   employmentLabel,
   loadAdmins,
+  loadDevs,
   loadInstructors,
   loadMechanics,
   loadSmm,
@@ -46,7 +52,13 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 /** Кому платим: штат живёт в salary_payouts, агенты — в agent_payouts (0023). */
 export type PayeeKind = "staff" | "agent";
 
-export type DueKind = "instructor" | "smm" | "mechanic" | "agent" | "crm";
+export type DueKind =
+  | "instructor"
+  | "smm"
+  | "dev"
+  | "mechanic"
+  | "agent"
+  | "crm";
 
 export interface DueDetail {
   label: string;
@@ -260,6 +272,7 @@ export async function getMonthlyPayroll(
   const [
     allInstructors,
     allSmm,
+    allDevs,
     allMechanics,
     allAdmins,
     staffPaid,
@@ -271,6 +284,7 @@ export async function getMonthlyPayroll(
     await Promise.all([
       loadInstructors(supabase),
       loadSmm(supabase),
+      loadDevs(supabase),
       loadMechanics(supabase),
       loadAdmins(supabase),
       loadStaffPayouts(supabase, filter),
@@ -373,6 +387,43 @@ export async function getMonthlyPayroll(
     });
   }
 
+  // ── Разработчик ────────────────────────────────────────────────────────────
+  // Считается ровно как СММщик, только ставка своя: 2,5 млн за полную неделю
+  // плюс тот же 1% с оборота (вторая половина доли CRM). Раньше эта половина
+  // висела справочной строкой «Дэвид · 1%» без получателя — выплатить её было
+  // некому, потому что аккаунта у него не было.
+  const devs = allDevs.filter((m) => employedDuring(m, range.fromDay, lastDay));
+  for (const u of devs) {
+    const fix = getWeeklyFixedPay(DEV_WEEK_PAY, range.fromDay, lastDay, u);
+    const accrued = fix.amount + (crmInTotal ? crm.each : 0);
+    const paid = paidTo("staff", u.id);
+    rows.push({
+      key: `staff-${u.id}`,
+      payee: { kind: "staff", id: u.id },
+      kind: "dev",
+      name: u.name,
+      accrued,
+      paid,
+      left: accrued - paid,
+      employmentLabel: employmentLabel(u),
+      details: [
+        {
+          label: `Фикс · ${fix.weeks} нед. по ${DEV_WEEK_PAY / 1_000_000} млн`,
+          value: fix.amount,
+          hint:
+            fix.spareDays > 0
+              ? `${fix.spareDays} дн. до полной недели не хватило`
+              : undefined,
+        },
+        {
+          label: `1% с выручки · ${crmMonth.label}`,
+          value: crm.each,
+          hint: crmInTotal ? undefined : "в начисление за этот период не входит",
+        },
+      ],
+    });
+  }
+
   // ── Агенты ─────────────────────────────────────────────────────────────────
   const agentName = new Map(
     (agentsRes.data ?? []).map((a) => [
@@ -438,7 +489,10 @@ export async function getMonthlyPayroll(
   // ── Доля Дэвида ────────────────────────────────────────────────────────────
   // Справочная строка: 1% с выручки школа сама себе не выдаёт, это его же
   // деньги. В «Итого» не входит, кнопки выплаты у неё нет.
-  if (crm.each > 0) {
+  //
+  // Нужна, только пока у разработчика нет своего аккаунта: с ним доля попадает
+  // в его собственную строку выше, вместе с фиксом, и её уже можно выплатить.
+  if (crm.each > 0 && devs.length === 0) {
     rows.push({
       key: "crm-david",
       payee: null,
@@ -469,9 +523,11 @@ export async function getMonthlyPayroll(
       ? "Инструкторы"
       : kind === "smm"
         ? "СММ"
-        : kind === "agent"
-          ? "Агенты"
-          : "Штат";
+        : kind === "dev"
+          ? "Разработчик"
+          : kind === "agent"
+            ? "Агенты"
+            : "Штат";
 
   const payees: Payee[] = [
     ...allInstructors.map((u) => ({
@@ -486,6 +542,13 @@ export async function getMonthlyPayroll(
       id: u.id,
       name: u.name,
       group: groupOf("smm"),
+      suggested: suggestedFor.get(`staff-${u.id}`) ?? 0,
+    })),
+    ...allDevs.map((u) => ({
+      kind: "staff" as const,
+      id: u.id,
+      name: u.name,
+      group: groupOf("dev"),
       suggested: suggestedFor.get(`staff-${u.id}`) ?? 0,
     })),
     // Механик и админ: формулы ЗП у них нет, поэтому в списке долгов выше их и

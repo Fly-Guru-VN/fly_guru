@@ -8,7 +8,7 @@ import { getActiveDict, getChannelNames, embeddedName } from "@/lib/dictionaries
 import { RecordClientForm, type RecordPrefill } from "./RecordClientForm";
 import { firstBasicTrainingByPhone } from "@/lib/agentReward";
 import { sortServicesByType } from "@/lib/serviceOrder";
-import { hiddenStaffIds } from "@/lib/staff";
+import { hiddenStaffIds, loadSessionStaff } from "@/lib/staff";
 
 // «Записать клиента» из кабинета админа: провести занятие на выбранного
 // инструктора (по умолчанию — сам админ, он же записывает и иногда сам катает).
@@ -52,7 +52,7 @@ export async function RecordScreen({
       .select("id, name, price, code, category")
       .eq("active", true)
       .neq("category", "subscription"),
-    supabase.from("users").select("id, name").in("role", ["instructor", "admin"]).order("name"),
+    loadSessionStaff(supabase),
     hiddenStaffIds(supabase), // уволенных не предлагаем (0036)
   ]);
   // Порядок «по типажам» (lib/serviceOrder.ts): базовое обучение первым,
@@ -61,7 +61,7 @@ export async function RecordScreen({
     ...s,
     price: Number(s.price ?? 0),
   }));
-  const staff = (staffRes.data ?? []).filter((u) => !hidden.has(u.id as string));
+  const staff = staffRes.filter((u) => !hidden.has(u.id));
 
   const today = vnToday();
 

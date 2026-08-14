@@ -51,18 +51,19 @@ export function SiteHeader() {
       if (cancelled) return;
       const role = row?.role as string | undefined;
       if (!role) return;
-      setCabinetHref(`/${role}`); // /admin, /instructor, /member, /agent
+      // Разработчик работает в админском кабинете: раздела /dev нет (0044).
+      const adminLike = role === "admin" || role === "dev";
+      setCabinetHref(adminLike ? "/admin" : `/${role}`);
 
-      if (role === "instructor" || role === "admin") {
+      if (role === "instructor" || adminLike) {
         // RLS (bookings_select_staff) пропустит только персонал.
         // Инструктору важны непринятые записи, админу — свежие заявки с сайта.
         let q = supabase
           .from("bookings")
           .select("id", { count: "exact", head: true });
-        q =
-          role === "admin"
-            ? q.eq("status", "new")
-            : q.eq("status", "confirmed").is("accepted_by", null);
+        q = adminLike
+          ? q.eq("status", "new")
+          : q.eq("status", "confirmed").is("accepted_by", null);
         const { count } = await q;
         if (!cancelled) setActiveCount(count ?? 0);
       }

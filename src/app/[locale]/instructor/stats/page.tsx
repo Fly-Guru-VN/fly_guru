@@ -1,6 +1,6 @@
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getAppUser } from "@/lib/auth";
+import { getAppUser, isAdminLike } from "@/lib/auth";
 import {
   vnMonthToDate,
   vnPeriod,
@@ -81,7 +81,7 @@ export default async function StatsPage({
     supabase,
     user.id,
     range,
-    user.role === "admin" ? "admin" : "instructor",
+    isAdminLike(user.role) ? "admin" : "instructor",
     createAdminClient(),
   );
 

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAppUser, ROLE_HOME, type AppUser } from "@/lib/auth";
+import { getAppUser, isAdminLike, ROLE_HOME, type AppUser } from "@/lib/auth";
 import {
   phoneDigits,
   phonesMatch,
@@ -42,7 +42,7 @@ export interface ActionState {
 
 async function requireStaff(): Promise<AppUser> {
   const user = await getAppUser();
-  if (!user || (user.role !== "instructor" && user.role !== "admin")) {
+  if (!user || !(user.role === "instructor" || isAdminLike(user.role))) {
     redirect("/login?next=/instructor");
   }
   return user;
@@ -899,8 +899,9 @@ export async function updateMySessionAction(formData: FormData) {
     .eq("id", id)
     .maybeSingle();
   if (!session) throw new Error("сессия не найдена");
-  // Админ ходит в кабинет как суперюзер (см. requireRole) — ему любую.
-  if (user.role !== "admin" && session.instructor_id !== user.id) {
+  // Админ (и разработчик — те же права) ходит в кабинет как суперюзер
+  // (см. requireRole) — ему любую.
+  if (!isAdminLike(user.role) && session.instructor_id !== user.id) {
     throw new Error("это не ваша сессия");
   }
 
@@ -1278,7 +1279,7 @@ export async function addShiftPhotoAction(
   formData: FormData,
 ): Promise<ShiftPhotoState> {
   const user = await requireFieldStaff();
-  if (user.role === "admin") {
+  if (isAdminLike(user.role)) {
     return { error: "Смены открывают инструкторы и механик." };
   }
 
@@ -1380,7 +1381,7 @@ export async function addShiftPhotoAction(
 // Убрать неудачный кадр (смазал — переснял). Только пока фаза не завершена.
 export async function deleteShiftPhotoAction(formData: FormData) {
   const user = await requireFieldStaff();
-  if (user.role === "admin") return;
+  if (isAdminLike(user.role)) return;
 
   const id = String(formData.get("id") ?? "");
   if (!id) return;
@@ -1430,7 +1431,7 @@ export async function saveShiftCommentAction(
   formData: FormData,
 ): Promise<ActionState> {
   const user = await requireFieldStaff();
-  if (user.role === "admin") {
+  if (isAdminLike(user.role)) {
     return { error: "Смены ведут инструкторы и механик." };
   }
 

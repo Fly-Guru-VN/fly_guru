@@ -13,7 +13,7 @@ import { SessionCreateForm } from "./SessionCreateForm";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 import { sortServicesByType } from "@/lib/serviceOrder";
-import { hiddenStaffIds } from "@/lib/staff";
+import { hiddenStaffIds, loadSessionStaff } from "@/lib/staff";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 
@@ -316,7 +316,7 @@ export async function SessionsScreen({
       .select("id, name, price, code, category")
       .eq("active", true)
       .neq("category", "subscription"),
-    supabase.from("users").select("id, name").in("role", ["instructor", "admin"]).order("name"),
+    loadSessionStaff(supabase),
     // Уволенных в списке «кто провёл» быть не должно: выбрать его можно только
     // по ошибке, а занятие уедет человеку, которого в школе уже нет (0036).
     hiddenStaffIds(supabase),
@@ -334,7 +334,7 @@ export async function SessionsScreen({
     ...s,
     price: Number(s.price ?? 0),
   }));
-  const staff = (staffRes.data ?? []).filter((u) => !hidden.has(u.id as string));
+  const staff = staffRes.filter((u) => !hidden.has(u.id));
 
   const total = sessions.reduce((sum, s) => sum + (s.amount ?? 0), 0);
 

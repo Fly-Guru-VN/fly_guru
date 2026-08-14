@@ -15,7 +15,7 @@ import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
 import { loadPaymentClaims, type ClaimInfo } from "@/lib/subscriptions";
 import { PAYMENT_CLAIM_BADGE, PAYMENT_CLAIM_TEXT } from "@/lib/paymentClaim";
-import { hiddenStaffIds } from "@/lib/staff";
+import { hiddenStaffIds, loadSessionStaff } from "@/lib/staff";
 import {
   SellSubscriptionForm,
   WriteOffMinutesForm,
@@ -408,17 +408,13 @@ export async function SubscriptionsScreen({
       supabase,
       "id, name, phone",
     ),
-    supabase
-      .from("users")
-      .select("id, name")
-      .in("role", ["instructor", "admin"])
-      .order("name"),
+    loadSessionStaff(supabase),
     getActiveDict(supabase, "payment_methods"),
     hiddenStaffIds(supabase), // уволенных в «кто продал» не предлагаем (0036)
   ]);
 
   const subs = (subsRes.data ?? []) as unknown as SubRow[];
-  const staff = (staffRes.data ?? []).filter((u) => !hidden.has(u.id as string));
+  const staff = staffRes.filter((u) => !hidden.has(u.id));
   const ids = subs.map((s) => s.id);
 
   // Заявления об оплате (0032): «деньги принял админ», «с оплатой непонятно».

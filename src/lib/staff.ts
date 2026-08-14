@@ -76,13 +76,17 @@ export async function loadMechanics(client: Supabase): Promise<StaffMember[]> {
   return loadByRole(client, "mechanic");
 }
 
+export async function loadDevs(client: Supabase): Promise<StaffMember[]> {
+  return loadByRole(client, "dev");
+}
+
 export async function loadAdmins(client: Supabase): Promise<StaffMember[]> {
   return loadByRole(client, "admin");
 }
 
 async function loadByRole(
   client: Supabase,
-  role: "instructor" | "smm" | "mechanic" | "admin",
+  role: "instructor" | "smm" | "mechanic" | "admin" | "dev",
 ): Promise<StaffMember[]> {
   const base = "id, name, senior";
   const full = `${base}, hired_at, left_at`;
@@ -110,6 +114,35 @@ async function loadByRole(
     leftAt: (r.left_at as string | null) ?? null,
     senior: Boolean(r.senior),
   }));
+}
+
+// Кто мог провести занятие или продать абонемент: инструкторы и хозяева
+// админки (админ и разработчик). Список для выпадашек «кто откатал» / «кто
+// продал» на трёх экранах — пусть он собирается в одном месте.
+//
+// Роль dev появилась в 0044. Пока миграция не накатана, Postgres не знает
+// такого значения enum и роняет ВЕСЬ запрос (22P02), а не отбрасывает лишнее
+// значение, — список молча оказался бы пустым, и записать клиента стало бы
+// не на кого. Поэтому при ошибке повторяем запрос без новой роли: порядок
+// «сначала код, потом миграция» перестаёт что-либо ломать.
+export async function loadSessionStaff(
+  client: Supabase,
+): Promise<{ id: string; name: string }[]> {
+  const query = (roles: string[]) =>
+    client.from("users").select("id, name").in("role", roles).order("name");
+
+  const { data, error } = await query(["instructor", "admin", "dev"]);
+  if (!error) return (data ?? []) as { id: string; name: string }[];
+
+  const { data: legacy, error: legacyError } = await query([
+    "instructor",
+    "admin",
+  ]);
+  if (legacyError) {
+    console.error("[staff] session staff load error:", legacyError.message);
+    return [];
+  }
+  return (legacy ?? []) as { id: string; name: string }[];
 }
 
 // Действующие на сегодня — для выпадающих списков в формах.

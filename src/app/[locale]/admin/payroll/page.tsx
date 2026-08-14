@@ -44,6 +44,7 @@ const presetClass = (active: boolean) =>
 const KIND_LABEL: Record<DueRow["kind"], string> = {
   instructor: "инструктор",
   smm: "СММ",
+  dev: "разработчик",
   mechanic: "штат",
   agent: "агент",
   crm: "справка",

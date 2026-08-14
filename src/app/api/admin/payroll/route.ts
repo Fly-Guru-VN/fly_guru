@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAppUser } from "@/lib/auth";
+import { getAppUser, isAdminLike } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { vnMonth, vnPeriod, vnShiftDays, vnWeekOf } from "@/lib/dates";
 import {
@@ -18,6 +18,7 @@ import { buildXlsx, xlsxHeaders } from "@/lib/xlsx";
 const KIND: Record<DueRow["kind"], string> = {
   instructor: "инструктор",
   smm: "СММ",
+  dev: "разработчик",
   mechanic: "штат",
   agent: "агент",
   crm: "справка",
@@ -33,7 +34,7 @@ function cell(v: string | number): string {
 
 export async function GET(request: NextRequest) {
   const user = await getAppUser();
-  if (!user || user.role !== "admin") {
+  if (!user || !isAdminLike(user.role)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 

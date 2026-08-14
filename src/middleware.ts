@@ -17,6 +17,11 @@ const intlMiddleware = createIntlMiddleware(routing);
 
 const PROTECTED = new Set(["admin", "instructor", "mechanic", "smm", "member", "agent"]);
 
+// Разработчик (0044) — тот же админ по правам, и кабинет у него админский:
+// раздела /dev не существует, он ходит в /admin. Поэтому везде, где раньше
+// стояло «роль admin», теперь спрашиваем этот признак.
+const adminLike = (role: string) => role === "admin" || role === "dev";
+
 // Убирает языковой префикс: '/en/instructor' → '/instructor', '/instructor' → как есть.
 function stripLocale(pathname: string): string {
   const seg = pathname.split("/")[1];
@@ -76,7 +81,7 @@ export default async function middleware(request: NextRequest) {
   // Сверяемся с БД (источник правды) ТОЛЬКО когда JWT собрался отказать: на
   // обычном входе (admin или совпадающая роль) запроса нет. users_select_own
   // отдаёт свою строку клиенту, привязанному к кукам запроса.
-  if (role !== section && role !== "admin") {
+  if (role !== section && !adminLike(role)) {
     const { data } = await supabase
       .from("users")
       .select("role")
@@ -85,7 +90,7 @@ export default async function middleware(request: NextRequest) {
     role = (data?.role as string | undefined) ?? role;
   }
 
-  if (role !== section && role !== "admin") {
+  if (role !== section && !adminLike(role)) {
     // Чужой кабинет: отправляем в свой (или на логин, если роль не проставлена).
     const home = PROTECTED.has(role) ? `/${role}` : "/login";
     return NextResponse.redirect(new URL(home, request.url));

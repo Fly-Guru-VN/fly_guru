@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { channelLabel } from "@/lib/channels";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAppUser } from "@/lib/auth";
+import { getAppUser, isAdminLike } from "@/lib/auth";
 import { vnMonthToDate, vnPeriod, vnToday } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import { getActiveDict } from "@/lib/dictionaries";
@@ -297,7 +297,7 @@ export default async function InstructorSessionsPage({
   const mineTotal = mine.reduce((sum, s) => sum + (s.amount ?? 0), 0);
   // Админ заходит в кабинет инструктора как суперюзер (см. requireRole) —
   // ему updateMySessionAction разрешает любую запись, значит и форму показываем.
-  const isAdmin = user.role === "admin";
+  const isAdmin = isAdminLike(user.role);
 
   return (
     <div>

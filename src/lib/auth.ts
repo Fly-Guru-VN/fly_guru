@@ -11,6 +11,7 @@ import { vnToday } from "@/lib/dates";
 
 export type AppRole =
   | "admin"
+  | "dev"
   | "instructor"
   | "mechanic"
   | "smm"
@@ -39,6 +40,10 @@ export function isLeftStaff(user: { left_at: string | null }): boolean {
 // Домашняя страница каждой роли (куда отправлять после входа).
 export const ROLE_HOME: Record<AppRole, string> = {
   admin: "/admin",
+  // Разработчик работает в админском кабинете: у него те же права и те же
+  // разделы, отдельного набора экранов заводить незачем (0044). Своя у него
+  // только строка в расчёте ЗП — фикс за неделю плюс 1% с оборота.
+  dev: "/admin",
   instructor: "/instructor",
   mechanic: "/mechanic",
   smm: "/smm",
@@ -46,10 +51,19 @@ export const ROLE_HOME: Record<AppRole, string> = {
   agent: "/agent",
 };
 
-// Кабинет «офиса»: админ и СММщик работают с одними и теми же разделами (0039).
-// Кабинет СММщика — те же экраны, но по адресам /smm и с урезанным меню:
-// календаря, выплат, услуг и членов клуба у него нет.
-export const OFFICE_ROLES: AppRole[] = ["admin", "smm"];
+// Кабинет «офиса»: админ, разработчик и СММщик работают с одними и теми же
+// разделами (0039, 0044). Кабинет СММщика — те же экраны, но по адресам /smm и
+// с урезанным меню: календаря, выплат, услуг и членов клуба у него нет.
+// Разработчик работает прямо в /admin — у него полные права админа.
+export const OFFICE_ROLES: AppRole[] = ["admin", "dev", "smm"];
+
+// «Хозяин админки»: админ школы и разработчик. Права у них одинаковые — и в
+// коде, и в базе (0045 подменяет роль на 'admin' для всех политик RLS).
+// Различать их нужно только там, где речь о деньгах: ЗП начисляется dev'у,
+// а не админу.
+export function isAdminLike(role: AppRole): boolean {
+  return role === "admin" || role === "dev";
+}
 
 export function isOffice(role: AppRole): boolean {
   return OFFICE_ROLES.includes(role);
@@ -105,7 +119,11 @@ export function safeNextPath(next: string, role: AppRole): string {
   const parts = next.split("/").filter(Boolean);
   const section = parts[0] && parts[0] in ROLE_HOME ? parts[0] : parts[1];
 
-  if (section && section in ROLE_HOME && section !== role) return ROLE_HOME[role];
+  // Сравниваем не роль с разделом, а раздел со СВОИМ кабинетом: у разработчика
+  // роль «dev», а кабинет — админский, и без этого его выбрасывало бы с
+  // /admin/bookings на /admin при каждом входе.
+  const home = ROLE_HOME[role];
+  if (section && section in ROLE_HOME && `/${section}` !== home) return home;
   return next;
 }
 
@@ -118,6 +136,8 @@ export async function requireRole(role: AppRole, currentPath: string): Promise<A
   // покажет ему «доступ закрыт» и не станет редиректить обратно — иначе
   // получилась бы петля.
   if (isLeftStaff(user)) redirect("/login?closed=1");
-  if (user.role !== role && user.role !== "admin") redirect(ROLE_HOME[user.role]);
+  // Админ и разработчик (те же права) заходят в любой кабинет; админский —
+  // родной для обоих.
+  if (user.role !== role && !isAdminLike(user.role)) redirect(ROLE_HOME[user.role]);
   return user;
 }

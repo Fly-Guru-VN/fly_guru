@@ -4,7 +4,13 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { cabinetBase, getAppUser, isOffice, type AppRole } from "@/lib/auth";
+import {
+  cabinetBase,
+  getAppUser,
+  isAdminLike,
+  isOffice,
+  type AppRole,
+} from "@/lib/auth";
 import {
   phoneDigits,
   phonesMatch,
@@ -34,9 +40,11 @@ import type { ActionState } from "../instructor/actions";
 // вносит время/возраст/вес и подтверждает — заявка становится «записью»,
 // которую видят инструкторы. RLS-политика bookings_admin_all даёт полный доступ.
 
+// Разработчик (0044) — тот же админ: и права, и кабинет у него админские,
+// поэтому все экшены админки открыты и ему.
 async function requireAdmin() {
   const user = await getAppUser();
-  if (!user || user.role !== "admin") redirect("/login?next=/admin");
+  if (!user || !isAdminLike(user.role)) redirect("/login?next=/admin");
   return user;
 }
 
@@ -47,7 +55,7 @@ async function requireAdmin() {
 // политика не умеет ограничивать набор колонок).
 async function requireAdminOrMechanic() {
   const user = await getAppUser();
-  if (!user || (user.role !== "admin" && user.role !== "mechanic")) {
+  if (!user || !(isAdminLike(user.role) || user.role === "mechanic")) {
     redirect("/login?next=/admin");
   }
   return user;
@@ -62,7 +70,7 @@ async function requireAdminOrMechanic() {
 // или ленту заявок это право не открывает — для них свои проверки.
 async function requireBookingAuthor() {
   const user = await getAppUser();
-  if (!user || !["admin", "mechanic", "smm"].includes(user.role)) {
+  if (!user || !(isAdminLike(user.role) || ["mechanic", "smm"].includes(user.role))) {
     redirect("/login?next=/admin");
   }
   return user;
@@ -81,7 +89,7 @@ async function requireOffice() {
 // Побочный эффект приятный: своим ключом мимо интерфейса СММщик не изменит
 // ничего.
 async function officeClient(user: { role: AppRole }) {
-  return user.role === "admin" ? await createClient() : createAdminClient();
+  return isAdminLike(user.role) ? await createClient() : createAdminClient();
 }
 
 // Куда возвращать после сохранения: в кабинет того, кто сохранял. Раньше все
