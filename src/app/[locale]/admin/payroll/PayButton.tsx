@@ -18,10 +18,23 @@ export interface PayoutRequest {
   amount: number;
 }
 
-export function PayButton({ payee, amount }: PayoutRequest) {
+// warn — за этот период человеку уже отдали столько же или школа ему вообще
+// ничего не должна. Кнопку не убираем (аванс и доплату никто не запрещал), но
+// красим красным: без этого строка «выплачено» и приглашение «Выплатить
+// 987 500 ₫» стоят рядом и читаются как «надо выдать ещё раз».
+export function PayButton({
+  payee,
+  amount,
+  warn = false,
+}: PayoutRequest & { warn?: boolean }) {
   return (
     <button
       type="button"
+      title={
+        warn
+          ? "За этот период уже выплачено — второй раз платить не нужно"
+          : undefined
+      }
       onClick={() =>
         window.dispatchEvent(
           new CustomEvent<PayoutRequest>(PAYOUT_EVENT, {
@@ -29,7 +42,11 @@ export function PayButton({ payee, amount }: PayoutRequest) {
           }),
         )
       }
-      className="shrink-0 rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
+      className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+        warn
+          ? "border-red-500 text-red-600 hover:bg-red-500 hover:text-white"
+          : "border-primary text-primary hover:bg-primary hover:text-white"
+      }`}
     >
       Выплатить {vnd(amount)}
     </button>
