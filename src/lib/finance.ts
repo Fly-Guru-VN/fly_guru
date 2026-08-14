@@ -123,6 +123,70 @@ export interface Finance {
   manualExpenses: ExpenseRow[]; // ручные расходы за период (по убыванию суммы)
   manualTotal: number; // их сумма
   netProfit: number; // выручка − авто − ручные
+  cash: CashFlow; // живые деньги: пришло / выдано / осталось
+}
+
+// Прибыль и живые деньги — разные вопросы, и путать их дорого.
+//
+// Прибыль отвечает «сколько школа заработала»: доля инструктора списывается в
+// день занятия, даже если деньги ему отдадут через неделю. Касса отвечает
+// «сколько денег реально прошло через руки»: пришло минус то, что раздали.
+// Раньше второй ответ приходилось считать в уме.
+export interface CashFlow {
+  income: number; // пришло за период (та же выручка по дате оплаты)
+  outStaff: number; // выдано штату (зарплаты, авансы)
+  outAgents: number; // выдано агентам
+  outOther: number; // прочие траты: аренда, запчасти, топливо…
+  out: number; // всего роздано
+  left: number; // осталось на руках
+  owedToPeople: number; // сколько ещё должны людям (начислено − выдано)
+  marinaShare: number; // доля Marina Beach за период — в остатке, но не наша
+}
+
+// Сколько денег физически выдали за период. Выплаты штату и агентам лежат в
+// своих таблицах, прочие траты — в expenses.
+//
+// Тонкость с двойным счётом: выплата «отдельной зарплаты» (фикс СММщика,
+// механик, своя) сама заводит расход и хранит ссылку на него в expense_id.
+// Такой расход — те же деньги, что и выплата, поэтому из прочих трат его
+// вычитаем; иначе одна выдача считалась бы дважды.
+async function loadCashOut(
+  supabase: Supabase,
+  range: StatsRange,
+  lastDay: string,
+  manual: ExpenseRow[],
+): Promise<{ outStaff: number; outAgents: number; outOther: number }> {
+  const sum = (rows: { amount: number | null }[] | null) =>
+    (rows ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+
+  const [staffRes, agentRes] = await Promise.all([
+    supabase
+      .from("salary_payouts")
+      .select("amount, expense_id")
+      .gte("paid_on", range.fromDay)
+      .lte("paid_on", lastDay),
+    supabase
+      .from("agent_payouts")
+      .select("amount")
+      .gte("paid_on", range.fromDay)
+      .lte("paid_on", lastDay),
+  ]);
+
+  const staffRows = (staffRes.data ?? []) as {
+    amount: number | null;
+    expense_id: string | null;
+  }[];
+  const linked = new Set(
+    staffRows.map((r) => r.expense_id).filter(Boolean) as string[],
+  );
+
+  return {
+    outStaff: sum(staffRows),
+    outAgents: sum(agentRes.data),
+    outOther: manual
+      .filter((e) => !linked.has(e.id))
+      .reduce((s, e) => s + e.amount, 0),
+  };
 }
 
 // Отметки «ЗП выдана» (0036) за периоды внутри выбранного. Таблицы может не
@@ -282,6 +346,29 @@ export async function getFinance(
   }));
   const manualTotal = manualExpenses.reduce((s, e) => s + e.amount, 0);
 
+  // Живые деньги. Долг людям считаем только по инструкторам: у остальных
+  // начисления в системе нет (фикс механика и свою зарплату школа назначает
+  // сама), и «долг» по ним был бы выдумкой.
+  const lastDayOfRange = new Date(`${range.toDay}T00:00:00Z`);
+  lastDayOfRange.setUTCDate(lastDayOfRange.getUTCDate() - 1);
+  const { outStaff, outAgents, outOther } = await loadCashOut(
+    supabase,
+    range,
+    lastDayOfRange.toISOString().slice(0, 10),
+    manualExpenses,
+  );
+  const cashOut = outStaff + outAgents + outOther;
+  const cash: CashFlow = {
+    income: revenue,
+    outStaff,
+    outAgents,
+    outOther,
+    out: cashOut,
+    left: revenue - cashOut,
+    owedToPeople: Math.max(0, instructorPay - instructorPaidOut),
+    marinaShare: marina,
+  };
+
   return {
     sessionsRevenue,
     paidSubsRevenue,
@@ -301,5 +388,6 @@ export async function getFinance(
     manualExpenses,
     manualTotal,
     netProfit: revenue - autoTotal - manualTotal,
+    cash,
   };
 }

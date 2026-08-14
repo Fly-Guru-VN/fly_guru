@@ -606,6 +606,62 @@ export async function DashboardScreen({
         )}
       </div>
 
+      {/* Касса: живые деньги, а не заработок. Прибыль выше говорит, сколько
+          школа заработала (доля инструктора списывается в день занятия, даже
+          если отдадут её через неделю). Здесь — сколько денег реально прошло
+          через руки: пришло минус розданное. */}
+      {showProfit && fin && (
+        <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
+          <p className="text-xs text-muted">Касса за период · живые деньги</p>
+          <p className="mt-1 text-3xl font-bold text-primary">{vnd(fin.cash.left)}</p>
+          <p className="mt-1 text-sm text-muted">осталось на руках</p>
+
+          <div className="mt-3 space-y-1 text-sm text-muted">
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Пришло</span>
+              <span className="font-semibold text-ink">{vnd(fin.cash.income)}</span>
+            </p>
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Выдано зарплат</span>
+              <span className="font-semibold text-ink">−{vnd(fin.cash.outStaff)}</span>
+            </p>
+            {fin.cash.outAgents > 0 && (
+              <p className="flex items-baseline justify-between gap-2">
+                <span>Выдано агентам</span>
+                <span className="font-semibold text-ink">
+                  −{vnd(fin.cash.outAgents)}
+                </span>
+              </p>
+            )}
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Прочие траты</span>
+              <span className="font-semibold text-ink">−{vnd(fin.cash.outOther)}</span>
+            </p>
+          </div>
+
+          {/* Остаток — не вся прибыль: часть этих денег уже чужая. */}
+          <div className="mt-3 space-y-1 border-t border-line/70 pt-2 text-xs text-muted">
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Из них доля Marina Beach за период</span>
+              <span className="font-semibold text-ink">{vnd(fin.cash.marinaShare)}</span>
+            </p>
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Ещё должны инструкторам</span>
+              <span className="font-semibold text-ink">
+                {vnd(fin.cash.owedToPeople)}
+              </span>
+            </p>
+            <p className="pt-1">
+              Выдачу зарплат и авансов вносите во вкладке{" "}
+              <Link href={`${base}/payroll`} className="font-semibold text-primary">
+                «Выплата зарплаты»
+              </Link>{" "}
+              — тогда касса сходится сама. Прочие траты берутся из «Расходов».
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Фильтры: действуют на таблицу и графики занятий.
           Свёрнуты по умолчанию (10.08.2026): четыре ряда чипсов — услуги,
           инструкторы, способы оплаты, каналы — занимали пол-экрана перед
