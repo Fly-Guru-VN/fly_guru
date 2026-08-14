@@ -1096,8 +1096,15 @@ export interface ClientHint {
   sessionsCount?: number;
 }
 
+// Проверка ролей здесь шире, чем «инструктор с админом»: ту же форму записи
+// открывает СММщик (/smm/record, экран общий с админкой), и на requireStaff он
+// получал редирект на /login прямо посреди набора номера — а оттуда его,
+// залогиненного, тут же выбрасывало в свою ленту заявок. Со стороны это
+// выглядело так: дописал последние цифры телефона — страница перезагрузилась
+// и потеряла заполненное. Записывать клиента ему можно (createSessionAction
+// пускает офис), список клиентов он и так видит — незачем закрывать подсказку.
 export async function lookupClientByPhoneAction(phone: string): Promise<ClientHint> {
-  await requireStaff();
+  await requireFieldStaff();
   if (!isValidPhone(phone)) return { found: false };
 
   const supabase = await createClient();
