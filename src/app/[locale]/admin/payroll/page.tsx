@@ -22,6 +22,7 @@ import {
 } from "@/lib/payroll";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { PayoutForm } from "./PayoutForm";
+import { PayButton } from "./PayButton";
 import { deleteSalaryPayoutAction } from "../actions";
 import { ConfirmSubmit } from "../ConfirmSubmit";
 import { PageHeader } from "@/components/cabinet/PageHeader";
@@ -73,55 +74,81 @@ function dayLabel(day: string): string {
 }
 
 // Строка долга. Крупным — то, ради чего сюда зашли: имя и сколько осталось
-// отдать. Под ним две мелкие строки: сначала сальдо (из чего сложился долг),
-// потом справка за выбранный период. Из чего сложилось начисление — под
+// отдать. Цифры две и обе крупные, потому что отвечают на разные вопросы:
+// «заработал за выбранные дни» — это то, что начальник выдаёт в конце недели,
+// «долг с точки отсчёта» — страховка от недоплаты и переплаты (он не зависит от
+// того, как нарезан период, см. lib/payroll). Рядом кнопка, которая заполняет
+// форму наверху суммой за период. Из чего сложилось начисление — под
 // «подробнее», иначе на четверых инструкторов это полтора экрана текста.
-function DueCard({ row, epochLabel }: { row: DueRow; epochLabel: string }) {
+function DueCard({
+  row,
+  epochLabel,
+  periodLabel,
+}: {
+  row: DueRow;
+  epochLabel: string;
+  periodLabel: string;
+}) {
   const settled = row.left !== null && row.left <= 0;
   return (
     <div className="border-b border-line/70 py-3 last:border-0 last:pb-0">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="min-w-0 font-semibold">
-          {row.name}
-          <span className="ml-2 text-[11px] font-normal text-muted">
-            {KIND_LABEL[row.kind]}
-            {row.employmentLabel ? ` · ${row.employmentLabel}` : ""}
-          </span>
-        </p>
-        {row.left !== null ? (
-          <p
-            className={`shrink-0 text-lg font-bold tabular-nums ${
-              settled ? "text-muted" : "text-primary"
-            }`}
-          >
-            {settled ? "выплачено" : vnd(row.left)}
-          </p>
-        ) : (
-          <p className="shrink-0 text-lg font-bold tabular-nums text-muted">
-            {vnd(row.payee ? row.paidToDate : row.accrued)}
-          </p>
+      <p className="min-w-0 font-semibold">
+        {row.name}
+        <span className="ml-2 text-[11px] font-normal text-muted">
+          {KIND_LABEL[row.kind]}
+          {row.employmentLabel ? ` · ${row.employmentLabel}` : ""}
+        </span>
+      </p>
+
+      <div className="mt-1 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div className="flex gap-6">
+          {/* Заработок за выбранные дни — то, ради чего выбирают период. */}
+          <div>
+            <p className="text-[11px] text-muted">за {periodLabel}</p>
+            <p className="text-lg font-bold tabular-nums">{vnd(row.accrued)}</p>
+          </div>
+          {/* Долг: от периода не зависит. */}
+          <div>
+            <p className="text-[11px] text-muted">
+              {row.left !== null ? `долг с ${epochLabel}` : "выдано всего"}
+            </p>
+            {row.left !== null ? (
+              <p
+                className={`text-lg font-bold tabular-nums ${
+                  settled ? "text-muted" : "text-primary"
+                }`}
+              >
+                {settled ? "выплачено" : vnd(row.left)}
+              </p>
+            ) : (
+              <p className="text-lg font-bold tabular-nums text-muted">
+                {vnd(row.payee ? row.paidToDate : row.accrued)}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {row.payee && row.accrued > 0 && (
+          <div className="ml-auto">
+            <PayButton
+              payee={`${row.payee.kind}:${row.payee.id}`}
+              amount={row.accrued}
+            />
+          </div>
         )}
       </div>
 
-      {/* Долг: считается с точки отсчёта и не зависит от выбранного периода. */}
       {row.left !== null ? (
-        <p className="mt-0.5 text-xs text-muted">
-          с {epochLabel}: начислено {vnd(row.accruedToDate)} · выплачено{" "}
-          {vnd(row.paidToDate)}
+        <p className="mt-1 text-xs text-muted">
+          выплачено за период {vnd(row.paid)} · с {epochLabel} начислено{" "}
+          {vnd(row.accruedToDate)}, выдано {vnd(row.paidToDate)}
           {row.left < 0 ? ` · переплата ${vnd(-row.left)}` : ""}
         </p>
       ) : (
-        <p className="mt-0.5 text-xs text-muted">
+        <p className="mt-1 text-xs text-muted">
           {row.payee
             ? `ставки в системе нет · выдано с ${epochLabel} ${vnd(row.paidToDate)}`
             : "справка · школа эти деньги никому не выдаёт"}
-        </p>
-      )}
-
-      {/* Справка за выбранный период — сколько человек заработал за эти дни. */}
-      {row.payee && (
-        <p className="text-xs text-muted">
-          за период: начислено {vnd(row.accrued)} · выплачено {vnd(row.paid)}
         </p>
       )}
 
@@ -217,6 +244,12 @@ export default async function AdminPayrollPage({
   const range = vnPeriod(fromDay, lastDay);
   const label = vnRangeLabel(fromDay, lastDay);
   const epochLabel = dayLabel(PAYROLL_EPOCH); // «1 авг.» — подпись накопительных цифр
+  // Короткая подпись периода: она стоит над цифрой в каждой карточке, полная
+  // («1 — 7 августа 2026 г.») туда не влезает на телефоне.
+  const periodLabel =
+    fromDay === lastDay
+      ? dayLabel(fromDay)
+      : `${dayLabel(fromDay)} — ${dayLabel(lastDay)}`;
   const periodQs = `from=${fromDay}&to=${lastDay}`;
   const isPreset = (f: string, l: string) => fromDay === f && lastDay === l;
 
@@ -235,10 +268,12 @@ export default async function AdminPayrollPage({
       <PageHeader title="Выплата зарплаты" hint="Кому должны и что уже отдали" />
       <PageNote>
         <p>
-          «Осталось отдать» — это долг: всё начисленное с {epochLabel} минус всё
-          выданное с {epochLabel}. От выбранного периода он не зависит, поэтому
-          цифра не меняется от того, как нарезать календарь. Период управляет
-          только справкой «за период».
+          В каждой строке две цифры. Слева — сколько человек заработал за
+          выбранные дни: её и выдают в конце недели, кнопка «Выплатить»
+          подставляет в форму именно её. Справа — долг: всё начисленное с{" "}
+          {epochLabel} минус всё выданное с {epochLabel}. Долг от выбранного
+          периода не зависит, поэтому не меняется от того, как нарезать
+          календарь, и показывает недоплату или переплату.
         </p>
         <p>
           Инструктору: доля 15% с занятий дня + 200 000 ₫ за каждый выход по
@@ -342,7 +377,12 @@ export default async function AdminPayrollPage({
 
         <div className="mt-2">
           {payroll.rows.map((row) => (
-            <DueCard key={row.key} row={row} epochLabel={epochLabel} />
+            <DueCard
+              key={row.key}
+              row={row}
+              epochLabel={epochLabel}
+              periodLabel={periodLabel}
+            />
           ))}
           {payroll.rows.length === 0 && (
             <p className="py-2 text-sm text-muted">

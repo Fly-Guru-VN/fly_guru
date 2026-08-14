@@ -1,16 +1,23 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { paySalaryAction } from "../actions";
 import type { Payee } from "@/lib/payroll";
 import { vnd } from "@/lib/stats";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { Spinner } from "@/components/Spinner";
+import { PAYOUT_EVENT, type PayoutRequest } from "./PayButton";
 
 // Главный блок вкладки: выбрал работника — вписал сумму — поставил дату —
-// «Выплачено». Клиентский, потому что при выборе человека сумма подставляется
-// сама («осталось отдать»), но остаётся полем ввода: отдал часть — правишь
-// цифру руками, а не подгоняешь под неё период, как было раньше.
+// «Выплачено». Клиентский, потому что сумма подставляется сама, но остаётся
+// полем ввода: отдал часть — правишь цифру руками, а не подгоняешь под неё
+// период, как было раньше.
+//
+// Два способа заполнить форму, и они дают РАЗНЫЕ суммы — это намеренно:
+//   • выбор человека в списке подставляет его ДОЛГ (сальдо с точки отсчёта);
+//   • кнопка «Выплатить» в карточке — заработок за ВЫБРАННЫЙ период.
+// Первый отвечает на «сколько мы ему вообще должны», второй — на «закрываем
+// эту неделю». См. lib/payroll.
 
 const field =
   "mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-base outline-none focus:border-primary";
@@ -27,6 +34,7 @@ export function PayoutForm({
   });
   const [payee, setPayee] = useState("");
   const [amount, setAmount] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
 
   const groups = [...new Set(payees.map((p) => p.group))];
   const chosen = payees.find((p) => `${p.kind}:${p.id}` === payee);
@@ -39,8 +47,22 @@ export function PayoutForm({
     setAmount(next && next.suggested > 0 ? String(next.suggested) : "");
   };
 
+  // Кнопка «Выплатить» из карточки: заполняем поля и подматываем к форме —
+  // она наверху страницы, а список долгов длинный.
+  useEffect(() => {
+    const onPay = (e: Event) => {
+      const { payee: who, amount: sum } = (e as CustomEvent<PayoutRequest>)
+        .detail;
+      setPayee(who);
+      setAmount(sum > 0 ? String(sum) : "");
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    };
+    window.addEventListener(PAYOUT_EVENT, onPay);
+    return () => window.removeEventListener(PAYOUT_EVENT, onPay);
+  }, []);
+
   return (
-    <form action={formAction} className="mt-3 space-y-3">
+    <form ref={formRef} action={formAction} className="mt-3 space-y-3">
       <label className="block text-sm font-semibold">
         Работник
         <select
@@ -58,7 +80,7 @@ export function PayoutForm({
                 .map((p) => (
                   <option key={`${p.kind}:${p.id}`} value={`${p.kind}:${p.id}`}>
                     {p.name}
-                    {p.suggested > 0 ? ` · осталось ${vnd(p.suggested)}` : ""}
+                    {p.suggested > 0 ? ` · долг ${vnd(p.suggested)}` : ""}
                   </option>
                 ))}
             </optgroup>
@@ -106,8 +128,8 @@ export function PayoutForm({
 
       {chosen && chosen.suggested > 0 && (
         <p className="text-xs text-muted">
-          {chosen.name}: за выбранный период осталось отдать{" "}
-          {vnd(chosen.suggested)}.
+          {chosen.name}: всего осталось отдать {vnd(chosen.suggested)} — это
+          долг за всё время, а не за выбранный период.
         </p>
       )}
 
