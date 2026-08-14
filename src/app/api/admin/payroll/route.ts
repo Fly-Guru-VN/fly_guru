@@ -60,12 +60,25 @@ export async function GET(request: NextRequest) {
     getPayoutHistory(supabase),
   ]);
 
-  // Файл повторяет экран: сначала «кому сколько осталось» за период, потом
-  // выплаты этого периода отдельным блоком. Широкой шапки с выходами и
+  // Файл повторяет экран: сначала «кому сколько осталось», потом выплаты
+  // выбранного периода отдельным блоком. Широкой шапки с выходами и
   // абонементами больше нет — подробности расчёта живут на самой вкладке, а в
   // файле начальник сводит деньги, а не проверяет регламент смен.
+  //
+  // Колонок две пары: за выбранный период (справка «сколько заработали за эти
+  // дни») и с точки отсчёта (из них и получается долг). Одна пара тут не
+  // годится: «осталось» считается только накопительно, см. lib/payroll.
+  const epoch = payroll.epoch;
   const rows: (string | number)[][] = [
-    ["Кто", "Роль", "Начислено, VND", "Выплачено, VND", "Осталось, VND"],
+    [
+      "Кто",
+      "Роль",
+      "Начислено за период, VND",
+      "Выплачено за период, VND",
+      `Начислено с ${epoch}, VND`,
+      `Выплачено с ${epoch}, VND`,
+      "Осталось, VND",
+    ],
   ];
   for (const r of payroll.rows) {
     rows.push([
@@ -73,7 +86,9 @@ export async function GET(request: NextRequest) {
       KIND[r.kind],
       Math.round(r.accrued),
       Math.round(r.paid),
-      r.payee ? Math.round(r.left) : "",
+      Math.round(r.accruedToDate),
+      Math.round(r.paidToDate),
+      r.left === null ? "" : Math.round(r.left),
     ]);
   }
   rows.push([
@@ -81,6 +96,8 @@ export async function GET(request: NextRequest) {
     "",
     Math.round(payroll.accruedTotal),
     Math.round(payroll.paidTotal),
+    Math.round(payroll.accruedToDateTotal),
+    Math.round(payroll.paidToDateTotal),
     Math.round(payroll.leftTotal),
   ]);
 
@@ -90,13 +107,23 @@ export async function GET(request: NextRequest) {
   );
   if (inPeriod.length > 0) {
     rows.push([]);
-    rows.push(["Выплаты за период", "Дата", "Сумма, VND", "Комментарий", ""]);
+    rows.push([
+      "Выплаты за период",
+      "Дата",
+      "Сумма, VND",
+      "Комментарий",
+      "",
+      "",
+      "",
+    ]);
     for (const h of inPeriod) {
       rows.push([
         h.name,
         h.paidOn,
         Math.round(h.amount),
         h.comment ?? (h.period ? `за ${h.period.from}…${h.period.to}` : ""),
+        "",
+        "",
         "",
       ]);
     }
