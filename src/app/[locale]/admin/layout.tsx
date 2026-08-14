@@ -20,10 +20,10 @@ export default async function AdminLayout({
 }) {
   const user = await requireRole("admin", "/admin");
 
-  // Данные для карточки профиля в сайдбаре: чистая прибыль школы за месяц и
-  // число новых заявок (красный счётчик). Прибыль (а не выручку) босс хочет
+  // Данные для карточки профиля в сайдбаре: деньги школы на руках за месяц и
+  // число новых заявок (красный счётчик). Эту цифру (а не выручку) босс хочет
   // видеть под рукой на всех разделах — тот же расчёт, что во вкладке «Расходы»
-  // (выручка − Marina 35% − ЗП − CRM 2% − комиссии агентов − ручные расходы).
+  // (пришло − 35% Marina − выданные зарплаты − выданное агентам − траты).
   const supabase = await createClient();
   const month = vnCurrentMonth();
   const [fin, freshRes] = await Promise.all([
@@ -53,8 +53,8 @@ export default async function AdminLayout({
         <Sidebar
           name={user.name}
           photoUrl={user.photo_url}
-          amountLabel={vnd(fin.netProfit)}
-          amountSub={`чистая прибыль · ${month.label}`}
+          amountLabel={vnd(fin.cashLeft)}
+          amountSub={`денег на руках · ${month.label}`}
           freshCount={freshCount}
         />
         <main className="scroll-soft mt-4 min-w-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain md:py-6">

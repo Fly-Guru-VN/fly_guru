@@ -6,7 +6,7 @@ import {
 
 export const metadata: Metadata = { title: "СММ · Статистика" };
 
-// Без блока чистой прибыли (showProfit={false}): выручка, воронка заявок,
+// Без блока денег школы (showProfit={false}): выручка, воронка заявок,
 // визиты и источники — да, зарплаты и доли — нет.
 export default function SmmDashboardPage({
   searchParams,

@@ -14,10 +14,13 @@ import { PageNote } from "@/components/cabinet/PageNote";
 
 export const metadata: Metadata = { title: "Админка · Расходы" };
 
-// Вкладка «Расходы» (пак E) — мини-P&L школы за месяц. Основные расходы
-// считаются из выручки на лету (Marina 35%, ЗП инструкторов, Дэвид+Ромчик 2%),
-// дополнительные — ручные из таблицы expenses. Итог — чистая прибыль, то есть
-// деньги босса: со своих сессий он платит только Marina и 2% CRM (см. lib/finance).
+// Вкладка «Расходы» — куда ушли деньги школы за месяц и сколько осталось.
+//
+// С 14.08.2026 экран отвечает на один вопрос: СКОЛЬКО ДЕНЕГ НА РУКАХ. Из
+// выручки вычитается доля площадки (35% Marina — эти деньги нашими не были) и
+// всё, что физически ушло: выданные зарплаты, выданное агентам, ручные траты.
+// Начисленная, но не выданная ЗП стоит ниже справкой и в остаток НЕ лезет —
+// иначе экран показывал бы деньги, которых в кассе нет, и наоборот.
 
 function Row({
   label,
@@ -62,25 +65,24 @@ export default async function AdminExpensesPage({
         title="Расходы"
         hint="Куда уходят деньги за месяц"
       />
-      <PageNote>Основные расходы (Marina, ЗП, СММ) считаются из выручки сами. Дополнительные — бензин, ремонт, реклама — вносите руками. Выручка месяца — по дате оплаты, ЗП инструкторов — по дате занятия: если гость заплатил в другом месяце, эти две цифры расходятся намеренно.</PageNote>
+      <PageNote>Считаем живыми деньгами: из выручки уходит доля Marina (35%) и всё, что вы реально выдали — зарплаты, агентам, траты. Зарплату вносите во вкладке «Выплата зарплаты», сюда — только не-зарплату: аренду, топливо, запчасти, рекламу. Начисленная, но не выданная ЗП стоит справкой внизу и остаток не уменьшает.</PageNote>
 
       <MonthSwitcher ym={ym} basePath="/admin/expenses" />
 
-      {/* Итог наверху — чистая прибыль школы за месяц */}
+      {/* Итог наверху — сколько денег осталось на руках за месяц */}
       <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
-        <p className="text-xs text-muted">Чистая прибыль за {month.label}</p>
+        <p className="text-xs text-muted">Деньги на руках за {month.label}</p>
         <p className="mt-1 text-3xl font-bold text-primary">
-          {vnd(fin.netProfit)}
+          {vnd(fin.cashLeft)}
         </p>
         <p className="mt-1 text-xs text-muted">
-          Выручка {vnd(fin.revenue)} − расходы{" "}
-          {vnd(fin.autoTotal + fin.manualTotal)}
+          Пришло {vnd(fin.revenue)} − ушло {vnd(fin.spent)}
         </p>
       </div>
 
       {/* Выручка */}
       <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-bold">Выручка</h2>
+        <h2 className="font-bold">Пришло</h2>
         <div className="mt-3 space-y-1">
           <Row label="Сессии" value={vnd(fin.sessionsRevenue)} />
           <Row label="Оплаченные абонементы" value={vnd(fin.paidSubsRevenue)} />
@@ -91,58 +93,80 @@ export default async function AdminExpensesPage({
         </div>
       </section>
 
-      {/* Основные расходы (авто) */}
+      {/* Ушло: доля площадки + всё, что физически выдали */}
       <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-bold">Основные расходы</h2>
-        <p className="mt-1 text-xs text-muted">Считаются из выручки автоматически.</p>
+        <h2 className="font-bold">Ушло</h2>
+        <p className="mt-1 text-xs text-muted">
+          Доля Marina считается из выручки сама, остальное — по факту выдачи.
+        </p>
         <div className="mt-3 space-y-1">
           <Row label="Marina Beach" hint="35% выручки" value={vnd(fin.marina)} />
-          {/* ЗП тут НАЧИСЛЕННАЯ: в расчёт она уходит в момент записи занятия.
-              Деньги на руки отдают раз в неделю, поэтому вторая строка отвечает
-              на живой вопрос «а сколько я уже роздал» — отметки ставятся на
-              «Расчёте выплат». На прибыль они не влияют. */}
           <Row
-            label="ЗП инструкторов"
-            hint={`15% их сессий (−комиссия агента) + ${fin.instructorShifts} зачтённых выходов${
-              fin.instructorShiftsUnpaid > 0
-                ? ` (не зачтено ${fin.instructorShiftsUnpaid})`
-                : ""
-            } + 15% их абонементов`}
-            value={vnd(fin.instructorPay)}
+            label="Выдано зарплат"
+            hint="вкладка «Выплата зарплаты»"
+            value={vnd(fin.paidStaff)}
           />
-          {fin.instructorPaidOut > 0 && (
-            <Row
-              label="— из них выдано на руки"
-              hint={
-                fin.instructorPay - fin.instructorPaidOut > 0.5
-                  ? `ещё должны ${vnd(fin.instructorPay - fin.instructorPaidOut)}`
-                  : "выплачено полностью"
-              }
-              value={vnd(fin.instructorPaidOut)}
-            />
+          {fin.paidAgents > 0 && (
+            <Row label="Выдано агентам" value={vnd(fin.paidAgents)} />
           )}
+          <Row
+            label="Прочие траты"
+            hint={`${fin.manualExpenses.length} шт. · список ниже`}
+            value={vnd(fin.otherSpent)}
+          />
+          <div className="mt-2 flex items-baseline justify-between gap-2 border-t border-line pt-2">
+            <span className="font-semibold">Итого ушло</span>
+            <span className="font-bold">{vnd(fin.spent)}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Справка: начислено людям, но ещё не выдано. В остаток не входит —
+          иначе получилась бы прибыль по начислению, от которой мы ушли. */}
+      <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
+        <h2 className="font-bold">Начислено, но ещё не выдано</h2>
+        <p className="mt-1 text-xs text-muted">
+          Справка: эти деньги пока лежат в кассе и в остаток выше входят. Отдадите —
+          уйдут из него в тот день.
+        </p>
+        <div className="mt-3 space-y-1">
+          <Row
+            label="Инструкторам"
+            hint={`начислено ${vnd(fin.instructorPay)} · выдано ${vnd(fin.instructorPaidOut)}`}
+            value={vnd(fin.owedInstructors)}
+          />
           {fin.agentCommissions > 0 && (
             <Row
-              label="Комиссии агентов"
-              hint="фикс за приведённых клиентов"
+              label="Комиссии агентов за период"
+              hint="начислено по занятиям"
               value={vnd(fin.agentCommissions)}
             />
           )}
           <Row
             label="Дэвид + Ромчик (СММ)"
-            hint={`2% · по ${vnd(fin.crmEach)} каждому`}
+            hint={`2% с оборота · по ${vnd(fin.crmEach)} каждому`}
             value={vnd(fin.crmCut)}
           />
-          <div className="mt-2 flex items-baseline justify-between gap-2 border-t border-line pt-2">
-            <span className="font-semibold">Итого основные</span>
-            <span className="font-bold">{vnd(fin.autoTotal)}</span>
-          </div>
         </div>
+        <p className="mt-3 border-t border-line pt-2 text-xs text-muted">
+          Кому сколько осталось отдать поимённо — вкладка «Выплата зарплаты».
+          ЗП инструкторов: 15% их сессий (−комиссия агента) + {fin.instructorShifts}{" "}
+          зачтённых выходов
+          {fin.instructorShiftsUnpaid > 0
+            ? ` (не зачтено ${fin.instructorShiftsUnpaid})`
+            : ""}{" "}
+          + 15% их абонементов. Выручка месяца — по дате оплаты, ЗП — по дате
+          занятия: если гость заплатил в другом месяце, цифры расходятся намеренно.
+        </p>
       </section>
 
       {/* Дополнительные расходы (ручные) */}
       <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-bold">Дополнительные расходы</h2>
+        <h2 className="font-bold">Прочие траты</h2>
+        <p className="mt-1 text-xs text-muted">
+          Аренда, топливо, запчасти, реклама. Зарплату сюда не вносите — она
+          учитывается во вкладке «Выплата зарплаты», иначе спишется дважды.
+        </p>
         {fin.manualExpenses.length === 0 ? (
           <p className="mt-3 text-sm text-muted">
             За этот месяц ручных расходов нет.
@@ -179,7 +203,7 @@ export default async function AdminExpensesPage({
               </div>
             ))}
             <div className="flex items-baseline justify-between gap-2 border-t border-line pt-2">
-              <span className="font-semibold">Итого дополнительные</span>
+              <span className="font-semibold">Итого трат</span>
               <span className="font-bold">{vnd(fin.manualTotal)}</span>
             </div>
           </div>

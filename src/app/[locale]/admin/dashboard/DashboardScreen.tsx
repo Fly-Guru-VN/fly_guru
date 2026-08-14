@@ -1,6 +1,6 @@
 // Экран «Статистика» — общий для админа и СММщика (кабинет /smm). Разница одна
 // и она в пропсе showProfit: СММщик видит выручку, воронку и визиты, но не
-// чистую прибыль, ЗП инструкторов и доли учредителей.
+// деньги школы, ЗП инструкторов и доли учредителей.
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -37,7 +37,7 @@ import { VisitsTable, type VisitCell, type VisitColumn } from "./VisitsTable";
 // Пачка №23: способ оплаты виден и в строке таблицы, и отдельным блоком
 // «Деньги по способам оплаты» (наличные / QR / T-Bank × виды занятий) — по
 // нему сводят кассу. Плюс «Куда ушли деньги»: то же, что на вкладке
-// «Расходы», но за выбранный период — начальник видит чистую прибыль, не
+// «Расходы», но за выбранный период — начальник видит деньги на руках, не
 // уходя со «Статистики».
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -162,8 +162,8 @@ export async function DashboardScreen({
   searchParams: Promise<DashboardParams>;
   /** Кабинет, из которого открыт экран: «/admin» или «/smm». */
   base: string;
-  /** Показывать ли блок «Чистая прибыль»: сколько школа заработала после
-      Marina, ЗП инструкторов, комиссий и долей. У СММщика его нет — он ведёт
+  /** Показывать ли блок «Деньги на руках»: сколько осталось после доли
+      Marina и всех выданных зарплат и трат. У СММщика его нет — он ведёт
       рекламу, а не расчёты с людьми, и чужие зарплаты его не касаются. */
   showProfit: boolean;
 }) {
@@ -516,7 +516,7 @@ export async function DashboardScreen({
       />
 
       {/* Деньги периода — сразу под выбором периода (10.08.2026). Раньше
-          выручка и чистая прибыль лежали в самом низу, под таблицей визитов
+          выручка и деньги школы лежали в самом низу, под таблицей визитов
           на сотню строк: чтобы увидеть главную цифру месяца, приходилось
           прокручивать мимо всего остального. Фильтры стоят ниже, вплотную к
           таблице, на которую они и действуют. */}
@@ -560,107 +560,68 @@ export async function DashboardScreen({
         </div>
 
         {/* Куда ушли деньги — тот же расчёт, что на вкладке «Расходы»
-            (lib/finance), но за выбранный здесь период: начальник видит
-            чистую прибыль, не уходя со «Статистики». */}
+            (lib/finance), но за выбранный здесь период. Раньше тут стояли два
+            блока подряд: «чистая прибыль» по начислению и «касса» по живым
+            деньгам. Два числа про одни и те же деньги путали больше, чем
+            помогали, — с 14.08.2026 остался один ответ: сколько на руках. */}
         {showProfit && fin && (
         <div className="rounded-2xl border border-line bg-surface p-4">
-          <p className="text-xs text-muted">Чистая прибыль за период</p>
-          <p className="mt-1 text-3xl font-bold text-primary">{vnd(fin.netProfit)}</p>
+          <p className="text-xs text-muted">Деньги на руках за период</p>
+          <p className="mt-1 text-3xl font-bold text-primary">{vnd(fin.cashLeft)}</p>
           <div className="mt-3 space-y-1 text-sm text-muted">
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Пришло</span>
+              <span className="font-semibold text-ink">{vnd(fin.revenue)}</span>
+            </p>
             <p className="flex items-baseline justify-between gap-2">
               <span>Marina Beach · 35%</span>
               <span className="font-semibold text-ink">−{vnd(fin.marina)}</span>
             </p>
             <p className="flex items-baseline justify-between gap-2">
-              <span>ЗП инструкторов</span>
-              <span className="font-semibold text-ink">−{vnd(fin.instructorPay)}</span>
-            </p>
-            {fin.agentCommissions > 0 && (
-              <p className="flex items-baseline justify-between gap-2">
-                <span>Комиссии агентов</span>
-                <span className="font-semibold text-ink">
-                  −{vnd(fin.agentCommissions)}
-                </span>
-              </p>
-            )}
-            <p className="flex items-baseline justify-between gap-2">
-              <span>Дэвид + Ромчик · 2%</span>
-              <span className="font-semibold text-ink">−{vnd(fin.crmCut)}</span>
-            </p>
-            <p className="flex items-baseline justify-between gap-2">
-              <span>Прочие расходы ({fin.manualExpenses.length})</span>
-              <span className="font-semibold text-ink">−{vnd(fin.manualTotal)}</span>
-            </p>
-          </div>
-          <p className="mt-3 border-t border-line/70 pt-2 text-xs text-muted">
-            Выручка {vnd(fin.revenue)} − расходы {vnd(fin.autoTotal + fin.manualTotal)}.
-            ЗП инструкторов — 15% с их занятий + {fin.instructorShifts} зачтённых
-            выходов + 15% с проданных ими абонементов. Расписать траты и внести
-            новые —{" "}
-            <Link href={`${base}/expenses`} className="font-semibold text-primary">
-              вкладка «Расходы»
-            </Link>{" "}
-            (она считает по месяцам).
-          </p>
-        </div>
-        )}
-      </div>
-
-      {/* Касса: живые деньги, а не заработок. Прибыль выше говорит, сколько
-          школа заработала (доля инструктора списывается в день занятия, даже
-          если отдадут её через неделю). Здесь — сколько денег реально прошло
-          через руки: пришло минус розданное. */}
-      {showProfit && fin && (
-        <div className="mt-3 rounded-2xl border border-line bg-surface p-4">
-          <p className="text-xs text-muted">Касса за период · живые деньги</p>
-          <p className="mt-1 text-3xl font-bold text-primary">{vnd(fin.cash.left)}</p>
-          <p className="mt-1 text-sm text-muted">осталось на руках</p>
-
-          <div className="mt-3 space-y-1 text-sm text-muted">
-            <p className="flex items-baseline justify-between gap-2">
-              <span>Пришло</span>
-              <span className="font-semibold text-ink">{vnd(fin.cash.income)}</span>
-            </p>
-            <p className="flex items-baseline justify-between gap-2">
               <span>Выдано зарплат</span>
-              <span className="font-semibold text-ink">−{vnd(fin.cash.outStaff)}</span>
+              <span className="font-semibold text-ink">−{vnd(fin.paidStaff)}</span>
             </p>
-            {fin.cash.outAgents > 0 && (
+            {fin.paidAgents > 0 && (
               <p className="flex items-baseline justify-between gap-2">
                 <span>Выдано агентам</span>
                 <span className="font-semibold text-ink">
-                  −{vnd(fin.cash.outAgents)}
+                  −{vnd(fin.paidAgents)}
                 </span>
               </p>
             )}
             <p className="flex items-baseline justify-between gap-2">
-              <span>Прочие траты</span>
-              <span className="font-semibold text-ink">−{vnd(fin.cash.outOther)}</span>
+              <span>Прочие траты ({fin.manualExpenses.length})</span>
+              <span className="font-semibold text-ink">−{vnd(fin.otherSpent)}</span>
             </p>
           </div>
 
-          {/* Остаток — не вся прибыль: часть этих денег уже чужая. */}
+          {/* Остаток — не весь ваш: часть этих денег уже обещана людям. */}
           <div className="mt-3 space-y-1 border-t border-line/70 pt-2 text-xs text-muted">
             <p className="flex items-baseline justify-between gap-2">
-              <span>Из них доля Marina Beach за период</span>
-              <span className="font-semibold text-ink">{vnd(fin.cash.marinaShare)}</span>
-            </p>
-            <p className="flex items-baseline justify-between gap-2">
-              <span>Ещё должны инструкторам</span>
+              <span>Из них начислено инструкторам, но не выдано</span>
               <span className="font-semibold text-ink">
-                {vnd(fin.cash.owedToPeople)}
+                {vnd(fin.owedInstructors)}
               </span>
             </p>
+            <p className="flex items-baseline justify-between gap-2">
+              <span>Дэвиду и Ромчику за период · 2%</span>
+              <span className="font-semibold text-ink">{vnd(fin.crmCut)}</span>
+            </p>
             <p className="pt-1">
-              Выдачу зарплат и авансов вносите во вкладке{" "}
+              Зарплаты и авансы вносите во вкладке{" "}
               <Link href={`${base}/payroll`} className="font-semibold text-primary">
                 «Выплата зарплаты»
               </Link>{" "}
-              — тогда касса сходится сама. Прочие траты берутся из «Расходов».
+              — оттуда они и вычитаются. Прочие траты берутся из{" "}
+              <Link href={`${base}/expenses`} className="font-semibold text-primary">
+                «Расходов»
+              </Link>{" "}
+              (там же разбивка по месяцам).
             </p>
           </div>
         </div>
-      )}
+        )}
+      </div>
 
       {/* Фильтры: действуют на таблицу и графики занятий.
           Свёрнуты по умолчанию (10.08.2026): четыре ряда чипсов — услуги,

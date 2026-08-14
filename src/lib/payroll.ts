@@ -37,8 +37,9 @@ import {
 // сколько и какого числа», а защита от двойной выдачи не запрет, а видимая
 // разница «начислено − выплачено».
 //
-// Админа тут нет намеренно: он босс, а не наёмный — школа сама себе не платит.
-// Его деньги (сессия минус 35% Marina и 2% CRM) видны как прибыль в lib/finance.
+// Админа в списке ДОЛГОВ нет намеренно: он босс, а не наёмный — школа сама себе
+// ничего не начисляет. В списке ПОЛУЧАТЕЛЕЙ он есть: свою зарплату босс тоже
+// забирает из кассы, и она вычитается из денег школы (lib/finance).
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -87,20 +88,6 @@ export interface Payee {
   name: string;
   group: string; // «Инструкторы», «СММ», «Механик», «Агенты»
   suggested: number; // сколько подставить в поле суммы (осталось отдать)
-  /**
-   * Заводить ли расход школы по умолчанию.
-   *
-   * Деньги людям уходят двумя разными путями, и путать их нельзя. Доля
-   * инструктора (15%, выходы, котёл абонементов) и комиссия агента считаются
-   * автоматически и уже вычтены из прибыли в день занятия — выдача этих денег
-   * расходом быть НЕ должна, иначе одна и та же сумма спишется дважды. А фикс
-   * СММщика, зарплата механика и своя зарплата нигде не начисляются: пока их
-   * не записать расходом, прибыль будет завышена на всю выданную сумму.
-   *
-   * Это лишь подсказка формы: последнее слово за тем, кто платит (одному и
-   * тому же человеку можно отдать и заработанную долю, и отдельный фикс).
-   */
-  expenseByDefault: boolean;
 }
 
 export interface MonthlyPayroll {
@@ -493,7 +480,6 @@ export async function getMonthlyPayroll(
       name: u.name,
       group: groupOf("instructor"),
       suggested: suggestedFor.get(`staff-${u.id}`) ?? 0,
-      expenseByDefault: false, // доля уже вычтена из прибыли в день занятия
     })),
     ...allSmm.map((u) => ({
       kind: "staff" as const,
@@ -501,9 +487,6 @@ export async function getMonthlyPayroll(
       name: u.name,
       group: groupOf("smm"),
       suggested: suggestedFor.get(`staff-${u.id}`) ?? 0,
-      // Чаще всего СММщику отдают недельный фикс, а он нигде не начисляется.
-      // Когда закрывают его 1% с оборота — переключить на «из начисленного».
-      expenseByDefault: true,
     })),
     // Механик и админ: формулы ЗП у них нет, поэтому в списке долгов выше их и
     // не видно. Раньше их не было и в форме — выдачу приходилось заводить
@@ -514,7 +497,6 @@ export async function getMonthlyPayroll(
       name: u.name,
       group: "Механик",
       suggested: 0,
-      expenseByDefault: true,
     })),
     ...allAdmins.map((u) => ({
       kind: "staff" as const,
@@ -522,7 +504,6 @@ export async function getMonthlyPayroll(
       name: u.name,
       group: "Штат",
       suggested: 0,
-      expenseByDefault: true,
     })),
     ...(agentsRes.data ?? [])
       .filter((a) => a.active !== false)
@@ -532,7 +513,6 @@ export async function getMonthlyPayroll(
         name: agentName.get(a.id as string) ?? "агент",
         group: groupOf("agent"),
         suggested: suggestedFor.get(`agent-${a.id}`) ?? 0,
-        expenseByDefault: false, // комиссия уже вычтена по занятию
       })),
   ];
 
