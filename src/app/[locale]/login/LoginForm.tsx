@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { loginAction, type LoginState } from "./actions";
 import { Spinner } from "@/components/Spinner";
@@ -56,6 +57,13 @@ export function LoginForm({ next }: { next?: string }) {
       </button>
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+
+      <Link
+        href="/forgot-password"
+        className="block text-center text-sm text-primary hover:underline"
+      >
+        Забыли пароль?
+      </Link>
     </form>
   );
 }

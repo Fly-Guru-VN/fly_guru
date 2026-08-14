@@ -19,6 +19,8 @@ export default function robots(): MetadataRoute.Robots {
         "/agent",
         "/member",
         "/login",
+        "/forgot-password",
+        "/reset-password",
         "/invite",
         "/api",
         "/thanks", // страница «спасибо» после заявки — в выдаче ей не место

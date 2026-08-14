@@ -1,11 +1,15 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ROLE_HOME, safeNextPath, type AppRole } from "@/lib/auth";
 import { phoneDigits, phonesMatch } from "@/lib/phone";
 import { vnToday } from "@/lib/dates";
+import { checkRateLimit, clientIp } from "@/lib/rateLimit";
+import { SITE_URL } from "@/lib/site";
 
 // Вход по email ИЛИ телефону + пароль (архитектура, раздел 5: SMS не используем).
 // Supabase логинит только по email, поэтому телефон сперва превращаем в email:
@@ -100,6 +104,85 @@ export async function loginAction(
   // Возврат туда, откуда выбросило на логин: только внутренние пути и только
   // не в чужой кабинет (правила и почему — в lib/auth → safeNextPath).
   redirect(safeNextPath(next, role));
+}
+
+// ── Забыли пароль ───────────────────────────────────────────────────────────
+// Отправляем письмо со ссылкой на /reset-password. Логин тут тот же, что и на
+// входе: email или телефон.
+
+export interface ResetRequestState {
+  error: string | null;
+  sent: boolean;
+}
+
+// Технические email из телефона (см. scripts/create-user.mjs) — почтовый ящик
+// не существует, письму просто некуда идти.
+const TECH_EMAIL_SUFFIX = "@phone.flyguru.local";
+
+export async function requestPasswordResetAction(
+  _prev: ResetRequestState,
+  formData: FormData,
+): Promise<ResetRequestState> {
+  const identifier = String(formData.get("identifier") ?? "").trim();
+  if (!identifier) {
+    return { error: "Введите email или телефон.", sent: false };
+  }
+
+  const head = await headers();
+  // Письмо стоит денег и нервов адресату — три запроса в минуту с адреса хватит
+  // с запасом. Заодно отсекает перебор чужих email через эту форму.
+  if (!checkRateLimit(`reset:${clientIp(head)}`, 3)) {
+    return { error: "Слишком много попыток. Подождите минуту.", sent: false };
+  }
+
+  let email: string | null;
+  if (identifier.includes("@")) {
+    email = identifier;
+  } else if (phoneDigits(identifier).length >= 7) {
+    email = await resolveEmailByPhone(identifier);
+  } else {
+    return { error: "Логин — это email или номер телефона.", sent: false };
+  }
+
+  if (email?.endsWith(TECH_EMAIL_SUFFIX)) {
+    return {
+      error:
+        "К этому аккаунту не привязана почта — новый пароль вам выдаст администратор.",
+      sent: false,
+    };
+  }
+
+  if (email) {
+    // Адрес возврата берём из запроса, чтобы ссылка вела туда же, откуда её
+    // запросили (на localhost при проверке — на localhost). Подделать домен
+    // через заголовок Host нельзя: Supabase принимает только адреса из списка
+    // Redirect URLs, остальное молча заменяет на Site URL.
+    const host = head.get("host");
+    const proto = head.get("x-forwarded-proto") ?? "https";
+    const origin = host ? `${proto}://${host}` : SITE_URL;
+
+    // Здесь намеренно НЕ наш обычный серверный клиент. Он собран поверх
+    // @supabase/ssr, а тот принудительно включает режим PKCE: ссылка в письме
+    // работает только в том браузере, откуда сброс запросили (секрет остаётся
+    // у него в куке). Человек запросил на телефоне, открыл письмо в приложении
+    // почты — там свой встроенный браузер, и ссылка мертва. Обычный клиент
+    // supabase-js шлёт ссылку с токеном прямо в адресе: открывается откуда
+    // угодно. Сессия ему не нужна, поэтому и не храним её.
+    const supabase = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+    // Ошибку сознательно не показываем — см. ниже.
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${origin}/reset-password`,
+    });
+  }
+
+  // Ответ одинаковый и когда аккаунт нашёлся, и когда нет. Иначе форма
+  // превращается в справочную: набрал чужой email — и узнал, работает ли
+  // человек в школе.
+  return { error: null, sent: true };
 }
 
 export async function logoutAction() {
