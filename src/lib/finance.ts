@@ -3,6 +3,7 @@ import type { StatsRange } from "@/lib/stats";
 import { SESSION_RATE, getShiftPay, getSubsShares } from "@/lib/salary";
 import { loadInstructors } from "@/lib/staff";
 import { loadAllSessions } from "@/lib/sessions";
+import { failIfReadError } from "@/lib/dbError";
 
 // Финансовая модель школы за период — питает вкладку «Расходы».
 //
@@ -171,6 +172,12 @@ async function loadCashOut(
       .lte("paid_on", lastDay),
   ]);
 
+  // Выданное — основа «денег на руках»: не прочитали, значит и считать нечего
+  // (см. lib/dbError). Раньше ошибка тут не проверялась вовсе, и любой сбой
+  // запроса завышал остаток ровно на сумму всех выплат периода.
+  failIfReadError(staffRes.error, "не удалось прочитать выплаты штату");
+  failIfReadError(agentRes.error, "не удалось прочитать выплаты агентам");
+
   const staffRows = (staffRes.data ?? []) as {
     amount: number | null;
     expense_id: string | null;
@@ -227,7 +234,7 @@ async function loadPaidOut(
     .in("instructor_id", instructorIds)
     .gte("period_from", range.fromDay)
     .lte("period_to", lastDayStr);
-  if (legacyError) return 0;
+  failIfReadError(legacyError, "не удалось прочитать выданную зарплату");
   return sum(legacy);
 }
 

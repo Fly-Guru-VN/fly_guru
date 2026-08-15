@@ -2,6 +2,7 @@ import type { createClient } from "@/lib/supabase/server";
 import { getInstructorStats, type StatsRange } from "@/lib/stats";
 import { getCrmPayout } from "@/lib/finance";
 import { vnMonth, vnPeriod, vnToday } from "@/lib/dates";
+import { failIfReadError } from "@/lib/dbError";
 import {
   DEV_WEEK_PAY,
   getSmmFixedPay,
@@ -197,8 +198,10 @@ async function loadStaffPayouts(
     rows = (data ?? []) as unknown as StaffPayoutRaw[];
   } else {
     const { data: old, error: oldError } = await query(legacy, false);
-    // Таблицы нет вовсе — миграция 0036 не накатана. Не роняем страницу.
-    if (oldError) return [];
+    // Не прочитали выплаты — молчать нельзя: пустой список означает «никому
+    // ничего не выдали», и «осталось выдать» вырастет на всё уже выданное
+    // (см. lib/dbError). Раньше здесь стоял тихий `return []`.
+    failIfReadError(oldError, "не удалось прочитать выплаты штату");
     rows = (old ?? []) as unknown as StaffPayoutRaw[];
   }
 
@@ -236,7 +239,7 @@ async function loadAgentPayouts(
   if (filter) q = q.gte("paid_on", filter.fromDay).lte("paid_on", filter.lastDay);
 
   const { data, error } = await q.limit(1000);
-  if (error) return [];
+  failIfReadError(error, "не удалось прочитать выплаты агентам");
 
   return ((data ?? []) as unknown as AgentPayoutRaw[]).map((r) => ({
     id: r.id,
