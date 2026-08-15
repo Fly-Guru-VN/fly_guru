@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { momentDay } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 import { loadAllClients } from "@/lib/clients";
 import { addMemberAction, createInviteAction } from "../actions";
@@ -27,13 +28,6 @@ const LEVEL_LABEL: Record<string, string> = {
   legend: "Legend",
 };
 
-function fmtDay(iso: string | null): string {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("ru-RU", {
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date(iso));
-}
-
 function MemberCard({
   m,
   activeSub,
@@ -52,7 +46,7 @@ function MemberCard({
         <div className="min-w-0 flex-1">
           <p className="truncate font-bold">⭐ {name}</p>
           <p className="truncate text-xs text-muted">
-            {[m.client?.phone, `в клубе с ${fmtDay(m.since)}`]
+            {[m.client?.phone, `в клубе с ${momentDay(m.since)}`]
               .filter(Boolean)
               .join(" · ")}
           </p>
@@ -80,7 +74,7 @@ function MemberCard({
             </p>
           )}
           <p>
-            Уровень: {LEVEL_LABEL[m.level] ?? m.level} · в клубе с {fmtDay(m.since)}
+            Уровень: {LEVEL_LABEL[m.level] ?? m.level} · в клубе с {momentDay(m.since)}
           </p>
         </div>
 
@@ -93,7 +87,7 @@ function MemberCard({
           <div className="space-y-1.5">
             <CopyLink path={invitePath} />
             <p className="text-xs text-muted">
-              Отправьте ссылку в мессенджер. Действует до {fmtDay(inviteExpires)},
+              Отправьте ссылку в мессенджер. Действует до {momentDay(inviteExpires)},
               одноразовая.
             </p>
           </div>

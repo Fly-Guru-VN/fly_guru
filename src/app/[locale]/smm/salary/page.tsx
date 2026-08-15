@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getAppUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCrmPayout } from "@/lib/finance";
-import { vnMonth, vnShiftDays } from "@/lib/dates";
+import { dayShort, vnMonth, vnShiftDays } from "@/lib/dates";
 import { SMM_WEEK_PAY } from "@/lib/salary";
 import { vnd } from "@/lib/stats";
 import { CalMonthNav, resolveCalYm } from "@/components/cabinet/CalMonthNav";
@@ -28,14 +28,6 @@ export const metadata: Metadata = { title: "СММ · Моя ЗП" };
 // и открывать её политикой ещё и СММщику ради одного экрана не хочется —
 // в таблице лежат выплаты всей школы. Служебным ключом берём строго свои
 // строки, наружу уходит только его собственная выплата.
-
-function dayLabel(day: string): string {
-  return new Date(`${day}T00:00:00Z`).toLocaleDateString("ru-RU", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
-}
 
 function periodLabel(from: string, to: string): string {
   const fmt = (day: string) =>
@@ -130,7 +122,7 @@ export default async function SmmSalaryPage({
               className="flex items-baseline justify-between gap-2 border-b border-line/70 pb-2 last:border-0 last:pb-0"
             >
               <div className="min-w-0">
-                <p className="text-sm font-semibold">{dayLabel(p.paidOn)}</p>
+                <p className="text-sm font-semibold">{dayShort(p.paidOn)}</p>
                 <p className="text-xs text-muted">
                   {p.from && p.to ? `за ${periodLabel(p.from, p.to)}` : ""}
                   {p.from && p.comment ? " · " : ""}

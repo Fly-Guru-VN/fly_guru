@@ -1,17 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import {
-  vnCurrentMonth,
-  vnMonth,
-  vnPeriod,
-  vnPrevMonth,
-  vnPrevWeek,
-  vnRangeLabel,
-  vnShiftDays,
-  vnToday,
-  vnWeekOf,
-} from "@/lib/dates";
+import { dayShort, monthLabel, vnCurrentMonth, vnMonth, vnPeriod, vnPrevMonth, vnPrevWeek, vnRangeLabel, vnShiftDays, vnToday, vnWeekOf } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import {
   getMonthlyPayroll,
@@ -62,22 +52,6 @@ const KIND_LABEL: Record<DueRow["kind"], string> = {
   agent: "агент",
   crm: "справка",
 };
-
-function monthLabel(day: string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${day}T00:00:00Z`));
-}
-
-function dayLabel(day: string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  }).format(new Date(`${day}T00:00:00Z`));
-}
 
 // Подпись над крупной цифрой. Капсом и с разрядкой намеренно: цифр в строке
 // две, они про разное, и подпись должна прочитаться раньше самого числа —
@@ -290,13 +264,13 @@ function HistoryRow({ p }: { p: PayoutRow }) {
         <p className="text-sm font-semibold">
           {p.name}
           <span className="ml-2 text-xs font-normal text-muted">
-            {dayLabel(p.paidOn)}
+            {dayShort(p.paidOn)}
           </span>
         </p>
         {(p.comment || p.period) && (
           <p className="truncate text-sm text-muted">
             {p.period
-              ? `за ${dayLabel(p.period.from)} — ${dayLabel(p.period.to)}`
+              ? `за ${dayShort(p.period.from)} — ${dayShort(p.period.to)}`
               : ""}
             {p.period && p.comment ? " · " : ""}
             {p.comment ?? ""}
@@ -347,13 +321,13 @@ export default async function AdminPayrollPage({
 
   const range = vnPeriod(fromDay, lastDay);
   const label = vnRangeLabel(fromDay, lastDay);
-  const epochLabel = dayLabel(PAYROLL_EPOCH); // «1 авг.» — подпись накопительных цифр
+  const epochLabel = dayShort(PAYROLL_EPOCH); // «1 авг.» — подпись накопительных цифр
   // Короткая подпись периода: она стоит над цифрой в каждой карточке, полная
   // («1 — 7 августа 2026 г.») туда не влезает на телефоне.
   const periodLabel =
     fromDay === lastDay
-      ? dayLabel(fromDay)
-      : `${dayLabel(fromDay)} — ${dayLabel(lastDay)}`;
+      ? dayShort(fromDay)
+      : `${dayShort(fromDay)} — ${dayShort(lastDay)}`;
   const periodQs = `from=${fromDay}&to=${lastDay}`;
   const isPreset = (f: string, l: string) => fromDay === f && lastDay === l;
 

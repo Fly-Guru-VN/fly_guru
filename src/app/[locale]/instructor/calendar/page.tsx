@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getAppUser } from "@/lib/auth";
-import { vnToday, vnTimeLabel } from "@/lib/dates";
+import { dayWithWeekday, vnTimeLabel, vnToday } from "@/lib/dates";
 import { getMonthCalendar, loadShiftPhotos } from "@/lib/shifts";
 import { shiftStatus, OPEN_LABEL, CLOSE_LABEL, statusClass } from "@/lib/shiftRules";
 import { MonthGrid } from "@/components/cabinet/MonthGrid";
@@ -14,15 +14,6 @@ import { PageHeader } from "@/components/cabinet/PageHeader";
 // команду (кто когда работает), и записи клиентов по дням. Смены ставит админ.
 // Тап по дню открывает карточку дня поверх сетки (пачка №5, п.9); фото в ней
 // показываем только свои — чужие смены инструктору не нужны.
-
-function fmtFullDay(d: string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "UTC",
-  }).format(new Date(`${d}T00:00:00Z`));
-}
 
 export default async function InstructorCalendarPage({
   searchParams,
@@ -93,7 +84,7 @@ export default async function InstructorCalendarPage({
       {/* Карточка дня поверх календаря (read-only) */}
       {selected && (
         <DayModal
-          title={fmtFullDay(selected)}
+          title={dayWithWeekday(selected)}
           closeHref={`/instructor/calendar?m=${ym}`}
         >
           <h3 className="text-sm font-bold text-muted">На смене</h3>

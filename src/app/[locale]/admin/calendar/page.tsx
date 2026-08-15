@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { vnTimeLabel, vnToday } from "@/lib/dates";
+import { dayWithWeekday, vnTimeLabel, vnToday } from "@/lib/dates";
 import {
   getMonthCalendar,
   loadShiftPhotos,
@@ -98,15 +98,6 @@ function vnTimeInput(iso: string | null): string {
   return iso ? vnTimeLabel(iso) : "";
 }
 
-function fmtFullDay(d: string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "UTC",
-  }).format(new Date(`${d}T00:00:00Z`));
-}
-
 export default async function AdminCalendarPage({
   searchParams,
 }: {
@@ -198,7 +189,7 @@ export default async function AdminCalendarPage({
       {/* Карточка дня — поверх календаря */}
       {selected && (
         <DayModal
-          title={fmtFullDay(selected)}
+          title={dayWithWeekday(selected)}
           closeHref={`/admin/calendar?m=${ym}`}
           wide
         >

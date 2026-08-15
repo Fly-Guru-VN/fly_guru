@@ -178,6 +178,68 @@ export function dayLabel(day: string | null | undefined): string {
   return y && m && d ? `${d}.${m}.${y}` : day;
 }
 
+// ── Подписи дат: один набор на все экраны ────────────────────────────────────
+//
+// Зачем это здесь (ревизия 15.08.2026). По кабинетам жили ДЕСЯТЬ самодельных
+// функций с именами fmtDay / dayLabel / fmtFullDay, и делали они РАЗНОЕ:
+// половина считала в UTC (так и надо для чистых дат 'YYYY-MM-DD'), половина —
+// в поясе Нячанга (так и надо для меток времени). Имена при этом совпадали, в
+// том числе с dayLabel выше. Скопировал функцию из соседнего экрана — и дата
+// молча уехала на день, а в школе, где день закрывается кассой, это замечают
+// через неделю.
+//
+// Правило простое: имя говорит, ЧТО на входе.
+//   • day* — чистая дата 'YYYY-MM-DD' (колонки типа date). Считаем в UTC.
+//   • moment* — метка времени (timestamptz). Считаем в поясе Нячанга.
+
+const asUtcDate = (day: string) => new Date(`${day}T00:00:00Z`);
+
+/** 'YYYY-MM-DD' → «15 авг.». Короткая подпись для карточек и таблиц. */
+export function dayShort(day: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(asUtcDate(day));
+}
+
+/** 'YYYY-MM-DD' → «15 августа 2026 г.». Для лент, где дата — заголовок. */
+export function dayLong(day: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(asUtcDate(day));
+}
+
+/** 'YYYY-MM-DD' → «суббота, 15 августа». Заголовок дня в календарях. */
+export function dayWithWeekday(day: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(asUtcDate(day));
+}
+
+/** 'YYYY-MM' или 'YYYY-MM-DD' → «август 2026 г.». */
+export function monthLabel(day: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(asUtcDate(day.length === 7 ? `${day}-01` : day));
+}
+
+/** Метка времени → «15.08.2026» по времени Нячанга. Пусто → «—». */
+export function momentDay(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Intl.DateTimeFormat("ru-RU", {
+    timeZone: "Asia/Ho_Chi_Minh",
+  }).format(new Date(iso));
+}
+
 // Час и минута момента по времени Нячанга. Нужны правилам смены (пак C):
 // «открыл до 9:00» и «закрыл после 18:00» считаются по местным часам, а не по
 // UTC сервера — иначе граница уезжала бы на семь часов.

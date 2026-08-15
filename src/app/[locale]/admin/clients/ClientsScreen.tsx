@@ -2,6 +2,7 @@
 // одна на школу, и держать её в двух экземплярах кода незачем: базовый путь
 // для ссылок приходит параметром.
 import Link from "next/link";
+import { momentDay } from "@/lib/dates";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { loadAllClients } from "@/lib/clients";
@@ -60,13 +61,6 @@ const PAGE_SIZE = 50;
 
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary";
-
-function fmtDay(iso: string | null): string {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("ru-RU", {
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date(iso));
-}
 
 interface ClientStats {
   sessions: number;
@@ -143,7 +137,7 @@ function ClientCard({ c, stats }: { c: ClientRow; stats: ClientStats }) {
           {/* Последний визит раньше лежал внутри карточки, хотя смотрят на
               него первым — «когда человек был у нас последний раз». */}
           <p className="hidden text-right text-sm tabular-nums text-muted xl:block">
-            {stats.lastVisit ? fmtDay(stats.lastVisit) : "—"}
+            {stats.lastVisit ? momentDay(stats.lastVisit) : "—"}
           </p>
           <p className="truncate text-xs text-muted xl:hidden">
             {[
@@ -199,14 +193,14 @@ function ClientCard({ c, stats }: { c: ClientRow; stats: ClientStats }) {
             {stats.agentName && ` — ${stats.agentName}`}
           </p>
           <p>
-            В базе с {fmtDay(c.created_at)}
+            В базе с {momentDay(c.created_at)}
             {c.age !== null && ` · ${c.age} лет`}
             {c.city && ` · ${c.city}`}
           </p>
           <p>
             Занятий: {stats.sessions} · потратил{" "}
             <span className="font-bold text-ink">{vnd(stats.spent)}</span>
-            {stats.lastVisit && ` · был ${fmtDay(stats.lastVisit)}`}
+            {stats.lastVisit && ` · был ${momentDay(stats.lastVisit)}`}
           </p>
         </div>
 

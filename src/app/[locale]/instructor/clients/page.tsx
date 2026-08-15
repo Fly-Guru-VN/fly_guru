@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { momentDay } from "@/lib/dates";
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { loadAllClients } from "@/lib/clients";
@@ -61,13 +62,6 @@ const PAGE_SIZE = 50;
 
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary";
-
-function fmtDay(iso: string | null): string {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("ru-RU", {
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date(iso));
-}
 
 interface ClientStats {
   sessions: number;
@@ -138,14 +132,14 @@ function ClientCard({ c, stats }: { c: ClientRow; stats: ClientStats }) {
           )}
           <p>Источник: {SOURCE_LABEL[c.source] ?? c.source}</p>
           <p>
-            В базе с {fmtDay(c.created_at)}
+            В базе с {momentDay(c.created_at)}
             {c.age !== null && ` · ${c.age} лет`}
             {c.city && ` · ${c.city}`}
           </p>
           <p>
             Занятий: {stats.sessions} · потратил{" "}
             <span className="font-bold text-ink">{vnd(stats.spent)}</span>
-            {stats.lastVisit && ` · был ${fmtDay(stats.lastVisit)}`}
+            {stats.lastVisit && ` · был ${momentDay(stats.lastVisit)}`}
           </p>
         </div>
 

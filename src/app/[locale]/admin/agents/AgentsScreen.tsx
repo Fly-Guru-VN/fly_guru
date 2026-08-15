@@ -8,7 +8,7 @@ import { AgentPayoutForm } from "./AgentPayoutForm";
 import { CopyLink } from "../CopyLink";
 import { ConfirmSubmit } from "../ConfirmSubmit";
 import { getActiveDict, type DictItem } from "@/lib/dictionaries";
-import { vnToday } from "@/lib/dates";
+import { dayLabel, vnToday } from "@/lib/dates";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 
@@ -50,13 +50,6 @@ interface PayoutRow {
   paid_on: string;
   comment: string | null;
   method: { name: string } | null;
-}
-
-// Короткая дата: «12.07.2026». paid_on — чистый день, без времени и часовых
-// поясов, поэтому берём его как есть, а не гоняем через Date.
-function fmtDay(day: string): string {
-  const [y, m, d] = day.split("-");
-  return d && m && y ? `${d}.${m}.${y}` : day;
 }
 
 function AgentCard({
@@ -200,7 +193,7 @@ function AgentCard({
                         {vnd(p.amount)}
                       </span>
                       <span className="block text-xs text-muted">
-                        {fmtDay(p.paid_on)}
+                        {dayLabel(p.paid_on)}
                         {p.method?.name ? ` · ${p.method.name}` : ""}
                         {p.comment ? ` · ${p.comment}` : ""}
                       </span>

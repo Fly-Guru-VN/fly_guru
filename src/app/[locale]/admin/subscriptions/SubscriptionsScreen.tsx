@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { loadAllClients } from "@/lib/clients";
-import { vnToday } from "@/lib/dates";
+import { momentDay, vnToday } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import {
   cancelSubscriptionAction,
@@ -47,14 +47,6 @@ interface HistoryItem {
 
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary";
-
-// Короткая дата для карточек: «12.07.2026» по времени Нячанга.
-function fmtDay(iso: string | null): string {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("ru-RU", {
-    timeZone: "Asia/Ho_Chi_Minh",
-  }).format(new Date(iso));
-}
 
 function SubscriptionCard({
   s,
@@ -143,7 +135,7 @@ function SubscriptionCard({
                 }`}
               >
                 {s.paid_at
-                  ? `Оплачен ${fmtDay(s.paid_at)}`
+                  ? `Оплачен ${momentDay(s.paid_at)}`
                   : // Инструктор уже сказал, что деньги у школы — это не то же
                     // самое, что «клиент не заплатил» (0032).
                     pendingClaim
@@ -159,11 +151,11 @@ function SubscriptionCard({
       </summary>
 
       <div className="border-t border-line/70 p-4 pt-3">
-        <p className="text-sm text-muted">Истекает {fmtDay(s.expires_at)}</p>
+        <p className="text-sm text-muted">Истекает {momentDay(s.expires_at)}</p>
         {/* Цена и продавец из шапки: в списке они не нужны (остаток важнее),
             но потерять их нельзя — по продавцу считается доля котла. */}
         <p className="mt-0.5 text-xs text-muted">
-          Продан {fmtDay(s.sold_at)} · {vnd(s.price)} · продал{" "}
+          Продан {momentDay(s.sold_at)} · {vnd(s.price)} · продал{" "}
           {s.seller?.name ?? "—"} · {left} мин из {s.total_minutes}
         </p>
 
@@ -198,7 +190,7 @@ function SubscriptionCard({
             )}
             <p className="mt-1 text-xs opacity-80">
               {pendingClaim.by ?? "Инструктор"}
-              {pendingClaim.at ? `, ${fmtDay(pendingClaim.at)}` : ""}
+              {pendingClaim.at ? `, ${momentDay(pendingClaim.at)}` : ""}
             </p>
           </div>
         )}
@@ -467,7 +459,7 @@ export async function SubscriptionsScreen({
     const instructor = (r.instructor as unknown as { name: string } | null)?.name ?? "?";
     push(id, {
       at: r.date as string,
-      text: `${fmtDay(r.date as string)} · списание ${r.minutes_used ?? 0} мин — ${instructor}`,
+      text: `${momentDay(r.date as string)} · списание ${r.minutes_used ?? 0} мин — ${instructor}`,
     });
   }
   const adjBySub = new Map<string, number>();
@@ -478,7 +470,7 @@ export async function SubscriptionsScreen({
     const author = (r.author as unknown as { name: string } | null)?.name ?? "?";
     push(id, {
       at: r.created_at as string,
-      text: `${fmtDay(r.created_at as string)} · корректировка ${delta > 0 ? "+" : ""}${delta} мин — ${r.comment} (${author})`,
+      text: `${momentDay(r.created_at as string)} · корректировка ${delta > 0 ? "+" : ""}${delta} мин — ${r.comment} (${author})`,
     });
   }
   for (const items of historyBySub.values()) {

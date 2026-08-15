@@ -5,6 +5,7 @@ import {
   UPDATE_WHERE_LABEL,
   type UpdateEntry,
 } from "@/content/updates";
+import { dayLong } from "@/lib/dates";
 
 // Лента изменений — общая для вкладки «Обновления» в кабинете инструктора и в
 // кабинете админа. Список записей у обоих одинаковый: на карточке стоит метка,
@@ -21,14 +22,6 @@ const KIND_CLASS: Record<UpdateEntry["kind"], string> = {
   gone: "bg-amber-500/10 text-amber-600",
 };
 
-function fmtDay(day: string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(`${day}T00:00:00Z`));
-}
-
 export function UpdatesFeed() {
   // Свежее сверху. Внутри дня порядок оставляем как в файле — там записи
   // уже идут от главной к мелочам; наверх поднимаем только помеченные «важно».
@@ -44,7 +37,7 @@ export function UpdatesFeed() {
     <>
       {days.map((day) => (
         <section key={day} className="mt-6">
-          <h2 className="text-sm font-semibold text-muted">{fmtDay(day)}</h2>
+          <h2 className="text-sm font-semibold text-muted">{dayLong(day)}</h2>
           <div className="mt-3 space-y-3">
             {ofDay(day).map((u) => (
               <article

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUser } from "@/lib/auth";
-import { vnToday } from "@/lib/dates";
+import { dayWithWeekday, vnToday } from "@/lib/dates";
 import {
   getMonthCalendar,
   loadShiftPhotos,
@@ -24,15 +24,6 @@ export const metadata: Metadata = { title: "Механик · Календарь
 // клиентов и премия за выход. Премию механик снимает наравне с админом: он
 // первым видит, в каком состоянии вернули доски, и именно ему потом чинить.
 
-
-function fmtFullDay(d: string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "UTC",
-  }).format(new Date(`${d}T00:00:00Z`));
-}
 
 export default async function MechanicCalendarPage({
   searchParams,
@@ -106,7 +97,7 @@ export default async function MechanicCalendarPage({
       {/* Карточка дня поверх календаря */}
       {selected && (
         <DayModal
-          title={fmtFullDay(selected)}
+          title={dayWithWeekday(selected)}
           closeHref={`/mechanic/calendar?m=${ym}`}
         >
           <h3 className="text-sm font-bold text-muted">На смене</h3>

@@ -3,13 +3,7 @@
 // деньги школы, ЗП инструкторов и доли учредителей.
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import {
-  vnMonthToDate,
-  vnPeriod,
-  vnPrevMonth,
-  vnShiftDays,
-  vnToday,
-} from "@/lib/dates";
+import { dayShort, vnMonthToDate, vnPeriod, vnPrevMonth, vnShiftDays, vnToday } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import { channelNaming } from "@/lib/channels";
 import {
@@ -83,14 +77,6 @@ const COLUMNS = [
   // перестал влезать в колонку контента даже на широком экране.
   { key: "visits", label: "Визитов", startDir: "d" },
 ] as const;
-
-function fmtDay(day: string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  }).format(new Date(`${day}T00:00:00Z`));
-}
 
 // Горизонтальный бар-список: подпись + цифра + полоса. Одна серия — один
 // цвет (primary), значения текстом, легенда не нужна.
@@ -304,8 +290,8 @@ export async function DashboardScreen({
     // Без этой приписки строка в кассе прошлого месяца с датой занятия из
     // этого читается как ошибка.
     date: r.paid_on
-      ? `${fmtDay(r.date)} · оплата ${fmtDay(r.paid_on)}`
-      : fmtDay(r.date),
+      ? `${dayShort(r.date)} · оплата ${dayShort(r.paid_on)}`
+      : dayShort(r.date),
     client: r.client?.name ?? "—",
     // Ссылка на карточку клиента — это список клиентов, отфильтрованный по
     // имени: отдельной страницы клиента в админке нет, а «увидел странный чек →
@@ -472,7 +458,7 @@ export async function DashboardScreen({
           year: "numeric",
           timeZone: "UTC",
         }).format(new Date(`${key}-01T00:00:00Z`))
-      : fmtDay(key);
+      : dayShort(key);
 
   const catBase = { sort, dir }; // фильтры сбрасывать сортировку не должны
 
