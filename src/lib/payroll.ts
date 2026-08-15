@@ -74,6 +74,11 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 // долги и переплаты, которых нет. Решение David от 14.08.2026.
 export const PAYROLL_EPOCH = "2026-08-01";
 
+// Сколько строк выплат читаем за один заход. Столько же, сколько в lib/clients
+// и lib/sessions: у Supabase свой потолок на размер ответа, поэтому историю
+// берём страницами, а не одним запросом с `.limit()`.
+const PAGE_SIZE = 1000;
+
 /** Кому платим: штат живёт в salary_payouts, агенты — в agent_payouts (0023). */
 export type PayeeKind = "staff" | "agent";
 
@@ -182,27 +187,41 @@ async function loadStaffPayouts(
     "id, instructor_id, amount, paid_on, comment, period_from, period_to";
   const legacy = "id, instructor_id, amount, paid_at, period_from, period_to";
 
-  const query = (columns: string, byDay: boolean) => {
+  const query = (columns: string, byDay: boolean, from: number) => {
     let q = supabase.from("salary_payouts").select(columns);
     if (filter) {
       q = byDay
         ? q.gte("paid_on", filter.fromDay).lte("paid_on", filter.lastDay)
         : q.gte("period_from", filter.fromDay).lte("period_to", filter.lastDay);
     }
-    return q.limit(1000);
+    return q.order("id").range(from, from + PAGE_SIZE - 1);
   };
 
-  let rows: StaffPayoutRaw[] = [];
-  const { data, error } = await query(full, true);
-  if (!error) {
-    rows = (data ?? []) as unknown as StaffPayoutRaw[];
-  } else {
-    const { data: old, error: oldError } = await query(legacy, false);
+  // Постранично, а не `.limit(1000)`. Тысяча — это примерно два года выдач при
+  // десятке в неделю: после неё запрос молча отдавал бы часть истории, и
+  // «выплачено» стало бы меньше настоящего, а «осталось выдать» — больше. Ту же
+  // грабку уже прошли в lib/clients и lib/sessions, там всё описано подробно.
+  const rows: StaffPayoutRaw[] = [];
+  let columns = full;
+  let byDay = true;
+
+  for (let from = 0; ; from += PAGE_SIZE) {
+    let { data, error } = await query(columns, byDay, from);
+    // Колонок 0043 нет — перечитываем по-старому и дальше идём так же.
+    if (error && columns === full) {
+      columns = legacy;
+      byDay = false;
+      ({ data, error } = await query(columns, byDay, from));
+    }
     // Не прочитали выплаты — молчать нельзя: пустой список означает «никому
     // ничего не выдали», и «осталось выдать» вырастет на всё уже выданное
     // (см. lib/dbError). Раньше здесь стоял тихий `return []`.
-    failIfReadError(oldError, "не удалось прочитать выплаты штату");
-    rows = (old ?? []) as unknown as StaffPayoutRaw[];
+    failIfReadError(error, "не удалось прочитать выплаты штату");
+
+    const page = (data ?? []) as unknown as StaffPayoutRaw[];
+    rows.push(...page);
+    // Неполная страница = выплаты кончились.
+    if (page.length < PAGE_SIZE) break;
   }
 
   return rows.map((r) => ({
@@ -233,15 +252,27 @@ async function loadAgentPayouts(
   supabase: Supabase,
   filter?: { fromDay: string; lastDay: string },
 ): Promise<PayoutRow[]> {
-  let q = supabase
-    .from("agent_payouts")
-    .select("id, agent_id, amount, paid_on, comment");
-  if (filter) q = q.gte("paid_on", filter.fromDay).lte("paid_on", filter.lastDay);
+  const page = (from: number) => {
+    let q = supabase
+      .from("agent_payouts")
+      .select("id, agent_id, amount, paid_on, comment");
+    if (filter) {
+      q = q.gte("paid_on", filter.fromDay).lte("paid_on", filter.lastDay);
+    }
+    return q.order("id").range(from, from + PAGE_SIZE - 1);
+  };
 
-  const { data, error } = await q.limit(1000);
-  failIfReadError(error, "не удалось прочитать выплаты агентам");
+  // Постранично по той же причине, что и выплаты штату выше.
+  const rows: AgentPayoutRaw[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from);
+    failIfReadError(error, "не удалось прочитать выплаты агентам");
+    const chunk = (data ?? []) as unknown as AgentPayoutRaw[];
+    rows.push(...chunk);
+    if (chunk.length < PAGE_SIZE) break;
+  }
 
-  return ((data ?? []) as unknown as AgentPayoutRaw[]).map((r) => ({
+  return rows.map((r) => ({
     id: r.id,
     kind: "agent" as const,
     payeeId: r.agent_id,

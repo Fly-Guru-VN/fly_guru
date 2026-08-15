@@ -81,6 +81,12 @@ function labelFor(
   return materials.get(key) ?? key;
 }
 
+// Читаем страницами, а не одним `.limit(50000)`: у Supabase свой потолок на
+// размер ответа, поэтому большой limit не гарантирует, что придёт всё — молча
+// обрезанная выборка занизила бы и переходы, и конверсию в заявки. Пока
+// переходов сотни, это один запрос, как и было.
+const PAGE_SIZE = 1000;
+
 // Переходы за период. Колонка src приехала в 0037: пока миграция не накатана,
 // читаем без неё — тогда в таблице просто не будет переходов по рекламным
 // меткам, а весь остальной экран продолжит работать (та же страховка, что у
@@ -89,22 +95,70 @@ async function loadVisits(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<{ code: string | null; src: string | null }[]> {
-  const query = (columns: string) =>
+  const query = (columns: string, from: number) =>
     supabase
       .from("ref_visits")
       .select(columns)
       .gte("created_at", range.fromIso)
       .lt("created_at", range.toIso)
-      .limit(50000);
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
 
-  const { data, error } = await query("code, src");
-  if (!error) return (data ?? []) as unknown as { code: string | null; src: string | null }[];
+  const rows: { code: string | null; src: string | null }[] = [];
+  let columns = "code, src";
 
-  const { data: plain } = await query("code");
-  return ((plain ?? []) as unknown as { code: string | null }[]).map((v) => ({
-    code: v.code,
-    src: null,
-  }));
+  for (let from = 0; ; from += PAGE_SIZE) {
+    let { data, error } = await query(columns, from);
+    // Колонки src нет — 0037 не накатана, читаем без неё и дальше идём так же.
+    if (error && columns !== "code") {
+      columns = "code";
+      ({ data, error } = await query(columns, from));
+    }
+    if (error) {
+      // «Источники» — экран справочный (переходы и конверсия), деньги по нему
+      // не выдают, поэтому роняем не страницу, а показываем, что есть. Но в
+      // логи пишем: молчащая аналитика — это тоже поломка, просто дешёвая.
+      console.error("[sources] переходы прочитаны не полностью:", error.message);
+      break;
+    }
+
+    const page = (data ?? []) as unknown as {
+      code: string | null;
+      src?: string | null;
+    }[];
+    rows.push(...page.map((v) => ({ code: v.code, src: v.src ?? null })));
+    if (page.length < PAGE_SIZE) break;
+  }
+
+  return rows;
+}
+
+// Заявки периода — тоже страницами (было `.limit(5000)`).
+async function loadBookings(
+  supabase: Supabase,
+  range: StatsRange,
+): Promise<{ data: unknown[] }> {
+  const rows: unknown[] = [];
+
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("bookings")
+      .select("status, src, ref_code, client_id")
+      .gte("created_at", range.fromIso)
+      .lt("created_at", range.toIso)
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      console.error("[sources] заявки прочитаны не полностью:", error.message);
+      break;
+    }
+
+    const page = (data ?? []) as unknown[];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
+  }
+
+  return { data: rows };
 }
 
 export async function getSourcesReport(
@@ -114,12 +168,7 @@ export async function getSourcesReport(
   const [visits, bookingsRes, materialsRes, channelsRes, agentsRes, instructorsRes] =
     await Promise.all([
       loadVisits(supabase, range),
-      supabase
-        .from("bookings")
-        .select("status, src, ref_code, client_id")
-        .gte("created_at", range.fromIso)
-        .lt("created_at", range.toIso)
-        .limit(5000),
+      loadBookings(supabase, range),
       supabase.from("materials").select("src, label"),
       // Справочник каналов (0041). Пока миграция не накатана, запрос вернёт
       // ошибку — тогда остаются старые ключи из LEGACY_CHANNELS, и экран
