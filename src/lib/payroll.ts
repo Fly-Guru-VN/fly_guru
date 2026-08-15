@@ -11,6 +11,7 @@ import {
 import {
   employedDuring,
   employmentLabel,
+  isFired,
   loadAdmins,
   loadDevs,
   loadInstructors,
@@ -107,6 +108,8 @@ export interface DueRow {
   /** Сальдо: accruedToDate − paidToDate. null — ставки нет, долг не считаем. */
   left: number | null;
   employmentLabel: string | null;
+  /** Уволен на сегодня. Рассчитавшийся уволенный из списка убирается. */
+  fired: boolean;
   details: DueDetail[];
 }
 
@@ -129,7 +132,9 @@ export interface Payee {
   id: string;
   name: string;
   group: string; // «Инструкторы», «СММ», «Механик», «Агенты»
-  suggested: number; // сколько подставить в поле суммы (осталось отдать)
+  suggested: number; // сколько подставить в поле суммы (осталось выдать)
+  /** Уволен: в списке долгов его может не быть, а доплатить ему можно. */
+  fired?: boolean;
 }
 
 export interface MonthlyPayroll {
@@ -438,6 +443,7 @@ export async function getMonthlyPayroll(
         paidToDate: paidAll,
         left: toDate.salary - paidAll,
         employmentLabel: employmentLabel(u),
+        fired: isFired(u),
         details: [
           {
             label: "Доля 15% с занятий дня",
@@ -487,6 +493,7 @@ export async function getMonthlyPayroll(
       paidToDate: paidAll,
       left: accruedToDate - paidAll,
       employmentLabel: employmentLabel(u),
+      fired: isFired(u),
       details: [
         {
           label: `Фикс · ${fix.weeks} нед. по ${SMM_WEEK_PAY / 1_000_000} млн`,
@@ -534,6 +541,7 @@ export async function getMonthlyPayroll(
       paidToDate: paidAll,
       left: accruedToDate - paidAll,
       employmentLabel: employmentLabel(u),
+      fired: isFired(u),
       details: [
         {
           label: `Фикс · ${fix.weeks} нед. по ${DEV_WEEK_PAY / 1_000_000} млн`,
@@ -578,6 +586,7 @@ export async function getMonthlyPayroll(
       paidToDate: paidAll,
       left: rewardToDate.sum - paidAll,
       employmentLabel: null,
+      fired: false,
       details: [
         {
           label: "Приведённые клиенты",
@@ -609,6 +618,7 @@ export async function getMonthlyPayroll(
       paidToDate: paidToDate("staff", p.payeeId),
       left: null,
       employmentLabel: null,
+      fired: false,
       details: [],
     });
   }
@@ -631,6 +641,7 @@ export async function getMonthlyPayroll(
       paidToDate: 0,
       left: null,
       employmentLabel: null,
+      fired: false,
       details: [
         {
           label: `база · ${crmMonth.label}`,
@@ -667,6 +678,7 @@ export async function getMonthlyPayroll(
       id: u.id,
       name: u.name,
       group: groupOf("instructor"),
+      fired: isFired(u),
       suggested: suggestedFor.get(`staff-${u.id}`) ?? 0,
     })),
     ...allSmm.map((u) => ({
@@ -674,6 +686,7 @@ export async function getMonthlyPayroll(
       id: u.id,
       name: u.name,
       group: groupOf("smm"),
+      fired: isFired(u),
       suggested: suggestedFor.get(`staff-${u.id}`) ?? 0,
     })),
     ...allDevs.map((u) => ({
@@ -681,6 +694,7 @@ export async function getMonthlyPayroll(
       id: u.id,
       name: u.name,
       group: groupOf("dev"),
+      fired: isFired(u),
       suggested: suggestedFor.get(`staff-${u.id}`) ?? 0,
     })),
     // Механик и админ: формулы ЗП у них нет, поэтому в списке долгов выше их и
@@ -691,6 +705,7 @@ export async function getMonthlyPayroll(
       id: u.id,
       name: u.name,
       group: "Механик",
+      fired: isFired(u),
       suggested: 0,
     })),
     ...allAdmins.map((u) => ({
@@ -698,6 +713,7 @@ export async function getMonthlyPayroll(
       id: u.id,
       name: u.name,
       group: "Штат",
+      fired: isFired(u),
       suggested: 0,
     })),
     ...(agentsRes.data ?? [])
@@ -711,15 +727,30 @@ export async function getMonthlyPayroll(
       })),
   ];
 
-  // Сначала те, кому ещё должны, и по убыванию долга: экран отвечает на вопрос
-  // «кому отдать сегодня». Равные суммы — по имени, чтобы список не прыгал.
-  rows.sort(
-    (a, b) => (b.left ?? 0) - (a.left ?? 0) || a.name.localeCompare(b.name, "ru"),
-  );
+  // Рассчитавшийся уволенный из списка уходит (15.08.2026, просьба David:
+  // «Мишу уволили 4-го, пусть глаза не мозолит»). Условие строгое — человек
+  // пропадает, только когда с ним всё закрыто:
+  //   • за выбранные дни ему ничего не начислено,
+  //   • в эти дни ему ничего не выдавали (иначе выплата была бы в истории, а
+  //     строки, объясняющей её, на экране нет — и итоги «за период» разошлись
+  //     бы с выгрузкой),
+  //   • и школа ему больше ничего не должна.
+  // Поэтому за прошлую неделю уволенный по-прежнему виден со своим заработком,
+  // а если ему что-то не доплатили — не исчезнет никогда.
+  const visibleRows = rows
+    .filter(
+      (r) => !(r.fired && r.accrued === 0 && r.paid === 0 && (r.left ?? 0) <= 0),
+    )
+    // Сначала те, кому ещё не выдали, и по убыванию суммы: экран отвечает на
+    // вопрос «кому отдать сегодня». Равные суммы — по имени, чтобы не прыгало.
+    .sort(
+      (a, b) =>
+        (b.left ?? 0) - (a.left ?? 0) || a.name.localeCompare(b.name, "ru"),
+    );
 
-  const payableRows = rows.filter((r) => r.payee);
+  const payableRows = visibleRows.filter((r) => r.payee);
   return {
-    rows,
+    rows: visibleRows,
     payees,
     accruedTotal: payableRows.reduce((s, r) => s + r.accrued, 0),
     paidTotal: payableRows.reduce((s, r) => s + r.paid, 0),

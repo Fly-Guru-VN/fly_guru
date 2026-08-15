@@ -220,7 +220,7 @@ function DueCard({
       </div>
 
       <details className="group mt-3">
-        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary [&::-webkit-details-marker]:hidden">
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary [&::-webkit-details-marker]:hidden">
           Как посчитали
           <span className="transition-transform group-open:rotate-180">▾</span>
         </summary>
@@ -310,7 +310,7 @@ function HistoryRow({ p }: { p: PayoutRow }) {
           <input type="hidden" name="kind" value={p.kind} />
           <ConfirmSubmit
             message={`Удалить выплату ${vnd(p.amount)} (${p.name})?`}
-            className="text-xs font-semibold text-muted transition-colors hover:text-red-600"
+            className="-mr-2 px-2 py-1.5 text-xs font-semibold text-muted transition-colors hover:text-red-600"
           >
             удалить
           </ConfirmSubmit>
@@ -504,7 +504,7 @@ export default async function AdminPayrollPage({
             итогом и спорили с ним за внимание. Теперь — под тем же «Как
             посчитали», что и в карточках. */}
         <details className="group mt-3">
-          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary [&::-webkit-details-marker]:hidden">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-line px-3.5 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary [&::-webkit-details-marker]:hidden">
             Как посчитали
             <span className="transition-transform group-open:rotate-180">▾</span>
           </summary>

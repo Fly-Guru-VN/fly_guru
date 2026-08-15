@@ -81,6 +81,7 @@ export function PayoutForm({
                 .map((p) => (
                   <option key={`${p.kind}:${p.id}`} value={`${p.kind}:${p.id}`}>
                     {p.name}
+                    {p.fired ? " · уволен" : ""}
                     {p.suggested > 0 ? ` · осталось ${vnd(p.suggested)}` : ""}
                   </option>
                 ))}
