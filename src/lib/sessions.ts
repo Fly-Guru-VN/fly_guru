@@ -43,22 +43,15 @@ export interface LoadSessionsOptions {
   by?: "work" | "money";
 }
 
-// Колонка money_date приехала в 0042. Пока миграция не накатана, запрос по ней
-// падает целиком — а вместе с ним «Статистика» и «Расходы». Поэтому колонку
-// подбираем один раз и при ошибке откатываемся на дату занятия: до наката всё
-// работает ровно как раньше (та же страховка, что у колонок премии в
-// lib/salary и у переходов в lib/sources).
+// Колонка money_date приехала в 0042 и в боевой базе есть (проверено
+// 15.08.2026). Страховка «а вдруг миграции ещё нет» отсюда убрана: она давала
+// тихий откат на дату занятия, то есть выручка периода молча считалась по
+// другому правилу, и понять это по экрану было нельзя. Порядок теперь такой:
+// сначала накатываем миграцию, потом пушим код.
 export const MONEY_DATE = "money_date";
 
 function periodColumn(by: LoadSessionsOptions["by"]): string {
   return by === "money" ? MONEY_DATE : "date";
-}
-
-// Ошибка «такой колонки нет» — единственная, из-за которой имеет смысл
-// перечитывать по-старому. Всё остальное (нет связи, нет прав) повторный
-// запрос не вылечит.
-export function isMissingColumn(message: string | undefined | null): boolean {
-  return Boolean(message && /money_date|paid_on/.test(message));
 }
 
 /**
@@ -74,7 +67,7 @@ export async function loadAllSessions<T>(
   options: LoadSessionsOptions = {},
 ): Promise<{ rows: T[]; error: string | null }> {
   const rows: T[] = [];
-  let column = periodColumn(options.by);
+  const column = periodColumn(options.by);
 
   for (let from = 0; ; from += PAGE_SIZE) {
     const fetchPage = (col: string) => {
@@ -85,12 +78,7 @@ export async function loadAllSessions<T>(
       return query.range(from, from + PAGE_SIZE - 1);
     };
 
-    let { data, error } = await fetchPage(column);
-    // 0042 не накатана — перечитываем по дате занятия и дальше идём так же.
-    if (error && column === MONEY_DATE && isMissingColumn(error.message)) {
-      column = "date";
-      ({ data, error } = await fetchPage(column));
-    }
+    const { data, error } = await fetchPage(column);
     if (error) return { rows, error: error.message };
 
     const page = (data ?? []) as unknown as T[];

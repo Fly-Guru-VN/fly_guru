@@ -87,10 +87,9 @@ function labelFor(
 // переходов сотни, это один запрос, как и было.
 const PAGE_SIZE = 1000;
 
-// Переходы за период. Колонка src приехала в 0037: пока миграция не накатана,
-// читаем без неё — тогда в таблице просто не будет переходов по рекламным
-// меткам, а весь остальной экран продолжит работать (та же страховка, что у
-// премии за смену в lib/salary).
+// Переходы за период. Колонка src приехала в 0037 и в базе есть — чтения
+// «без неё» здесь больше нет: оно тихо обнуляло переходы по рекламным меткам,
+// и «Источники» показывали ноль там, где на самом деле были заходы.
 async function loadVisits(
   supabase: Supabase,
   range: StatsRange,
@@ -105,15 +104,9 @@ async function loadVisits(
       .range(from, from + PAGE_SIZE - 1);
 
   const rows: { code: string | null; src: string | null }[] = [];
-  let columns = "code, src";
 
   for (let from = 0; ; from += PAGE_SIZE) {
-    let { data, error } = await query(columns, from);
-    // Колонки src нет — 0037 не накатана, читаем без неё и дальше идём так же.
-    if (error && columns !== "code") {
-      columns = "code";
-      ({ data, error } = await query(columns, from));
-    }
+    const { data, error } = await query("code, src", from);
     if (error) {
       // «Источники» — экран справочный (переходы и конверсия), деньги по нему
       // не выдают, поэтому роняем не страницу, а показываем, что есть. Но в
@@ -124,9 +117,9 @@ async function loadVisits(
 
     const page = (data ?? []) as unknown as {
       code: string | null;
-      src?: string | null;
+      src: string | null;
     }[];
-    rows.push(...page.map((v) => ({ code: v.code, src: v.src ?? null })));
+    rows.push(...page);
     if (page.length < PAGE_SIZE) break;
   }
 
@@ -170,9 +163,8 @@ export async function getSourcesReport(
       loadVisits(supabase, range),
       loadBookings(supabase, range),
       supabase.from("materials").select("src, label"),
-      // Справочник каналов (0041). Пока миграция не накатана, запрос вернёт
-      // ошибку — тогда остаются старые ключи из LEGACY_CHANNELS, и экран
-      // продолжает работать (та же страховка, что у переходов выше).
+      // Справочник каналов (0041). Если не прочитается, останутся старые ключи
+      // из LEGACY_CHANNELS — экран справочный, и работать он продолжит.
       supabase.from("booking_channels").select("name"),
       supabase.from("agents").select("ref_code, user:users!user_id(name)"),
       supabase

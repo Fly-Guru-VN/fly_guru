@@ -49,8 +49,8 @@ const dayInputClass =
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// Колонки карточки. paid_on приехала в 0042 и запрашивается отдельной строкой:
-// пока миграция не накатана, читаем без неё — список занятий важнее одной даты.
+// Колонки карточки. paid_on приехала в 0042 и в базе есть — отдельного чтения
+// «без неё» больше нет: оно прятало дату оплаты у всех занятий разом.
 const SESSION_COLS =
   "id, date, amount, minutes_used, subscription_id, service_id, instructor_id, payment_method_id, channel, note, created_at, clients(name), services(name), instructor:users!instructor_id(name), payment:payment_methods(name)";
 
@@ -322,8 +322,7 @@ export async function SessionsScreen({
     hiddenStaffIds(supabase),
   ]);
 
-  // 0042 не накатана — перечитываем прежним набором колонок.
-  const sessionsRes = firstTry.error ? await sessionsQuery(SESSION_COLS) : firstTry;
+  const sessionsRes = firstTry;
   const sessions = (sessionsRes.data ?? []) as unknown as SessionRow[];
   // По алфавиту — см. комментарий в admin/members: загрузчик отдаёт по id.
   const clients = [...clientsRes.rows].sort((a, b) =>

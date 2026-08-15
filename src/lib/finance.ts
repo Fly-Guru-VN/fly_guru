@@ -195,8 +195,7 @@ async function loadCashOut(
   };
 }
 
-// Отметки «ЗП выдана» (0036) за периоды внутри выбранного. Таблицы может не
-// быть (миграция не накатана) — тогда просто ноль, вкладка работает как раньше.
+// Отметки «ЗП выдана» (0036) — по дню выдачи, внутри выбранного периода.
 //
 // Считаем ТОЛЬКО инструкторов. С 13.08.2026 в той же таблице лежат выплаты
 // СММщика (его фикс), а строка на вкладке подписана «ЗП инструкторов — из них
@@ -204,8 +203,8 @@ async function loadCashOut(
 // СММщика не входит вовсе. Без фильтра его выплата задирала бы «выдано» и
 // подпись врала бы «выплачено полностью», когда инструкторам ещё должны.
 // С 0043 период у выплаты необязателен, зато обязателен день выдачи — по нему
-// и считаем. Колонки может не быть (миграция не накатана) — тогда читаем
-// по-старому, по периоду.
+// и считаем. Повтор «по-старому, по периоду» убран 15.08.2026: он молча
+// пересчитывал выданное по другому правилу.
 async function loadPaidOut(
   supabase: Supabase,
   range: StatsRange,
@@ -226,16 +225,8 @@ async function loadPaidOut(
     .in("instructor_id", instructorIds)
     .gte("paid_on", range.fromDay)
     .lte("paid_on", lastDayStr);
-  if (!error) return sum(data);
-
-  const { data: legacy, error: legacyError } = await supabase
-    .from("salary_payouts")
-    .select("amount")
-    .in("instructor_id", instructorIds)
-    .gte("period_from", range.fromDay)
-    .lte("period_to", lastDayStr);
-  failIfReadError(legacyError, "не удалось прочитать выданную зарплату");
-  return sum(legacy);
+  failIfReadError(error, "не удалось прочитать выданную зарплату");
+  return sum(data);
 }
 
 export async function getFinance(

@@ -1,5 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
-import { isMissingColumn, loadAllSessions } from "@/lib/sessions";
+import { loadAllSessions } from "@/lib/sessions";
 import { channelLabel } from "@/lib/channels";
 import { vnDay } from "@/lib/dates";
 import { SUBS_CAT } from "@/lib/payments";
@@ -215,10 +215,7 @@ export async function loadVisits(
       .lt("paid_at", range.toIso),
   ]);
 
-  // 0042 не накатана — перечитываем прежним набором колонок и по дате занятия.
-  const sessions = isMissingColumn(firstTry.error)
-    ? (await loadAllSessions<VisitRow>(supabase, SELECT_CORE, period)).rows
-    : firstTry.rows;
+  const sessions = firstTry.rows;
 
   const lifetime = new Map<string, number>();
   for (const r of all) {

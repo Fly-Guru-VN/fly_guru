@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { vnToday } from "@/lib/dates";
+import { failIfReadError } from "@/lib/dbError";
 
 // Штат школы во времени: кто когда пришёл и кто когда ушёл (миграция 0036).
 //
@@ -54,9 +55,6 @@ export function notStarted(m: StaffMember, today: string = vnToday()): boolean {
 
 // Весь список инструкторов, включая уволенных: он нужен расчётам за прошлые
 // периоды (уволенному платят за отработанную неделю) и странице Настроек.
-// Колонки трудового периода появились в 0036, а деплой у David едет раньше
-// наката миграции — при «нет такой колонки» перечитываем без них (та же
-// страховка, что у bonus_cancelled в lib/salary).
 export async function loadInstructors(client: Supabase): Promise<StaffMember[]> {
   return loadByRole(client, "instructor");
 }
@@ -88,26 +86,19 @@ async function loadByRole(
   client: Supabase,
   role: "instructor" | "smm" | "mechanic" | "admin" | "dev",
 ): Promise<StaffMember[]> {
-  const base = "id, name, senior";
-  const full = `${base}, hired_at, left_at`;
+  const { data, error } = await client
+    .from("users")
+    .select("id, name, senior, hired_at, left_at")
+    .eq("role", role)
+    .order("name");
 
-  const query = (columns: string) =>
-    client.from("users").select(columns).eq("role", role).order("name");
+  // Пустой список штата — это не «никого нет», а поломка: без него не
+  // посчитается ни ЗП, ни котёл абонементов, и экраны покажут нули как факт.
+  failIfReadError(error, `не удалось прочитать список (${role})`);
 
-  let rows: Record<string, unknown>[] | null = null;
-  const { data, error } = await query(full);
-  if (!error) {
-    rows = data as unknown as Record<string, unknown>[];
-  } else {
-    const { data: plain, error: plainError } = await query(base);
-    if (plainError) {
-      console.error("[staff] load error:", plainError.message);
-      return [];
-    }
-    rows = plain as unknown as Record<string, unknown>[];
-  }
+  const rows = (data ?? []) as unknown as Record<string, unknown>[];
 
-  return (rows ?? []).map((r) => ({
+  return rows.map((r) => ({
     id: r.id as string,
     name: r.name as string,
     hiredAt: (r.hired_at as string | null) ?? null,
@@ -120,29 +111,21 @@ async function loadByRole(
 // админки (админ и разработчик). Список для выпадашек «кто откатал» / «кто
 // продал» на трёх экранах — пусть он собирается в одном месте.
 //
-// Роль dev появилась в 0044. Пока миграция не накатана, Postgres не знает
-// такого значения enum и роняет ВЕСЬ запрос (22P02), а не отбрасывает лишнее
-// значение, — список молча оказался бы пустым, и записать клиента стало бы
-// не на кого. Поэтому при ошибке повторяем запрос без новой роли: порядок
-// «сначала код, потом миграция» перестаёт что-либо ломать.
+// Роль dev появилась в 0044 и в боевой базе есть (проверено 15.08.2026).
+// Повтор запроса без неё убран: он прикрывал порядок «сначала код, потом
+// миграция», а порядок теперь обратный.
 export async function loadSessionStaff(
   client: Supabase,
 ): Promise<{ id: string; name: string }[]> {
-  const query = (roles: string[]) =>
-    client.from("users").select("id, name").in("role", roles).order("name");
+  const { data, error } = await client
+    .from("users")
+    .select("id, name")
+    .in("role", ["instructor", "admin", "dev"])
+    .order("name");
 
-  const { data, error } = await query(["instructor", "admin", "dev"]);
-  if (!error) return (data ?? []) as { id: string; name: string }[];
-
-  const { data: legacy, error: legacyError } = await query([
-    "instructor",
-    "admin",
-  ]);
-  if (legacyError) {
-    console.error("[staff] session staff load error:", legacyError.message);
-    return [];
-  }
-  return (legacy ?? []) as { id: string; name: string }[];
+  // Пустой список = «записать клиента не на кого». Такое лучше увидеть.
+  failIfReadError(error, "не удалось прочитать, кто проводит занятия");
+  return (data ?? []) as { id: string; name: string }[];
 }
 
 // Действующие на сегодня — для выпадающих списков в формах.
@@ -190,9 +173,9 @@ export function employedDuring(
 
 // Кого прятать из выпадающих списков «кто провёл / кто продал / кому ставить
 // смену»: уволенные и ещё не вышедшие. Отдельной функцией, а не фильтром внутри
-// каждого запроса, потому что списки везде собираются по-разному (где-то роли
-// instructor+admin, где-то ещё и механик, и у каждого свои страховки на случай
-// ненакатанной миграции). Дешевле один маленький запрос по маленькой таблице.
+// каждого запроса, потому что списки везде собираются по-разному: где-то роли
+// instructor+admin, где-то ещё и механик. Дешевле один маленький запрос по
+// маленькой таблице.
 export async function hiddenStaffIds(
   client: Supabase,
   today: string = vnToday(),

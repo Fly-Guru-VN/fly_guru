@@ -245,23 +245,11 @@ export async function createBookingAction(
     ...bookingFields(formData),
     city,
   };
-  let { data: created, error } = await supabase
+  const { data: created, error } = await supabase
     .from("bookings")
     .insert(row)
     .select("id")
     .single();
-  // 0036 может быть ещё не накатана — создаём заявку без отметки об оплате,
-  // чтобы форма не отказывала целиком из-за одной колонки.
-  if (error?.code === "PGRST204" && ("paid" in row || "paid_on" in row)) {
-    const legacy: Partial<typeof row> = { ...row };
-    delete legacy.paid;
-    delete legacy.paid_on;
-    ({ data: created, error } = await supabase
-      .from("bookings")
-      .insert(legacy)
-      .select("id")
-      .single());
-  }
   if (error || !created) {
     return { error: `Не удалось создать заявку: ${error?.message ?? "неизвестно"}` };
   }
@@ -345,14 +333,8 @@ export async function coverBookingAction(formData: FormData) {
       client_id: session.client_id,
     })
     .eq("id", id);
-  // Колонки нет — 0038 ещё не накатана. Молча делать вид, что заявка закрыта
-  // занятием, нельзя: человек увидит «Выполнена» без связи и решит, что всё в
-  // порядке. Честно говорим, чего не хватает.
-  if (error?.code === "PGRST204") {
-    throw new Error(
-      "не удалось привязать занятие: в базе нет колонки bookings.session_id — накатите миграцию 0038",
-    );
-  }
+  // Молча делать вид, что заявка закрыта занятием, нельзя: человек увидит
+  // «Выполнена» без связи и решит, что всё в порядке.
   failIfError(error, "не удалось привязать занятие");
   revalidatePath("/", "layout");
 }
@@ -618,22 +600,11 @@ export async function createSessionAction(
     note: String(formData.get("note") ?? "").trim() || null,
     created_by: user.id,
   };
-  let { data: session, error: insError } = await supabase
+  const { data: session, error: insError } = await supabase
     .from("sessions")
     .insert(sessionRow)
     .select("id")
     .single();
-  // 0042 не накатана — записываем занятие без даты оплаты: потерять дату
-  // хуже, чем потерять всё занятие, и дописать её потом можно в карточке.
-  if (insError?.code === "PGRST204" && "paid_on" in sessionRow) {
-    const legacy: Partial<typeof sessionRow> = { ...sessionRow };
-    delete legacy.paid_on;
-    ({ data: session, error: insError } = await supabase
-      .from("sessions")
-      .insert(legacy)
-      .select("id")
-      .single());
-  }
   if (insError) {
     // Занятие не записалось — заявка не должна остаться «проведённой».
     if (bookingId && bookingBefore) await releaseBooking(supabase, bookingId, bookingBefore);
@@ -719,14 +690,7 @@ export async function updateSessionAction(formData: FormData) {
     if (svc && svc.category !== "subscription") patch.service_id = serviceId;
   }
   if (Object.keys(patch).length === 0) return;
-  let { error } = await supabase.from("sessions").update(patch).eq("id", id);
-  // 0042 ещё не накатана — сохраняем всё остальное, а не отказываем целиком
-  // из-за одной колонки (та же страховка, что у paid в заявке).
-  if (error?.code === "PGRST204" && "paid_on" in patch) {
-    const legacy = { ...patch };
-    delete legacy.paid_on;
-    ({ error } = await supabase.from("sessions").update(legacy).eq("id", id));
-  }
+  const { error } = await supabase.from("sessions").update(patch).eq("id", id);
   failIfError(error, "не удалось сохранить сессию");
   revalidatePath("/", "layout");
 }
@@ -1917,17 +1881,7 @@ export async function paySalaryAction(
     created_by: admin.id,
   });
   if (error) {
-    // Самая частая причина — миграция 0043 ещё не накатана: в базе выплата
-    // пока обязана быть привязана к периоду, а полей даты выдачи и
-    // комментария нет вовсе. Говорим это словами, а не показываем ошибку базы.
-    const needsMigration = /paid_on|comment|expense_id|period_from/.test(
-      error.message,
-    );
-    return {
-      error: needsMigration
-        ? "Свободная выплата заработает после наката миграции 0043 — сейчас в базе выплата обязана быть привязана к периоду."
-        : `Не удалось сохранить выплату: ${error.message}`,
-    };
+    return { error: `Не удалось сохранить выплату: ${error.message}` };
   }
 
   revalidatePath("/", "layout");
@@ -1953,8 +1907,6 @@ export async function deleteSalaryPayoutAction(formData: FormData) {
     return;
   }
 
-  // Колонки expense_id может не быть (0043 не накатана) — тогда просто удаляем
-  // выплату, как раньше.
   const { data: payout } = await supabase
     .from("salary_payouts")
     .select("expense_id")

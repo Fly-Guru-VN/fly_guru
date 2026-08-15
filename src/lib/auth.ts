@@ -88,14 +88,14 @@ export const getAppUser = cache(async (): Promise<AppUser | null> => {
   if (!user) return null;
 
   // RLS: политика users_select_own разрешает читать только свою строку.
-  // left_at появился в 0036: пока миграция не накатана, читаем без него —
-  // иначе вход развалился бы у всех разом.
-  const base = "id, role, name, phone, email, photo_url, age, monthly_goal";
-  const query = (columns: string) =>
-    supabase.from("users").select(columns).eq("auth_id", user.id).maybeSingle();
-
-  let row = await query(`${base}, left_at`);
-  if (row.error) row = await query(base);
+  // Страховка «а вдруг 0036 не накатана» убрана 15.08.2026: колонка left_at в
+  // боевой базе есть, а повторный запрос без неё пускал бы в кабинет уволенного
+  // — молча, потому что без left_at проверка увольнения всегда «нет».
+  const row = await supabase
+    .from("users")
+    .select("id, role, name, phone, email, photo_url, age, monthly_goal, left_at")
+    .eq("auth_id", user.id)
+    .maybeSingle();
   if (!row.data) return null;
 
   return { left_at: null, ...(row.data as object) } as AppUser;

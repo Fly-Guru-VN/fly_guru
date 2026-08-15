@@ -226,8 +226,8 @@ export async function coverBookingAction(formData: FormData) {
     })
     .eq("id", id)
     .eq("status", "confirmed");
-  // 0038 не накатана — колонки нет. Тихо «закрывать» заявку без связи нельзя:
-  // получится ровно та дыра, ради которой всё и затевалось.
+  // Тихо «закрывать» заявку без связи нельзя: получится ровно та дыра, ради
+  // которой всё и затевалось.
   if (error) {
     console.error("[instructor] cover booking error:", error.message);
     return;

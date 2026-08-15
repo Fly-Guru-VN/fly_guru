@@ -49,8 +49,6 @@ export default async function InstructorBookingsPage() {
 
   // Профиль и список записей не зависят друг от друга — грузим параллельно,
   // а не по очереди (каждый поход к базе в другом регионе стоит ~200 мс).
-  // Колонка paid добавлена в 0036: пока миграция не накатана, читаем без неё —
-  // иначе лента записей у инструктора осталась бы пустой.
   const cols =
     "id, client_name, phone, preferred_date, scheduled_time, age, weight, pinned, internal_note, city, accepted_by, services(name, category), accepted:users!accepted_by(name)";
   const bookingsQuery = (columns: string) =>
@@ -82,13 +80,9 @@ export default async function InstructorBookingsPage() {
       .order("date", { ascending: false })
       .limit(100),
   ]);
-  const linksReady = !first.error;
-  let res = first;
-  if (res.error) res = await bookingsQuery(`${cols}, paid`);
-  if (res.error) res = await bookingsQuery(cols);
   if (!user) return null; // layout уже средиректил бы; страховка для типов
 
-  const bookings = (res.data ?? []) as unknown as BookingRow[];
+  const bookings = (first.data ?? []) as unknown as BookingRow[];
   const recentSessions = (recent.data ?? []) as unknown as SessionOption[];
   const freeCount = bookings.filter((b) => !b.accepted_by).length;
 
@@ -256,7 +250,7 @@ export default async function InstructorBookingsPage() {
                       заявка просто висела в ленте до админа, и человек,
                       который реально катался, числился отказом.
                       Свёрнуто: нужно это редко. */}
-                  {linksReady && coverCandidatesFor(b).length > 0 && (
+                  {coverCandidatesFor(b).length > 0 && (
                     <details className="mt-3 rounded-xl border border-line bg-line/10 p-3">
                       <summary className="cursor-pointer text-sm font-semibold text-muted">
                         Клиент уже учтён в другом занятии

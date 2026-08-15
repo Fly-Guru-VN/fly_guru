@@ -169,30 +169,28 @@ interface StaffPayoutRaw {
   id: string;
   instructor_id: string;
   amount: number | null;
-  paid_on?: string | null;
-  paid_at?: string | null;
-  comment?: string | null;
+  // paid_on в базе NOT NULL с 0043: старым выплатам он проставлен из paid_at,
+  // поэтому запасных вариантов дня выдачи больше не нужно.
+  paid_on: string;
+  comment: string | null;
   period_from: string | null;
   period_to: string | null;
 }
 
-// Выплаты штату. Колонки 0043 (paid_on, comment) могут быть ещё не накатаны —
-// тогда читаем по-старому и днём выдачи считаем начало периода: страница
-// работает, просто без свободных выплат (их и записать пока некуда).
+// Выплаты штату. Колонки 0043 (paid_on, comment) в боевой базе есть — повтор
+// запроса «по-старому, по периоду» убран 15.08.2026: он подменял день выдачи
+// началом периода, то есть выплата уезжала в другую неделю, и заметить это по
+// экрану было нельзя.
 async function loadStaffPayouts(
   supabase: Supabase,
   filter?: { fromDay: string; lastDay: string },
 ): Promise<PayoutRow[]> {
-  const full =
-    "id, instructor_id, amount, paid_on, comment, period_from, period_to";
-  const legacy = "id, instructor_id, amount, paid_at, period_from, period_to";
-
-  const query = (columns: string, byDay: boolean, from: number) => {
-    let q = supabase.from("salary_payouts").select(columns);
+  const query = (from: number) => {
+    let q = supabase
+      .from("salary_payouts")
+      .select("id, instructor_id, amount, paid_on, comment, period_from, period_to");
     if (filter) {
-      q = byDay
-        ? q.gte("paid_on", filter.fromDay).lte("paid_on", filter.lastDay)
-        : q.gte("period_from", filter.fromDay).lte("period_to", filter.lastDay);
+      q = q.gte("paid_on", filter.fromDay).lte("paid_on", filter.lastDay);
     }
     return q.order("id").range(from, from + PAGE_SIZE - 1);
   };
@@ -202,17 +200,9 @@ async function loadStaffPayouts(
   // «выплачено» стало бы меньше настоящего, а «осталось выдать» — больше. Ту же
   // грабку уже прошли в lib/clients и lib/sessions, там всё описано подробно.
   const rows: StaffPayoutRaw[] = [];
-  let columns = full;
-  let byDay = true;
 
   for (let from = 0; ; from += PAGE_SIZE) {
-    let { data, error } = await query(columns, byDay, from);
-    // Колонок 0043 нет — перечитываем по-старому и дальше идём так же.
-    if (error && columns === full) {
-      columns = legacy;
-      byDay = false;
-      ({ data, error } = await query(columns, byDay, from));
-    }
+    const { data, error } = await query(from);
     // Не прочитали выплаты — молчать нельзя: пустой список означает «никому
     // ничего не выдали», и «осталось выдать» вырастет на всё уже выданное
     // (см. lib/dbError). Раньше здесь стоял тихий `return []`.
@@ -230,9 +220,8 @@ async function loadStaffPayouts(
     payeeId: r.instructor_id,
     name: "",
     amount: Number(r.amount ?? 0),
-    paidOn:
-      r.paid_on ?? (r.paid_at ? r.paid_at.slice(0, 10) : (r.period_from ?? "")),
-    comment: r.comment ?? null,
+    paidOn: r.paid_on,
+    comment: r.comment,
     period:
       r.period_from && r.period_to
         ? { from: r.period_from, to: r.period_to }

@@ -82,9 +82,11 @@ export async function linkBookingResult(
   link: { session_id: string } | { subscription_id: string },
 ): Promise<void> {
   const { error } = await supabase.from("bookings").update(link).eq("id", bookingId);
-  // Колонок ещё нет — 0038 не накатана, а деплой у David едет раньше наката
-  // (та же страховка, что у paid в 0036). Молча живём как раньше.
-  if (error && error.code !== "PGRST204") {
+  // Связь заявки с занятием (0038) — не деньги: если она не записалась, занятие
+  // уже создано и ЗП посчитается, потеряется только бейдж «Учтена в занятии».
+  // Поэтому не роняем оформление, но пишем в лог — раньше сюда же попадала
+  // страховка «миграции ещё нет», и настоящая ошибка тонула вместе с ней.
+  if (error) {
     console.error("[bookingClaim] link error:", error.message);
   }
 }
