@@ -18,10 +18,10 @@ export interface PayoutRequest {
   amount: number;
 }
 
-// warn — за этот период человеку уже отдали столько же или школа ему вообще
-// ничего не должна. Кнопку не убираем (аванс и доплату никто не запрещал), но
-// красим красным: без этого строка «выплачено» и приглашение «Выплатить
-// 987 500 ₫» стоят рядом и читаются как «надо выдать ещё раз».
+// warn — за этот период человеку уже отдали столько же или выдавать ему больше
+// нечего. Кнопку не убираем (аванс и доплату никто не запрещал), но красим
+// красным: без этого чип «Всё выдано» и приглашение «Выплатить 987 500 ₫»
+// стоят рядом и читаются как «надо выдать ещё раз».
 export function PayButton({
   payee,
   amount,
@@ -42,13 +42,16 @@ export function PayButton({
           }),
         )
       }
-      className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+      className={`w-full shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition-colors sm:w-auto ${
         warn
           ? "border-red-500 text-red-600 hover:bg-red-500 hover:text-white"
           : "border-primary text-primary hover:bg-primary hover:text-white"
       }`}
     >
-      Выплатить {vnd(amount)}
+      {/* «ещё» — чтобы красная кнопка рядом с зелёным «Всё выдано» читалась как
+          «можно, но не нужно», а не как противоречие. */}
+      {warn ? "Выплатить ещё " : "Выплатить "}
+      {vnd(amount)}
     </button>
   );
 }

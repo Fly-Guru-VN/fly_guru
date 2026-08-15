@@ -14,7 +14,8 @@ import { PAYOUT_EVENT, type PayoutRequest } from "./PayButton";
 // период, как было раньше.
 //
 // Два способа заполнить форму, и они дают РАЗНЫЕ суммы — это намеренно:
-//   • выбор человека в списке подставляет его ДОЛГ (сальдо с точки отсчёта);
+//   • выбор человека в списке подставляет всё, что ему ОСТАЛОСЬ ВЫДАТЬ (сальдо
+//     с точки отсчёта);
 //   • кнопка «Выплатить» в карточке — заработок за ВЫБРАННЫЙ период.
 // Первый отвечает на «сколько мы ему вообще должны», второй — на «закрываем
 // эту неделю». См. lib/payroll.
@@ -80,7 +81,7 @@ export function PayoutForm({
                 .map((p) => (
                   <option key={`${p.kind}:${p.id}`} value={`${p.kind}:${p.id}`}>
                     {p.name}
-                    {p.suggested > 0 ? ` · долг ${vnd(p.suggested)}` : ""}
+                    {p.suggested > 0 ? ` · осталось ${vnd(p.suggested)}` : ""}
                   </option>
                 ))}
             </optgroup>
@@ -127,9 +128,9 @@ export function PayoutForm({
           деньги уходят из остатка в день выдачи, кому бы ни платили. */}
 
       {chosen && chosen.suggested > 0 && (
-        <p className="text-xs text-muted">
-          {chosen.name}: всего осталось отдать {vnd(chosen.suggested)} — это
-          долг за всё время, а не за выбранный период.
+        <p className="text-sm text-muted">
+          {chosen.name}: осталось выдать {vnd(chosen.suggested)} — это за всё
+          время, а не за выбранный период.
         </p>
       )}
 
