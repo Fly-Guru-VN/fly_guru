@@ -79,15 +79,6 @@ export interface InstructorStats {
   byCategory: { category: string; amount: number }[]; // выручка по видам услуг
 }
 
-// Все инструкторы школы, включая уволенных: их выходы и занятия за отработанные
-// дни считаются как обычно (уволенному платят за отработанную неделю). Кто
-// участвует в дележе денег КОНКРЕТНОГО дня, решают даты найма/увольнения —
-// см. lib/staff. Инструктору список отдаёт политика users_select_staff (0015).
-export async function getInstructorIds(supabase: Supabase): Promise<string[]> {
-  const { data } = await supabase.from("users").select("id").eq("role", "instructor");
-  return (data ?? []).map((u) => u.id as string);
-}
-
 interface SessionRow {
   client_id: string | null;
   amount: number | null;

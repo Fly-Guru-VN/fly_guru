@@ -17,8 +17,8 @@ export function phoneDigits(raw: string): string {
 // цифр, без нуля 9), и туристы со всего мира. E.164 разрешает максимум 15
 // цифр, снизу берём 8 — короче настоящих мобильных не бывает. Задача проверки
 // не «угадать страну», а отсечь явный мусор.
-export const PHONE_MIN_DIGITS = 8;
-export const PHONE_MAX_DIGITS = 15;
+const PHONE_MIN_DIGITS = 8;
+const PHONE_MAX_DIGITS = 15;
 
 export function isValidPhone(raw: string | null | undefined): boolean {
   const n = phoneDigits(raw ?? "").length;

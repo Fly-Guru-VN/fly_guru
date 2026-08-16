@@ -8,7 +8,7 @@
 
 export type PaymentClaim = "admin" | "unclear";
 
-export const PAYMENT_CLAIMS: PaymentClaim[] = ["admin", "unclear"];
+const PAYMENT_CLAIMS: PaymentClaim[] = ["admin", "unclear"];
 
 export function isPaymentClaim(value: string): value is PaymentClaim {
   return (PAYMENT_CLAIMS as string[]).includes(value);

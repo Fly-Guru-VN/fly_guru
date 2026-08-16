@@ -24,7 +24,7 @@ type Supabase =
   | ReturnType<typeof createAdminClient>;
 
 /** Скидка клиенту по агентской ссылке. */
-export const REF_DISCOUNT_RATE = 0.1;
+const REF_DISCOUNT_RATE = 0.1;
 
 /**
  * Услуги, за которые агенту вообще может причитаться награда: базовое
@@ -33,7 +33,7 @@ export const REF_DISCOUNT_RATE = 0.1;
  */
 export const BASIC_TRAINING_CODES = ["basic-adult", "basic-kid", "basic-duo"];
 
-export function isBasicTraining(code: string | null | undefined): boolean {
+function isBasicTraining(code: string | null | undefined): boolean {
   return Boolean(code) && BASIC_TRAINING_CODES.includes(code as string);
 }
 
@@ -46,7 +46,7 @@ export function isBasicTraining(code: string | null | undefined): boolean {
  * не начислить положенное: пропущенную награду админ добавит руками, а лишние
  * деньги агенту уже уехали.
  */
-export async function hasEarlierBasicTraining(
+async function hasEarlierBasicTraining(
   supabase: Supabase,
   clientId: string,
 ): Promise<boolean> {

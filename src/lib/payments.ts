@@ -107,7 +107,7 @@ export function buildPaymentBreakdown(payments: PaymentInput[]): PaymentBreakdow
 // Оплаты за произвольный период — тем же запросом, что и за день. Период здесь
 // денежный (money_date, 0042): это касса, а в кассе чек лежит в том дне, когда
 // пришли деньги, а не когда катались.
-export async function getPeriodPayments(
+async function getPeriodPayments(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<PaymentBreakdown> {
