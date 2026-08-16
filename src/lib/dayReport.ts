@@ -2,6 +2,7 @@ import type { createClient } from "@/lib/supabase/server";
 import { vnPeriod } from "@/lib/dates";
 import { MARINA_RATE } from "@/lib/finance";
 import { loadInstructors } from "@/lib/staff";
+import { failIfReadError } from "@/lib/dbError";
 import {
   getSessionShare,
   getShiftPay,
@@ -136,18 +137,17 @@ type ShiftRow = {
   users: { name: string } | null;
 };
 
-// Смены дня. bonus_cancelled приехал в 0027 — если у кого-то база старее,
-// перечитываем без него (та же страховка, что в lib/salary).
+// Смены дня. Повтор запроса без bonus_cancelled (0027) убран 16.08.2026:
+// колонка в боевой базе есть, а перечитывание глотало любую ошибку и в отчёте
+// дня молча оказывалось «сегодня никто не работал».
 async function loadDayShifts(admin: Supabase, date: string): Promise<ShiftRow[]> {
-  const base = "instructor_id, opened_at, closed_at, users!instructor_id(name)";
-  const query = (columns: string) =>
-    admin.from("shifts").select(columns).eq("date", date);
+  const { data, error } = await admin
+    .from("shifts")
+    .select("instructor_id, opened_at, closed_at, bonus_cancelled, users!instructor_id(name)")
+    .eq("date", date);
 
-  const { data, error } = await query(`${base}, bonus_cancelled`);
-  if (!error) return (data ?? []) as unknown as ShiftRow[];
-
-  const { data: plain } = await query(base);
-  return (plain ?? []) as unknown as ShiftRow[];
+  failIfReadError(error, "не удалось прочитать смены дня");
+  return (data ?? []) as unknown as ShiftRow[];
 }
 
 // meId — чью ЗП показать отдельной строкой.

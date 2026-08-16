@@ -22,6 +22,7 @@ import { BookingCreateForm } from "./BookingCreateForm";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { sortServicesByType } from "@/lib/serviceOrder";
+import { failIfReadError } from "@/lib/dbError";
 
 // Лента «Актуальные заявки»: полный цикл new → contacted → confirmed →
 // done/cancelled/archived. «Ожидает оплату» — не отдельный статус, а
@@ -58,7 +59,7 @@ interface BookingRow {
   payment_method_id: string | null;
   payment: { name: string } | null;
   paid: boolean | null; // деньги получены до занятия (0036)
-  paid_on?: string | null; // когда именно заплатили, если не в день занятия (0042)
+  paid_on: string | null; // когда именно заплатили, если не в день занятия (0042)
   // Чем закрыта заявка (0038): занятием или продажей абонемента. null у всех
   // заявок, закрытых до этой миграции, и у закрытых кнопкой «Выполнена».
   subscription_id: string | null;
@@ -90,13 +91,11 @@ function isClosedDeal(b: BookingRow): boolean {
 // Так выглядят заявки, закрытые кнопкой «Выполнена» мимо «Записать клиента»:
 // клиент откатал, а в выручке, статистике и ЗП инструктора этого нет.
 //
-// linksReady — накатана ли 0038. Пока колонок нет, связи нет НИ У ОДНОЙ заявки,
-// и подсказка висела бы на всех закрытых сразу, пугая на ровном месте. Заявки,
-// закрытые до наката, останутся без связи и после него — их привязывают руками
-// один раз, кнопкой «Клиент учтён в другом занятии»; поэтому формулировка
-// нейтральная («не привязано»), а не обвинительная.
-function isDealWithoutSession(b: BookingRow, linksReady: boolean): boolean {
-  return linksReady && isClosedDeal(b) && !b.session && !b.subscription_id;
+// Заявки, закрытые до 0038, остались без связи и после неё — их привязывают
+// руками один раз, кнопкой «Клиент учтён в другом занятии»; поэтому
+// формулировка нейтральная («не привязано»), а не обвинительная.
+function isDealWithoutSession(b: BookingRow): boolean {
+  return isClosedDeal(b) && !b.session && !b.subscription_id;
 }
 
 // Заявка принята инструктором и ждёт занятия. Именно здесь бейдж говорит про
@@ -151,7 +150,6 @@ function BookingCard({
   refDiscount,
   paymentMethods,
   coverCandidates,
-  linksReady,
   base,
 }: {
   b: BookingRow;
@@ -166,9 +164,6 @@ function BookingCard({
   // Занятия, к которым эту заявку можно привязать: соседние по дате, чтобы в
   // списке не оказалась вся история школы.
   coverCandidates: SessionLink[];
-  // Накатана ли 0038: до неё связей нет ни у кого, и подсказки про
-  // непривязанное занятие показывать нельзя.
-  linksReady: boolean;
   /** Кабинет, из которого открыта лента: «/admin» или «/smm». */
   base: string;
 }) {
@@ -321,7 +316,7 @@ function BookingCard({
         )}
 
         {/* Закрыта, а занятия за ней не числится. */}
-        {isDealWithoutSession(b, linksReady) && (
+        {isDealWithoutSession(b) && (
           <p className="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-700">
             <span className="font-bold">Занятие не привязано.</span> Заявка
             закрыта, но занятия за ней в базе нет — значит, выручка и 15%
@@ -581,11 +576,10 @@ function BookingCard({
             до сих пор закрывали именно «Отменить» (заявка 76 от 11.08 —
             дочка, которая каталась в парном занятии мамы). Такую отмену
             исправляют здесь: заявка станет выполненной и укажет на занятие. */}
-        {linksReady &&
-          b.status !== "new" &&
+        {b.status !== "new" &&
           (!terminal ||
             b.status === "cancelled" ||
-            isDealWithoutSession(b, linksReady)) &&
+            isDealWithoutSession(b)) &&
           coverCandidates.length > 0 && (
           <details className="mt-3 rounded-xl border border-line bg-line/10 p-3">
             <summary className="cursor-pointer text-xs font-semibold text-muted">
@@ -695,32 +689,19 @@ export async function BookingsScreen({
     name: s.name as string,
   }));
 
-  // Колонка paid добавлена в 0036: до наката её нет, и с ней запрос падает
-  // целиком — а вместе с ним лента заявок. Поэтому при ошибке перечитываем без
-  // неё (та же страховка, что у колонок премии в lib/salary).
-  const bookingCols =
-    "id, booking_no, client_name, phone, telegram_username, preferred_date, scheduled_time, age, weight, status, pinned, ref_code, src, city, utm, internal_note, client_id, rescheduled_at, created_at, payment_method_id, services(name, category), accepted:users!accepted_by(name), payment:payment_methods(name)";
-  const bookingsQuery = (columns: string) =>
-    supabase
-      .from("bookings")
-      .select(columns)
-      .order("created_at", { ascending: false })
-      .limit(200);
+  // Все колонки одним запросом. Лесенка «не прошло — перечитываем без paid,
+  // без paid_on, без связей 0038» убрана 16.08.2026: миграции накатаны, а
+  // подстраховка глотала любую ошибку и отдавала ленту без отметок об оплате и
+  // без связей с занятиями — то есть тихо неправильную.
+  const res = await supabase
+    .from("bookings")
+    .select(
+      "id, booking_no, client_name, phone, telegram_username, preferred_date, scheduled_time, age, weight, status, pinned, ref_code, src, city, utm, internal_note, client_id, rescheduled_at, created_at, payment_method_id, paid, paid_on, subscription_id, services(name, category), accepted:users!accepted_by(name), payment:payment_methods(name), session:sessions!session_id(id, date, amount, services(name), instructor:users!instructor_id(name))",
+    )
+    .order("created_at", { ascending: false })
+    .limit(200);
 
-  // Колонки 0038 (чем закрыта заявка) читаем тем же приёмом: не накатили —
-  // отваливаемся на прежний набор, лента продолжает работать.
-  const sessionCols =
-    "subscription_id, session:sessions!session_id(id, date, amount, services(name), instructor:users!instructor_id(name))";
-  // paid_on приехала в 0042 — третья колонка, живущая по тому же правилу.
-  let res = await bookingsQuery(`${bookingCols}, paid, paid_on, ${sessionCols}`);
-  if (res.error) res = await bookingsQuery(`${bookingCols}, paid, ${sessionCols}`);
-  // Прошёл любой из запросов С КОЛОНКАМИ СВЯЗИ — значит они в базе есть, и
-  // «занятие не привязано» означает дыру, а не ненакатанную миграцию. Считаем
-  // это после второй попытки: без paid_on (0042) первая падает и на накатанной
-  // 0038, и подсказки пропали бы на ровном месте.
-  const linksReady = !res.error;
-  if (res.error) res = await bookingsQuery(`${bookingCols}, paid`);
-  if (res.error) res = await bookingsQuery(bookingCols);
+  failIfReadError(res.error, "не удалось прочитать заявки");
 
   const all = (res.data ?? []) as unknown as BookingRow[];
 
@@ -872,7 +853,6 @@ export async function BookingsScreen({
             refDiscount={refDiscounts.get(b.phone)}
             paymentMethods={paymentMethods}
             coverCandidates={coverCandidatesFor(b)}
-            linksReady={linksReady}
             base={base}
           />
         ))}

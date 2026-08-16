@@ -160,16 +160,10 @@ async function updateBooking(
   patch: Record<string, unknown>,
 ) {
   const supabase = await officeClient(user);
-  let { error } = await supabase.from("bookings").update(patch).eq("id", id);
-  // Колонка paid появилась в 0036, а деплой у David едет раньше наката: без
-  // этой страховки карточка заявки перестала бы сохраняться целиком из-за
-  // одной галочки (тот же приём, что у payment_method_id абонемента в 0025).
-  if (error?.code === "PGRST204" && ("paid" in patch || "paid_on" in patch)) {
-    const legacy = { ...patch };
-    delete legacy.paid;
-    delete legacy.paid_on; // колонка из 0042 — та же история
-    ({ error } = await supabase.from("bookings").update(legacy).eq("id", id));
-  }
+  // Колонки paid (0036) и paid_on (0042) в боевой базе есть — повтор запроса
+  // без них убран 16.08.2026: он тихо сохранял заявку БЕЗ отметки об оплате,
+  // и админ видел «сохранено», а галочка не держалась.
+  const { error } = await supabase.from("bookings").update(patch).eq("id", id);
   failIfError(error, "не удалось сохранить заявку");
   revalidatePath("/", "layout");
 }
@@ -879,22 +873,14 @@ export async function adminSellSubscriptionAction(
     paid_at: paidAt,
     payment_method_id: paymentMethodId,
   };
-  let { data: sub, error: subError } = await supabase
+  // payment_method_id (0025) в боевой базе есть. Повтор вставки без него убран
+  // 16.08.2026: абонемент сохранялся без способа оплаты, и в кассе появлялась
+  // продажа «оплата не указана», которую потом искали руками.
+  const { data: sub, error: subError } = await supabase
     .from("subscriptions")
     .insert(row)
     .select("id")
     .single();
-  // До миграции 0025 колонки payment_method_id нет — не роняем продажу из-за
-  // неё, сохраняем абонемент без способа оплаты (см. кабинет инструктора).
-  if (subError?.code === "PGRST204") {
-    const legacy: Partial<typeof row> = { ...row };
-    delete legacy.payment_method_id;
-    ({ data: sub, error: subError } = await supabase
-      .from("subscriptions")
-      .insert(legacy)
-      .select("id")
-      .single());
-  }
   if (subError) {
     // Абонемент не создался — заявка не должна остаться «проведённой».
     if (bookingId && bookingBefore) await releaseBooking(supabase, bookingId, bookingBefore);
@@ -942,15 +928,10 @@ export async function togglePaidAction(formData: FormData) {
     payment_claim_by: null,
     payment_claim_at: null,
   };
-  let { error } = await supabase.from("subscriptions").update(patch).eq("id", id);
-  // 0032 ещё не накатили — колонок заявления нет. Отметку оплаты из-за этого не
-  // роняем: она работала и до миграции.
-  if (error?.code === "PGRST204") {
-    ({ error } = await supabase
-      .from("subscriptions")
-      .update({ paid_at: paidAt, payment_method_id: paymentMethodId })
-      .eq("id", id));
-  }
+  // Колонки заявления об оплате (0032) в боевой базе есть — повтор запроса без
+  // них убран 16.08.2026: он оставлял висеть «инструктор говорит, что оплату
+  // принял админ» на уже отмеченном абонементе.
+  const { error } = await supabase.from("subscriptions").update(patch).eq("id", id);
   failIfError(error, "не удалось изменить отметку оплаты");
   revalidatePath("/", "layout");
 }

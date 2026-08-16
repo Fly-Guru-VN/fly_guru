@@ -1,6 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { vnMonth } from "@/lib/dates";
 import { hiddenStaffIds } from "@/lib/staff";
+import { failIfReadError } from "@/lib/dbError";
 
 // Данные календаря за месяц — общий источник для админского и инструкторского
 // кабинетов (цифры не должны расходиться). Собираем карту «день → смены +
@@ -84,9 +85,6 @@ export interface MonthCalendar {
   staff: StaffMember[];
 }
 
-// Смены месяца. Колонки премии добавила миграция 0027, а деплой у David едет
-// раньше наката — без этой страховки календарь падал бы целиком из-за двух
-// колонок, которых ещё нет (тот же приём, что в lib/salary и у 0025).
 interface MonthShiftRow {
   id: string;
   instructor_id: string;
@@ -107,26 +105,19 @@ async function loadMonthShifts(
   fromDay: string,
   toDay: string,
 ): Promise<{ data: MonthShiftRow[] }> {
-  const base =
-    "id, instructor_id, date, note, planned, opened_at, closed_at, open_comment, close_comment, instructor:users!instructor_id(name)";
-  const withBonus = `${base}, bonus_cancelled, bonus_comment`;
+  const { data, error } = await supabase
+    .from("shifts")
+    .select(
+      "id, instructor_id, date, note, planned, opened_at, closed_at, open_comment, close_comment, bonus_cancelled, bonus_comment, instructor:users!instructor_id(name)",
+    )
+    .gte("date", fromDay)
+    .lt("date", toDay);
 
-  const query = (columns: string) =>
-    supabase
-      .from("shifts")
-      .select(columns)
-      .gte("date", fromDay)
-      .lt("date", toDay);
-
-  const res = await query(withBonus);
-  if (!res.error) return { data: (res.data ?? []) as unknown as MonthShiftRow[] };
-
-  const plain = await query(base);
-  if (plain.error) {
-    console.error("[shifts] month load error:", plain.error.message);
-    return { data: [] };
-  }
-  return { data: (plain.data ?? []) as unknown as MonthShiftRow[] };
+  // Колонки премии (0027) в боевой базе есть. Повтор запроса без них убран
+  // 16.08.2026: он ловил любую ошибку и оставлял календарь пустым — месяц без
+  // единой смены выглядит как факт, а не как сбой.
+  failIfReadError(error, "не удалось прочитать смены месяца");
+  return { data: (data ?? []) as unknown as MonthShiftRow[] };
 }
 
 // Кому можно ставить смену и чьи выходы показывать в карточке дня.
@@ -134,29 +125,24 @@ async function loadMonthShifts(
 // Механик здесь ради админа: смену тот открывает себе сам, но босс должен
 // видеть, во сколько человек пришёл, ушёл и что снял.
 //
-// Роль 'mechanic' добавляет миграция 0028, а деплой у David едет раньше наката
-// — и до него фильтр по несуществующему значению enum роняет ЗАПРОС ЦЕЛИКОМ
-// (22P02 «invalid input value for enum user_role»), то есть календарь остаётся
-// вообще без списка людей. Поэтому при ошибке перечитываем без механика — та
-// же страховка, что у колонок премии в loadMonthShifts.
+// Роль 'mechanic' приехала в 0028 и в боевой базе есть. Повтор запроса без неё
+// убран 16.08.2026: он прикрывал порядок «сначала код, потом миграция», а
+// порядок теперь обратный — и заодно глотал любую другую ошибку, оставляя
+// календарь без списка людей, кому вообще можно поставить смену.
 async function loadStaff(supabase: Supabase): Promise<StaffMember[]> {
-  const query = (roles: string[]) =>
-    supabase.from("users").select("id, name, role").in("role", roles).order("name");
-
   // Уволенным смену не ставим (0036). Их ПРОШЛЫЕ смены из календаря никуда не
   // деваются: имя в карточке дня приходит из самой смены, а не из этого списка.
-  const hidden = await hiddenStaffIds(supabase);
-  const visible = (rows: StaffMember[]) => rows.filter((u) => !hidden.has(u.id));
+  const [hidden, res] = await Promise.all([
+    hiddenStaffIds(supabase),
+    supabase
+      .from("users")
+      .select("id, name, role")
+      .in("role", ["instructor", "admin", "mechanic"])
+      .order("name"),
+  ]);
 
-  const res = await query(["instructor", "admin", "mechanic"]);
-  if (!res.error) return visible((res.data ?? []) as StaffMember[]);
-
-  const plain = await query(["instructor", "admin"]);
-  if (plain.error) {
-    console.error("[shifts] staff load error:", plain.error.message);
-    return [];
-  }
-  return visible((plain.data ?? []) as StaffMember[]);
+  failIfReadError(res.error, "не удалось прочитать, кому ставить смену");
+  return ((res.data ?? []) as StaffMember[]).filter((u) => !hidden.has(u.id));
 }
 
 export async function getMonthCalendar(

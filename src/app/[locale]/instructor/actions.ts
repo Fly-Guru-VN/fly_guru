@@ -590,28 +590,15 @@ export async function sellSubscriptionAction(
     payment_claim_by: claim ? user.id : null,
     payment_claim_at: claim ? new Date().toISOString() : null,
   };
-  let { data: sub, error: subError } = await admin
+  // Способ оплаты (0025) и заявление об оплате (0032) в боевой базе есть.
+  // Повтор вставки без них убран 16.08.2026: он терял и способ оплаты, и само
+  // заявление «оплату принял админ» — то есть ровно то, ради чего инструктор
+  // заполнял форму, и молча.
+  const { data: sub, error: subError } = await admin
     .from("subscriptions")
     .insert(row)
     .select("id")
     .single();
-  // Миграцию 0025 (способ оплаты) или 0032 (заявление об оплате) ещё не
-  // накатили — колонок нет. Продажу из-за этого не роняем: пишем абонемент без
-  // них, иначе деплой до миграции убил бы весь поток продаж. Заявление в этом
-  // случае теряется — но абонемент неоплаченный, и админ его всё равно увидит.
-  if (subError?.code === "PGRST204") {
-    const legacy: Partial<typeof row> = { ...row };
-    delete legacy.payment_method_id;
-    delete legacy.payment_claim;
-    delete legacy.payment_claim_note;
-    delete legacy.payment_claim_by;
-    delete legacy.payment_claim_at;
-    ({ data: sub, error: subError } = await admin
-      .from("subscriptions")
-      .insert(legacy)
-      .select("id")
-      .single());
-  }
   if (subError) {
     // Абонемент не создался — заявка не должна остаться «выполненной».
     if (bookingId && bookingBefore) await releaseBooking(admin, bookingId, bookingBefore);

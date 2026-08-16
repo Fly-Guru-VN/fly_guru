@@ -1,6 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
 import { vnDay, vnToday } from "@/lib/dates";
+import { failIfReadError } from "@/lib/dbError";
 import { closeStatus, openStatus } from "@/lib/shiftRules";
 import { staffOn, type StaffMember } from "@/lib/staff";
 
@@ -90,32 +91,24 @@ interface ShiftRow {
   bonus_comment?: string | null;
 }
 
-// Смены периода. Колонки премии появились в 0027, а деплой у David едет
-// раньше наката миграции — поэтому при «нет такой колонки» перечитываем без
-// них (та же страховка, что у payment_method_id абонемента в 0025).
+// Смены периода. Колонки премии (0027) в боевой базе есть — повтор запроса
+// «а вдруг миграция не накатана» убран 16.08.2026 вместе с остальными такими
+// страховками. Он ловил ЛЮБУЮ ошибку, не только «нет колонки», и в конце
+// концов возвращал пустой список: смены пропадали молча, а вместе с ними —
+// 200 000 ₫ за каждый выход и весь дележ 15% по дням. Ноль в зарплате должен
+// быть фактом, а не последствием сбойного запроса (см. lib/dbError).
 async function loadShifts(
   client: Supabase,
   range: StatsRange,
 ): Promise<ShiftRow[]> {
-  const base = "date, instructor_id, opened_at, closed_at";
-  const withBonus = `${base}, bonus_cancelled, bonus_comment`;
+  const { data, error } = await client
+    .from("shifts")
+    .select("date, instructor_id, opened_at, closed_at, bonus_cancelled, bonus_comment")
+    .gte("date", range.fromDay)
+    .lt("date", range.toDay);
 
-  const query = (columns: string) =>
-    client
-      .from("shifts")
-      .select(columns)
-      .gte("date", range.fromDay)
-      .lt("date", range.toDay);
-
-  const { data, error } = await query(withBonus);
-  if (!error) return (data ?? []) as unknown as ShiftRow[];
-
-  const { data: plain, error: plainError } = await query(base);
-  if (plainError) {
-    console.error("[salary] shifts load error:", plainError.message);
-    return [];
-  }
-  return (plain ?? []) as unknown as ShiftRow[];
+  failIfReadError(error, "не удалось прочитать смены");
+  return (data ?? []) as unknown as ShiftRow[];
 }
 
 export interface ShiftPayInfo {

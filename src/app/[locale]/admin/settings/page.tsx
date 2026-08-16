@@ -11,9 +11,7 @@ import { vnToday } from "@/lib/dates";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 
-// Штат: старшинство (0033) плюс трудовой период (0036). loadInstructors сам
-// переживает ненакатанную миграцию — читает без новых колонок, и тогда даты
-// просто пустые, а увольнение молча ничего не меняет до наката.
+// Штат: старшинство (0033) плюс трудовой период (0036).
 async function loadStaff(
   supabase: Awaited<ReturnType<typeof createClient>>,
   today: string,
