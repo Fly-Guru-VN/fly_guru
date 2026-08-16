@@ -1,5 +1,10 @@
 import type { createClient } from "@/lib/supabase/server";
-import { getInstructorStats, type StatsRange } from "@/lib/stats";
+import {
+  getInstructorStats,
+  loadPayInputs,
+  salaryFrom,
+  type StatsRange,
+} from "@/lib/stats";
 import { getCrmPayout } from "@/lib/finance";
 import { vnMonth, vnPeriod, vnToday } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
@@ -406,6 +411,7 @@ export async function getMonthlyPayroll(
     rewards,
     rewardsToDate,
     agentsRes,
+    payInputs,
   ] =
     await Promise.all([
       loadInstructors(supabase),
@@ -422,7 +428,16 @@ export async function getMonthlyPayroll(
       loadAgentRewards(supabase, range),
       loadAgentRewards(supabase, balanceRange),
       supabase.from("agents").select("id, active, user:users!user_id(name)"),
+      // Общие для всех инструкторов части расчёта ЗП (штат, котёл абонементов,
+      // смены, дележ 15%) — читаем один раз на период, а не на каждого.
+      loadPayInputs(supabase, range),
     ]);
+
+  // То же самое за накопительный период — им считается «осталось выдать».
+  // Выбран ровно он — второй раз не читаем.
+  const balanceInputs = samePeriod
+    ? payInputs
+    : await loadPayInputs(supabase, balanceRange);
 
   const sumFor = (rows: PayoutRow[], kind: PayeeKind, id: string) =>
     rows
@@ -447,12 +462,19 @@ export async function getMonthlyPayroll(
   const instructors = allInstructors.filter(inScope);
   const instructorRows = await Promise.all(
     instructors.map(async (u: StaffMember) => {
-      const s = await getInstructorStats(supabase, u.id, range, "instructor");
-      // Сальдо — по накопительному периоду. Если сверху выбран ровно он,
-      // второй запрос не делаем: цифры те же.
-      const toDate = samePeriod
-        ? s
-        : await getInstructorStats(supabase, u.id, balanceRange, "instructor");
+      const s = await getInstructorStats(
+        supabase,
+        u.id,
+        range,
+        "instructor",
+        supabase,
+        payInputs,
+      );
+      // Сальдо — по накопительному периоду. Здесь нужна только сумма ЗП, а она
+      // целиком складывается из общих частей: своих запросов не делаем вовсе.
+      const salaryToDate = samePeriod
+        ? s.salary
+        : salaryFrom(balanceInputs, u.id).total;
       const paid = paidTo("staff", u.id);
       const paidAll = paidToDate("staff", u.id);
       return {
@@ -462,9 +484,9 @@ export async function getMonthlyPayroll(
         name: u.name,
         accrued: s.salary,
         paid,
-        accruedToDate: toDate.salary,
+        accruedToDate: salaryToDate,
         paidToDate: paidAll,
-        left: toDate.salary - paidAll,
+        left: salaryToDate - paidAll,
         employmentLabel: employmentLabel(u),
         fired: isFired(u),
         details: [

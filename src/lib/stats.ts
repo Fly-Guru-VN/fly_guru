@@ -6,9 +6,12 @@ import {
   getSessionShare,
   getShiftPay,
   getSubsShares,
+  type SessionShare,
+  type ShiftPayInfo,
   type ShiftPayRow,
+  type SubsShares,
 } from "@/lib/salary";
-import { activeStaff, loadInstructors } from "@/lib/staff";
+import { activeStaff, loadInstructors, type StaffMember } from "@/lib/staff";
 
 // Общий расчёт статистики инструктора — им пользуются главный экран кабинета
 // (цифры за текущий месяц) и экран «Статистика» (произвольный период).
@@ -88,16 +91,74 @@ interface SessionRow {
   services: { category: string } | null;
 }
 
+// Части расчёта ЗП, одинаковые для ВСЕХ инструкторов периода: список штата,
+// котёл абонементов, выходы и дележ 15%. Каждая из них читает весь период
+// целиком, а не «мои» строки, — поэтому считать её отдельно для каждого
+// человека незачем.
+export interface PayInputs {
+  staff: StaffMember[];
+  subsShares: SubsShares;
+  shiftPay: Map<string, ShiftPayInfo>;
+  sessionShare: Map<string, SessionShare>;
+}
+
+// Экран, которому нужна ЗП сразу нескольких человек (/admin/payroll), читает
+// эти части ОДИН раз и передаёт готовыми в getInstructorStats. Без этого
+// страница выплат делала по семь запросов на каждого инструктора и ещё столько
+// же на второй период — при пяти инструкторах семьдесят запросов вместо
+// двух десятков.
+export async function loadPayInputs(
+  supabase: Supabase,
+  range: StatsRange,
+  payClient: Supabase = supabase,
+): Promise<PayInputs> {
+  // Весь штат, включая уволенных: их выходы и занятия за отработанные дни
+  // считаются как обычно, а в дележе котла участвуют только дни, когда человек
+  // был в штате (см. lib/salary → getSubsShares).
+  const staff = await loadInstructors(supabase);
+  const instructorIds = staff.map((m) => m.id);
+
+  // Выходы и дележ 15% — через payClient: обе величины считаются по ВСЕМ
+  // сменам и сессиям дня, а не только по своим (см. lib/salary).
+  const [subsShares, shiftPay, sessionShare] = await Promise.all([
+    getSubsShares(supabase, range, staff),
+    getShiftPay(payClient, range, instructorIds),
+    getSessionShare(payClient, range, instructorIds),
+  ]);
+
+  return { staff, subsShares, shiftPay, sessionShare };
+}
+
+/** Три слагаемых ЗП одного инструктора из общих частей — без запросов. */
+export function salaryFrom(
+  inputs: PayInputs,
+  instructorId: string,
+): { fromSessions: number; fromShifts: number; fromSubs: number; total: number } {
+  const fromSessions = inputs.sessionShare.get(instructorId)?.amount ?? 0;
+  const fromShifts = inputs.shiftPay.get(instructorId)?.amount ?? 0;
+  const fromSubs = inputs.subsShares.shares.get(instructorId) ?? 0;
+  return {
+    fromSessions,
+    fromShifts,
+    fromSubs,
+    total: fromSessions + fromShifts + fromSubs,
+  };
+}
+
 // payClient — клиент для расчёта ЗП. Дележ 15% по дням и чужие смены нужны
 // целиком, а инструктору RLS отдаёт только свои сессии: кабинет передаёт сюда
 // service-role, админские экраны — обычный клиент (у админа доступ и так есть).
 // Наружу инструктору всё равно уходит только его доля, не чужие суммы.
+//
+// inputs — уже посчитанные общие части (см. loadPayInputs). Не передали —
+// считаем их здесь же, как раньше.
 export async function getInstructorStats(
   supabase: Supabase,
   instructorId: string,
   range: StatsRange,
   role: StaffRole = "instructor",
   payClient: Supabase = supabase,
+  inputs?: PayInputs,
 ): Promise<InstructorStats> {
   // Мои сессии за период. RLS отдаёт ещё и чужие списания — фильтруем явно.
   const { data } = await supabase
@@ -147,25 +208,13 @@ export async function getInstructorStats(
     .map(([category, amount]) => ({ category, amount }))
     .sort((a, b) => b.amount - a.amount);
 
-  const [{ data: subs }, staff] = await Promise.all([
+  const [{ data: subs }, pay] = await Promise.all([
     // Проданные мной — для справки «продал N» и строки «ждут оплату».
     supabase.from("subscriptions").select("price, paid_at").eq("sold_by", instructorId),
-    // Весь штат, включая уволенных: их выходы и занятия за отработанные дни
-    // считаются как обычно, а в дележе котла участвуют только дни, когда
-    // человек был в штате (см. lib/salary → getSubsShares).
-    loadInstructors(supabase),
+    inputs ?? loadPayInputs(supabase, range, payClient),
   ]);
-  const instructorIds = staff.map((m) => m.id);
+  const { staff, subsShares, shiftPay, sessionShare } = pay;
 
-  // Котёл абонементов делится по дате оплаты каждого абонемента.
-  const subsShares = await getSubsShares(supabase, range, staff);
-
-  // Выходы и дележ 15% — через payClient: обе величины считаются по ВСЕМ
-  // сменам и сессиям дня, а не только по моим (см. lib/salary).
-  const [shiftPay, sessionShare] = await Promise.all([
-    getShiftPay(payClient, range, instructorIds),
-    getSessionShare(payClient, range, instructorIds),
-  ]);
   const myShifts = shiftPay.get(instructorId) ?? {
     paidCount: 0,
     unpaidCount: 0,
