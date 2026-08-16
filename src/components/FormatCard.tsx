@@ -2,8 +2,9 @@ import type { ComponentType, SVGProps } from "react";
 import Image from "next/image";
 import { BookBtn } from "@/components/BookBtn";
 import { IconFlame } from "@/components/icons";
-import { formatVnd, formatDuration } from "@/content/services";
+import { formatDuration } from "@/content/services";
 import type { Service } from "@/content/services";
+import { AgentPrice, AgentDiscountNote } from "@/components/AgentPrice";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -61,10 +62,20 @@ export function FormatCard({ format }: { format: Format }) {
           {/* flex-1 — чтобы цена, кнопка и подвал стояли на одной высоте во всех
               карточках, сколько бы строк ни занял текст. */}
           <p className="mt-2 flex-1 text-sm text-muted">{desc}</p>
-          <div className="mt-4 flex items-baseline justify-center gap-2">
-            <span className="text-2xl font-bold text-primary">{formatVnd(service.price)}</span>
+          <div className="mt-4 flex flex-wrap items-baseline justify-center gap-2">
+            {/* Цена клиентская: гостю с агентской ссылкой она показывает
+                «было → стало» (см. AgentPrice), остальным — как раньше. */}
+            <AgentPrice
+              price={service.price}
+              code={service.id}
+              className="text-2xl font-bold text-primary"
+            />
             <span className="text-sm text-muted">/ {formatDuration(service)}</span>
           </div>
+          <AgentDiscountNote
+            code={service.id}
+            className="mt-1 text-xs font-semibold text-accent-strong"
+          />
           <div className="mt-4 w-full">
             <BookBtn
               serviceId={serviceId}

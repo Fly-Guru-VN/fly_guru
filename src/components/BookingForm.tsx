@@ -5,15 +5,20 @@ import { useRouter } from "@/i18n/navigation";
 import { trackEvent } from "@/lib/analytics";
 import { forgetRefCode, getAttributionForBooking } from "@/lib/attribution";
 import { isValidPhone, PHONE_ERROR } from "@/lib/phone";
+import { agentDiscountFor } from "@/lib/agentTerms";
+import { formatVnd } from "@/content/services";
+import { useAgentRef } from "./useAgentRef";
 import { Spinner } from "./Spinner";
 
 // Услуга в том минимальном виде, что нужен форме: id (для базы) + название.
 // code — служебный ключ услуги из базы: по нему форма находит, что выбрать по
-// умолчанию, не завися от названий и порядка списка.
+// умолчанию, не завися от названий и порядка списка. price — чтобы карточка
+// показывала цену и, по агентской ссылке, скидку.
 export interface ServiceOption {
   id: string;
   name: string;
   code?: string | null;
+  price?: number | null;
 }
 
 // Что подставляем гостю, если страница не попросила конкретную услугу. Список
@@ -41,6 +46,20 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
   const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
   const [phone, setPhone] = useState("");
+
+  // Пришёл ли гость по ссылке живого агента: от этого зависят плашки скидки на
+  // карточках услуг. Инструкторская ссылка скидки не даёт — проверяет сервер.
+  const byAgent = useAgentRef(refCode);
+
+  // Какая услуга выбрана. Раньше это был обычный <select> и состояние не было
+  // нужно; теперь выбор — карточки, и подсветить надо ту, на которую нажали.
+  const [serviceId, setServiceId] = useState(
+    () =>
+      defaultServiceId ??
+      services.find((s) => s.code === DEFAULT_SERVICE_CODE)?.id ??
+      services[0]?.id ??
+      "",
+  );
 
   // Показываем ошибку только после того, как гость начал печатать: пустое
   // поле при загрузке страницы не должно краснеть.
@@ -182,28 +201,78 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
         </p>
       </div>
 
-      <div>
-        <label htmlFor="serviceId" className="mb-1 block text-sm font-medium">
-          Услуга
-        </label>
-        <select
-          id="serviceId"
-          name="serviceId"
-          defaultValue={
-            defaultServiceId ??
-            services.find((s) => s.code === DEFAULT_SERVICE_CODE)?.id ??
-            services[0]?.id ??
-            ""
-          }
-          className={inputClass}
-        >
-          {services.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Услуга — карточками, а не выпадающим списком: только так на выборе
+          видно цену и агентскую скидку. Внутри каждой карточки настоящий
+          radio — форма отправляет его значение, а клавиатура и скринридеры
+          получают обычный список переключателей.
+          Карточка в одну строку (название слева, цена справа): услуг больше
+          десятка, и в две строки каждая список не помещался бы на телефоне
+          даже с прокруткой. */}
+      <fieldset>
+        <legend className="mb-1 block text-sm font-medium">Услуга</legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {services.map((s) => {
+            const discount = byAgent ? agentDiscountFor(s.code) : 0;
+            const price = s.price ?? null;
+            const chosen = s.id === serviceId;
+            return (
+              <label
+                key={s.id}
+                className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 transition-colors ${
+                  chosen
+                    ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                    : "border-line bg-surface hover:border-primary/50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="serviceId"
+                  value={s.id}
+                  checked={chosen}
+                  onChange={() => setServiceId(s.id)}
+                  className="shrink-0 accent-primary"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium leading-snug">
+                    {s.name}
+                  </span>
+                  {discount > 0 && (
+                    <span className="block text-xs font-semibold text-accent-strong">
+                      −{formatVnd(discount)} по ссылке агента
+                    </span>
+                  )}
+                </span>
+                {price !== null && (
+                  <span className="shrink-0 text-right leading-tight">
+                    {discount > 0 ? (
+                      <>
+                        <span className="block text-xs text-muted line-through">
+                          {formatVnd(price)}
+                        </span>
+                        <span className="block text-sm font-bold text-accent-strong">
+                          {formatVnd(Math.max(0, price - discount))}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="block text-sm text-muted">
+                        {formatVnd(price)}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </label>
+            );
+          })}
+        </div>
+        {byAgent && (
+          // Честная оговорка: скидка даётся за ПЕРВОЕ базовое обучение. Гость,
+          // который у нас уже учился, заплатит полную цену — обещать её всем
+          // подряд нельзя (то же правило проверяется при оформлении).
+          <p className="mt-2 text-xs text-muted">
+            Скидка по ссылке агента — на первое базовое обучение.
+          </p>
+        )}
+      </fieldset>
 
       <div>
         <label htmlFor="preferredDate" className="mb-1 block text-sm font-medium">

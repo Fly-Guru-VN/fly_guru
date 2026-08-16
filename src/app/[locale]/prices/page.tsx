@@ -129,7 +129,8 @@ export default async function PricesPage() {
                         ]
                           .filter(Boolean)
                           .join(" · ")}
-                        price={formatVnd(s.price)}
+                        price={s.price}
+                        code={s.id}
                         serviceId={dbId(s.name)}
                         badge={
                           s.membersOnly ? (

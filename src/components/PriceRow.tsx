@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useBooking } from "./BookingProvider";
+import { AgentPrice, AgentDiscountNote } from "./AgentPrice";
 import { IconArrowRight } from "./icons";
 
 // Строка прайса, которая сама открывает форму записи с этой услугой.
@@ -17,6 +18,7 @@ export function PriceRow({
   name,
   meta,
   price,
+  code,
   serviceId,
   badge,
 }: {
@@ -24,7 +26,12 @@ export function PriceRow({
   // Длительность и примечание одной строкой под названием. У фото/видео
   // длительности нет — тогда строки под названием просто не будет.
   meta?: string;
-  price: string;
+  // Цена числом: строка прайса умеет показать её со скидкой, а для этого нужно
+  // считать, а не печатать готовый текст. null — «по запросу».
+  price: number | null;
+  // Код услуги (basic-adult и т. п.) — по нему понятно, есть ли по ней
+  // агентская скидка.
+  code?: string | null;
   // id услуги в базе. Может не найтись (услугу выключили в админке) — тогда
   // форма откроется с общим списком.
   serviceId?: string;
@@ -45,9 +52,25 @@ export function PriceRow({
           {badge}
         </span>
         {meta && <span className="block text-sm text-muted">{meta}</span>}
+        {/* Скидка подписью под названием, а не у цены: справа строка узкая, и
+            «−100 000 ₫ по ссылке агента» ломало бы её на телефоне. Кегль тот
+            же, что у длительности: в text-sm подпись сама вставала в две
+            строки на 390 px. */}
+        <AgentDiscountNote
+          code={code}
+          className="block text-xs font-semibold text-accent-strong"
+        />
       </span>
       <span className="flex items-center gap-2 whitespace-nowrap font-bold text-primary">
-        {price}
+        {/* Столбиком, а не в строку: со скидкой в правой колонке две цены, и
+            рядом друг с другом они отжимали название услуги в три строки. */}
+        <span className="flex flex-col items-end leading-tight">
+          <AgentPrice
+            price={price}
+            code={code}
+            oldClassName="text-xs font-normal text-muted line-through"
+          />
+        </span>
         <IconArrowRight
           aria-hidden
           className="hidden h-4 w-4 opacity-0 transition-opacity group-hover:opacity-100 sm:block"

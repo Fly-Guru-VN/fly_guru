@@ -21,7 +21,7 @@ export async function getActiveServices(
   const supabase = createAdminClient();
   let query = supabase
     .from("services")
-    .select("id, name, category, code")
+    .select("id, name, category, code, price")
     .eq("active", true);
 
   if (category) query = query.eq("category", category);
@@ -37,6 +37,9 @@ export async function getActiveServices(
     id: s.id,
     name: s.name,
     code: (s.code as string | null) ?? null,
+    // Цену форма показывает на карточке услуги. NULL бывает у услуг, которые
+    // считаются «по договорённости», — такая карточка просто без цены.
+    price: s.price === null || s.price === undefined ? null : Number(s.price),
   }));
 }
 
