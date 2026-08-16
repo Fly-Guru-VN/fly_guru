@@ -100,7 +100,11 @@ export default async function AdminExpensesPage({
           Доля Marina считается из выручки сама, остальное — по факту выдачи.
         </p>
         <div className="mt-3 space-y-1">
-          <Row label="Marina Beach" hint="35% выручки" value={vnd(fin.marina)} />
+          <Row
+            label="Marina Beach"
+            hint="35% выручки без комиссий агентов"
+            value={vnd(fin.marina)}
+          />
           <Row
             label="Выдано зарплат"
             hint="вкладка «Выплата зарплаты»"
@@ -144,7 +148,7 @@ export default async function AdminExpensesPage({
           )}
           <Row
             label="Дэвид + Ромчик (СММ)"
-            hint={`2% с оборота · по ${vnd(fin.crmEach)} каждому`}
+            hint={`2% с оборота без комиссий агентов · по ${vnd(fin.crmEach)} каждому`}
             value={vnd(fin.crmCut)}
           />
         </div>

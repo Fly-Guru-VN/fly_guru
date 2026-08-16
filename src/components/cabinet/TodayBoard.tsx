@@ -186,7 +186,7 @@ export function TodayBoard({
         <Row
           label="Марине"
           value={money(report.marina)}
-          hint={`${Math.round(MARINA_RATE * 100)}% с выручки`}
+          hint={`${Math.round(MARINA_RATE * 100)}% с выручки без комиссий агентов`}
           strong
           tone="primary"
         />

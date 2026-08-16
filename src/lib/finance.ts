@@ -16,8 +16,16 @@ import { failIfReadError } from "@/lib/dbError";
 //   пришло − 35% Marina − выданные зарплаты − выданное агентам − траты
 //
 // Вычитается ровно две вещи: доля площадки и то, что физически ушло.
-//  • Marina Beach — 35% со ВСЕЙ выручки (сессии + оплаченные абонементы). Она
+//  • Marina Beach — 35% с выручки (сессии + оплаченные абонементы). Она
 //    вычитается сразу и всегда: эти деньги нашими не были ни секунды.
+//
+// БАЗА ПРОЦЕНТОВ = ВЫРУЧКА МИНУС КОМИССИИ АГЕНТОВ (решение David от
+// 16.08.2026). Комиссию агента школа отдаёт первой, а уже с остатка считаются
+// все три доли: 35% Marina, 15% инструкторам и 2% CRM. Пример на базовом
+// занятии по агентской ссылке: 2 000 000 − 100 000 скидки = гость платит
+// 1 900 000, минус 200 000 агенту = 1 700 000; Marina 595 000, инструкторам
+// 255 000, CRM 34 000. Раньше 35% и 2% считались с полного чека, а комиссию
+// вычитала только доля инструктора (миграция 0021).
 //  • Зарплаты и комиссии — только по факту выдачи, из salary_payouts и
 //    agent_payouts (вкладка «Выплата зарплаты»). Никаких расходов-двойников:
 //    выплата и есть расход школы.
@@ -50,6 +58,21 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 interface SessionMoneyRow {
   amount: number | null;
+  agent_commission: number | null;
+}
+
+/**
+ * База процентов по занятиям: чек минус комиссия агента, по КАЖДОЙ сессии
+ * отдельно. Считаем по одной, а не разностью двух сумм: так минус на одном
+ * занятии (комиссия больше чека — цену правили руками) не съедает чужие чеки.
+ */
+export function netSessionsBase(
+  rows: { amount: number | null; agent_commission: number | null }[],
+): number {
+  return rows.reduce(
+    (s, r) => s + Math.max(0, Number(r.amount ?? 0) - Number(r.agent_commission ?? 0)),
+    0,
+  );
 }
 
 interface SessionWorkRow {
@@ -58,12 +81,12 @@ interface SessionWorkRow {
   instructor_id: string | null;
 }
 
-export const MARINA_RATE = 0.35; // Marina Beach — со всей выручки
+export const MARINA_RATE = 0.35; // Marina Beach — с выручки за вычетом агентов
 export const CRM_RATE = 0.02; // Дэвид + Ромчик — с сессий + абонементов (пополам)
 export const CRM_PARTNERS = ["Дэвид", "Ромчик (СММ)"] as const; // делят CRM_RATE поровну
 
 export interface CrmPayout {
-  revenue: number; // база: сессии + оплаченные абонементы за период
+  revenue: number; // база: сессии (минус комиссии агентов) + оплаченные абонементы
   total: number; // 2% с неё — общая сумма на двоих
   each: number; // доля одного (по 1%)
   partners: readonly string[];
@@ -79,7 +102,7 @@ export async function getCrmPayout(
 ): Promise<CrmPayout> {
   const [sessions, subsRes] = await Promise.all([
     // Деньги — по денежной дате (0042).
-    loadAllSessions<{ amount: number | null }>(supabase, "amount", {
+    loadAllSessions<SessionMoneyRow>(supabase, "amount, agent_commission", {
       fromDay: range.fromDay,
       toDay: range.toDay,
       by: "money",
@@ -92,8 +115,9 @@ export async function getCrmPayout(
       .lt("paid_at", range.toIso),
   ]);
 
+  // Комиссию агента вычитаем ДО процента — как у Marina и у инструкторов.
   const revenue =
-    sessions.rows.reduce((s, r) => s + Number(r.amount ?? 0), 0) +
+    netSessionsBase(sessions.rows) +
     (subsRes.data ?? []).reduce((s, r) => s + Number(r.price ?? 0), 0);
   const total = revenue * CRM_RATE;
 
@@ -119,7 +143,8 @@ export interface Finance {
   sessionsRevenue: number; // чеки занятий за период
   paidSubsRevenue: number; // абонементы, оплаченные в периоде
   revenue: number; // сумма выручки — «пришло»
-  marina: number; // 35% от всей выручки — доля площадки, всегда вычитается
+  percentBase: number; // выручка минус комиссии агентов — с неё считаются доли
+  marina: number; // 35% с percentBase — доля площадки, всегда вычитается
   paidStaff: number; // выдано штату за период (salary_payouts)
   paidAgents: number; // выдано агентам за период (agent_payouts)
   manualExpenses: ExpenseRow[]; // ручные траты за период (по убыванию суммы)
@@ -138,7 +163,7 @@ export interface Finance {
   instructorPaidOut: number; // из этой ЗП уже отдано на руки
   owedInstructors: number; // начислено − выдано, но не меньше нуля
   agentCommissions: number; // комиссии агентов по сессиям периода (пак D)
-  crmCut: number; // 2% с сессий + абонементов
+  crmCut: number; // 2% с percentBase
   crmEach: number; // доля одного (Дэвид / Ромчик) — половина crmCut
 }
 
@@ -239,7 +264,7 @@ export async function getFinance(
   // У занятия без paid_on обе даты совпадают, и наборы одинаковы — как раньше.
   const [moneySessions, workSessions, subsRes, expensesRes, staff] =
     await Promise.all([
-      loadAllSessions<SessionMoneyRow>(supabase, "amount", {
+      loadAllSessions<SessionMoneyRow>(supabase, "amount, agent_commission", {
         fromDay: range.fromDay,
         toDay: range.toDay,
         by: "money",
@@ -289,6 +314,9 @@ export async function getFinance(
   );
   const paidSubsRevenue = subs.reduce((s, r) => s + Number(r.price ?? 0), 0);
   const revenue = sessionsRevenue + paidSubsRevenue;
+  // База всех процентов: та же выручка, но с занятий сперва снята комиссия
+  // агента. Абонементы в ней целиком — агентов там не бывает.
+  const percentBase = netSessionsBase(moneySessions.rows) + paidSubsRevenue;
 
   // Выручка школы — вся; а вот ЗП платим только за работу инструкторов.
   // Всё, что откатал/продал сам админ, мимо ЗП — это его прибыль.
@@ -296,15 +324,10 @@ export async function getFinance(
   const instructorSessions = workSessions.rows.filter(
     (r) => r.instructor_id && isInstructor.has(r.instructor_id as string),
   );
-  // База 15%: чек минус комиссия агента по КАЖДОЙ сессии (пак D — агент
-  // забирает свои 300к сверху). Считаем по одной, а не разностью двух сумм:
-  // так цифра сходится с дележом по дням в lib/salary, где отрицательный
-  // остаток одной сессии не съедает чужие чеки.
-  const instructorSessionsBase = instructorSessions.reduce(
-    (s, r) =>
-      s + Math.max(0, Number(r.amount ?? 0) - Number(r.agent_commission ?? 0)),
-    0,
-  );
+  // База 15% — та же, что у остальных долей: чек минус комиссия агента. Здесь
+  // считается по дате ЗАНЯТИЯ (это плата за работу), а не по денежной, поэтому
+  // набор строк другой, чем у percentBase выше.
+  const instructorSessionsBase = netSessionsBase(instructorSessions);
   // Все комиссии агентов за период — отдельная статья расхода школы: агент
   // забирает их «сверху» чека, из прибыли босса это надо вычесть.
   const agentCommissions = workSessions.rows.reduce(
@@ -320,12 +343,12 @@ export async function getFinance(
     instructorShiftPay += info.amount;
   }
 
-  const marina = revenue * MARINA_RATE;
+  const marina = percentBase * MARINA_RATE;
   const instructorSessionPay = instructorSessionsBase * SESSION_RATE;
   // Котёл целиком (кому сколько досталось — дело lib/salary): школе важна сумма.
   const instructorSubsPay = subsShares.pool;
   const instructorPay = instructorSessionPay + instructorShiftPay + instructorSubsPay;
-  const crmCut = revenue * CRM_RATE;
+  const crmCut = percentBase * CRM_RATE;
   const crmEach = crmCut / 2;
 
   const manualExpenses = (expensesRes.data ?? []).map((e) => ({
@@ -360,6 +383,7 @@ export async function getFinance(
     sessionsRevenue,
     paidSubsRevenue,
     revenue,
+    percentBase,
     marina,
     paidStaff: outStaff,
     paidAgents: outAgents,

@@ -1,6 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { vnPeriod } from "@/lib/dates";
-import { MARINA_RATE } from "@/lib/finance";
+import { MARINA_RATE, netSessionsBase } from "@/lib/finance";
 import { loadInstructors } from "@/lib/staff";
 import { failIfReadError } from "@/lib/dbError";
 import {
@@ -116,8 +116,8 @@ export interface DayReport {
   subsRevenue: number; // абонементы, оплаченные в этот день
   subsPaidCount: number; // сколько абонементов оплачено за день
   minutesWrittenOff: number; // списано минут с абонементов
-  revenue: number; // всё вместе — с этой суммы считается марина
-  marina: number; // 35% площадке
+  revenue: number; // всё вместе — касса дня
+  marina: number; // 35% площадке (с выручки за вычетом комиссий агентов)
   profitBeforePay: number; // выручка − марина
   payments: PaymentBreakdown; // касса дня по способам оплаты
   crew: DayCrewMember[]; // кто на смене, по убыванию ЗП
@@ -166,7 +166,9 @@ export async function getDayReport(
   const [sessionsRes, subsRes, shifts, staff] = await Promise.all([
     admin
       .from("sessions")
-      .select("amount, minutes_used, payment_methods(name), services(code, category)")
+      .select(
+        "amount, agent_commission, minutes_used, payment_methods(name), services(code, category)",
+      )
       .eq("date", date),
     admin
       .from("subscriptions")
@@ -181,6 +183,7 @@ export async function getDayReport(
 
   type SessionRow = {
     amount: number | null;
+    agent_commission: number | null;
     minutes_used: number | null;
     payment_methods: { name: string } | null;
     services: { code: string | null; category: string | null } | null;
@@ -226,7 +229,10 @@ export async function getDayReport(
     });
   }
   const revenue = sessionsRevenue + subsRevenue;
-  const marina = revenue * MARINA_RATE;
+  // 35% Марине считаются с выручки за вычетом комиссий агентов — той же базы,
+  // что и 15% инструкторам и 2% CRM (см. lib/finance). Абонементы входят
+  // целиком: агентов в них не бывает.
+  const marina = (netSessionsBase(sessions) + subsRevenue) * MARINA_RATE;
 
   // ЗП за день — теми же тремя слагаемыми, что в кабинете и в «Расчёте месяца»
   // (lib/salary + котёл абонементов). Считаем один раз на всех, а не вызовом

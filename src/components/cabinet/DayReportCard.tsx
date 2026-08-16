@@ -101,7 +101,7 @@ export function DayReportCard({ report }: { report: DayReport }) {
         <Row
           label="Марине"
           value={vnd(report.marina)}
-          hint={`${Math.round(MARINA_RATE * 100)}% с выручки`}
+          hint={`${Math.round(MARINA_RATE * 100)}% с выручки без комиссий агентов`}
           strong
           tone="primary"
         />
