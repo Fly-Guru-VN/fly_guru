@@ -2,6 +2,7 @@
 // реф-ссылки, награды и выплаты.
 import { createClient } from "@/lib/supabase/server";
 import { vnd } from "@/lib/stats";
+import { agentCommissionFor } from "@/lib/agentTerms";
 import { deleteAgentPayoutAction, toggleAgentActiveAction } from "../actions";
 import { AgentCreateForm } from "./AgentCreateForm";
 import { AgentPayoutForm } from "./AgentPayoutForm";
@@ -13,13 +14,13 @@ import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 
 // Агенты: партнёры с личной реф-ссылкой (гиды, отельеры). Приводят клиентов,
-// получают фикс за каждого после выполненной услуги. Воронка на карточке:
-// переходы по ссылке → клиенты → награды (ожидает / подтверждено).
+// получают фикс за каждого после выполненной услуги. Размер фикса зависит от
+// услуги (lib/agentTerms), а не от агента. Воронка на карточке: переходы по
+// ссылке → клиенты → награды (ожидает / подтверждено).
 
 interface AgentRow {
   id: string;
   ref_code: string;
-  commission_fixed: number;
   active: boolean;
   user: { name: string; phone: string | null } | null;
 }
@@ -144,7 +145,13 @@ function AgentCard({
             <span className="font-bold text-ink">{vnd(stats.confirmedSum)}</span>
             {stats.confirmedCount > 0 && ` (${stats.confirmedCount})`}
           </p>
-          <p>Комиссия за клиента: {vnd(a.commission_fixed)}</p>
+          {/* Не из карточки агента: с 16.08.2026 награда зависит от услуги, а
+              не от агента, и одинакова у всех (lib/agentTerms). Колонка
+              commission_fixed в базе осталась, но больше ни на что не влияет. */}
+          <p>
+            Награда: {vnd(agentCommissionFor("basic-adult"))} за базовое обучение,{" "}
+            {vnd(agentCommissionFor("basic-duo"))} за парное
+          </p>
         </div>
 
         {/* Деньги: сколько заработал, сколько отдали, сколько должны (п.7).
@@ -237,7 +244,7 @@ export async function AgentsScreen() {
 
   const { data: agentsData } = await supabase
     .from("agents")
-    .select("id, ref_code, commission_fixed, active, user:users!user_id(name, phone)");
+    .select("id, ref_code, active, user:users!user_id(name, phone)");
   const agents = (agentsData ?? []) as unknown as AgentRow[];
 
   // Метрики тремя запросами на всех агентов сразу (не по одному на карточку),

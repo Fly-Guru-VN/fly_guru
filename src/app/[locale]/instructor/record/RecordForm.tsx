@@ -1,7 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { recordClientAction, type ActionState } from "../actions";
+import { agentDiscountFor } from "@/lib/agentTerms";
+import { vnd } from "@/lib/stats";
 import { PhoneField } from "@/components/cabinet/PhoneField";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { ChannelField } from "@/components/cabinet/ChannelField";
@@ -30,7 +32,8 @@ export interface RecordPrefill {
 }
 
 interface RecordFormProps {
-  services: { id: string; name: string }[];
+  // code — по нему видно, есть ли на услуге агентская скидка и какая.
+  services: { id: string; name: string; code?: string | null }[];
   today: string; // 'YYYY-MM-DD' по Вьетнаму — с сервера, чтобы не зависеть от часов телефона
   paymentMethods: { id: string; name: string }[];
   channels: string[]; // справочник каналов записи (0041)
@@ -53,6 +56,16 @@ export function RecordForm({
   // от даты занятия зависят ЗП инструктора и статистика месяца.
   const { min, max } = recordDateBounds(today);
 
+  // Выбранная услуга — чтобы подпись про скидку называла её настоящий размер:
+  // он разный у базового (100 000 ₫) и парного (200 000 ₫), а на остальных
+  // услугах скидки нет вовсе.
+  const [serviceId, setServiceId] = useState(
+    prefill?.serviceId ?? services[0]?.id ?? "",
+  );
+  const refDiscount = agentDiscountFor(
+    services.find((s) => s.id === serviceId)?.code,
+  );
+
   return (
     <form action={formAction} className="space-y-4">
       {prefill?.bookingId && (
@@ -69,10 +82,17 @@ export function RecordForm({
               Заявка по агентской ссылке «{prefill.refCode}». Скидки нет — клиент
               уже проходил обучение, она даётся только за первое.
             </p>
-          ) : (
+          ) : refDiscount > 0 ? (
             <p className="rounded-xl bg-accent/10 px-4 py-3 text-sm font-medium text-accent-strong">
               Заявка по агентской ссылке «{prefill.refCode}» — на первое базовое
-              обучение автоматически применится скидка 10%.
+              обучение автоматически применится скидка {vnd(refDiscount)}.
+            </p>
+          ) : (
+            // Услуга без агентских условий (детское базовое, тандем, прокат):
+            // записать по ссылке можно, но по обычной цене.
+            <p className="rounded-xl bg-line/40 px-4 py-3 text-sm text-muted">
+              Заявка по агентской ссылке «{prefill.refCode}». На выбранную услугу
+              скидки нет — она только на базовое и парное обучение.
             </p>
           )
         ) : (
@@ -137,7 +157,8 @@ export function RecordForm({
           id="serviceId"
           name="serviceId"
           required
-          defaultValue={prefill?.serviceId ?? services[0]?.id ?? ""}
+          value={serviceId}
+          onChange={(e) => setServiceId(e.target.value)}
           className={inputClass}
         >
           {services.map((s) => (

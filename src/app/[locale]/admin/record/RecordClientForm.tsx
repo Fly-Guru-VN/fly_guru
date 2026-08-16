@@ -6,6 +6,7 @@ import { PhoneField } from "@/components/cabinet/PhoneField";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { ChannelField } from "@/components/cabinet/ChannelField";
 import { vnd } from "@/lib/stats";
+import { agentDiscountFor } from "@/lib/agentTerms";
 import { Spinner } from "@/components/Spinner";
 
 // Админская «Запись клиента». Отдельная форма (а не форма сессий), потому что
@@ -18,6 +19,7 @@ interface Option {
 }
 interface ServiceOption extends Option {
   price: number;
+  code?: string | null; // по нему считается размер агентской скидки
 }
 
 export interface RecordPrefill {
@@ -68,7 +70,11 @@ export function RecordClientForm({
   const [serviceId, setServiceId] = useState(
     prefill?.serviceId ?? services[0]?.id ?? "",
   );
-  const price = services.find((s) => s.id === serviceId)?.price ?? 0;
+  const service = services.find((s) => s.id === serviceId);
+  const price = service?.price ?? 0;
+  // Сколько снимет агентская скидка с ВЫБРАННОЙ сейчас услуги: 100 000 ₫ с
+  // базового, 200 000 ₫ с парного, с остальных — ничего.
+  const refDiscount = agentDiscountFor(service?.code);
 
   return (
     <form action={formAction} className="space-y-3">
@@ -76,10 +82,10 @@ export function RecordClientForm({
         <input type="hidden" name="bookingId" value={prefill.bookingId} />
       )}
 
-      {/* Что скажет расчёт при пустой сумме. Раньше здесь было «скидка
-          200 000 ₫, если это код агента» — сумма устарела (теперь 10%), а
-          «если» перекладывало проверку на человека. Смотрим сами: чей код и
-          положена ли гостю скидка (она даётся за ПЕРВОЕ базовое обучение). */}
+      {/* Что скажет расчёт при пустой сумме. «Если это код агента» здесь когда-то
+          перекладывало проверку на человека — смотрим сами: чей код, положена ли
+          гостю скидка (она даётся за ПЕРВОЕ базовое обучение) и сколько она
+          составит на выбранной услуге. */}
       {prefill?.refCode &&
         (!prefill.refIsAgent ? (
           <p className="rounded-xl bg-line/40 px-3 py-2 text-sm text-muted">
@@ -91,10 +97,17 @@ export function RecordClientForm({
             Заявка по агентской ссылке «{prefill.refCode}». Скидки нет — клиент уже
             проходил обучение, она даётся только за первое.
           </p>
-        ) : (
+        ) : refDiscount > 0 ? (
           <p className="rounded-xl bg-accent/10 px-3 py-2 text-sm font-medium text-accent-strong">
-            Заявка по агентской ссылке «{prefill.refCode}» — к первому базовому
-            обучению применится скидка 10% (при пустой сумме).
+            Заявка по агентской ссылке «{prefill.refCode}» — при пустой сумме
+            применится скидка {vnd(refDiscount)}: чек {vnd(Math.max(0, price - refDiscount))}.
+          </p>
+        ) : (
+          // Услуга без агентских условий (детское базовое, тандем, прокат):
+          // записать по ссылке можно, но по обычной цене.
+          <p className="rounded-xl bg-line/40 px-3 py-2 text-sm text-muted">
+            Заявка по агентской ссылке «{prefill.refCode}». На эту услугу скидки
+            нет — она только на базовое и парное обучение.
           </p>
         ))}
 

@@ -4,15 +4,17 @@ import { Media } from "@/components/Media";
 import { IconCheck } from "@/components/icons";
 import { redirect } from "@/i18n/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getActiveServices } from "@/lib/services";
-import { getService } from "@/content/services";
+import { getActiveServices, getSiteServices, pickService } from "@/lib/services";
+import { getService, formatVnd } from "@/content/services";
+import { agentDiscountFor } from "@/lib/agentTerms";
 import { BookBtn } from "@/components/BookBtn";
 import { RefVisitLogger } from "@/components/RefVisitLogger";
 
 // Реф-лендинг: гость приходит по личной ссылке /r/<код>. Ссылка бывает двух
-// видов: агентская (даёт скидку −200к на базовое) и инструкторская (без скидки,
-// просто «пришёл к этому инструктору»). Страница динамическая — код проверяется
-// в базе при каждом заходе, поэтому force-static здесь НЕ ставим.
+// видов: агентская (даёт скидку на базовое и парное обучение, суммы — в
+// lib/agentTerms) и инструкторская (без скидки, просто «пришёл к этому
+// инструктору»). Страница динамическая — код проверяется в базе при каждом
+// заходе, поэтому force-static здесь НЕ ставим.
 
 type RefKind = "agent" | "instructor" | null;
 
@@ -53,7 +55,7 @@ export default async function ReferralLandingPage({
   if (!kind) {
     redirect({ href: "/training", locale });
   }
-  // Скидка −200к — только по агентской ссылке. Инструкторская даёт прямую запись
+  // Скидка — только по агентской ссылке. Инструкторская даёт прямую запись
   // к инструктору без скидки, поэтому скидочные блоки для неё прячем.
   const isAgent = kind === "agent";
 
@@ -62,6 +64,15 @@ export default async function ReferralLandingPage({
   const defaultServiceId = services.find(
     (s) => s.name === getService("basic-adult").name,
   )?.id;
+
+  // Цены для блока скидки — из базы (их правят в админке), а не вписанные в
+  // текст руками: раньше здесь стояло «2 000 000 → 1 800 000», и после первой
+  // же правки прайса лендинг начал бы обещать неправду.
+  const site = await getSiteServices();
+  const basic = pickService(site, "basic-adult");
+  const duo = pickService(site, "basic-duo");
+  const discounted = (price: number | null, code: string) =>
+    price === null ? null : Math.max(0, price - agentDiscountFor(code));
 
   return (
     <>
@@ -138,13 +149,30 @@ export default async function ReferralLandingPage({
           <Container>
             <div className="mx-auto max-w-2xl rounded-3xl border border-accent/30 bg-accent/5 p-8 text-center sm:p-10">
               <Badge>Скидка по ссылке</Badge>
-              <h2 className="mt-4 text-2xl font-bold sm:text-3xl">Базовое занятие дешевле на 200 000 ₫</h2>
-              <div className="mt-6 flex items-baseline justify-center gap-3">
-                <span className="text-xl text-muted line-through">2 000 000 ₫</span>
-                <span className="text-4xl font-bold text-accent-strong">1 800 000 ₫</span>
+              <h2 className="mt-4 text-2xl font-bold sm:text-3xl">
+                Базовое занятие дешевле на {formatVnd(agentDiscountFor("basic-adult"))}
+              </h2>
+              <div className="mt-6 flex flex-wrap items-baseline justify-center gap-3">
+                <span className="text-xl text-muted line-through">
+                  {formatVnd(basic.price)}
+                </span>
+                <span className="text-4xl font-bold text-accent-strong">
+                  {formatVnd(discounted(basic.price, "basic-adult"))}
+                </span>
               </div>
+              {/* Парное занятие рядом: скидка на него другая, и раньше про неё
+                  на лендинге не говорилось вовсе. */}
+              <p className="mt-4 text-sm text-muted">
+                Парное базовое обучение — дешевле на{" "}
+                {formatVnd(agentDiscountFor("basic-duo"))}:{" "}
+                <span className="line-through">{formatVnd(duo.price)}</span>{" "}
+                <span className="font-semibold text-accent-strong">
+                  {formatVnd(discounted(duo.price, "basic-duo"))}
+                </span>
+              </p>
               <p className="mt-3 text-sm text-muted">
-                Скидка применяется к базовому занятию (взрослый). Действует по этой ссылке.
+                Скидка действует по этой ссылке на первое обучение. Записаться
+                можно и на любую другую услугу — по обычной цене.
               </p>
               <div className="mt-8">
                 <BookBtn refCode={code} serviceId={defaultServiceId} place="ref-bottom" size="lg">
