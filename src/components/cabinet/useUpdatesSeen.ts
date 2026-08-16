@@ -38,7 +38,9 @@ function read(key: string): string {
   }
 }
 
-export function useUpdatesSeen(storageKey: string) {
+// storageKey === null — у кабинета нет ленты обновлений (механик). Хук всё
+// равно вызывается (правило хуков), но точку не зажигает и ничего не пишет.
+export function useUpdatesSeen(storageKey: string | null) {
   // Прочитанность лежит во внешнем хранилище (localStorage), поэтому
   // useSyncExternalStore, а не эффект с setState (на такой эффект ругается
   // линтер, и страница рисовалась бы дважды — тот же разбор, что в BookingNo).
@@ -46,11 +48,12 @@ export function useUpdatesSeen(storageKey: string) {
   // и молча не зажигаем точку.
   const seen = useSyncExternalStore(
     subscribe,
-    useCallback(() => read(storageKey), [storageKey]),
+    useCallback(() => (storageKey ? read(storageKey) : null), [storageKey]),
     () => null,
   );
 
   const markSeen = useCallback(() => {
+    if (!storageKey) return;
     try {
       if (localStorage.getItem(storageKey) === LATEST_UPDATE) return;
       localStorage.setItem(storageKey, LATEST_UPDATE);
