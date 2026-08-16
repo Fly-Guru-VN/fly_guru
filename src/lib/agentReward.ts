@@ -2,6 +2,7 @@ import type { createClient } from "@/lib/supabase/server";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { phonesMatch } from "@/lib/phone";
 import { loadAllClients } from "@/lib/clients";
+import { hasAgentTerms } from "@/lib/agentTerms";
 
 // Когда агент зарабатывает на приведённом клиенте (пачка правок №6, п.5).
 //
@@ -14,8 +15,9 @@ import { loadAllClients } from "@/lib/clients";
 // пришедший второй раз с тем же телефоном, начислял агенту ещё 300 000 ₫ —
 // именно так у одного гостя оказалось две награды подряд.
 //
-// Скидка −10% живёт по тому же правилу: она даётся вместе с наградой, за
-// первое базовое обучение. Второй раз по той же ссылке — уже без скидки.
+// Скидка живёт по тому же правилу: она даётся вместе с наградой, за первое
+// базовое обучение. Второй раз по той же ссылке — уже без скидки. Сами суммы
+// (сколько скидки и сколько агенту) зависят от услуги и лежат в lib/agentTerms.
 
 // Сайтовый роут заявок ходит service_role клиентом (гость не залогинен),
 // кабинеты — обычным: правило одно, клиент разный.
@@ -23,19 +25,13 @@ type Supabase =
   | Awaited<ReturnType<typeof createClient>>
   | ReturnType<typeof createAdminClient>;
 
-/** Скидка клиенту по агентской ссылке. */
-const REF_DISCOUNT_RATE = 0.1;
-
 /**
- * Услуги, за которые агенту вообще может причитаться награда: базовое
- * обучение (взрослое, детское) и парное базовое. Индивидуальное обучающее
- * занятие сюда не входит — его берут те, кто уже катается.
+ * Что считается «уже катался у нас»: любое базовое обучение, включая детское.
+ * Этот список шире, чем список оплачиваемых агенту услуг (lib/agentTerms): за
+ * детское занятие агент не получает ничего, но человек, прошедший его, — уже не
+ * новичок, и второй раз скидка по агентской ссылке ему не положена.
  */
 export const BASIC_TRAINING_CODES = ["basic-adult", "basic-kid", "basic-duo"];
-
-function isBasicTraining(code: string | null | undefined): boolean {
-  return Boolean(code) && BASIC_TRAINING_CODES.includes(code as string);
-}
 
 /**
  * Катался ли клиент у нас на базовом обучении раньше. Смотрим уже записанные
@@ -66,6 +62,10 @@ async function hasEarlierBasicTraining(
 /**
  * Итог для одного оформления: положены ли агенту награда и комиссия, а
  * клиенту — скидка. Всё это одно и то же событие, поэтому и решение одно.
+ *
+ * Услуги без агентских условий (детское базовое, тандем, прокат) отсекаются
+ * сразу: записаться по агентской ссылке на них можно, но денег это никому не
+ * приносит и чек остаётся полным.
  */
 export async function agentRewardApplies(
   supabase: Supabase,
@@ -75,15 +75,15 @@ export async function agentRewardApplies(
     clientId,
   }: { hasAgent: boolean; serviceCode: string | null | undefined; clientId: string },
 ): Promise<boolean> {
-  if (!hasAgent || !isBasicTraining(serviceCode)) return false;
+  if (!hasAgent || !hasAgentTerms(serviceCode)) return false;
   return !(await hasEarlierBasicTraining(supabase, clientId));
 }
 
 /**
  * То же правило, но ДО оформления, когда клиента ещё не опознали: на руках
  * только телефон из заявки. Нужно интерфейсу — карточка заявки и форма записи
- * обещали «скидка 10%» любому, кто пришёл по ссылке агента, хотя второй раз
- * скидки уже не будет (пачка №6, п.5 закрыла расчёт, но не подписи).
+ * обещали скидку любому, кто пришёл по ссылке агента, хотя второй раз скидки
+ * уже не будет (пачка №6, п.5 закрыла расчёт, но не подписи).
  *
  * Возвращает по телефону: true — гость на скидку претендует (в базе его нет
  * или базового обучения у него не было), false — уже проходил обучение.
@@ -137,8 +137,6 @@ export async function firstBasicTrainingByPhone(
   return result;
 }
 
-/** Чек со скидкой, если она положена. */
-export function applyRefDiscount(amount: number, discounted: boolean): number {
-  if (!discounted) return amount;
-  return Math.max(0, amount - Math.round(amount * REF_DISCOUNT_RATE));
-}
+// Суммы скидки и комиссии — в lib/agentTerms (их читает и браузер). Здесь
+// пробрасываем их дальше, чтобы место оформления импортировало один модуль.
+export { applyRefDiscount, agentCommissionFor, agentDiscountFor } from "@/lib/agentTerms";

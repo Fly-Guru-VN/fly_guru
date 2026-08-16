@@ -18,7 +18,11 @@ import { isPaymentClaim } from "@/lib/paymentClaim";
 import { minutesLeft } from "@/lib/subscriptions";
 import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
-import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
+import {
+  agentCommissionFor,
+  agentRewardApplies,
+  applyRefDiscount,
+} from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
 import { pickChannel } from "@/lib/channels";
 import {
@@ -318,11 +322,13 @@ export async function recordClientAction(
 
   // Резолвим реф-код → агент. Коды членов клуба появятся на этапе 5 —
   // TODO(этап 5): искать код и среди членов, награда минутами (+10/+30).
-  let agent: { id: string; commission_fixed: number } | null = null;
+  // commission_fixed из карточки агента больше не читаем: с 16.08.2026 размер
+  // награды зависит от услуги (lib/agentTerms), а не от агента.
+  let agent: { id: string } | null = null;
   if (refCode) {
     const { data } = await supabase
       .from("agents")
-      .select("id, commission_fixed")
+      .select("id")
       .eq("ref_code", refCode)
       .eq("active", true)
       .maybeSingle();
@@ -367,9 +373,14 @@ export async function recordClientAction(
     serviceCode: service.code as string | null,
     clientId,
   });
+  // Сколько школа платит агенту за такую запись: 200 000 ₫ за базовое,
+  // 300 000 ₫ за парное (lib/agentTerms).
+  const commission = rewarded ? agentCommissionFor(service.code as string | null) : 0;
 
-  const amount = applyRefDiscount(Number(service.price ?? 0), rewarded);
+  const price = Number(service.price ?? 0);
+  const amount = applyRefDiscount(price, service.code as string | null, rewarded);
   const discounted = rewarded;
+  const discount = price - amount; // сколько сняли — проговорим на экране «Готово»
 
   // Заявку занимаем ДО записи занятия: пометка «выполнена» ставится одним
   // запросом с условием «если ещё не выполнена», поэтому из двух одновременных
@@ -386,8 +397,9 @@ export async function recordClientAction(
     }
   }
 
-  // Комиссию агента фиксируем на сессии: из неё вычтется база инструктора
-  // (15% с чека минус комиссия). См. миграцию 0021.
+  // Комиссию агента фиксируем на сессии: с неё начинается вся остальная
+  // арифметика занятия — 35% Marina, 15% инструкторам и 2% CRM считаются с чека
+  // МИНУС эта комиссия. См. миграцию 0021 и lib/finance.
   const { data: session, error: sessionError } = await supabase
     .from("sessions")
     .insert({
@@ -396,7 +408,7 @@ export async function recordClientAction(
       instructor_id: user.id,
       date,
       amount,
-      agent_commission: rewarded ? agent!.commission_fixed : 0,
+      agent_commission: commission,
       payment_method_id: paymentMethodId,
       // Как человек записался на это занятие (0034): заявки у записи с пляжа
       // нет, и канал терялся бы совсем.
@@ -423,13 +435,13 @@ export async function recordClientAction(
   // Награда агенту — за первое базовое обучение приведённого клиента. Занятие
   // проведено и оплачено прямо сейчас — это и есть подтверждение, поэтому
   // пишем сразу `confirmed` (иначе награда зависала бы pending, клиент везде
-  // «оплатил», а в расчёте месяца агенту 0). Размер фиксированный
-  // (commission_fixed), считается независимо от чека.
+  // «оплатил», а в расчёте месяца агенту 0). Размер зависит от услуги
+  // (lib/agentTerms) и от чека не зависит.
   //
   // Пишем service_role-клиентом (0030): политика rewards_insert_instructor
   // проверяла только роль, поэтому инструктор мог выписать любому агенту
-  // награду любого размера запросом мимо интерфейса. Размер берём из карточки
-  // агента (commission_fixed), а не из формы.
+  // награду любого размера запросом мимо интерфейса. Размер берём из таблицы
+  // условий по коду услуги, а не из формы.
   if (rewarded) {
     const { error: rewardError } = await createAdminClient()
       .from("referral_rewards")
@@ -438,7 +450,7 @@ export async function recordClientAction(
         referrer_id: agent!.id,
         client_id: clientId,
         reward_type: "money",
-        amount: agent!.commission_fixed,
+        amount: commission,
         status: "confirmed",
         confirmed_at: new Date().toISOString(),
       });
@@ -464,7 +476,9 @@ export async function recordClientAction(
     amount: String(amount),
     service: service.name,
   });
-  if (discounted) params.set("discount", "1");
+  // Не флаг, а сумма: скидка теперь разная у базового и парного занятия, и
+  // «со скидкой» без числа инструктору ничего не говорит.
+  if (discounted && discount > 0) params.set("discount", String(discount));
   // Записали не сегодняшним числом — проговариваем это на экране «Готово»:
   // промах в дате иначе всплывёт только в конце месяца, в чужой ЗП.
   if (date !== vnToday()) params.set("date", date);

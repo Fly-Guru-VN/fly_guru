@@ -38,7 +38,11 @@ export default async function DonePage({
     title = "Клиент записан";
     details = [
       `${p.name ?? "Клиент"} — ${p.service ?? "услуга"}`,
-      `Чек: ${vnd(amount)}${p.discount ? " (со скидкой 10% по агентской ссылке)" : ""}`,
+      `Чек: ${vnd(amount)}${
+        Number(p.discount ?? 0) > 0
+          ? ` (скидка ${vnd(Number(p.discount))} по агентской ссылке)`
+          : ""
+      }`,
       otherDay ? `Дата занятия: ${otherDay} (не сегодня)` : "Сессия записана на вас.",
     ];
   } else if (p.type === "subscription") {

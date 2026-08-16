@@ -26,7 +26,11 @@ import { DICT_LABEL, type DictTable } from "@/lib/dictionaries";
 import type { EquipmentKind } from "@/lib/equipment";
 import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
-import { agentRewardApplies, applyRefDiscount } from "@/lib/agentReward";
+import {
+  agentCommissionFor,
+  agentRewardApplies,
+  applyRefDiscount,
+} from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
 import {
   claimBooking,
@@ -443,7 +447,9 @@ export async function createSessionAction(
   //
   // Проверяем ДО создания клиента: иначе отказ ниже оставил бы клиента-сироту.
   const bookingId = String(formData.get("bookingId") ?? "") || null;
-  let agent: { id: string; commission_fixed: number } | null = null;
+  // commission_fixed из карточки агента больше не читаем: с 16.08.2026 размер
+  // награды зависит от услуги (lib/agentTerms), а не от агента.
+  let agent: { id: string } | null = null;
   // Прежнее состояние заявки — для отката, если после захвата занятие не
   // запишется (см. lib/bookingClaim).
   let bookingBefore: BookingClaimState | null = null;
@@ -479,7 +485,7 @@ export async function createSessionAction(
     if (booking.ref_code) {
       const { data } = await supabase
         .from("agents")
-        .select("id, commission_fixed")
+        .select("id")
         .eq("ref_code", booking.ref_code)
         .eq("active", true)
         .maybeSingle();
@@ -525,13 +531,20 @@ export async function createSessionAction(
     serviceCode: service.code as string | null,
     clientId,
   });
+  // Сколько школа платит агенту за такую запись: 200 000 ₫ за базовое,
+  // 300 000 ₫ за парное (lib/agentTerms).
+  const commission = rewarded ? agentCommissionFor(service.code as string | null) : 0;
 
-  // Пустая сумма = по прайсу (со скидкой −10%, если она положена); введённая
-  // вручную — важнее (админ решает: скидки, брони, доплаты).
+  // Пустая сумма = по прайсу (минус агентская скидка, если она положена);
+  // введённая вручную — важнее (админ решает: скидки, брони, доплаты).
   const amountRaw = String(formData.get("amount") ?? "").trim();
   const amount: number | null = amountRaw
     ? parseVnd(amountRaw)
-    : applyRefDiscount(Number(service.price ?? 0), rewarded);
+    : applyRefDiscount(
+        Number(service.price ?? 0),
+        service.code as string | null,
+        rewarded,
+      );
   if (amount === null) return { error: "Сумма — число в донгах, например 1 500 000." };
 
   // Формат оплаты (пак A, пункт 6). У админа обязателен так же, как у
@@ -575,16 +588,18 @@ export async function createSessionAction(
     }
   }
 
-  // Комиссию агента фиксируем на сессии — из неё вычтется база инструктора
-  // (15% с чека минус комиссия). Ставим её там же, где положена награда, даже
-  // если сумму админ ввёл руками: агент привёл клиента независимо от чека.
+  // Комиссию агента фиксируем на сессии: с неё начинается вся остальная
+  // арифметика занятия — 35% Marina, 15% инструкторам и 2% CRM считаются с
+  // чека МИНУС эта комиссия (lib/finance). Ставим её там же, где положена
+  // награда, даже если сумму админ ввёл руками: агент привёл клиента
+  // независимо от чека.
   const sessionRow = {
     client_id: clientId,
     service_id: serviceId,
     instructor_id: instructorId,
     date,
     amount,
-    agent_commission: rewarded ? agent!.commission_fixed : 0,
+    agent_commission: commission,
     payment_method_id: paymentMethodId,
     // Как человек записался на это занятие (0034). Заявка не создаётся, когда
     // клиента оформляют сразу на пляже, — иначе канал терялся бы совсем.
@@ -622,7 +637,7 @@ export async function createSessionAction(
       referrer_id: agent!.id,
       client_id: clientId,
       reward_type: "money",
-      amount: agent!.commission_fixed,
+      amount: commission,
       status: "confirmed",
       confirmed_at: dayToIso(date),
     });
