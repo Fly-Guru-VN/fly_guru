@@ -6,7 +6,7 @@ import { PhoneField } from "@/components/cabinet/PhoneField";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { ChannelField } from "@/components/cabinet/ChannelField";
 import { vnd } from "@/lib/stats";
-import { agentDiscountFor } from "@/lib/agentTerms";
+import { agentDiscountFor, DEFAULT_AGENT_PLAN, type AgentPlan } from "@/lib/agentTerms";
 import { Spinner } from "@/components/Spinner";
 
 // Админская «Запись клиента». Отдельная форма (а не форма сессий), потому что
@@ -31,6 +31,8 @@ export interface RecordPrefill {
   refIsAgent?: boolean; // код агента (скидка) или инструктора (без скидки)
   // Положена ли скидка ЭТОМУ гостю: только за первое базовое обучение.
   refDiscount?: boolean;
+  // Тариф агента (agents.terms_plan): у разных агентов разные условия.
+  refPlan?: AgentPlan;
   telegram?: string | null;
   date?: string; // дата из заявки — на неё и ляжет занятие
   paymentMethodId?: string | null; // способ оплаты из карточки заявки
@@ -72,9 +74,14 @@ export function RecordClientForm({
   );
   const service = services.find((s) => s.id === serviceId);
   const price = service?.price ?? 0;
-  // Сколько снимет агентская скидка с ВЫБРАННОЙ сейчас услуги: 100 000 ₫ с
-  // базового, 200 000 ₫ с парного, с остальных — ничего.
-  const refDiscount = agentDiscountFor(service?.code);
+  // Сколько снимет агентская скидка с ВЫБРАННОЙ сейчас услуги. Размер зависит
+  // от тарифа агента: фикс (100 000 ₫ с базового, 200 000 ₫ с парного) или
+  // процент от цены. С остальных услуг — ничего.
+  const refDiscount = agentDiscountFor(
+    service?.code,
+    price,
+    prefill?.refPlan ?? DEFAULT_AGENT_PLAN,
+  );
 
   return (
     <form action={formAction} className="space-y-3">

@@ -8,7 +8,7 @@ import { SHIFT_PAY, SHIFT_PAY_LABEL } from "@/lib/salary";
 import { CopyLink } from "@/app/[locale]/admin/CopyLink";
 import { RecordForm, type RecordPrefill } from "./RecordForm";
 import { createMyRefCodeAction } from "../actions";
-import { firstBasicTrainingByPhone } from "@/lib/agentReward";
+import { firstBasicTrainingByPhone, asAgentPlan } from "@/lib/agentReward";
 import { sortServicesByType } from "@/lib/serviceOrder";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 
@@ -62,9 +62,12 @@ export default async function RecordPage({
   // «Продажу абонемента» (иначе клиент не получит минуты и членство).
   // Порядок «по типажам» (lib/serviceOrder.ts): базовое обучение первым —
   // форма и выбирает по умолчанию первую услугу списка.
+  // Цена нужна форме не для отправки (сервер всё равно считает сам), а для
+  // подписи про агентскую скидку: на процентном тарифе «−5%» без цены в сумму
+  // не превратить.
   const { data: serviceRows } = await supabase
     .from("services")
-    .select("id, name, code, category")
+    .select("id, name, code, category, price")
     .eq("active", true)
     .neq("category", "subscription");
   const services = sortServicesByType(serviceRows ?? []);
@@ -106,11 +109,14 @@ export default async function RecordPage({
       if (booking.ref_code) {
         const { data: agent } = await supabase
           .from("agents")
-          .select("id")
+          .select("id, terms_plan")
           .eq("ref_code", booking.ref_code)
           .eq("active", true)
           .maybeSingle();
         prefill.refIsAgent = Boolean(agent);
+        // Тариф агента (0046): у разных агентов разные скидки, и подпись должна
+        // называть ту, что реально применится.
+        prefill.refPlan = asAgentPlan(agent?.terms_plan);
         // Скидка положена только за ПЕРВОЕ базовое обучение: если гость уже
         // катался, форма не должна её обещать (расчёт её и не даст).
         // Проверяем service-role клиентом — своим инструктор не видит сессии

@@ -6,7 +6,7 @@ import { getAppUser } from "@/lib/auth";
 import { vnToday } from "@/lib/dates";
 import { getActiveDict, getChannelNames, embeddedName } from "@/lib/dictionaries";
 import { RecordClientForm, type RecordPrefill } from "./RecordClientForm";
-import { firstBasicTrainingByPhone } from "@/lib/agentReward";
+import { firstBasicTrainingByPhone, asAgentPlan } from "@/lib/agentReward";
 import { sortServicesByType } from "@/lib/serviceOrder";
 import { hiddenStaffIds, loadSessionStaff } from "@/lib/staff";
 import { failIfReadError } from "@/lib/dbError";
@@ -110,12 +110,15 @@ export async function RecordScreen({
       if (booking.ref_code) {
         const { data: agent } = await supabase
           .from("agents")
-          .select("id")
+          .select("id, terms_plan")
           .eq("ref_code", booking.ref_code)
           .eq("active", true)
           .maybeSingle();
         const filled = prefill;
         filled.refIsAgent = Boolean(agent);
+        // Тариф агента (0046): подпись должна называть ту скидку, которая
+        // реально применится, а она у разных агентов разная.
+        filled.refPlan = asAgentPlan(agent?.terms_plan);
         if (filled.refIsAgent) {
           const known = await firstBasicTrainingByPhone(supabase, [booking.phone]);
           filled.refDiscount = known.get(booking.phone);

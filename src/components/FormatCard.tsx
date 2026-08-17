@@ -74,6 +74,7 @@ export function FormatCard({ format }: { format: Format }) {
           </div>
           <AgentDiscountNote
             code={service.id}
+            price={service.price}
             className="mt-1 text-xs font-semibold text-accent-strong"
           />
           <div className="mt-4 w-full">

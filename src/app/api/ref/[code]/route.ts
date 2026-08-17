@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, clientIp } from "@/lib/rateLimit";
+import { asAgentPlan } from "@/lib/agentTerms";
 
 // «Что за код лежит у гостя в браузере» — один короткий ответ для формы записи
 // и для карточек прайса.
@@ -11,10 +12,12 @@ import { checkRateLimit, clientIp } from "@/lib/rateLimit";
 // ссылке ЖИВОГО агента: инструкторский код скидки не даёт, выключенный агент —
 // тоже. Проверить это может только сервер, у браузера в руках лишь строка.
 //
-// Что отвечаем: kind — 'agent' | 'instructor' | null. Ничего чувствительного
-// (ни имени, ни комиссии) здесь нет намеренно: адрес открыт всем без входа,
-// коды короткие, и перебором из него не должно доставаться ничего, кроме
-// «да, такая ссылка есть».
+// Что отвечаем: kind — 'agent' | 'instructor' | null, а у агента ещё plan —
+// его тариф (agents.terms_plan, 0046). Тариф нужен браузеру, чтобы назвать
+// РАЗМЕР скидки: с 17.08.2026 он у разных агентов разный. Ни имени, ни сумм
+// выплат здесь по-прежнему нет: адрес открыт всем без входа, коды короткие, и
+// перебором из него не должно доставаться ничего, кроме «да, такая ссылка есть
+// и вот какая по ней скидка».
 //
 // Ограничитель — как на соседних открытых адресах (см. api/ref-visits): без
 // него код перебирается пачками, а каждый заход это запрос в базу.
@@ -43,11 +46,13 @@ export async function GET(
   // ссылке уже не будет, и обещать её нельзя.
   const { data: agent } = await supabase
     .from("agents")
-    .select("id")
+    .select("id, terms_plan")
     .eq("ref_code", code)
     .eq("active", true)
     .maybeSingle();
-  if (agent) return NextResponse.json({ kind: "agent" });
+  if (agent) {
+    return NextResponse.json({ kind: "agent", plan: asAgentPlan(agent.terms_plan) });
+  }
 
   const { data: instructor } = await supabase
     .from("users")

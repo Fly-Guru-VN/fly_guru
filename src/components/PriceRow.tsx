@@ -58,6 +58,7 @@ export function PriceRow({
             строки на 390 px. */}
         <AgentDiscountNote
           code={code}
+          price={price}
           className="block text-xs font-semibold text-accent-strong"
         />
       </span>

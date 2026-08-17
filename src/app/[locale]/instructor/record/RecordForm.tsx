@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { recordClientAction, type ActionState } from "../actions";
-import { agentDiscountFor } from "@/lib/agentTerms";
+import { agentDiscountFor, DEFAULT_AGENT_PLAN, type AgentPlan } from "@/lib/agentTerms";
 import { vnd } from "@/lib/stats";
 import { PhoneField } from "@/components/cabinet/PhoneField";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
@@ -24,6 +24,8 @@ export interface RecordPrefill {
   // Положена ли скидка ЭТОМУ гостю: она даётся за первое базовое обучение,
   // и повторному клиенту по той же ссылке её уже не будет.
   refDiscount?: boolean;
+  // Тариф агента (agents.terms_plan): у разных агентов разные условия.
+  refPlan?: AgentPlan;
   telegram?: string | null;
   paymentMethodId?: string | null; // способ оплаты, выбранный админом в заявке
   paymentMethodName?: string | null;
@@ -32,8 +34,9 @@ export interface RecordPrefill {
 }
 
 interface RecordFormProps {
-  // code — по нему видно, есть ли на услуге агентская скидка и какая.
-  services: { id: string; name: string; code?: string | null }[];
+  // code — по нему видно, есть ли на услуге агентская скидка и какая;
+  // price — чтобы посчитать процентную скидку в донгах.
+  services: { id: string; name: string; code?: string | null; price?: number | null }[];
   today: string; // 'YYYY-MM-DD' по Вьетнаму — с сервера, чтобы не зависеть от часов телефона
   paymentMethods: { id: string; name: string }[];
   channels: string[]; // справочник каналов записи (0041)
@@ -57,13 +60,16 @@ export function RecordForm({
   const { min, max } = recordDateBounds(today);
 
   // Выбранная услуга — чтобы подпись про скидку называла её настоящий размер:
-  // он разный у базового (100 000 ₫) и парного (200 000 ₫), а на остальных
-  // услугах скидки нет вовсе.
+  // он разный у базового и парного, зависит от тарифа агента (у процентного
+  // считается от цены услуги), а на остальных услугах скидки нет вовсе.
   const [serviceId, setServiceId] = useState(
     prefill?.serviceId ?? services[0]?.id ?? "",
   );
+  const chosen = services.find((s) => s.id === serviceId);
   const refDiscount = agentDiscountFor(
-    services.find((s) => s.id === serviceId)?.code,
+    chosen?.code,
+    chosen?.price,
+    prefill?.refPlan ?? DEFAULT_AGENT_PLAN,
   );
 
   return (

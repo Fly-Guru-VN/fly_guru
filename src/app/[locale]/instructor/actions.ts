@@ -22,6 +22,9 @@ import {
   agentCommissionFor,
   agentRewardApplies,
   applyRefDiscount,
+  asAgentPlan,
+  DEFAULT_AGENT_PLAN,
+  type AgentPlan,
 } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
 import { pickChannel } from "@/lib/channels";
@@ -323,17 +326,23 @@ export async function recordClientAction(
   // Резолвим реф-код → агент. Коды членов клуба появятся на этапе 5 —
   // TODO(этап 5): искать код и среди членов, награда минутами (+10/+30).
   // commission_fixed из карточки агента больше не читаем: с 16.08.2026 размер
-  // награды зависит от услуги (lib/agentTerms), а не от агента.
-  let agent: { id: string } | null = null;
+  // награды зависит от услуги (lib/agentTerms). А с 17.08.2026 — ещё и от
+  // тарифа агента (agents.terms_plan, 0046): у одного партнёра свои условия.
+  let agent: { id: string; plan: AgentPlan } | null = null;
   if (refCode) {
     const { data } = await supabase
       .from("agents")
-      .select("id")
+      .select("id, terms_plan")
       .eq("ref_code", refCode)
       .eq("active", true)
       .maybeSingle();
-    agent = data ?? null;
+    agent = data
+      ? { id: data.id as string, plan: asAgentPlan(data.terms_plan) }
+      : null;
   }
+  // Тариф нужен и там, где агента нет: функции условий требуют его всегда, а
+  // без агента они всё равно возвращают ноль.
+  const plan = agent?.plan ?? DEFAULT_AGENT_PLAN;
 
   const clientResult = await findOrCreateClient(supabase, user, {
     name,
@@ -372,13 +381,18 @@ export async function recordClientAction(
     hasAgent: Boolean(agent),
     serviceCode: service.code as string | null,
     clientId,
+    plan,
   });
-  // Сколько школа платит агенту за такую запись: 200 000 ₫ за базовое,
-  // 300 000 ₫ за парное (lib/agentTerms).
-  const commission = rewarded ? agentCommissionFor(service.code as string | null) : 0;
 
   const price = Number(service.price ?? 0);
-  const amount = applyRefDiscount(price, service.code as string | null, rewarded);
+  const amount = applyRefDiscount(price, service.code as string | null, rewarded, plan);
+  // Сколько школа платит агенту за такую запись: на стандартном тарифе
+  // 200 000 ₫ за базовое и 300 000 ₫ за парное, на процентном — доля от чека
+  // (lib/agentTerms). Поэтому считаем ПОСЛЕ суммы: 20% берутся с того, что
+  // гость реально заплатил, то есть уже со снятой скидкой.
+  const commission = rewarded
+    ? agentCommissionFor(service.code as string | null, amount, plan)
+    : 0;
   const discounted = rewarded;
   const discount = price - amount; // сколько сняли — проговорим на экране «Готово»
 

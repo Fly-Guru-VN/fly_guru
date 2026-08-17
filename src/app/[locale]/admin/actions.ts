@@ -30,6 +30,9 @@ import {
   agentCommissionFor,
   agentRewardApplies,
   applyRefDiscount,
+  asAgentPlan,
+  DEFAULT_AGENT_PLAN,
+  type AgentPlan,
 } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
 import {
@@ -448,8 +451,9 @@ export async function createSessionAction(
   // Проверяем ДО создания клиента: иначе отказ ниже оставил бы клиента-сироту.
   const bookingId = String(formData.get("bookingId") ?? "") || null;
   // commission_fixed из карточки агента больше не читаем: с 16.08.2026 размер
-  // награды зависит от услуги (lib/agentTerms), а не от агента.
-  let agent: { id: string } | null = null;
+  // награды зависит от услуги (lib/agentTerms). А с 17.08.2026 — ещё и от
+  // тарифа агента (agents.terms_plan, 0046): у одного партнёра свои условия.
+  let agent: { id: string; plan: AgentPlan } | null = null;
   // Прежнее состояние заявки — для отката, если после захвата занятие не
   // запишется (см. lib/bookingClaim).
   let bookingBefore: BookingClaimState | null = null;
@@ -485,13 +489,18 @@ export async function createSessionAction(
     if (booking.ref_code) {
       const { data } = await supabase
         .from("agents")
-        .select("id")
+        .select("id, terms_plan")
         .eq("ref_code", booking.ref_code)
         .eq("active", true)
         .maybeSingle();
-      agent = data ?? null;
+      agent = data
+        ? { id: data.id as string, plan: asAgentPlan(data.terms_plan) }
+        : null;
     }
   }
+  // Тариф нужен и там, где агента нет: функции условий требуют его всегда, а
+  // без агента они всё равно возвращают ноль.
+  const plan = agent?.plan ?? DEFAULT_AGENT_PLAN;
 
   const { data: service } = await supabase
     .from("services")
@@ -530,10 +539,8 @@ export async function createSessionAction(
     hasAgent: Boolean(agent),
     serviceCode: service.code as string | null,
     clientId,
+    plan,
   });
-  // Сколько школа платит агенту за такую запись: 200 000 ₫ за базовое,
-  // 300 000 ₫ за парное (lib/agentTerms).
-  const commission = rewarded ? agentCommissionFor(service.code as string | null) : 0;
 
   // Пустая сумма = по прайсу (минус агентская скидка, если она положена);
   // введённая вручную — важнее (админ решает: скидки, брони, доплаты).
@@ -544,8 +551,17 @@ export async function createSessionAction(
         Number(service.price ?? 0),
         service.code as string | null,
         rewarded,
+        plan,
       );
   if (amount === null) return { error: "Сумма — число в донгах, например 1 500 000." };
+
+  // Сколько школа платит агенту за такую запись: на стандартном тарифе
+  // 200 000 ₫ за базовое и 300 000 ₫ за парное, на процентном — доля от чека
+  // (lib/agentTerms). Поэтому считаем ПОСЛЕ суммы: 20% берутся с того, что
+  // гость реально заплатил, включая сумму, вписанную админом руками.
+  const commission = rewarded
+    ? agentCommissionFor(service.code as string | null, amount, plan)
+    : 0;
 
   // Формат оплаты (пак A, пункт 6). У админа обязателен так же, как у
   // инструктора: сессия задним числом — тоже состоявшаяся оплата.
@@ -1258,6 +1274,9 @@ export async function createAgentAction(
   if (!name) return { error: "Укажите имя агента." };
   // Агенту платят комиссию — без телефона его потом не найти (пак 4, п.2).
   if (!isValidPhone(phone)) return { error: PHONE_ERROR };
+  // Тариф (0046). Незнакомое значение из формы превращается в стандартный —
+  // деньги не должны зависеть от того, что прислал браузер.
+  const plan = asAgentPlan(formData.get("termsPlan"));
 
   const { data: user, error: userError } = await supabase
     .from("users")
@@ -1278,7 +1297,7 @@ export async function createAgentAction(
   for (let attempt = 0; attempt < 5; attempt++) {
     const { error } = await supabase
       .from("agents")
-      .insert({ user_id: user.id, ref_code: randomRefCode() });
+      .insert({ user_id: user.id, ref_code: randomRefCode(), terms_plan: plan });
     if (!error) {
       agentError = null;
       break;
@@ -1309,6 +1328,27 @@ export async function toggleAgentActiveAction(formData: FormData) {
     .update({ active: formData.get("active") !== "1" })
     .eq("id", id);
   failIfError(error, "не удалось переключить агента");
+  revalidatePath("/", "layout");
+}
+
+// Сменить тариф агента (0046). Условия партнёров начальник меняет живьём —
+// «на этом тарифе с сегодня», поэтому выбор стоит прямо в карточке.
+//
+// ВАЖНО: тариф влияет только на БУДУЩИЕ занятия. Уже записанные сессии хранят
+// свою комиссию (sessions.agent_commission), а начисленные награды — свою
+// сумму; задним числом мы их не пересчитываем, иначе поехали бы закрытые
+// месяцы, ЗП и доля площадки.
+export async function setAgentTermsAction(formData: FormData) {
+  const user = await requireOffice();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await officeClient(user);
+  const { error } = await supabase
+    .from("agents")
+    .update({ terms_plan: asAgentPlan(formData.get("termsPlan")) })
+    .eq("id", id);
+  failIfError(error, "не удалось сменить условия агента");
   revalidatePath("/", "layout");
 }
 

@@ -2,8 +2,12 @@
 // реф-ссылки, награды и выплаты.
 import { createClient } from "@/lib/supabase/server";
 import { vnd } from "@/lib/stats";
-import { agentCommissionFor } from "@/lib/agentTerms";
-import { deleteAgentPayoutAction, toggleAgentActiveAction } from "../actions";
+import { AGENT_PLANS, asAgentPlan, type AgentPlan } from "@/lib/agentTerms";
+import {
+  deleteAgentPayoutAction,
+  setAgentTermsAction,
+  toggleAgentActiveAction,
+} from "../actions";
 import { AgentCreateForm } from "./AgentCreateForm";
 import { AgentPayoutForm } from "./AgentPayoutForm";
 import { CopyLink } from "../CopyLink";
@@ -14,14 +18,17 @@ import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 
 // Агенты: партнёры с личной реф-ссылкой (гиды, отельеры). Приводят клиентов,
-// получают фикс за каждого после выполненной услуги. Размер фикса зависит от
-// услуги (lib/agentTerms), а не от агента. Воронка на карточке: переходы по
-// ссылке → клиенты → награды (ожидает / подтверждено).
+// получают награду за каждого после выполненной услуги. Сколько именно —
+// зависит от услуги и от ТАРИФА агента (agents.terms_plan, 0046; числа в
+// lib/agentTerms): у большинства стандартные условия школы, у отдельных
+// партнёров личные. Воронка на карточке: переходы по ссылке → клиенты →
+// награды. Рядом со ссылкой — её QR (api/agent-qr).
 
 interface AgentRow {
   id: string;
   ref_code: string;
   active: boolean;
+  terms_plan: string | null; // тариф (0046), проверяется через asAgentPlan
   user: { name: string; phone: string | null } | null;
 }
 
@@ -70,6 +77,9 @@ function AgentCard({
   // К выплате: заработанное (подтверждённые награды) минус уже отданное.
   // Может уйти в минус — значит выплатили авансом; так и показываем.
   const due = stats.confirmedSum - stats.paidSum;
+  // Тариф агента (0046): у большинства стандартный, у отдельных партнёров —
+  // личный. От него зависят и скидка гостю, и награда агенту.
+  const plan = asAgentPlan(a.terms_plan);
   return (
     <details
       className={`group rounded-2xl border border-line bg-surface ${a.active ? "" : "opacity-60"}`}
@@ -102,6 +112,32 @@ function AgentCard({
 
       <div className="space-y-3 border-t border-line/70 p-4 pt-3">
         <CopyLink path={`/r/${a.ref_code}`} />
+
+        {/* QR той же ссылки: агенту его отправляют в мессенджер, а он показывает
+            гостю с телефона или печатает на визитке. Картинку рисует сервер
+            (api/agent-qr) — здесь только показываем и даём скачать файлом. */}
+        <div className="flex items-center gap-3">
+          {/* Обычный <img>, а не next/image: картинка динамическая, оптимизировать
+              в ней нечего, а через оптимизатор она стоила бы лишнего запроса. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`/api/agent-qr/${a.ref_code}`}
+            alt={`QR-код ссылки агента ${name}`}
+            width={96}
+            height={96}
+            className="h-24 w-24 shrink-0 rounded-xl border border-line bg-white p-1"
+          />
+          <div className="min-w-0 text-xs text-muted">
+            <p>QR ведёт на ту же страницу, что и ссылка.</p>
+            <a
+              href={`/api/agent-qr/${a.ref_code}?download=1`}
+              download={`flyguru-${a.ref_code}.png`}
+              className="mt-2 inline-block rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+            >
+              Скачать QR
+            </a>
+          </div>
+        </div>
 
         {/* Воронка: сколько людей открыли ссылку → сколько дошли до услуги. */}
         <div className="grid grid-cols-3 gap-2 text-center">
@@ -145,13 +181,9 @@ function AgentCard({
             <span className="font-bold text-ink">{vnd(stats.confirmedSum)}</span>
             {stats.confirmedCount > 0 && ` (${stats.confirmedCount})`}
           </p>
-          {/* Не из карточки агента: с 16.08.2026 награда зависит от услуги, а
-              не от агента, и одинакова у всех (lib/agentTerms). Колонка
-              commission_fixed в базе осталась, но больше ни на что не влияет. */}
-          <p>
-            Награда: {vnd(agentCommissionFor("basic-adult"))} за базовое обучение,{" "}
-            {vnd(agentCommissionFor("basic-duo"))} за парное
-          </p>
+          {/* Не из колонки commission_fixed (она в базе осталась, но ни на что
+              не влияет): условия задаёт ТАРИФ агента, числа — в lib/agentTerms. */}
+          <p>Условия: {AGENT_PLANS[plan].note}</p>
         </div>
 
         {/* Деньги: сколько заработал, сколько отдали, сколько должны (п.7).
@@ -221,6 +253,33 @@ function AgentCard({
           )}
         </div>
 
+        {/* Смена условий. Меняет только БУДУЩИЕ занятия: уже записанные хранят
+            свою комиссию, и задним числом мы их не трогаем — иначе поехали бы
+            закрытые месяцы, ЗП и доля площадки. */}
+        <form action={setAgentTermsAction} className="rounded-2xl border border-line/70 p-3">
+          <input type="hidden" name="id" value={a.id} />
+          <label className="text-xs text-muted">
+            Условия агента
+            <select
+              name="termsPlan"
+              defaultValue={plan}
+              className="mt-1 h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm outline-none focus:border-primary"
+            >
+              {(Object.keys(AGENT_PLANS) as AgentPlan[]).map((key) => (
+                <option key={key} value={key}>
+                  {AGENT_PLANS[key].label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <ConfirmSubmit
+            message="Сменить условия агента? Новые применятся к будущим занятиям, уже записанные останутся как есть."
+            className="mt-2 rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+          >
+            Сохранить условия
+          </ConfirmSubmit>
+        </form>
+
         <form action={toggleAgentActiveAction}>
           <input type="hidden" name="id" value={a.id} />
           <input type="hidden" name="active" value={a.active ? "1" : "0"} />
@@ -244,7 +303,7 @@ export async function AgentsScreen() {
 
   const { data: agentsData } = await supabase
     .from("agents")
-    .select("id, ref_code, active, user:users!user_id(name, phone)");
+    .select("id, ref_code, active, terms_plan, user:users!user_id(name, phone)");
   const agents = (agentsData ?? []) as unknown as AgentRow[];
 
   // Метрики тремя запросами на всех агентов сразу (не по одному на карточку),

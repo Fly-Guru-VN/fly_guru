@@ -6,7 +6,12 @@ import { redirect } from "@/i18n/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveServices, getSiteServices, pickService } from "@/lib/services";
 import { getService, formatVnd } from "@/content/services";
-import { agentDiscountFor } from "@/lib/agentTerms";
+import {
+  agentDiscountFor,
+  asAgentPlan,
+  DEFAULT_AGENT_PLAN,
+  type AgentPlan,
+} from "@/lib/agentTerms";
 import { BookBtn } from "@/components/BookBtn";
 import { RefVisitLogger } from "@/components/RefVisitLogger";
 
@@ -19,16 +24,20 @@ import { RefVisitLogger } from "@/components/RefVisitLogger";
 type RefKind = "agent" | "instructor" | null;
 
 // Что за код: активный агент, инструктор с личным кодом (пак C) — или мусор.
+// У агента заодно забираем тариф (agents.terms_plan, 0046): от него зависит,
+// какую скидку страница обещает гостю.
 // (Реф-коды членов клуба появятся позже — Этап 5; здесь оставлен задел.)
-async function resolveRefKind(code: string): Promise<RefKind> {
+async function resolveRef(
+  code: string,
+): Promise<{ kind: RefKind; plan: AgentPlan }> {
   const supabase = createAdminClient();
   const { data: agent } = await supabase
     .from("agents")
-    .select("id")
+    .select("id, terms_plan")
     .eq("ref_code", code)
     .eq("active", true)
     .maybeSingle();
-  if (agent) return "agent";
+  if (agent) return { kind: "agent", plan: asAgentPlan(agent.terms_plan) };
 
   const { data: instructor } = await supabase
     .from("users")
@@ -36,9 +45,9 @@ async function resolveRefKind(code: string): Promise<RefKind> {
     .eq("ref_code", code)
     .eq("role", "instructor")
     .maybeSingle();
-  if (instructor) return "instructor";
+  if (instructor) return { kind: "instructor", plan: DEFAULT_AGENT_PLAN };
 
-  return null;
+  return { kind: null, plan: DEFAULT_AGENT_PLAN };
 }
 
 export default async function ReferralLandingPage({
@@ -51,7 +60,7 @@ export default async function ReferralLandingPage({
 
   // Невалидный код (опечатка, устаревшая ссылка) — не показываем ошибку, а мягко
   // отправляем человека на обычную страницу обучения с обычной формой.
-  const kind = await resolveRefKind(code);
+  const { kind, plan } = await resolveRef(code);
   if (!kind) {
     redirect({ href: "/training", locale });
   }
@@ -71,8 +80,12 @@ export default async function ReferralLandingPage({
   const site = await getSiteServices();
   const basic = pickService(site, "basic-adult");
   const duo = pickService(site, "basic-duo");
-  const discounted = (price: number | null, code: string) =>
-    price === null ? null : Math.max(0, price - agentDiscountFor(code));
+  // Скидка по тарифу ЭТОГО агента: у стандартного она фиксированная, у
+  // процентного считается от цены услуги.
+  const discountFor = (price: number | null, serviceCode: string) =>
+    agentDiscountFor(serviceCode, price, plan);
+  const discounted = (price: number | null, serviceCode: string) =>
+    price === null ? null : Math.max(0, price - discountFor(price, serviceCode));
 
   return (
     <>
@@ -150,7 +163,8 @@ export default async function ReferralLandingPage({
             <div className="mx-auto max-w-2xl rounded-3xl border border-accent/30 bg-accent/5 p-8 text-center sm:p-10">
               <Badge>Скидка по ссылке</Badge>
               <h2 className="mt-4 text-2xl font-bold sm:text-3xl">
-                Базовое занятие дешевле на {formatVnd(agentDiscountFor("basic-adult"))}
+                Базовое занятие дешевле на{" "}
+                {formatVnd(discountFor(basic.price, "basic-adult"))}
               </h2>
               <div className="mt-6 flex flex-wrap items-baseline justify-center gap-3">
                 <span className="text-xl text-muted line-through">
@@ -164,7 +178,7 @@ export default async function ReferralLandingPage({
                   на лендинге не говорилось вовсе. */}
               <p className="mt-4 text-sm text-muted">
                 Парное базовое обучение — дешевле на{" "}
-                {formatVnd(agentDiscountFor("basic-duo"))}:{" "}
+                {formatVnd(discountFor(duo.price, "basic-duo"))}:{" "}
                 <span className="line-through">{formatVnd(duo.price)}</span>{" "}
                 <span className="font-semibold text-accent-strong">
                   {formatVnd(discounted(duo.price, "basic-duo"))}

@@ -47,9 +47,11 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
   const [status, setStatus] = useState<Status>("idle");
   const [phone, setPhone] = useState("");
 
-  // Пришёл ли гость по ссылке живого агента: от этого зависят плашки скидки на
-  // карточках услуг. Инструкторская ссылка скидки не даёт — проверяет сервер.
-  const byAgent = useAgentRef(refCode);
+  // Пришёл ли гость по ссылке живого агента и по чьей именно: от тарифа агента
+  // зависит размер скидки на карточках услуг (у одного партнёра свои проценты).
+  // Инструкторская ссылка скидки не даёт — проверяет сервер. null = не агент.
+  const agentPlan = useAgentRef(refCode);
+  const byAgent = agentPlan !== null;
 
   // Какая услуга выбрана. Раньше это был обычный <select> и состояние не было
   // нужно; теперь выбор — карточки, и подсветить надо ту, на которую нажали.
@@ -212,8 +214,8 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
         <legend className="mb-1 block text-sm font-medium">Услуга</legend>
         <div className="grid gap-2 sm:grid-cols-2">
           {services.map((s) => {
-            const discount = byAgent ? agentDiscountFor(s.code) : 0;
             const price = s.price ?? null;
+            const discount = agentPlan ? agentDiscountFor(s.code, price, agentPlan) : 0;
             const chosen = s.id === serviceId;
             return (
               <label

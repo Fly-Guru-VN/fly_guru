@@ -2,7 +2,7 @@ import type { createClient } from "@/lib/supabase/server";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { phonesMatch } from "@/lib/phone";
 import { loadAllClients } from "@/lib/clients";
-import { hasAgentTerms } from "@/lib/agentTerms";
+import { hasAgentTerms, DEFAULT_AGENT_PLAN, type AgentPlan } from "@/lib/agentTerms";
 
 // Когда агент зарабатывает на приведённом клиенте (пачка правок №6, п.5).
 //
@@ -73,9 +73,16 @@ export async function agentRewardApplies(
     hasAgent,
     serviceCode,
     clientId,
-  }: { hasAgent: boolean; serviceCode: string | null | undefined; clientId: string },
+    plan = DEFAULT_AGENT_PLAN,
+  }: {
+    hasAgent: boolean;
+    serviceCode: string | null | undefined;
+    clientId: string;
+    /** Тариф агента (agents.terms_plan): от него зависит список услуг. */
+    plan?: AgentPlan;
+  },
 ): Promise<boolean> {
-  if (!hasAgent || !hasAgentTerms(serviceCode)) return false;
+  if (!hasAgent || !hasAgentTerms(serviceCode, plan)) return false;
   return !(await hasEarlierBasicTraining(supabase, clientId));
 }
 
@@ -139,4 +146,11 @@ export async function firstBasicTrainingByPhone(
 
 // Суммы скидки и комиссии — в lib/agentTerms (их читает и браузер). Здесь
 // пробрасываем их дальше, чтобы место оформления импортировало один модуль.
-export { applyRefDiscount, agentCommissionFor, agentDiscountFor } from "@/lib/agentTerms";
+export {
+  applyRefDiscount,
+  agentCommissionFor,
+  agentDiscountFor,
+  asAgentPlan,
+  DEFAULT_AGENT_PLAN,
+  type AgentPlan,
+} from "@/lib/agentTerms";

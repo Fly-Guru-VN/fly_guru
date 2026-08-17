@@ -12,8 +12,9 @@ import { useAgentRef } from "./useAgentRef";
 // внутри серверной карточки: пока код не подтверждён сервером, стоит обычная
 // цена, а у пришедшего по ссылке агента она превращается в «было → стало».
 //
-// Скидка есть не у всех услуг: суммы лежат в lib/agentTerms, у остальных
-// вернётся 0 и карточка останется обычной.
+// Скидка есть не у всех услуг: условия лежат в lib/agentTerms, у остальных
+// вернётся 0 и карточка останется обычной. Размер зависит от тарифа агента —
+// useAgentRef отдаёт именно его (у одного партнёра свои проценты).
 export function AgentPrice({
   price,
   code,
@@ -25,8 +26,8 @@ export function AgentPrice({
   className?: string; // оформление главной (итоговой) цены — задаёт карточка
   oldClassName?: string; // зачёркнутая старая цена
 }) {
-  const byAgent = useAgentRef();
-  const discount = byAgent ? agentDiscountFor(code) : 0;
+  const plan = useAgentRef();
+  const discount = plan ? agentDiscountFor(code, price, plan) : 0;
 
   if (price === null || discount <= 0) {
     return <span className={className}>{formatVnd(price)}</span>;
@@ -45,13 +46,15 @@ export function AgentPrice({
 // под ценой.
 export function AgentDiscountNote({
   code,
+  price,
   className = "",
 }: {
   code?: string | null;
+  price: number | null; // нужна процентному тарифу: «−5%» без цены не посчитать
   className?: string;
 }) {
-  const byAgent = useAgentRef();
-  const discount = byAgent ? agentDiscountFor(code) : 0;
+  const plan = useAgentRef();
+  const discount = plan ? agentDiscountFor(code, price, plan) : 0;
   if (discount <= 0) return null;
   return (
     <span className={className}>−{formatVnd(discount)} по ссылке агента</span>
