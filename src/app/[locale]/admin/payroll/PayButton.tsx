@@ -79,12 +79,16 @@ export function MonthlyChip({
           }),
         )
       }
-      className="inline-flex flex-wrap items-center gap-x-1.5 rounded-full border border-dashed border-primary/60 px-3 py-0.5 text-xs font-semibold text-primary transition-colors hover:border-solid hover:bg-primary hover:text-white"
+      className="inline-flex flex-wrap items-center gap-x-1.5 rounded-2xl border border-dashed border-primary/60 px-3 py-1 text-left text-xs font-semibold text-primary transition-colors hover:border-solid hover:bg-primary hover:text-white"
     >
+      {/* Скобки, а не тире: на узком экране подпись переносится на вторую
+          строку, и «(в конце месяца)» читается сама по себе, а «— в конце
+          месяца» висело обрывком. Радиус не `rounded-full` по той же причине —
+          двухстрочная «таблетка» выглядит кляксой. */}
       <span className="tabular-nums">
         1% за {label} · {vnd(amount)}
       </span>
-      <span className="font-normal opacity-80">— в конце месяца</span>
+      <span className="font-normal opacity-80">(в конце месяца)</span>
     </button>
   );
 }

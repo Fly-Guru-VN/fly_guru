@@ -6,7 +6,7 @@ import {
   type StatsRange,
 } from "@/lib/stats";
 import { getCrmPayout } from "@/lib/finance";
-import { dayShort, vnMonth, vnPeriod, vnToday } from "@/lib/dates";
+import { dayShort, monthName, vnMonth, vnPeriod, vnToday } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
 import {
   DEV_WEEK_PAY,
@@ -575,7 +575,7 @@ export async function getMonthlyPayroll(
       fired: isFired(u),
       monthly:
         crmMonthOpen && crm.each > 0
-          ? { label: crmMonth.label, amount: crm.each }
+          ? { label: monthName(crmMonth.fromDay), amount: crm.each }
           : undefined,
       details: [
         {
@@ -626,7 +626,7 @@ export async function getMonthlyPayroll(
       fired: isFired(u),
       monthly:
         crmMonthOpen && crm.each > 0
-          ? { label: crmMonth.label, amount: crm.each }
+          ? { label: monthName(crmMonth.fromDay), amount: crm.each }
           : undefined,
       details: [
         {

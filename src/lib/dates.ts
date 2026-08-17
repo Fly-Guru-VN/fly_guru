@@ -232,6 +232,17 @@ export function monthLabel(day: string): string {
   }).format(asUtcDate(day.length === 7 ? `${day}-01` : day));
 }
 
+/**
+ * 'YYYY-MM' или 'YYYY-MM-DD' → «август», без года. Для подписей, где месяц и
+ * так текущий: в чипе «1% за …» год съедал ширину и ломал строку на телефоне.
+ */
+export function monthName(day: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    month: "long",
+    timeZone: "UTC",
+  }).format(asUtcDate(day.length === 7 ? `${day}-01` : day));
+}
+
 /** Метка времени → «15.08.2026» по времени Нячанга. Пусто → «—». */
 export function momentDay(iso: string | null | undefined): string {
   if (!iso) return "—";
