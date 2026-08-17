@@ -55,3 +55,36 @@ export function PayButton({
     </button>
   );
 }
+
+// Напоминалка у ника недельщика: его 1% с оборота за текущий месяц. Сумма
+// намеренно НЕ входит в «осталось выдать» — месяц ещё идёт (решение David от
+// 17.08.2026). Чип кликабельный по той же схеме, что и «Выплатить»: нажал —
+// сумма и человек уехали в форму наверху, править руками не надо.
+//
+// Пунктир вместо заливки — чтобы чип не спутали с цифрами «за период» и
+// «осталось выдать»: это не долг, а предупреждение о конце месяца.
+export function MonthlyChip({
+  payee,
+  amount,
+  label,
+}: PayoutRequest & { label: string }) {
+  return (
+    <button
+      type="button"
+      title="1% с оборота: выплачивается в конце месяца. В «осталось выдать» не входит — нажмите, чтобы подставить сумму в форму выплаты"
+      onClick={() =>
+        window.dispatchEvent(
+          new CustomEvent<PayoutRequest>(PAYOUT_EVENT, {
+            detail: { payee, amount: Math.round(amount) },
+          }),
+        )
+      }
+      className="inline-flex flex-wrap items-center gap-x-1.5 rounded-full border border-dashed border-primary/60 px-3 py-0.5 text-xs font-semibold text-primary transition-colors hover:border-solid hover:bg-primary hover:text-white"
+    >
+      <span className="tabular-nums">
+        1% за {label} · {vnd(amount)}
+      </span>
+      <span className="font-normal opacity-80">— в конце месяца</span>
+    </button>
+  );
+}

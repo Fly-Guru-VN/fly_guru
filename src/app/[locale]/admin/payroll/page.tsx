@@ -12,7 +12,7 @@ import {
 } from "@/lib/payroll";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { PayoutForm } from "./PayoutForm";
-import { PayButton } from "./PayButton";
+import { MonthlyChip, PayButton } from "./PayButton";
 import { deleteSalaryPayoutAction } from "../actions";
 import { ConfirmSubmit } from "../ConfirmSubmit";
 import { PageHeader } from "@/components/cabinet/PageHeader";
@@ -138,6 +138,15 @@ function DueCard({
           <span className={`${CHIP} bg-amber-100 text-amber-800`}>
             Переплата {vnd(-row.left!)}
           </span>
+        )}
+        {/* 1% с оборота за текущий месяц: висит у ника напоминалкой и в
+            «осталось выдать» не входит, пока месяц не закрыт. */}
+        {row.monthly && row.payee && (
+          <MonthlyChip
+            payee={`${row.payee.kind}:${row.payee.id}`}
+            amount={row.monthly.amount}
+            label={row.monthly.label}
+          />
         )}
       </div>
 

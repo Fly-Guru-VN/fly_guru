@@ -36,7 +36,8 @@ import {
 //    цифры человек видит у себя в кабинете);
 //  • СММщик — фикс за каждую прошедшую субботу периода плюс его 1% с выручки,
 //    но 1% закрывается раз в месяц, поэтому в начисление он попадает, только
-//    когда выбран ровно календарный месяц (иначе показан справкой);
+//    когда выбран ровно календарный месяц (иначе показан справкой), а пока
+//    месяц идёт — висит напоминалкой у ника (DueRow.monthly);
 //  • агент — награды, подтверждённые в периоде;
 //  • механик — ставки в системе нет, он появляется в списке, только если ему в
 //    этом периоде платили.
@@ -124,6 +125,14 @@ export interface DueRow {
   /** Уволен на сегодня. Рассчитавшийся уволенный из списка убирается. */
   fired: boolean;
   details: DueDetail[];
+  /**
+   * Напоминалка у ника: 1% с оборота недельщиков (СММщик, разработчик) за ещё
+   * НЕ закрытый месяц. В `left` эта сумма намеренно не входит — месяц не
+   * кончился, значит школа её пока не должна (решение David от 17.08.2026).
+   * Когда месяц закроется, сумма сама переедет в «осталось выдать», а
+   * напоминалка сменится на следующий месяц.
+   */
+  monthly?: { label: string; amount: number };
 }
 
 // Одна выплата — и в истории, и в подсчёте «выплачено за период».
@@ -170,6 +179,15 @@ function lastDayOf(range: StatsRange): string {
   const d = new Date(`${range.toDay}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
+}
+
+// Подсказка к строке 1% в «Как посчитали»: главное про эту сумму — когда её
+// выдают и почему её нет в «осталось выдать».
+function crmHint(monthOpen: boolean, inTotal: boolean): string | undefined {
+  if (monthOpen) {
+    return "выплачивается в конце месяца, в «осталось выдать» не входит";
+  }
+  return inTotal ? undefined : "в начисление за этот период не входит";
 }
 
 // Подпись строки недельного фикса в «Как посчитали». При нуле выплат счётчик
@@ -407,6 +425,10 @@ export async function getMonthlyPayroll(
   const crmMonth = vnMonth(range.fromDay.slice(0, 7));
   const crmInTotal =
     range.fromDay === crmMonth.fromDay && range.toDay === crmMonth.toDay;
+  // Месяц ещё идёт: его 1% не в «осталось выдать», а в напоминалке у ника.
+  // Закрытый месяц напоминалки не получает — он уже сидит в сальдо (crmToDate),
+  // и чип рядом с «осталось выдать» читался бы как вторая, отдельная сумма.
+  const crmMonthOpen = crmMonth.toDay > today;
 
   const [
     allInstructors,
@@ -551,6 +573,10 @@ export async function getMonthlyPayroll(
       left: accruedToDate - paidAll,
       employmentLabel: employmentLabel(u),
       fired: isFired(u),
+      monthly:
+        crmMonthOpen && crm.each > 0
+          ? { label: crmMonth.label, amount: crm.each }
+          : undefined,
       details: [
         {
           label: fixLabel(SMM_WEEK_PAY, fix.weeks),
@@ -562,7 +588,7 @@ export async function getMonthlyPayroll(
         {
           label: `1% с выручки · ${crmMonth.label}`,
           value: crm.each,
-          hint: crmInTotal ? undefined : "в начисление за этот период не входит",
+          hint: crmHint(crmMonthOpen, crmInTotal),
         },
       ],
     });
@@ -598,6 +624,10 @@ export async function getMonthlyPayroll(
       left: accruedToDate - paidAll,
       employmentLabel: employmentLabel(u),
       fired: isFired(u),
+      monthly:
+        crmMonthOpen && crm.each > 0
+          ? { label: crmMonth.label, amount: crm.each }
+          : undefined,
       details: [
         {
           label: fixLabel(DEV_WEEK_PAY, fix.weeks),
@@ -609,7 +639,7 @@ export async function getMonthlyPayroll(
         {
           label: `1% с выручки · ${crmMonth.label}`,
           value: crm.each,
-          hint: crmInTotal ? undefined : "в начисление за этот период не входит",
+          hint: crmHint(crmMonthOpen, crmInTotal),
         },
       ],
     });
