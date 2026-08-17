@@ -91,15 +91,22 @@ export function captureAttribution(): Attribution {
 }
 
 // Разложить метки адреса так, как их ждёт счётчик переходов (api/ref-visits):
-// src отдельно, всё остальное (utm_*, gclid, fbclid) — в кучу. Реф-код сюда не
-// попадает: переходы по /r/<code> отмечает сам лендинг.
+// реф-код и src отдельно, всё остальное (utm_*, gclid, fbclid) — в кучу.
+//
+// Реф-код здесь появился 17.08.2026: раньше переход по личной ссылке отмечал
+// сам лендинг /r/<код>, а теперь эта ссылка сразу уводит на главную с ?ref=<код>
+// — и считать переход стало некому, кроме этой самой «ловушки меток».
 export function splitMarksForHit(marks: Attribution): {
+  code: string | null;
   src: string | null;
   utm: Record<string, string>;
 } {
-  const { ref: _ref, src, ...rest } = marks;
-  void _ref;
-  return { src: src ?? null, utm: rest as Record<string, string> };
+  const { ref, src, ...rest } = marks;
+  return {
+    code: ref ?? null,
+    src: src ?? null,
+    utm: rest as Record<string, string>,
+  };
 }
 
 // Явно записать источник (короткие ссылки /i/<метка> и /b/<метка>): метка там

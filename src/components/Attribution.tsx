@@ -11,7 +11,9 @@ import { captureAttribution, splitMarksForHit } from "@/lib/attribution";
 //
 // Заодно отмечает сам переход в статистике (0037): по меченой ссылке пришёл
 // человек — значит клик по рекламе состоялся, и это надо посчитать, даже если
-// до заявки дело не дойдёт.
+// до заявки дело не дойдёт. Личные ссылки агентов и инструкторов считаются
+// здесь же: с 17.08.2026 /r/<код> сразу уводит на главную с ?ref=<код>, и
+// прежний счётчик на лендинге больше не срабатывает.
 //
 // Два правила, чтобы счётчик не врал:
 //  1. Стучим только когда метка есть В АДРЕСЕ. Сохранённая метка живёт 30 дней,
@@ -26,10 +28,9 @@ export function Attribution() {
     const marks = captureAttribution();
     if (Object.keys(marks).length === 0) return;
 
-    const { src, utm } = splitMarksForHit(marks);
-    if (!src && Object.keys(utm).length === 0) return; // только ref — считает лендинг /r
+    const { code, src, utm } = splitMarksForHit(marks);
 
-    const key = `flyguru_hit:${pathname}:${src ?? ""}:${JSON.stringify(utm)}`;
+    const key = `flyguru_hit:${pathname}:${code ?? ""}:${src ?? ""}:${JSON.stringify(utm)}`;
     try {
       if (window.sessionStorage.getItem(key)) return;
       window.sessionStorage.setItem(key, "1");
@@ -40,7 +41,7 @@ export function Attribution() {
     fetch("/api/ref-visits", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ src, utm, path: pathname }),
+      body: JSON.stringify({ code, src, utm, path: pathname }),
       keepalive: true, // человек может сразу уйти дальше — запрос всё равно доедет
     }).catch(() => {});
     // pathname в зависимостях — чтобы срабатывало и при переходах без перезагрузки.
