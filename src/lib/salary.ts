@@ -1,6 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
-import { vnDay, vnToday } from "@/lib/dates";
+import { vnDay, vnShiftDays, vnToday } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
 import { closeStatus, openStatus } from "@/lib/shiftRules";
 import { staffOn, type StaffMember } from "@/lib/staff";
@@ -295,11 +295,15 @@ export async function getSessionShare(
 // ── ЗП СММщика (prompt 11, п.3; решение David от 12.08.2026) ─────────────────
 //
 // Считается не как у инструкторов: смен и занятий у него нет, есть фикс —
-// 2 000 000 ₫ за неделю работы. Платим ТОЛЬКО за ПОЛНЫЕ недели выбранного
-// периода: «Эта неделя» = 2 млн, месяц из 31 дня = четыре недели, а три
-// оставшихся дня в расчёт не идут (выбор David — дробить неделю на дни по
-// 285 714 ₫ он не захотел: такую цифру нельзя проверить в уме). Экран
-// показывает остаток отдельной подписью, чтобы это не читалось как недостача.
+// 2 000 000 ₫ за неделю работы. Дробить неделю на дни по 285 714 ₫ David не
+// захотел: такую цифру нельзя проверить в уме.
+//
+// ⚠️ Начисляем ПО СУББОТАМ (решение David от 17.08.2026). Раньше считались
+// полные 7-дневки от точки отсчёта — неделя закрывалась в конце пятницы, и в
+// саму субботу, когда деньги реально выдают, начисления за неё ещё не было:
+// экран показывал «Переплата». По факту школа платит недельщикам каждую
+// субботу, поэтому суббота = начисление. Не выдали в субботу — сумма спокойно
+// висит в «осталось выдать» до следующей.
 //
 // Второе слагаемое, 1% с выручки, здесь НЕ считается вовсе: он уже живёт в
 // lib/finance как половина CRM_RATE («Ромчик (СММ)») и закрывается помесячно.
@@ -307,41 +311,60 @@ export async function getSessionShare(
 export const SMM_WEEK_PAY = 2_000_000; // ₫ за неделю работы СММщика
 export const DEV_WEEK_PAY = 2_500_000; // ₫ за неделю работы разработчика (0044)
 
-export interface SmmFixedPay {
-  weeks: number; // полных недель в периоде
-  spareDays: number; // дни-остаток: отработаны, но до недели не добрали
-  amount: number; // weeks × SMM_WEEK_PAY
+export interface WeeklyFixedPay {
+  weeks: number; // сколько суббот-выплат пришло за период
+  nextPayday: string; // ближайшая суббота, за которую ещё не начислено
+  amount: number; // weeks × ставка
 }
 
-// Сколько дней периода человек реально был в штате. Обе границы включительно,
-// приём и увольнение обрезают период с краёв (даты из 0036).
-function workedDays(from: string, to: string, m?: StaffMember): number {
-  const start = m?.hiredAt && m.hiredAt > from ? m.hiredAt : from;
-  const end = m?.leftAt && m.leftAt < to ? m.leftAt : to;
-  if (end < start) return 0;
-  const ms = Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`);
-  return Math.round(ms / 86_400_000) + 1;
+const SATURDAY = 6; // getUTCDay(): день выплаты недельщикам
+
+// Ближайшая суббота, считая от указанного дня; сам день, если это суббота.
+function saturdayFrom(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + ((SATURDAY - d.getUTCDay() + 7) % 7));
+  return d.toISOString().slice(0, 10);
 }
 
-// Недельный фикс: платим только за ПОЛНЫЕ недели периода, остаток дней ждёт
-// следующей выплаты. Правило David'а, одно на всех, у кого ставка недельная —
-// СММщик (2 млн) и разработчик (2,5 млн).
+function daysBetween(from: string, to: string): number {
+  const ms = Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`);
+  return Math.round(ms / 86_400_000);
+}
+
+// Недельный фикс: сколько суббот прошло за период — столько и ставок. Правило
+// David'а, одно на всех, у кого ставка недельная: СММщик (2 млн) и
+// разработчик (2,5 млн).
+//
+// Границы периода включительно, приём и увольнение обрезают его с краёв (даты
+// из 0036). Хвост в будущем тоже обрезается сегодняшним днём: период по
+// умолчанию — текущая неделя пн–вс, и без обрезки её суббота начислялась бы
+// уже в понедельник, за неотработанные дни.
 export function getWeeklyFixedPay(
   weekPay: number,
   fromDay: string,
   lastDay: string,
   member?: StaffMember,
-): SmmFixedPay {
-  const days = workedDays(fromDay, lastDay, member);
-  const weeks = Math.floor(days / 7);
-  return { weeks, spareDays: days - weeks * 7, amount: weeks * weekPay };
+): WeeklyFixedPay {
+  const today = vnToday();
+  const start =
+    member?.hiredAt && member.hiredAt > fromDay ? member.hiredAt : fromDay;
+  const hardEnd = member?.leftAt && member.leftAt < lastDay ? member.leftAt : lastDay;
+  const end = hardEnd > today ? today : hardEnd;
+  const first = saturdayFrom(start);
+  const weeks = end < first ? 0 : Math.floor(daysBetween(first, end) / 7) + 1;
+  return {
+    weeks,
+    // Суббота, следующая за последней учтённой: за неё начислим, когда придёт.
+    nextPayday: vnShiftDays(first, weeks * 7),
+    amount: weeks * weekPay,
+  };
 }
 
 export function getSmmFixedPay(
   fromDay: string,
   lastDay: string,
   member?: StaffMember,
-): SmmFixedPay {
+): WeeklyFixedPay {
   return getWeeklyFixedPay(SMM_WEEK_PAY, fromDay, lastDay, member);
 }
 

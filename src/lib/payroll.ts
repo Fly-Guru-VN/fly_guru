@@ -6,7 +6,7 @@ import {
   type StatsRange,
 } from "@/lib/stats";
 import { getCrmPayout } from "@/lib/finance";
-import { vnMonth, vnPeriod, vnToday } from "@/lib/dates";
+import { dayShort, vnMonth, vnPeriod, vnToday } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
 import {
   DEV_WEEK_PAY,
@@ -34,9 +34,9 @@ import {
 //  • инструктор — доля 15% с занятий дня + 200 000 ₫ за каждый выход по
 //    регламенту + доля котла абонементов (всё через getInstructorStats, те же
 //    цифры человек видит у себя в кабинете);
-//  • СММщик — фикс за полные недели периода плюс его 1% с выручки, но 1%
-//    закрывается раз в месяц, поэтому в начисление он попадает, только когда
-//    выбран ровно календарный месяц (иначе показан справкой);
+//  • СММщик — фикс за каждую прошедшую субботу периода плюс его 1% с выручки,
+//    но 1% закрывается раз в месяц, поэтому в начисление он попадает, только
+//    когда выбран ровно календарный месяц (иначе показан справкой);
 //  • агент — награды, подтверждённые в периоде;
 //  • механик — ставки в системе нет, он появляется в списке, только если ему в
 //    этом периоде платили.
@@ -63,8 +63,10 @@ import {
 // дни» и на остаток не влияет.
 //
 // Недельный фикс (СММ, разработчик) от этого чинится сам: он считается от
-// точки отсчёта, а не внутри окна, поэтому дни-остатки больше не сгорают на
-// стыке периодов («1—8» + «9—14» давало одну неделю вместо двух).
+// точки отсчёта, а не внутри окна, поэтому недели больше не сгорают на стыке
+// периодов («1—8» + «9—14» давало одну неделю вместо двух). С 17.08.2026 фикс
+// вообще привязан к календарю — по одной ставке за каждую прошедшую субботу
+// (см. getWeeklyFixedPay), так что нарезка периода на него не влияет никак.
 //
 // Админа в списке ДОЛГОВ нет намеренно: он босс, а не наёмный — школа сама себе
 // ничего не начисляет. В списке ПОЛУЧАТЕЛЕЙ он есть: свою зарплату босс тоже
@@ -168,6 +170,16 @@ function lastDayOf(range: StatsRange): string {
   const d = new Date(`${range.toDay}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
+}
+
+// Подпись строки недельного фикса в «Как посчитали». При нуле выплат счётчик
+// не пишем: «0 выпл.» рядом с нулём читается как поломка, а не как «суббота
+// ещё не наступила».
+function fixLabel(weekPay: number, weeks: number): string {
+  const rate = String(weekPay / 1_000_000).replace(".", ",");
+  return weeks > 0
+    ? `Фикс · ${weeks} выпл. по ${rate} млн (по субботам)`
+    : `Фикс · ${rate} млн по субботам`;
 }
 
 interface StaffPayoutRaw {
@@ -541,12 +553,11 @@ export async function getMonthlyPayroll(
       fired: isFired(u),
       details: [
         {
-          label: `Фикс · ${fix.weeks} нед. по ${SMM_WEEK_PAY / 1_000_000} млн`,
+          label: fixLabel(SMM_WEEK_PAY, fix.weeks),
           value: fix.amount,
-          hint:
-            fix.spareDays > 0
-              ? `${fix.spareDays} дн. до полной недели не хватило`
-              : undefined,
+          hint: isFired(u)
+            ? undefined
+            : `следующая — в сб, ${dayShort(fix.nextPayday)}`,
         },
         {
           label: `1% с выручки · ${crmMonth.label}`,
@@ -589,12 +600,11 @@ export async function getMonthlyPayroll(
       fired: isFired(u),
       details: [
         {
-          label: `Фикс · ${fix.weeks} нед. по ${DEV_WEEK_PAY / 1_000_000} млн`,
+          label: fixLabel(DEV_WEEK_PAY, fix.weeks),
           value: fix.amount,
-          hint:
-            fix.spareDays > 0
-              ? `${fix.spareDays} дн. до полной недели не хватило`
-              : undefined,
+          hint: isFired(u)
+            ? undefined
+            : `следующая — в сб, ${dayShort(fix.nextPayday)}`,
         },
         {
           label: `1% с выручки · ${crmMonth.label}`,

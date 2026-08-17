@@ -86,27 +86,64 @@ test("снятая админом премия перебивает идеаль
   );
 });
 
-// ── Недельный фикс СММщика и разработчика: платим только за ПОЛНЫЕ недели ────
+// ── Недельный фикс СММщика и разработчика: одна ставка за каждую субботу ─────
+//
+// Даты подобраны по августу 2026: субботы — 1, 8, 15, 22, 29 августа.
 
-test("две полные недели — два фикса, остатка нет", () => {
+test("1—14 августа: две субботы — два фикса", () => {
   const pay = getSmmFixedPay("2026-08-01", "2026-08-14");
-  assert.deepEqual(pay, { weeks: 2, spareDays: 0, amount: 2 * SMM_WEEK_PAY });
+  assert.deepEqual(pay, {
+    weeks: 2,
+    nextPayday: "2026-08-15",
+    amount: 2 * SMM_WEEK_PAY,
+  });
 });
 
-test("шестнадцать дней — те же две недели, два дня ждут следующей выплаты", () => {
-  const pay = getSmmFixedPay("2026-08-01", "2026-08-16");
-  assert.deepEqual(pay, { weeks: 2, spareDays: 2, amount: 2 * SMM_WEEK_PAY });
+test("день выплаты считается сразу: 15 августа — уже третий фикс", () => {
+  const pay = getSmmFixedPay("2026-08-01", "2026-08-15");
+  assert.deepEqual(pay, {
+    weeks: 3,
+    nextPayday: "2026-08-22",
+    amount: 3 * SMM_WEEK_PAY,
+  });
 });
 
-test("уволенный получает фикс только за отработанные дни", () => {
-  // Последний рабочий день — 7 августа, значит ровно одна полная неделя.
+test("период без субботы фикса не даёт", () => {
+  const pay = getSmmFixedPay("2026-08-16", "2026-08-21");
+  assert.deepEqual(pay, {
+    weeks: 0,
+    nextPayday: "2026-08-22",
+    amount: 0,
+  });
+});
+
+test("уволенный не получает фикс за субботы после увольнения", () => {
+  // Последний рабочий день — 7 августа: успела пройти только суббота 1-го.
   const pay = getWeeklyFixedPay(
     DEV_WEEK_PAY,
     "2026-08-01",
     "2026-08-16",
     staff("dev", { leftAt: "2026-08-07" }),
   );
-  assert.deepEqual(pay, { weeks: 1, spareDays: 0, amount: DEV_WEEK_PAY });
+  assert.deepEqual(pay, {
+    weeks: 1,
+    nextPayday: "2026-08-08",
+    amount: DEV_WEEK_PAY,
+  });
+});
+
+test("принятый в среду получает полный фикс в первую же субботу", () => {
+  const pay = getWeeklyFixedPay(
+    DEV_WEEK_PAY,
+    "2026-08-01",
+    "2026-08-16",
+    staff("dev", { hiredAt: "2026-08-12" }),
+  );
+  assert.deepEqual(pay, {
+    weeks: 1,
+    nextPayday: "2026-08-22",
+    amount: DEV_WEEK_PAY,
+  });
 });
 
 // ── Дележ 15% с занятий дня ──────────────────────────────────────────────────
