@@ -84,7 +84,7 @@ export async function loginAction(
 
   // Уволенный (0036): пароль верный, но в школе он больше не работает.
   // Аккаунт живёт дальше — на нём висит вся история занятий и выплат.
-  if (dbUser?.left_at && vnToday() > dbUser.left_at) {
+  if (dbUser?.left_at && vnToday() >= dbUser.left_at) {
     await supabase.auth.signOut();
     return {
       error: "Доступ к кабинету закрыт: вы больше не числитесь в штате школы.",
