@@ -64,6 +64,18 @@ export interface SourcesReport {
 
 const DIRECT_KEY = "__direct__";
 
+// Заявка, которая закончилась занятием. Статуса `done` в базе почти не бывает:
+// ночной крон archive-bookings переводит все закрытые заявки в `archived` через
+// сутки, и считать «состоялось» только по `done` значило обнулять колонку у
+// вчерашних заявок — воронка показывала «3 заявки, 0 состоялось» на дне, где
+// прошло три занятия. В архиве статус общий для всех закрытых, поэтому смотрим
+// на клиента: его привязывает оформление занятия, у отменённых его нет. Ровно
+// это правило живёт в ленте заявок (BookingsScreen → isClosedDeal), и цифры на
+// двух экранах обязаны сходиться.
+export function isClosedDeal(b: { status: string; client_id: string | null }): boolean {
+  return b.status === "done" || (b.status === "archived" && b.client_id !== null);
+}
+
 // Красивое имя источника. Метки берём из «Материалов» (их админ и заводит),
 // ручные каналы — из справочника, реф-коды подписываем именем владельца.
 function labelFor(
@@ -274,7 +286,7 @@ export async function getSourcesReport(
     const key = b.ref_code ?? srcKey ?? DIRECT_KEY;
     const entry = row(key, kind);
     entry.bookings += 1;
-    if (b.status === "done") entry.done += 1;
+    if (isClosedDeal(b)) entry.done += 1;
     if (b.status === "cancelled") entry.cancelled += 1;
 
     if (b.client_id) {

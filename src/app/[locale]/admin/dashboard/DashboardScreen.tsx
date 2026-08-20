@@ -18,6 +18,7 @@ import {
 } from "@/lib/visits";
 import { buildPaymentBreakdown, SUBS_CAT, type PaymentInput } from "@/lib/payments";
 import { getFinance } from "@/lib/finance";
+import { isClosedDeal } from "@/lib/sources";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PeriodBar } from "@/components/cabinet/PeriodBar";
 import { VisitsTable, type VisitCell, type VisitColumn } from "./VisitsTable";
@@ -228,7 +229,7 @@ export async function DashboardScreen({
       .lt("created_at", range.toIso),
     supabase
       .from("bookings")
-      .select("status, src, ref_code, service:services!service_id(price)")
+      .select("status, src, ref_code, client_id, service:services!service_id(price)")
       .gte("created_at", range.fromIso)
       .lt("created_at", range.toIso),
     // Названия рекламных меток: по ним «Instagram», выбранный руками в форме,
@@ -365,6 +366,7 @@ export async function DashboardScreen({
     status: string;
     src: string | null;
     ref_code: string | null;
+    client_id: string | null;
     service: { price: number | null } | null;
   }[];
   const naming = channelNaming(
@@ -388,7 +390,10 @@ export async function DashboardScreen({
     bySource.set(source, (bySource.get(source) ?? 0) + 1);
     if (b.status === "cancelled") lostSum += b.service?.price ?? 0;
   }
-  const doneCount = byStatus.get("done") ?? 0;
+  // «Выполнено» — не только статус `done`: ночной крон archive-bookings уводит
+  // закрытые заявки в `archived` через сутки, и счёт по одному `done` показывал
+  // ноль на любом периоде старше вчерашнего (правило одно с «Источниками»).
+  const doneCount = bookings.filter(isClosedDeal).length;
   const cancelledCount = byStatus.get("cancelled") ?? 0;
 
   // Данные графиков — из отфильтрованных сессий (фильтры «двигают» графики).
