@@ -4,7 +4,13 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAppUser, isAdminLike, ROLE_HOME, type AppUser } from "@/lib/auth";
+import {
+  getAppUser,
+  isAdminLike,
+  ROLE_HOME,
+  type AppRole,
+  type AppUser,
+} from "@/lib/auth";
 import {
   phoneDigits,
   phonesMatch,
@@ -61,11 +67,20 @@ async function requireStaff(): Promise<AppUser> {
 // Отдельная проверка (а не «пустить их в requireStaff») намеренно: денежные
 // действия — запись клиента, продажа абонемента, списание минут, правка
 // сессии — остаются за инструктором, и RLS это подтверждает второй раз.
-const FIELD_ROLES = ["instructor", "mechanic", "smm", "admin"];
+//
+// ⚠️ Хозяев админки проверяем через isAdminLike, а НЕ строкой 'admin' в списке.
+// Пока здесь был литерал, роль dev (0044) в него не попадала, и любое фоновое
+// действие уносило David'а с экрана: подсказка по телефону в «Записать
+// клиента» дёргает lookupClientByPhoneAction, тот делал redirect на /login,
+// а залогиненного логин тут же отправлял в его кабинет. Снаружи — «вставил
+// номер, и страница сама перезагрузилась, потеряв заполненное». Ровно тот же
+// баг ловили 14.08.2026 на СММщике: список ролей перечисляют в одном месте,
+// а забывают в другом.
+const FIELD_ROLES: AppRole[] = ["instructor", "mechanic", "smm"];
 
 async function requireFieldStaff(): Promise<AppUser> {
   const user = await getAppUser();
-  if (!user || !FIELD_ROLES.includes(user.role)) {
+  if (!user || !(isAdminLike(user.role) || FIELD_ROLES.includes(user.role))) {
     redirect("/login?next=/instructor");
   }
   return user;
