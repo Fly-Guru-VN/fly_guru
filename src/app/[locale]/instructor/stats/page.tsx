@@ -186,7 +186,7 @@ export default async function StatsPage({
             {vnd(stats.salaryFromShifts)}
           </p>
           <p>
-            Абонементы — 15% от продаж инструкторов ({vnd(stats.subsPool)}) поровну
+            Абонементы — 15% от продаж ({vnd(stats.subsPool)}) поровну
             на {stats.instructorsCount}: {vnd(stats.salaryFromSubs)}
           </p>
         </div>

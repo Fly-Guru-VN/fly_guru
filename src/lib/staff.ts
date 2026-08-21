@@ -158,18 +158,22 @@ async function loadByRole(
 // СММщик здесь с 21.08.2026: он выходит на смену и катает клиентов сам, а
 // занятие, оформленное не на того, кто его провёл, ломает и его 15%, и дележ
 // дня между сменщиками.
+//
+// Роль отдаём вместе с именем: по ней экраны абонементов понимают, полевой это
+// продавец или босс. У полевого 15% уходят в котёл сами, боссу нужна галочка
+// «в общий котёл» (0048) — без роли выбирать, показывать её или нет, не из чего.
 export async function loadSessionStaff(
   client: Supabase,
-): Promise<{ id: string; name: string }[]> {
+): Promise<{ id: string; name: string; role: AppRole }[]> {
   const { data, error } = await client
     .from("users")
-    .select("id, name")
+    .select("id, name, role")
     .in("role", ["instructor", "smm", "admin", "dev"])
     .order("name");
 
   // Пустой список = «записать клиента не на кого». Такое лучше увидеть.
   failIfReadError(error, "не удалось прочитать, кто проводит занятия");
-  return (data ?? []) as { id: string; name: string }[];
+  return (data ?? []) as { id: string; name: string; role: AppRole }[];
 }
 
 // Действующие на сегодня — для выпадающих списков в формах.

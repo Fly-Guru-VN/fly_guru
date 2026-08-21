@@ -8,6 +8,7 @@ import {
   cancelSubscriptionAction,
   deleteSubscriptionAction,
   togglePaidAction,
+  toggleSubsPoolAction,
 } from "../actions";
 import { ConfirmSubmit } from "../ConfirmSubmit";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
@@ -15,7 +16,8 @@ import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
 import { loadPaymentClaims, type ClaimInfo } from "@/lib/subscriptions";
 import { PAYMENT_CLAIM_BADGE, PAYMENT_CLAIM_TEXT } from "@/lib/paymentClaim";
-import { hiddenStaffIds, loadSessionStaff } from "@/lib/staff";
+import { hiddenStaffIds, inShiftCrew, loadSessionStaff } from "@/lib/staff";
+import type { AppRole } from "@/lib/auth";
 import {
   SellSubscriptionForm,
   WriteOffMinutesForm,
@@ -36,8 +38,9 @@ interface SubRow {
   expires_at: string | null;
   status: string;
   paid_at: string | null;
+  pool_share: boolean | null; // продажу босса всё равно делят в котёл (0048)
   clients: { name: string } | null;
-  seller: { name: string } | null;
+  seller: { name: string; role: AppRole } | null;
 }
 
 interface HistoryItem {
@@ -84,6 +87,13 @@ function SubscriptionCard({
 
   // Заявление живо, только пока оплата не отмечена: подтвердил — вопрос закрыт.
   const pendingClaim = !cancelled && !s.paid_at && claim ? claim : null;
+
+  // Продал босс (админ, dev, механик) — 15% по умолчанию остаются школе, но их
+  // можно отдать в общий котёл (0048). У полевого состава котёл считается сам,
+  // и тумблер там не нужен. Продавца может не быть вовсе (уволенный удалён из
+  // users) — тогда и решать нечего.
+  const sellerIsBoss = s.seller ? !inShiftCrew(s.seller.role) : false;
+  const inPool = Boolean(s.pool_share);
 
   // Остаток — главная цифра карточки: инструктор ищет глазами именно её,
   // поэтому она идёт рядом с именем и размером с него (пачка №10, пак 4).
@@ -158,6 +168,43 @@ function SubscriptionCard({
           Продан {momentDay(s.sold_at)} · {vnd(s.price)} · продал{" "}
           {s.seller?.name ?? "—"} · {left} мин из {s.total_minutes}
         </p>
+
+        {/* Продажа босса: делим её с ребятами или оставляем школе. 15% уходят
+            сменщикам того дня, когда абонемент ОПЛАЧЕН, — то же правило, что у
+            инструкторской продажи (0048). У отменённого выбора нет: денег нет. */}
+        {!cancelled && sellerIsBoss && (
+          <form
+            action={toggleSubsPoolAction}
+            className="mt-2 flex flex-wrap items-center gap-2"
+          >
+            <input type="hidden" name="id" value={s.id} />
+            <input type="hidden" name="set" value={inPool ? "0" : "1"} />
+            <span
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                inPool
+                  ? "bg-primary/10 text-primary"
+                  : "bg-surface-2 text-muted"
+              }`}
+            >
+              {inPool ? "15% в общем котле" : "15% остаются школе"}
+            </span>
+            {inPool ? (
+              <ConfirmSubmit
+                message="Убрать абонемент из котла? Доля за него пропадёт из ЗП сменщиков того дня, когда его оплатили."
+                className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-red-500 hover:text-red-500"
+              >
+                Убрать из котла
+              </ConfirmSubmit>
+            ) : (
+              <button
+                type="submit"
+                className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-primary transition-colors hover:border-primary"
+              >
+                Отправить 15% в котёл
+              </button>
+            )}
+          </form>
+        )}
 
         {/* Чем заплатили — той же плашкой, что в ленте заявок, чтобы способ
             оплаты выглядел одинаково везде. */}
@@ -373,7 +420,7 @@ export async function SubscriptionsScreen({
   let subsQuery = supabase
     .from("subscriptions")
     .select(
-      "id, total_minutes, price, sold_at, expires_at, status, paid_at, clients(name), seller:users!sold_by(name)",
+      "id, total_minutes, price, sold_at, expires_at, status, paid_at, pool_share, clients(name), seller:users!sold_by(name, role)",
     )
     .order("sold_at", { ascending: false })
     .limit(100);
@@ -406,7 +453,12 @@ export async function SubscriptionsScreen({
   ]);
 
   const subs = (subsRes.data ?? []) as unknown as SubRow[];
-  const staff = staffRes.filter((u) => !hidden.has(u.id));
+  // crew — «полевой ли продавец»: форма по нему решает, спрашивать ли про
+  // общий котёл (0048). Роль в клиентский компонент не отдаём: кто «полевой»,
+  // знает lib/staff, и пусть знает в одном месте.
+  const staff = staffRes
+    .filter((u) => !hidden.has(u.id))
+    .map((u) => ({ id: u.id, name: u.name, crew: inShiftCrew(u.role) }));
   const ids = subs.map((s) => s.id);
 
   // Заявления об оплате (0032): «деньги принял админ», «с оплатой непонятно».

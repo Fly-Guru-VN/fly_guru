@@ -15,6 +15,11 @@ import { Spinner } from "@/components/Spinner";
 export interface Option {
   id: string;
   name: string;
+  // Полевой состав (инструктор, СММщик) — у них 15% с продажи уходят в общий
+  // котёл сами. У босса (админ, dev, механик) продажа остаётся школе, пока не
+  // поставят галочку «в общий котёл» (0048). Роль сюда не тащим: кто «полевой»,
+  // решает lib/staff → inShiftCrew, и знать это должен сервер, а не форма.
+  crew?: boolean;
 }
 export interface ClientOption extends Option {
   phone: string | null;
@@ -54,6 +59,10 @@ export function SellSubscriptionForm({
     error: null,
   });
   const [clientId, setClientId] = useState(prefill?.clientId ?? "");
+  // Кто продал: от этого зависит, спрашивать ли про котёл. У инструктора и
+  // СММщика вопроса нет — 15% уходят ребятам по факту продажи.
+  const [sellerId, setSellerId] = useState(staff[0]?.id ?? "");
+  const sellerIsBoss = staff.find((u) => u.id === sellerId)?.crew === false;
   // Способ оплаты спрашиваем только когда деньги уже получены: при продаже
   // «в долг» он ещё неизвестен, и заставлять выбирать наугад — врать отчёту.
   const [paid, setPaid] = useState(false);
@@ -118,7 +127,12 @@ export function SellSubscriptionForm({
       <div className="grid grid-cols-2 items-end gap-2">
         <label className="min-w-0 text-xs text-muted">
           Продал (15% в общий котёл после оплаты)
-          <select name="sellerId" className={`mt-1 ${inputClass}`}>
+          <select
+            name="sellerId"
+            value={sellerId}
+            onChange={(e) => setSellerId(e.target.value)}
+            className={`mt-1 ${inputClass}`}
+          >
             {staff.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
@@ -139,6 +153,27 @@ export function SellSubscriptionForm({
           />
         </label>
       </div>
+
+      {/* Продажа босса: по умолчанию она остаётся школе, но её можно отдать
+          ребятам — тогда 15% делятся между теми, кто был на смене в день
+          ОПЛАТЫ, ровно как инструкторская продажа (0048). У полевого состава
+          галочки нет: там котёл считается всегда, и спрашивать нечего. */}
+      {sellerIsBoss && (
+        <label className="flex items-start gap-2 rounded-xl border border-line bg-bg px-3 py-2 text-sm">
+          <input
+            type="checkbox"
+            name="poolShare"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+          />
+          <span>
+            15% в общий котёл
+            <span className="block text-xs text-muted">
+              Продажу делят сменщики дня оплаты. Без галочки эти деньги остаются
+              школе.
+            </span>
+          </span>
+        </label>
+      )}
 
       <div className="flex items-end gap-3">
         <label className="flex-1 text-xs text-muted">

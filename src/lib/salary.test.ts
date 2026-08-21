@@ -241,6 +241,30 @@ test("абонемент, проданный админом, в котёл ин�
   assert.equal(shares.shares.size, 0);
 });
 
+test("абонемент админа с галочкой «в общий котёл» делят инструкторы", async () => {
+  // 0048: продажу босса можно отдать ребятам. Делится она как инструкторская —
+  // между теми, кто был в штате в день ОПЛАТЫ, а сам босс доли не получает.
+  const db = fakeDb({
+    subscriptions: [
+      {
+        price: 6_000_000,
+        paid_at: "2026-08-04T03:00:00Z",
+        sold_by: "boss",
+        pool_share: true,
+      },
+    ],
+  });
+
+  const crew = [staff("a"), staff("b")];
+  const shares = await getSubsShares(db, vnPeriod("2026-08-01", "2026-08-10"), crew);
+  assert.equal(shares.pool, 900_000); // 6 000 000 × 15%
+  assert.equal(shares.shares.get("a"), 450_000);
+  assert.equal(shares.shares.get("b"), 450_000);
+  assert.equal(shares.shares.get("boss"), undefined);
+  // Справка «сам продал N штук» — только про полевые продажи.
+  assert.equal(shares.soldCount.size, 0);
+});
+
 // ── Выходы: 200 000 ₫ за каждый зачтённый ────────────────────────────────────
 
 test("зачтённый выход стоит 200 000, будущая смена — ещё не выход", async () => {

@@ -463,7 +463,7 @@ export function getMonthlyFixedPay(
 }
 
 export interface SubsShares {
-  pool: number; // весь котёл периода: 15% с абонементов инструкторов
+  pool: number; // весь котёл периода: 15% с абонементов, которые делятся
   shares: Map<string, number>; // инструктор → его доля
   soldCount: Map<string, number>; // инструктор → сколько продал сам (справка)
 }
@@ -472,11 +472,20 @@ interface PoolSubRow {
   price: number | null;
   paid_at: string | null;
   sold_by: string | null;
+  pool_share: boolean | null; // продажу босса всё равно делят в котёл (0048)
 }
 
 // Котёл абонементов: 15% с каждого абонемента, ПРОДАННОГО полевым составом и
 // оплаченного в периоде. Абонемент админа в котёл не идёт — он босс, его
 // продажа остаётся ему (та же логика, что с сессиями в lib/finance).
+//
+// Исключение — флаг pool_share (0048, решение David от 21.08.2026): босс может
+// сказать «эту продажу делим с ребятами», и тогда её 15% уходят в котёл
+// наравне с инструкторскими. Сам продавец при этом доли НЕ получает: он всё
+// ещё босс, и делят те же сменщики дня оплаты, что и обычный абонемент. До
+// этого флага такую продажу можно было провести только записав её на
+// инструктора — то есть соврав в поле «Продал» и испортив ему справку
+// «сам продал N штук».
 //
 // Дележ (правка от 08.08.2026, пачка №25). Раньше котёл складывался за весь
 // период и делился поровну между всеми, кто числится инструктором СЕЙЧАС. Из-за
@@ -506,7 +515,7 @@ export async function getSubsShares(
   const [{ data }, shifts] = await Promise.all([
     client
       .from("subscriptions")
-      .select("price, paid_at, sold_by")
+      .select("price, paid_at, sold_by, pool_share")
       .not("paid_at", "is", null)
       .gte("paid_at", range.fromIso)
       .lt("paid_at", range.toIso),
@@ -533,13 +542,17 @@ export async function getSubsShares(
 
   for (const raw of (data ?? []) as unknown as PoolSubRow[]) {
     const seller = raw.sold_by;
-    // Продажа админа или неизвестно чья — мимо котла.
-    if (!seller || !byId.has(seller) || !raw.paid_at) continue;
+    if (!seller || !raw.paid_at) continue;
+    // Продал полевой состав — котёл всегда. Продал босс — только с галочкой
+    // «в общий котёл» (0048); без неё продажа, как и раньше, мимо котла.
+    const fromCrew = byId.has(seller);
+    if (!fromCrew && !raw.pool_share) continue;
 
-    soldCount.set(seller, (soldCount.get(seller) ?? 0) + 1);
+    // Справка «сам продал N штук» — про полевые продажи: в кабинете её видит
+    // инструктор рядом со своей долей. Босса в этих списках нет.
+    if (fromCrew) soldCount.set(seller, (soldCount.get(seller) ?? 0) + 1);
     const cut = Number(raw.price ?? 0) * SUBS_RATE;
     if (cut <= 0) continue;
-    pool += cut;
 
     // День оплаты по вьетнамскому времени: paid_at — timestamptz, а «в штате
     // 5-го» считается по местному календарю, а не по UTC.
@@ -549,11 +562,17 @@ export async function getSubsShares(
       (m) => m.role === "instructor" || opened?.has(m.id),
     );
     if (crew.length === 0) {
-      // Такого быть не должно (продавец сам был в штате в день продажи), но
-      // если даты выставили криво — деньги не растворяются, а остаются продавцу.
-      add(seller, cut);
+      // Делить не с кем. У полевой продажи такого быть не должно (продавец сам
+      // был в штате в день оплаты), и если даты выставили криво — деньги не
+      // растворяются, а остаются продавцу. А вот продажу босса в такой день
+      // просто не делим: отдать её ему же значит записать боссу долю котла.
+      if (fromCrew) {
+        pool += cut;
+        add(seller, cut);
+      }
       continue;
     }
+    pool += cut;
     const each = cut / crew.length;
     for (const m of crew) add(m.id, each);
   }

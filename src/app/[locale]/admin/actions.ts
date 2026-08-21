@@ -895,6 +895,9 @@ export async function adminSellSubscriptionAction(
     }
   }
 
+  // «15% в общий котёл» (0048): галочка стоит только у продажи босса — у
+  // полевого состава котёл считается по факту продажи, и флаг ни на что не
+  // влияет. Пишем как есть: разбираться, чья это продажа, — дело lib/salary.
   const row = {
     client_id: clientId,
     sold_by: sellerId,
@@ -903,6 +906,7 @@ export async function adminSellSubscriptionAction(
     expires_at: subscriptionExpiry(new Date(soldAt)).toISOString(),
     paid_at: paidAt,
     payment_method_id: paymentMethodId,
+    pool_share: formData.get("poolShare") === "on",
   };
   // payment_method_id (0025) в боевой базе есть. Повтор вставки без него убран
   // 16.08.2026: абонемент сохранялся без способа оплаты, и в кассе появлялась
@@ -964,6 +968,28 @@ export async function togglePaidAction(formData: FormData) {
   // принял админ» на уже отмеченном абонементе.
   const { error } = await supabase.from("subscriptions").update(patch).eq("id", id);
   failIfError(error, "не удалось изменить отметку оплаты");
+  revalidatePath("/", "layout");
+}
+
+// Тумблер «в общий котёл» (0048). Продажа босса (админ, dev, механик) обычно
+// остаётся школе, но её можно отдать в котёл: 15% уйдут сменщикам того дня,
+// когда абонемент ОПЛАЧЕН, — по тем же правилам, что инструкторская продажа.
+// Кнопка нужна для уже внесённых абонементов: без неё пришлось бы удалять
+// продажу и заводить заново с галочкой.
+//
+// На продажах полевого состава кнопки нет: у них котёл считается всегда, и
+// флаг там просто не читается (см. lib/salary → getSubsShares).
+export async function toggleSubsPoolAction(formData: FormData) {
+  const user = await requireOffice();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await officeClient(user);
+  const { error } = await supabase
+    .from("subscriptions")
+    .update({ pool_share: formData.get("set") === "1" })
+    .eq("id", id);
+  failIfError(error, "не удалось изменить долю котла");
   revalidatePath("/", "layout");
 }
 
