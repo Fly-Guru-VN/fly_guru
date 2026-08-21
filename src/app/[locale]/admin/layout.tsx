@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { vnCurrentMonth } from "@/lib/dates";
+import { monthName, vnCurrentMonth } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
+import { usd } from "@/lib/money";
 import { getFinance } from "@/lib/finance";
+import { getPaidToStaff } from "@/lib/payroll";
 import { BookingsBadgeRefresh } from "@/components/BookingsBadgeRefresh";
 import { ToastHost } from "@/components/cabinet/Toast";
 import { Sidebar } from "./Sidebar";
@@ -20,14 +22,27 @@ export default async function AdminLayout({
 }) {
   const user = await requireRole("admin", "/admin");
 
-  // Данные для карточки профиля в сайдбаре: деньги школы на руках за месяц и
-  // число новых заявок (красный счётчик). Эту цифру (а не выручку) босс хочет
-  // видеть под рукой на всех разделах — тот же расчёт, что во вкладке «Расходы»
-  // (пришло − 35% Marina − выданные зарплаты − выданное агентам − траты).
+  // Данные для карточки профиля в сайдбаре. Кабинет один на двоих, а цифра в
+  // карточке у босса и у разработчика разная (решение David от 21.08.2026):
+  //
+  //  • админ — деньги школы на руках за месяц. Эту цифру (а не выручку) босс
+  //    хочет видеть под рукой на всех разделах: тот же расчёт, что во вкладке
+  //    «Расходы» (пришло − 35% Marina − выданные зарплаты − агентам − траты);
+  //  • разработчик — своя ЗП, и именно ВЫДАННАЯ, а не начисленная. Деньги школы
+  //    ему не показатель: он наёмный, как инструктор, и в карточке хочет
+  //    видеть, сколько уже получил. Начисленное и «осталось выдать» лежат
+  //    рядом, во вкладке «Выплата зарплаты».
+  //
+  // Считаем ровно одну из двух: getFinance — это полтора десятка запросов по
+  // всей школе, и гонять их разработчику ради цифры, которую он не увидит,
+  // незачем.
   const supabase = await createClient();
   const month = vnCurrentMonth();
-  const [fin, freshRes] = await Promise.all([
-    getFinance(supabase, month),
+  const isDev = user.role === "dev";
+  const [money, freshRes] = await Promise.all([
+    isDev
+      ? getPaidToStaff(supabase, user.id, month)
+      : getFinance(supabase, month).then((fin) => fin.cashLeft),
     supabase
       .from("bookings")
       .select("id", { count: "exact", head: true })
@@ -35,6 +50,15 @@ export default async function AdminLayout({
   ]);
 
   const freshCount = freshRes.count ?? 0;
+
+  // Доллары — прикидка рядом с донгами по курсу 26 000 (см. lib/money): David
+  // считает свои деньги в них, а переводить в уме семизначное число каждый раз
+  // — то же самое, что не показывать цифру вовсе.
+  // Без склонения месяца («в январье», «в майе» — Intl такого не умеет):
+  // разделитель вместо предлога, как в остальных подписях кабинета.
+  const amountSub = isDev
+    ? `${usd(money)} · выплачено · ${monthName(month.fromDay)}`
+    : `денег на руках · ${month.label}`;
 
   return (
     // На ПК — app-shell: область кабинета фиксированной высоты (вьюпорт минус
@@ -53,8 +77,8 @@ export default async function AdminLayout({
         <Sidebar
           name={user.name}
           photoUrl={user.photo_url}
-          amountLabel={vnd(fin.cashLeft)}
-          amountSub={`денег на руках · ${month.label}`}
+          amountLabel={vnd(money)}
+          amountSub={amountSub}
           freshCount={freshCount}
         />
         <main className="scroll-soft mt-4 min-w-0 md:mt-0 md:flex-1 md:overflow-y-auto md:overscroll-contain md:py-6">

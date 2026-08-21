@@ -192,9 +192,6 @@ function crmHint(monthOpen: boolean, inTotal: boolean): string | undefined {
   return inTotal ? undefined : "в начисление за этот период не входит";
 }
 
-// Подпись строки недельного фикса в «Как посчитали». При нуле выплат счётчик
-// не пишем: «0 выпл.» рядом с нулём читается как поломка, а не как «суббота
-// ещё не наступила».
 // Подпись месячного оклада: «Оклад · 2 мес. по 10 млн» / «Оклад · 10 млн в месяц».
 function monthlyFixLabel(monthPay: number, months: number): string {
   const rate = String(monthPay / 1_000_000).replace(".", ",");
@@ -203,6 +200,9 @@ function monthlyFixLabel(monthPay: number, months: number): string {
     : `Оклад · ${rate} млн в месяц`;
 }
 
+// Подпись строки недельного фикса в «Как посчитали». При нуле выплат счётчик
+// не пишем: «0 выпл.» рядом с нулём читается как поломка, а не как «суббота
+// ещё не наступила».
 function fixLabel(weekPay: number, weeks: number): string {
   const rate = String(weekPay / 1_000_000).replace(".", ",");
   return weeks > 0
@@ -226,6 +226,29 @@ interface StaffPayoutRaw {
 // запроса «по-старому, по периоду» убран 15.08.2026: он подменял день выдачи
 // началом периода, то есть выплата уезжала в другую неделю, и заметить это по
 // экрану было нельзя.
+// Сколько человеку ВЫДАЛИ за период — по дню выдачи (0043), одной суммой.
+// Нужна карточке профиля в сайдбаре: разработчик видит там не деньги школы, а
+// свою зарплату. Отдельный маленький запрос, а не getMonthlyPayroll: тому
+// нужен весь штат, все выплаты и полный расчёт начислений — на каждый экран
+// кабинета это десятки лишних запросов ради одной цифры.
+export async function getPaidToStaff(
+  supabase: Supabase,
+  staffId: string,
+  range: StatsRange,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("salary_payouts")
+    .select("amount")
+    .eq("instructor_id", staffId)
+    .gte("paid_on", range.fromDay)
+    .lte("paid_on", lastDayOf(range));
+
+  // Ноль в деньгах должен быть фактом, а не последствием сбойного запроса
+  // (см. lib/dbError): «мне ничего не выплатили» — слишком серьёзное заявление.
+  failIfReadError(error, "не удалось прочитать выплаты");
+  return (data ?? []).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+}
+
 async function loadStaffPayouts(
   supabase: Supabase,
   filter?: { fromDay: string; lastDay: string },
