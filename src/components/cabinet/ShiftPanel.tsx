@@ -250,10 +250,10 @@ function CommentForm({
       <button
         type="submit"
         disabled={pending}
-        className="mt-3 inline-flex items-center gap-2 rounded-full border border-line px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+        className="justify-center gap-2 mt-3 inline-flex items-center rounded-full border border-line px-4 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
       >
         {pending && <Spinner className="h-3.5 w-3.5" />}
-        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
+        {pending && <Spinner />}
         {pending ? "Сохраняем…" : "Сохранить"}
       </button>
       {state.error && <p className="mt-2 text-sm text-red-600">{state.error}</p>}

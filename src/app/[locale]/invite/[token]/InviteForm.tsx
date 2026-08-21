@@ -71,9 +71,9 @@ export function InviteForm({
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-full bg-accent px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 w-full rounded-full bg-accent px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
       >
-        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
+        {pending && <Spinner />}
         {pending ? "Создаём кабинет…" : "Создать кабинет"}
       </button>
     </form>

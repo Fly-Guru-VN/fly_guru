@@ -58,7 +58,7 @@ export default async function AdminLayout({
   // разделитель вместо предлога, как в остальных подписях кабинета.
   const amountSub = isDev
     ? `${usd(money)} · выплачено · ${monthName(month.fromDay)}`
-    : `денег на руках · ${month.label}`;
+    : `на руках · ${monthName(month.fromDay)}`;
 
   return (
     // На ПК — app-shell: область кабинета фиксированной высоты (вьюпорт минус

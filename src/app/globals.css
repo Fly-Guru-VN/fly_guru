@@ -196,6 +196,51 @@ details[open] > *:not(summary) {
   animation: step-glow 3s ease-in-out infinite;
 }
 
+/* Общие правила для нажатий держим в базовом слое: утилиты Tailwind идут
+   слоем позже и перебивают их без всяких !important — кнопка со своей
+   анимацией (нижние вкладки кабинета, active:scale-95) остаётся при своей. */
+@layer base {
+  /* ── Отклик на нажатие (21.08.2026) ──────────────────────────────────────────
+     Кнопок в проекте под сотню, и заводить каждой свой active:-класс — значит
+     через месяц иметь три разных нажатия. Правило одно и глобальное: всё, на что
+     можно нажать, на время нажатия проседает и темнеет.
+
+     Зачем: на пляжном интернете между нажатием и ответом сервера проходит
+     секунда, экран всё это время выглядит мёртвым — и человек жмёт второй раз.
+     Просадка отвечает мгновенно, ещё до того, как форма начала отправляться.
+
+     transform, а не изменение размеров: он не двигает соседей и рисуется
+     видеокартой — на дешёвом телефоне не дёргается. 90 мс — быстрее, чем глаз
+     замечает задержку, но достаточно, чтобы палец увидел ответ.
+
+     :disabled сюда не попадает намеренно: неактивная кнопка не должна
+     отзываться на нажатие — в этом весь смысл, что видно, что жать нечего. */
+  button:not(:disabled):not([aria-disabled="true"]):active,
+  [role="button"]:not([aria-disabled="true"]):active,
+  summary:active,
+  label:has(> input[type="file"]):active {
+    transform: scale(0.96);
+    filter: brightness(0.94);
+  }
+
+  button,
+  [role="button"],
+  summary,
+  label:has(> input[type="file"]) {
+    transition:
+      transform 90ms ease-out,
+      filter 90ms ease-out;
+  }
+
+  /* Неактивная кнопка: курсор говорит «жать нечего» ещё до нажатия. Приглушение
+     (disabled:opacity-*) кнопки ставят себе сами — здесь только то, чего у них
+     нет, и то, что нельзя выразить классом на каждой. */
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-toast-in,
   .animate-fade-in,
@@ -208,6 +253,15 @@ details[open] > *:not(summary) {
   .animate-step-glow,
   details[open] > *:not(summary) {
     animation: none;
+  }
+
+  /* Просадку кнопки убираем, затемнение оставляем: человеку, который выключил
+     анимации, отклик на нажатие всё равно нужен — просто без движения. */
+  button:not(:disabled):active,
+  [role="button"]:active,
+  summary:active,
+  label:has(> input[type="file"]):active {
+    transform: none;
   }
 }
 

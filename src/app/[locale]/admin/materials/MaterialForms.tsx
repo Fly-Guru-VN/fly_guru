@@ -69,9 +69,9 @@ export function MaterialCreateForm() {
       <button
         type="submit"
         disabled={pending}
-        className="mt-3 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 mt-3 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
       >
-        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
+        {pending && <Spinner />}
         {pending ? "Создаём…" : "Добавить канал"}
       </button>
     </form>
@@ -95,9 +95,9 @@ export function MaterialEditForm({
       <button
         type="submit"
         disabled={pending}
-        className="mt-3 rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 mt-3 rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
       >
-        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
+        {pending && <Spinner />}
         {pending ? "Сохраняем…" : "Сохранить"}
       </button>
     </form>

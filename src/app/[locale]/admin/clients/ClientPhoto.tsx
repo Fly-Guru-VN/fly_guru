@@ -71,9 +71,9 @@ export function ClientPhoto({
         <button
           type="submit"
           disabled={pending}
-          className="mt-2 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 mt-2 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-60"
         >
-          {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
+          {pending && <Spinner />}
           {pending ? "Загружаем…" : "Загрузить"}
         </button>
         {state.error && (

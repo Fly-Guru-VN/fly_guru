@@ -185,9 +185,9 @@ export function SubscriptionForm({
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex w-full items-center justify-center rounded-full bg-accent px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
       >
-        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
+        {pending && <Spinner />}
         {pending ? "Оформляем…" : "Продать абонемент"}
       </button>
 

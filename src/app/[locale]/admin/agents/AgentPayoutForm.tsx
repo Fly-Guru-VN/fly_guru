@@ -83,9 +83,9 @@ export function AgentPayoutForm({
       <button
         type="submit"
         disabled={pending}
-        className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
       >
-        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
+        {pending && <Spinner />}
         {pending ? "Сохраняем…" : "Выплачено"}
       </button>
     </form>

@@ -91,9 +91,9 @@ export function ExpenseFields({
       <button
         type="submit"
         disabled={pending}
-        className="mt-3 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 mt-3 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60"
       >
-        {pending && <Spinner className="inline-flex items-center justify-center gap-2 h-4 w-4" />}
+        {pending && <Spinner />}
         {pending ? "Добавляем…" : submitLabel}
       </button>
     </form>
