@@ -11,7 +11,13 @@ import {
   type ShiftPayRow,
   type SubsShares,
 } from "@/lib/salary";
-import { activeStaff, loadInstructors, type StaffMember } from "@/lib/staff";
+import {
+  activeStaff,
+  inShiftCrew,
+  loadShiftCrew,
+  type StaffMember,
+} from "@/lib/staff";
+import type { AppRole } from "@/lib/auth";
 
 // Общий расчёт статистики инструктора — им пользуются главный экран кабинета
 // (цифры за текущий месяц) и экран «Статистика» (произвольный период).
@@ -36,7 +42,10 @@ import { activeStaff, loadInstructors, type StaffMember } from "@/lib/staff";
 // не переписывать импорты по всему проекту.
 export { SESSION_RATE, SHIFT_PAY, SUBS_RATE };
 
-export type StaffRole = "instructor" | "admin";
+// Роль того, чью статистику считаем. От неё зависит одно: идут ли человеку
+// сменные деньги (см. staff → SHIFT_CREW_ROLES). У босса ЗП нет, у механика
+// фикс за месяц — у обоих три слагаемых нули.
+export type StaffRole = AppRole;
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -112,18 +121,18 @@ export async function loadPayInputs(
   range: StatsRange,
   payClient: Supabase = supabase,
 ): Promise<PayInputs> {
-  // Весь штат, включая уволенных: их выходы и занятия за отработанные дни
-  // считаются как обычно, а в дележе котла участвуют только дни, когда человек
-  // был в штате (см. lib/salary → getSubsShares).
-  const staff = await loadInstructors(supabase);
-  const instructorIds = staff.map((m) => m.id);
+  // Весь полевой состав, включая уволенных: их выходы и занятия за отработанные
+  // дни считаются как обычно, а в дележе котла участвуют только дни, когда
+  // человек был в штате (см. lib/salary → getSubsShares).
+  const staff = await loadShiftCrew(supabase);
+  const crewIds = staff.map((m) => m.id);
 
   // Выходы и дележ 15% — через payClient: обе величины считаются по ВСЕМ
   // сменам и сессиям дня, а не только по своим (см. lib/salary).
   const [subsShares, shiftPay, sessionShare] = await Promise.all([
     getSubsShares(supabase, range, staff),
-    getShiftPay(payClient, range, instructorIds),
-    getSessionShare(payClient, range, instructorIds),
+    getShiftPay(payClient, range, crewIds),
+    getSessionShare(payClient, range, crewIds),
   ]);
 
   return { staff, subsShares, shiftPay, sessionShare };
@@ -236,14 +245,16 @@ export async function getInstructorStats(
 
   const subsPool = subsShares.pool;
 
-  const isInstructor = role === "instructor"; // у босса ЗП нет — все слагаемые нули
+  // Сменные деньги идут полевому составу: инструктору и СММщику, вышедшему на
+  // пляж. У босса и механика все три слагаемых — нули.
+  const isCrew = inShiftCrew(role);
   // Моя доля 15% за период. Считает lib/salary: база дня делится между теми,
   // кто открыл смену, в дни без смен остаётся тому, кто записал.
-  const salaryFromSessions = isInstructor ? myShare.amount : 0;
-  const salaryFromShifts = isInstructor ? myShifts.amount : 0;
+  const salaryFromSessions = isCrew ? myShare.amount : 0;
+  const salaryFromShifts = isCrew ? myShifts.amount : 0;
   // Доля котла — сумма долей по каждому абонементу: она зависит от того, кто был
   // в штате в день его оплаты, а не от простого деления на «сколько нас сейчас».
-  const salaryFromSubs = isInstructor ? (subsShares.shares.get(instructorId) ?? 0) : 0;
+  const salaryFromSubs = isCrew ? (subsShares.shares.get(instructorId) ?? 0) : 0;
 
   return {
     clientsCount: byClient.size,
@@ -262,7 +273,10 @@ export async function getInstructorStats(
     sharedDays: myShare.sharedDays,
     ownDays: myShare.ownDays,
     subsPool,
-    instructorsCount: activeStaff(staff).length,
+    // «Котёл делится на N» — справка в кабинете. Считаем только действующих
+    // инструкторов: СММщик берёт долю лишь за дни своих смен, ставить его в
+    // знаменатель каждый день значило бы занижать чужую долю на экране.
+    instructorsCount: activeStaff(staff).filter((m) => m.role === "instructor").length,
     paidSubsCount: paidInRange.length,
     unpaidSubsCount: unpaid.length,
     unpaidSubsSum: unpaid.reduce((s, r) => s + Number(r.price ?? 0), 0),

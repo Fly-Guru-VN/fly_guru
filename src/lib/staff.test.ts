@@ -18,6 +18,7 @@ import {
 const member = (extra: Partial<StaffMember> = {}): StaffMember => ({
   id: "misha",
   name: "Михаил",
+  role: "instructor",
   hiredAt: null,
   leftAt: null,
   senior: false,

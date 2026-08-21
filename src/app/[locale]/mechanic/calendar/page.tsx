@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { getAppUser } from "@/lib/auth";
+import { getAppUser, type AppRole } from "@/lib/auth";
 import { dayWithWeekday, vnToday } from "@/lib/dates";
+import { inShiftCrew } from "@/lib/staff";
 import {
   getMonthCalendar,
   loadShiftPhotos,
@@ -133,9 +134,9 @@ export default async function MechanicCalendarPage({
                       </p>
                     )}
 
-                    {/* Премия — только у наёмных инструкторов: у админа её нет,
-                        у механика своя схема оплаты. */}
-                    {role === "instructor" && (
+                    {/* Премия — только у полевого состава: у админа её нет,
+                        у механика своя схема оплаты (оклад за месяц). */}
+                    {role !== undefined && inShiftCrew(role as AppRole) && (
                       <ShiftBonus
                         shift={s}
                         date={selected}

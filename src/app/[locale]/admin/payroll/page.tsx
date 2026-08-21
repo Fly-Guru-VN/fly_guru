@@ -139,13 +139,15 @@ function DueCard({
             Переплата {vnd(-row.left!)}
           </span>
         )}
-        {/* 1% с оборота за текущий месяц: висит у ника напоминалкой и в
-            «осталось выдать» не входит, пока месяц не закрыт. */}
+        {/* Что накапало за текущий месяц: 1% с оборота у недельщиков, оклад у
+            механика. Висит у ника напоминалкой и в «осталось выдать» не входит,
+            пока месяц не закрыт. */}
         {row.monthly && row.payee && (
           <MonthlyChip
             payee={`${row.payee.kind}:${row.payee.id}`}
             amount={row.monthly.amount}
             label={row.monthly.label}
+            what={row.kind === "mechanic" ? "Оклад" : "1%"}
           />
         )}
       </div>

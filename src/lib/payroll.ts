@@ -10,8 +10,10 @@ import { dayShort, monthName, vnMonth, vnPeriod, vnToday } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
 import {
   DEV_WEEK_PAY,
+  getMonthlyFixedPay,
   getSmmFixedPay,
   getWeeklyFixedPay,
+  MECHANIC_MONTH_PAY,
   SMM_WEEK_PAY,
 } from "@/lib/salary";
 import {
@@ -193,6 +195,14 @@ function crmHint(monthOpen: boolean, inTotal: boolean): string | undefined {
 // Подпись строки недельного фикса в «Как посчитали». При нуле выплат счётчик
 // не пишем: «0 выпл.» рядом с нулём читается как поломка, а не как «суббота
 // ещё не наступила».
+// Подпись месячного оклада: «Оклад · 2 мес. по 10 млн» / «Оклад · 10 млн в месяц».
+function monthlyFixLabel(monthPay: number, months: number): string {
+  const rate = String(monthPay / 1_000_000).replace(".", ",");
+  return months > 0
+    ? `Оклад · ${months} мес. по ${rate} млн`
+    : `Оклад · ${rate} млн в месяц`;
+}
+
 function fixLabel(weekPay: number, weeks: number): string {
   const rate = String(weekPay / 1_000_000).replace(".", ",");
   return weeks > 0
@@ -552,15 +562,31 @@ export async function getMonthlyPayroll(
   const smm = allSmm.filter(inScope);
   for (const u of smm) {
     const fix = getSmmFixedPay(range.fromDay, lastDay, u);
+    // Сменные деньги сверх фикса (решение David от 21.08.2026): СММщик,
+    // вышедший на пляж, зарабатывает как инструктор — те же три слагаемых, тот
+    // же расчёт. Фикс при этом не трогаем: СММ-работу он всё равно делает.
+    const s = await getInstructorStats(
+      supabase,
+      u.id,
+      range,
+      "smm",
+      supabase,
+      payInputs,
+    );
+    const salaryToDate = samePeriod ? s.salary : salaryFrom(balanceInputs, u.id).total;
     // 1% закрывается раз в месяц: в начисление он идёт, только когда выбран
     // ровно этот месяц, иначе к недельной выдаче прибавилась бы месячная сумма.
-    const accrued = fix.amount + (crmInTotal ? crm.each : 0);
+    const accrued = fix.amount + (crmInTotal ? crm.each : 0) + s.salary;
     // Долг: недели считаются от точки отсчёта — на стыке периодов дни-остатки
     // не сгорают, а копятся до полной недели.
     const fixToDate = getSmmFixedPay(PAYROLL_EPOCH, balanceLastDay, u);
-    const accruedToDate = fixToDate.amount + crmToDate;
+    const accruedToDate = fixToDate.amount + crmToDate + salaryToDate;
     const paid = paidTo("staff", u.id);
     const paidAll = paidToDate("staff", u.id);
+    // Строки про смены показываем, только если он на них выходил: у СММщика без
+    // единого выхода три нуля в раскладке — лишний шум.
+    const worked =
+      s.salary > 0 || s.shiftsCount + s.shiftsUnpaidCount + s.shiftsPlannedCount > 0;
     rows.push({
       key: `staff-${u.id}`,
       payee: { kind: "staff", id: u.id },
@@ -590,6 +616,28 @@ export async function getMonthlyPayroll(
           value: crm.each,
           hint: crmHint(crmMonthOpen, crmInTotal),
         },
+        ...(worked
+          ? [
+              {
+                label: "Доля 15% с занятий дня",
+                value: s.salaryFromSessions,
+                hint: `свои занятия: ${s.sessionsCount}`,
+              },
+              {
+                label: `Выходы · зачтено ${s.shiftsCount} из ${s.shiftsCount + s.shiftsUnpaidCount}`,
+                value: s.salaryFromShifts,
+                hint:
+                  s.shiftsPlannedCount > 0
+                    ? `в графике ещё ${s.shiftsPlannedCount}`
+                    : undefined,
+              },
+              {
+                label: "Доля с абонементов",
+                value: s.salaryFromSubs,
+                hint: "только за дни, когда открыл смену",
+              },
+            ]
+          : []),
       ],
     });
   }
@@ -682,9 +730,57 @@ export async function getMonthlyPayroll(
     });
   }
 
-  // ── Механик и прочий штат ──────────────────────────────────────────────────
-  // Ставки в системе у него нет, поэтому в списке он появляется, только если
-  // деньги ему выдавали: иначе строка «осталось 0» просто шумит. Долг у такой
+  // ── Механик ────────────────────────────────────────────────────────────────
+  // Оклад 10 млн в месяц (решение David от 21.08.2026). За смену он не получает
+  // ничего, хотя открывает её наравне со всеми: его в SHIFT_CREW_ROLES нет.
+  //
+  // Начисляем за ЗАКРЫТЫЙ месяц, идущий висит напоминалкой у ника — то же
+  // правило, что у 1% СММщика: за неотработанные дни школа не должна.
+  const mechanics = allMechanics.filter(inScope);
+  for (const u of mechanics) {
+    const fix = getMonthlyFixedPay(MECHANIC_MONTH_PAY, range.fromDay, lastDay, u);
+    const fixToDate = getMonthlyFixedPay(
+      MECHANIC_MONTH_PAY,
+      PAYROLL_EPOCH,
+      balanceLastDay,
+      u,
+    );
+    const paid = paidTo("staff", u.id);
+    const paidAll = paidToDate("staff", u.id);
+    rows.push({
+      key: `staff-${u.id}`,
+      payee: { kind: "staff", id: u.id },
+      kind: "mechanic",
+      name: u.name,
+      accrued: fix.amount,
+      paid,
+      accruedToDate: fixToDate.amount,
+      paidToDate: paidAll,
+      left: fixToDate.amount - paidAll,
+      employmentLabel: employmentLabel(u),
+      fired: isFired(u),
+      monthly:
+        fixToDate.current > 0 && fixToDate.currentMonth
+          ? {
+              label: monthName(fixToDate.currentMonth),
+              amount: fixToDate.current,
+            }
+          : undefined,
+      details: [
+        {
+          label: monthlyFixLabel(MECHANIC_MONTH_PAY, fix.months),
+          value: fix.amount,
+          hint: isFired(u)
+            ? undefined
+            : `следующее — ${dayShort(fixToDate.nextPayday)}`,
+        },
+      ],
+    });
+  }
+
+  // ── Прочий штат ────────────────────────────────────────────────────────────
+  // Ставки в системе у них нет, поэтому в списке они появляются, только если
+  // деньги им выдавали: иначе строка «осталось 0» просто шумит. Долг у такой
   // строки не считается вовсе (left = null): начислять школе нечего, и «минус
   // выданное» показало бы вечную переплату.
   const known = new Set(rows.map((r) => r.payee?.id).filter(Boolean));

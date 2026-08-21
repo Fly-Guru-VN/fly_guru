@@ -56,7 +56,8 @@ async function requireStaff(): Promise<AppUser> {
 }
 
 // Часть экранов кабинета один в один переиспользуют механик и СММщик: свои
-// расходы и настройки профиля (у механика ещё и смена с фотофиксацией).
+// расходы, настройки профиля и смена с фотофиксацией — её с 21.08.2026
+// открывает любой сотрудник.
 // Отдельная проверка (а не «пустить их в requireStaff») намеренно: денежные
 // действия — запись клиента, продажа абонемента, списание минут, правка
 // сессии — остаются за инструктором, и RLS это подтверждает второй раз.
@@ -1295,7 +1296,9 @@ export async function addShiftPhotoAction(
 ): Promise<ShiftPhotoState> {
   const user = await requireFieldStaff();
   if (isAdminLike(user.role)) {
-    return { error: "Смены открывают инструкторы и механик." };
+    // Смену открывает любой сотрудник (21.08.2026), кроме босса: его выход
+    // школа не оплачивает, и «смена админа» только путала бы расчёт дня.
+    return { error: "Смену открывает сотрудник, а не начальник." };
   }
 
   const phase = String(formData.get("phase") ?? "") as PhotoPhase;
@@ -1447,7 +1450,7 @@ export async function saveShiftCommentAction(
 ): Promise<ActionState> {
   const user = await requireFieldStaff();
   if (isAdminLike(user.role)) {
-    return { error: "Смены ведут инструкторы и механик." };
+    return { error: "Смену ведёт сотрудник, а не начальник." };
   }
 
   const phase = String(formData.get("phase") ?? "") as PhotoPhase;

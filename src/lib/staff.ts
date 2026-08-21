@@ -1,4 +1,5 @@
 import type { createClient } from "@/lib/supabase/server";
+import type { AppRole } from "@/lib/auth";
 import { vnToday } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
 
@@ -32,9 +33,30 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 export interface StaffMember {
   id: string;
   name: string;
+  role: AppRole; // кем человек числится: от роли зависит формула ЗП
   hiredAt: string | null; // первый рабочий день, включительно
   leftAt: string | null; // последний рабочий день, включительно
   senior: boolean;
+}
+
+// Кто зарабатывает ПО-СМЕННОЙ формуле: 200 000 ₫ за выход по регламенту, доля
+// 15% с занятий дня и доля котла абонементов (см. lib/salary).
+//
+// Раньше этим признаком была сама роль 'instructor', зашитая в пять расчётов.
+// С 21.08.2026 (решение David) смену открывает ЛЮБОЙ сотрудник, и СММщик,
+// вышедший на пляж вместо офиса, зарабатывает ровно как инструктор — руками
+// такие дни в расчёт больше не вносим. Список здесь один на всю систему:
+// добавится ещё одна «полевая» роль — правится одна строка.
+//
+// Кого тут намеренно нет:
+//   • механик — у него фикс 10 млн в месяц (MECHANIC_MONTH_PAY), за смену он
+//     не получает ничего, хотя открывает её так же;
+//   • админ и разработчик — они боссы: их выход не оплачивается, а их занятия
+//     не наполняют 15% инструкторов (та же логика, что в lib/finance).
+export const SHIFT_CREW_ROLES: AppRole[] = ["instructor", "smm"];
+
+export function inShiftCrew(role: AppRole): boolean {
+  return SHIFT_CREW_ROLES.includes(role);
 }
 
 // Работал ли человек в этот день. Обе границы включительно.
@@ -91,25 +113,34 @@ export async function loadAdmins(client: Supabase): Promise<StaffMember[]> {
   return loadByRole(client, "admin");
 }
 
+// Полевой состав: все, кому ЗП считается по сменам (см. SHIFT_CREW_ROLES).
+// Именно этот список получают расчёты ЗП вместо прежнего loadInstructors —
+// «инструктор» перестал быть синонимом «тот, кому платят за выход».
+export async function loadShiftCrew(client: Supabase): Promise<StaffMember[]> {
+  return loadByRole(client, SHIFT_CREW_ROLES);
+}
+
 async function loadByRole(
   client: Supabase,
-  role: "instructor" | "smm" | "mechanic" | "admin" | "dev",
+  role: AppRole | AppRole[],
 ): Promise<StaffMember[]> {
+  const roles = Array.isArray(role) ? role : [role];
   const { data, error } = await client
     .from("users")
-    .select("id, name, senior, hired_at, left_at")
-    .eq("role", role)
+    .select("id, name, role, senior, hired_at, left_at")
+    .in("role", roles)
     .order("name");
 
   // Пустой список штата — это не «никого нет», а поломка: без него не
   // посчитается ни ЗП, ни котёл абонементов, и экраны покажут нули как факт.
-  failIfReadError(error, `не удалось прочитать список (${role})`);
+  failIfReadError(error, `не удалось прочитать список (${roles.join(", ")})`);
 
   const rows = (data ?? []) as unknown as Record<string, unknown>[];
 
   return rows.map((r) => ({
     id: r.id as string,
     name: r.name as string,
+    role: r.role as AppRole,
     hiredAt: (r.hired_at as string | null) ?? null,
     leftAt: (r.left_at as string | null) ?? null,
     senior: Boolean(r.senior),
@@ -123,13 +154,17 @@ async function loadByRole(
 // Роль dev появилась в 0044 и в боевой базе есть (проверено 15.08.2026).
 // Повтор запроса без неё убран: он прикрывал порядок «сначала код, потом
 // миграция», а порядок теперь обратный.
+//
+// СММщик здесь с 21.08.2026: он выходит на смену и катает клиентов сам, а
+// занятие, оформленное не на того, кто его провёл, ломает и его 15%, и дележ
+// дня между сменщиками.
 export async function loadSessionStaff(
   client: Supabase,
 ): Promise<{ id: string; name: string }[]> {
   const { data, error } = await client
     .from("users")
     .select("id, name")
-    .in("role", ["instructor", "admin", "dev"])
+    .in("role", ["instructor", "smm", "admin", "dev"])
     .order("name");
 
   // Пустой список = «записать клиента не на кого». Такое лучше увидеть.
@@ -189,7 +224,7 @@ export async function hiddenStaffIds(
   client: Supabase,
   today: string = vnToday(),
 ): Promise<Set<string>> {
-  const staff = await loadInstructors(client);
+  const staff = await loadShiftCrew(client);
   return new Set(
     staff.filter((m) => isFired(m, today) || notStarted(m, today)).map((m) => m.id),
   );

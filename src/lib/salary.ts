@@ -5,8 +5,16 @@ import { failIfReadError } from "@/lib/dbError";
 import { closeStatus, openStatus } from "@/lib/shiftRules";
 import { staffOn, type StaffMember } from "@/lib/staff";
 
-// Как школа платит инструкторам (пачка правок №9, пак 2 — новые правила от
-// 2026-07-24). Три слагаемых, два из них поменялись:
+// Как школа платит за работу на пляже (пачка правок №9, пак 2 — новые правила
+// от 2026-07-24).
+//
+// КОМУ платят по этим правилам — решает не роль «инструктор», а список
+// SHIFT_CREW_ROLES в lib/staff: с 21.08.2026 смену открывает любой сотрудник, и
+// СММщик, вышедший на пляж, зарабатывает ровно как инструктор. Механик смену
+// открывает тоже, но денег за неё не получает — у него оклад за месяц
+// (MECHANIC_MONTH_PAY), а босс не получает ничего.
+//
+// Три слагаемых, два из них поменялись:
 //
 //  • 200 000 ₫ за выход — но ТОЛЬКО за смену, отработанную по
 //    регламенту: закрыта, открыта до 9:00, закрыта после 18:00. Нарушил —
@@ -125,10 +133,10 @@ export interface ShiftPayInfo {
 export async function getShiftPay(
   client: Supabase,
   range: StatsRange,
-  instructorIds: string[],
+  crewIds: string[],
 ): Promise<Map<string, ShiftPayInfo>> {
   const shifts = await loadShifts(client, range);
-  const allowed = new Set(instructorIds);
+  const allowed = new Set(crewIds);
   const today = vnToday();
 
   const byInstructor = new Map<string, ShiftPayInfo>();
@@ -142,7 +150,8 @@ export async function getShiftPay(
   };
 
   for (const s of shifts) {
-    // Смена админа — не выход наёмного работника, платить за неё некому.
+    // Смена босса или механика — не оплачиваемый выход: первым школа за смену
+    // не платит вовсе, у второго фикс за месяц (см. staff → SHIFT_CREW_ROLES).
     if (!allowed.has(s.instructor_id)) continue;
     // Смена, которая ещё не отработана (сегодняшняя незакрытая или из будущего
     // графика), — это не «срезанный регламентом выход», а просто не наступивший
@@ -214,7 +223,7 @@ interface SessionRow {
 export async function getSessionShare(
   client: Supabase,
   range: StatsRange,
-  instructorIds: string[],
+  crewIds: string[],
 ): Promise<Map<string, SessionShare>> {
   const [sessionsRes, shifts] = await Promise.all([
     client
@@ -225,7 +234,7 @@ export async function getSessionShare(
     loadShifts(client, range),
   ]);
 
-  const allowed = new Set(instructorIds);
+  const allowed = new Set(crewIds);
   const sessions = (sessionsRes.data ?? []) as unknown as SessionRow[];
 
   // День → база (только сессии инструкторов) и вклад каждого в этот день.
@@ -368,6 +377,91 @@ export function getSmmFixedPay(
   return getWeeklyFixedPay(SMM_WEEK_PAY, fromDay, lastDay, member);
 }
 
+// ── Месячный фикс: механик (решение David от 21.08.2026) ────────────────────
+//
+// Механик открывает смену как все, но за выход не получает ничего: у него
+// оклад 10 000 000 ₫ в месяц. До сих пор ставки в системе не было вовсе — он
+// появлялся в «Расчёте выплат», только если ему уже платили, и «сколько школа
+// должна» приходилось держать в голове.
+//
+// Правило то же, что у недельщиков, только шаг месяц: начисляем за ЗАКРЫТЫЙ
+// месяц. Пока месяц идёт, сумма висит напоминалкой у ника и в долг не попадает
+// — школа не должна за неотработанные дни (та же логика, что с 1% СММщика).
+//
+// Неполный месяц (приняли или уволили в середине) считается пропорционально
+// отработанным дням: полный оклад за три дня работы — это неправда, которую
+// потом вычитают руками. Полный месяц всегда ровно ставка, без дробей.
+export const MECHANIC_MONTH_PAY = 10_000_000; // ₫ в месяц
+
+export interface MonthlyFixedPay {
+  months: number; // закрытые месяцы, за которые начислено
+  amount: number; // начислено за закрытые месяцы — это и есть долг
+  current: number; // идущий месяц: напоминалка, в долг не идёт
+  currentMonth: string | null; // первый день идущего месяца (для подписи)
+  nextPayday: string; // когда идущий месяц закроется и станет долгом
+}
+
+function monthEndOf(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + 1, 0); // «нулевое» число следующего месяца
+  return d.toISOString().slice(0, 10);
+}
+
+function nextMonthStart(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + 1, 1);
+  return d.toISOString().slice(0, 10);
+}
+
+export function getMonthlyFixedPay(
+  monthPay: number,
+  fromDay: string,
+  lastDay: string,
+  member?: StaffMember,
+): MonthlyFixedPay {
+  const today = vnToday();
+  const start =
+    member?.hiredAt && member.hiredAt > fromDay ? member.hiredAt : fromDay;
+  const hardEnd = member?.leftAt && member.leftAt < lastDay ? member.leftAt : lastDay;
+  // Хвост в будущем отрезаем: за ещё не наступившие дни не начисляем.
+  const end = hardEnd > today ? today : hardEnd;
+
+  let months = 0;
+  let amount = 0;
+  let current = 0;
+  let currentMonth: string | null = null;
+
+  let cursor = `${start.slice(0, 7)}-01`;
+  while (cursor <= end) {
+    const monthEnd = monthEndOf(cursor);
+    const workedFrom = cursor > start ? cursor : start;
+    const workedTo = monthEnd < end ? monthEnd : end;
+    if (workedTo >= workedFrom) {
+      const worked = daysBetween(workedFrom, workedTo) + 1;
+      const inMonth = daysBetween(cursor, monthEnd) + 1;
+      const share =
+        worked === inMonth ? monthPay : Math.round((monthPay * worked) / inMonth);
+      // Месяц (или его отработанная часть) уже позади — начисляем.
+      if (workedTo < today) {
+        months += 1;
+        amount += share;
+      } else {
+        current = share;
+        currentMonth = cursor;
+      }
+    }
+    cursor = nextMonthStart(cursor);
+  }
+
+  return {
+    months,
+    amount,
+    current,
+    currentMonth,
+    nextPayday: currentMonth ? nextMonthStart(currentMonth) : nextMonthStart(end),
+  };
+}
+
 export interface SubsShares {
   pool: number; // весь котёл периода: 15% с абонементов инструкторов
   shares: Map<string, number>; // инструктор → его доля
@@ -380,7 +474,7 @@ interface PoolSubRow {
   sold_by: string | null;
 }
 
-// Котёл абонементов: 15% с каждого абонемента, ПРОДАННОГО инструктором и
+// Котёл абонементов: 15% с каждого абонемента, ПРОДАННОГО полевым составом и
 // оплаченного в периоде. Абонемент админа в котёл не идёт — он босс, его
 // продажа остаётся ему (та же логика, что с сессиями в lib/finance).
 //
@@ -396,19 +490,38 @@ interface PoolSubRow {
 // Абонемент, оплаченный до 5-го, делится на четверых (по 225 000 ₫), следующий —
 // на троих (по 300 000 ₫). Ровно так, как просил начальник, и без ручных правок.
 //
-// staff — ВЕСЬ список инструкторов, включая уволенных: их надо учитывать в
-// расчётах за прошлые периоды. Кто в доле за конкретный день, решают даты.
+// staff — ВЕСЬ полевой состав, включая уволенных: их надо учитывать в расчётах
+// за прошлые периоды. Кто в доле за конкретный день, решают даты.
+//
+// Исключение — те, у кого есть вторая работа и второй оклад (сейчас это
+// СММщик, решение David от 21.08.2026). В штате он каждый день, но пляж — не
+// его основная работа: долю котла он получает только за дни, когда РЕАЛЬНО
+// открыл смену. Иначе доля инструкторов размывалась бы человеком, который в
+// этот день сидел в офисе и уже получает за него недельный фикс.
 export async function getSubsShares(
   client: Supabase,
   range: StatsRange,
   staff: StaffMember[],
 ): Promise<SubsShares> {
-  const { data } = await client
-    .from("subscriptions")
-    .select("price, paid_at, sold_by")
-    .not("paid_at", "is", null)
-    .gte("paid_at", range.fromIso)
-    .lt("paid_at", range.toIso);
+  const [{ data }, shifts] = await Promise.all([
+    client
+      .from("subscriptions")
+      .select("price, paid_at, sold_by")
+      .not("paid_at", "is", null)
+      .gte("paid_at", range.fromIso)
+      .lt("paid_at", range.toIso),
+    loadShifts(client, range),
+  ]);
+
+  // День → кто в этот день открыл смену. Нужен только «второй работе»: у
+  // инструктора выходной долю котла не отнимает, это его основной оклад.
+  const openedByDay = new Map<string, Set<string>>();
+  for (const sh of shifts) {
+    if (!sh.opened_at) continue;
+    const set = openedByDay.get(sh.date) ?? new Set<string>();
+    set.add(sh.instructor_id);
+    openedByDay.set(sh.date, set);
+  }
 
   const byId = new Map(staff.map((m) => [m.id, m]));
   const shares = new Map<string, number>();
@@ -431,7 +544,10 @@ export async function getSubsShares(
     // День оплаты по вьетнамскому времени: paid_at — timestamptz, а «в штате
     // 5-го» считается по местному календарю, а не по UTC.
     const day = vnDay(raw.paid_at);
-    const crew = staffOn(staff, day);
+    const opened = openedByDay.get(day);
+    const crew = staffOn(staff, day).filter(
+      (m) => m.role === "instructor" || opened?.has(m.id),
+    );
     if (crew.length === 0) {
       // Такого быть не должно (продавец сам был в штате в день продажи), но
       // если даты выставили криво — деньги не растворяются, а остаются продавцу.

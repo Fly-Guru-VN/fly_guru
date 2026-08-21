@@ -1,7 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
 import { SESSION_RATE, getShiftPay, getSubsShares } from "@/lib/salary";
-import { loadInstructors } from "@/lib/staff";
+import { loadShiftCrew } from "@/lib/staff";
 import { loadAllSessions } from "@/lib/sessions";
 import { failIfReadError } from "@/lib/dbError";
 
@@ -233,9 +233,9 @@ async function loadCashOut(
 async function loadPaidOut(
   supabase: Supabase,
   range: StatsRange,
-  instructorIds: string[],
+  crewIds: string[],
 ): Promise<number> {
-  if (instructorIds.length === 0) return 0;
+  if (crewIds.length === 0) return 0;
 
   const lastDay = new Date(`${range.toDay}T00:00:00Z`);
   lastDay.setUTCDate(lastDay.getUTCDate() - 1);
@@ -247,7 +247,7 @@ async function loadPaidOut(
   const { data, error } = await supabase
     .from("salary_payouts")
     .select("amount")
-    .in("instructor_id", instructorIds)
+    .in("instructor_id", crewIds)
     .gte("paid_on", range.fromDay)
     .lte("paid_on", lastDayStr);
   failIfReadError(error, "не удалось прочитать выданную зарплату");
@@ -288,9 +288,11 @@ export async function getFinance(
         .gte("date", range.fromDay)
         .lt("date", range.toDay)
         .order("amount", { ascending: false }),
-      loadInstructors(supabase),
+      loadShiftCrew(supabase),
     ]);
-  const instructorIds = staff.map((m) => m.id);
+  // Полевой состав: инструкторы и СММщик, который тоже выходит на смену
+  // (см. staff → SHIFT_CREW_ROLES). Механик и босс сюда не входят.
+  const crewIds = staff.map((m) => m.id);
 
   // Выходы и котёл абонементов считает lib/salary — те же правила, что в
   // кабинете инструктора и в «Расчёте выплат». Здесь нужен итог по школе:
@@ -302,9 +304,9 @@ export async function getFinance(
   // деньги на руки отдают раз в неделю и не всегда всем сразу. Список
   // инструкторов нужен ей фильтром, поэтому запрос ждёт staff.
   const [shiftPay, subsShares, instructorPaidOut] = await Promise.all([
-    getShiftPay(supabase, range, instructorIds),
+    getShiftPay(supabase, range, crewIds),
     getSubsShares(supabase, range, staff),
-    loadPaidOut(supabase, range, instructorIds),
+    loadPaidOut(supabase, range, crewIds),
   ]);
 
   const subs = subsRes.data ?? [];
@@ -320,7 +322,7 @@ export async function getFinance(
 
   // Выручка школы — вся; а вот ЗП платим только за работу инструкторов.
   // Всё, что откатал/продал сам админ, мимо ЗП — это его прибыль.
-  const isInstructor = new Set(instructorIds);
+  const isInstructor = new Set(crewIds);
   const instructorSessions = workSessions.rows.filter(
     (r) => r.instructor_id && isInstructor.has(r.instructor_id as string),
   );

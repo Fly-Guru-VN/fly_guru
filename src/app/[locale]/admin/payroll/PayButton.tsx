@@ -63,15 +63,18 @@ export function PayButton({
 //
 // Пунктир вместо заливки — чтобы чип не спутали с цифрами «за период» и
 // «осталось выдать»: это не долг, а предупреждение о конце месяца.
+// Напоминалка у ника: сумма за ещё не закрытый месяц. Их две — 1% с оборота у
+// недельщиков и оклад механика (10 млн), поэтому подпись приходит снаружи.
 export function MonthlyChip({
   payee,
   amount,
   label,
-}: PayoutRequest & { label: string }) {
+  what = "1%",
+}: PayoutRequest & { label: string; what?: string }) {
   return (
     <button
       type="button"
-      title="1% с оборота: выплачивается в конце месяца. В «осталось выдать» не входит — нажмите, чтобы подставить сумму в форму выплаты"
+      title={`${what}: выплачивается в конце месяца. В «осталось выдать» не входит — нажмите, чтобы подставить сумму в форму выплаты`}
       onClick={() =>
         window.dispatchEvent(
           new CustomEvent<PayoutRequest>(PAYOUT_EVENT, {
@@ -86,7 +89,7 @@ export function MonthlyChip({
           месяца» висело обрывком. Радиус не `rounded-full` по той же причине —
           двухстрочная «таблетка» выглядит кляксой. */}
       <span className="tabular-nums">
-        1% за {label} · {vnd(amount)}
+        {what} за {label} · {vnd(amount)}
       </span>
       <span className="font-normal opacity-80">(в конце месяца)</span>
     </button>

@@ -8,6 +8,8 @@ import {
   type ShiftPhoto,
 } from "@/lib/shifts";
 import { getDayPayments } from "@/lib/payments";
+import { inShiftCrew } from "@/lib/staff";
+import type { AppRole } from "@/lib/auth";
 import { vnd } from "@/lib/stats";
 import { MonthGrid } from "@/components/cabinet/MonthGrid";
 import { CalendarDayCell } from "@/components/cabinet/CalendarDayCell";
@@ -279,9 +281,10 @@ export default async function AdminCalendarPage({
                     </p>
                   )}
 
-                  {/* Премия за выход. У админа её нет: он босс, а не наёмный —
-                      показывать ему «премия не начислена» значило бы врать. */}
-                  {shift && u.role === "instructor" && (
+                  {/* Премия за выход. У админа и механика её нет: первый босс, а
+                      не наёмный, у второго оклад за месяц — показывать им
+                      «премия не начислена» значило бы врать. */}
+                  {shift && inShiftCrew(u.role as AppRole) && (
                     <ShiftBonus shift={shift} date={selected} instructorId={u.id} />
                   )}
 

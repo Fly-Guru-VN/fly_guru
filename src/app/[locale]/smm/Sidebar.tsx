@@ -11,6 +11,10 @@ import { SMM_UPDATES_SEEN_KEY } from "@/components/cabinet/useUpdatesSeen";
 // календаря, выплат, членов клуба и услуг — это не его работа, зато есть своя
 // «Моя ЗП») и в профиле нет денег школы: их он видит только как выручку, во
 // вкладке «Статистика».
+//
+// «Смена» с 21.08.2026: СММщик выходит на пляж наравне с инструкторами, и день
+// на смене считается ему по инструкторской формуле. Экран — тот же, что у
+// инструктора (см. /smm/shift).
 
 const UPDATES_HREF = "/smm/updates";
 
@@ -20,6 +24,7 @@ const GROUPS: CabinetNavGroup[] = [
   {
     title: "Каждый день",
     items: [
+      { href: "/smm/shift", label: "Смена", primary: true },
       { href: "/smm/bookings", label: "Заявки", primary: true },
       { href: "/smm/record", label: "Записать клиента", short: "Записать", primary: true },
       { href: "/smm/sessions", label: "Сессии" },

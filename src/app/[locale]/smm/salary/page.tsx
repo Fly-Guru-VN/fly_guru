@@ -3,8 +3,8 @@ import { getAppUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCrmPayout } from "@/lib/finance";
 import { dayShort, vnMonth, vnShiftDays } from "@/lib/dates";
-import { SMM_WEEK_PAY } from "@/lib/salary";
-import { vnd } from "@/lib/stats";
+import { SHIFT_PAY, SMM_WEEK_PAY } from "@/lib/salary";
+import { getInstructorStats, vnd } from "@/lib/stats";
 import { CalMonthNav, resolveCalYm } from "@/components/cabinet/CalMonthNav";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
@@ -53,7 +53,7 @@ export default async function SmmSalaryPage({
 
   const admin = createAdminClient();
   const lastDay = vnShiftDays(month.toDay, -1);
-  const [payoutsRes, crm] = await Promise.all([
+  const [payoutsRes, crm, shiftStats] = await Promise.all([
     admin
       .from("salary_payouts")
       .select("id, period_from, period_to, amount, paid_on, comment")
@@ -62,7 +62,14 @@ export default async function SmmSalaryPage({
       .lte("paid_on", lastDay)
       .order("paid_on", { ascending: false }),
     getCrmPayout(admin, month),
+    // Третья часть ЗП — дни, отработанные на пляже (с 21.08.2026). Считает тот
+    // же getInstructorStats, что и у инструктора: сумма на экране не может
+    // разойтись с той, что видит начальник в «Расчёте выплат».
+    // Служебным ключом: дележ 15% смотрит на чужие сессии и смены дня, а их
+    // RLS СММщику не отдаёт (наружу уходит только его собственная доля).
+    getInstructorStats(admin, user.id, month, "smm", admin),
   ]);
+  const shiftSalary = shiftStats.salary;
 
   // Выплаты считаем по ДНЮ ВЫДАЧИ (0043): вопрос, на который отвечает экран, —
   // «сколько мне отдали в этом месяце», а деньги за последнюю неделю июля
@@ -92,6 +99,12 @@ export default async function SmmSalaryPage({
           выплачивается в конце: цифра ниже растёт с каждым занятием и
           абонементом, оплаченными в этом месяце.
         </p>
+        <p>
+          Третья — дни на смене. Вышел на пляж, открыл и закрыл смену по
+          регламенту: {vnd(SHIFT_PAY)} за выход, доля 15% с занятий этого дня
+          поровну со сменщиками и доля с абонементов, оплаченных в дни твоих
+          смен. Фикс при этом никуда не девается.
+        </p>
       </PageNote>
 
       <CalMonthNav ym={ym} basePath="/smm/salary" />
@@ -112,6 +125,46 @@ export default async function SmmSalaryPage({
           </p>
         </div>
       </div>
+
+      {/* Смены показываем, только если они были: у месяца без выходов это три
+          нуля подряд и лишний вопрос «а почему у меня тут пусто». */}
+      {(shiftSalary > 0 || shiftStats.shiftsCount > 0) && (
+        <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <h2 className="font-bold">Заработано на сменах · {month.label}</h2>
+            <p className="shrink-0 text-xl font-bold text-primary">
+              {vnd(shiftSalary)}
+            </p>
+          </div>
+          <div className="mt-3 space-y-2 text-sm">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-muted">
+                Выходы · зачтено {shiftStats.shiftsCount} из{" "}
+                {shiftStats.shiftsCount + shiftStats.shiftsUnpaidCount}
+              </p>
+              <p className="shrink-0 font-semibold">
+                {vnd(shiftStats.salaryFromShifts)}
+              </p>
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-muted">15% с занятий дня — моя доля</p>
+              <p className="shrink-0 font-semibold">
+                {vnd(shiftStats.salaryFromSessions)}
+              </p>
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-muted">Доля с абонементов</p>
+              <p className="shrink-0 font-semibold">
+                {vnd(shiftStats.salaryFromSubs)}
+              </p>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-muted">
+            Это начислено, а не выдано: деньги приходят вместе с фиксом, когда
+            начальник отмечает выплату.
+          </p>
+        </section>
+      )}
 
       <section className="mt-3 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-bold">Выплаты</h2>

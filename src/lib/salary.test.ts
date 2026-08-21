@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   DEV_WEEK_PAY,
+  getMonthlyFixedPay,
+  MECHANIC_MONTH_PAY,
   SHIFT_PAY,
   SMM_WEEK_PAY,
   getSessionShare,
@@ -45,7 +47,15 @@ function fakeDb(tables: Rows) {
 const staff = (
   id: string,
   extra: Partial<StaffMember> = {},
-): StaffMember => ({ id, name: id, hiredAt: null, leftAt: null, senior: false, ...extra });
+): StaffMember => ({
+  id,
+  name: id,
+  role: "instructor",
+  hiredAt: null,
+  leftAt: null,
+  senior: false,
+  ...extra,
+});
 
 // Время в Нячанге (UTC+7) — пишем со смещением, чтобы тест не зависел от того,
 // в каком поясе живёт машина.
@@ -270,4 +280,89 @@ test("смена админа в ЗП инструкторов не попада
 
   const pay = await getShiftPay(db, vnPeriod("2026-08-10", "2026-08-10"), ["a"]);
   assert.equal(pay.size, 0);
+});
+
+// ── СММщик на смене: считается как инструктор (21.08.2026) ───────────────────
+
+test("СММщик, открывший смену, получает выход и долю 15% наравне с инструктором", async () => {
+  const db = fakeDb({
+    shifts: [
+      {
+        date: "2026-08-10",
+        instructor_id: "instr",
+        opened_at: vn("2026-08-10", "08:30"),
+        closed_at: vn("2026-08-10", "18:30"),
+      },
+      {
+        date: "2026-08-10",
+        instructor_id: "roma", // СММщик вышел на пляж
+        opened_at: vn("2026-08-10", "08:40"),
+        closed_at: vn("2026-08-10", "18:20"),
+      },
+    ],
+    sessions: [
+      { date: "2026-08-10", amount: 4_000_000, agent_commission: 0, instructor_id: "instr" },
+    ],
+  });
+  const range = vnPeriod("2026-08-10", "2026-08-10");
+
+  const pay = await getShiftPay(db, range, ["instr", "roma"]);
+  assert.equal(pay.get("roma")?.amount, SHIFT_PAY);
+
+  // База дня 4 000 000 × 15% = 600 000 — пополам на двоих вышедших.
+  const share = await getSessionShare(db, range, ["instr", "roma"]);
+  assert.equal(share.get("roma")?.amount, 300_000);
+  assert.equal(share.get("instr")?.amount, 300_000);
+});
+
+test("котёл абонементов делится с СММщиком только за дни его смен", async () => {
+  const crew = [staff("instr"), staff("roma", { role: "smm" })];
+  const db = fakeDb({
+    subscriptions: [
+      // 10-го СММщик на смене — делим пополам; 11-го он в офисе — всё инструктору.
+      { price: 6_000_000, paid_at: "2026-08-10T03:00:00Z", sold_by: "instr" },
+      { price: 6_000_000, paid_at: "2026-08-11T03:00:00Z", sold_by: "instr" },
+    ],
+    shifts: [
+      {
+        date: "2026-08-10",
+        instructor_id: "roma",
+        opened_at: vn("2026-08-10", "08:40"),
+        closed_at: vn("2026-08-10", "18:20"),
+      },
+      // 11-го смена назначена, но не открыта: в офисе — значит доли нет.
+      { date: "2026-08-11", instructor_id: "roma", opened_at: null, closed_at: null },
+    ],
+  });
+
+  const shares = await getSubsShares(db, vnPeriod("2026-08-10", "2026-08-11"), crew);
+  assert.equal(shares.pool, 1_800_000); // 15% с двух абонементов
+  assert.equal(shares.shares.get("roma"), 450_000); // только за 10-е
+  assert.equal(shares.shares.get("instr"), 450_000 + 900_000);
+});
+
+// ── Оклад механика: 10 млн за ЗАКРЫТЫЙ месяц ─────────────────────────────────
+
+test("два закрытых месяца — два оклада, идущий месяц в долг не идёт", () => {
+  // «Сегодня» здесь — реальная дата, поэтому берём период заведомо в прошлом.
+  const pay = getMonthlyFixedPay(MECHANIC_MONTH_PAY, "2026-06-01", "2026-07-31");
+  assert.equal(pay.months, 2);
+  assert.equal(pay.amount, 20_000_000);
+  assert.equal(pay.current, 0);
+});
+
+test("принятому в середине месяца оклад считается по отработанным дням", () => {
+  // Вышел 16 июня: 15 дней из 30 — половина оклада.
+  const member = staff("mech", { role: "mechanic", hiredAt: "2026-06-16" });
+  const pay = getMonthlyFixedPay(MECHANIC_MONTH_PAY, "2026-06-01", "2026-06-30", member);
+  assert.equal(pay.months, 1);
+  assert.equal(pay.amount, 5_000_000);
+});
+
+test("уволенному месяц закрывается днём увольнения, а не концом месяца", () => {
+  // Последний рабочий день 10 июля: 10 дней из 31.
+  const member = staff("mech", { role: "mechanic", leftAt: "2026-07-10" });
+  const pay = getMonthlyFixedPay(MECHANIC_MONTH_PAY, "2026-07-01", "2026-07-31", member);
+  assert.equal(pay.months, 1);
+  assert.equal(pay.amount, Math.round((10_000_000 * 10) / 31));
 });

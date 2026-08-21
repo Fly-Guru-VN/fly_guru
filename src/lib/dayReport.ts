@@ -1,7 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { vnPeriod } from "@/lib/dates";
 import { MARINA_RATE, netSessionsBase } from "@/lib/finance";
-import { loadInstructors } from "@/lib/staff";
+import { loadShiftCrew } from "@/lib/staff";
 import { failIfReadError } from "@/lib/dbError";
 import {
   getSessionShare,
@@ -177,9 +177,9 @@ export async function getDayReport(
       .gte("paid_at", range.fromIso)
       .lt("paid_at", range.toIso),
     loadDayShifts(admin, date),
-    loadInstructors(admin),
+    loadShiftCrew(admin),
   ]);
-  const instructorIds = staff.map((m) => m.id);
+  const crewIds = staff.map((m) => m.id);
 
   type SessionRow = {
     amount: number | null;
@@ -244,18 +244,19 @@ export async function getDayReport(
   // Заодно цифра дня сходится с «Статистикой» и «Расчётом месяца» — они берут
   // ту же функцию.
   const [shiftPay, sessionShare, subsShares] = await Promise.all([
-    getShiftPay(admin, range, instructorIds),
-    getSessionShare(admin, range, instructorIds),
+    getShiftPay(admin, range, crewIds),
+    getSessionShare(admin, range, crewIds),
     getSubsShares(admin, range, staff),
   ]);
 
-  const instructorSet = new Set(instructorIds);
+  const crewSet = new Set(crewIds);
 
   // На смене — те, кто её ОТКРЫЛ. Назначенная, но не открытая смена в отчёт не
   // идёт: человек не вышел, ЗП за день у него нулевая (та же логика, что в
-  // дележе 15%). Механик в списке не появится — он не в instructorIds.
+  // дележе 15%). Механик и босс в списке не появятся — они не в crewIds, за
+  // выход им не платят (см. staff → SHIFT_CREW_ROLES).
   const crew: DayCrewMember[] = shifts
-    .filter((s) => s.opened_at && instructorSet.has(s.instructor_id))
+    .filter((s) => s.opened_at && crewSet.has(s.instructor_id))
     .map((s) => ({
       id: s.instructor_id,
       name: s.users?.name ?? "Инструктор",
