@@ -105,7 +105,10 @@ export function PriceTabs({ groups }: { groups: PriceGroup[] }) {
       <div className="-mx-4 overflow-hidden border-y border-line bg-surface sm:-mx-6 lg:mx-0 lg:rounded-full lg:border lg:shadow-[0_16px_36px_-28px_rgba(15,34,51,0.55)]">
         <div
           ref={barRef}
-          className="rail flex snap-x snap-mandatory overflow-x-auto px-4 py-2 sm:px-6 lg:px-2"
+          // Прилипание — только там, где лента реально листается. С lg все
+          // шесть вкладок стоят на месте, а snap-mandatory там продолжал бы
+          // «доводить» ленту на каждый чих и подёргивать текст.
+          className="rail flex snap-x snap-mandatory overflow-x-auto px-4 py-2 sm:px-6 lg:snap-none lg:px-2"
           role="tablist"
           aria-label="Группы услуг"
           onKeyDown={onKeyDown}
@@ -118,6 +121,12 @@ export function PriceTabs({ groups }: { groups: PriceGroup[] }) {
           <SlidingHighlight
             activeKey={lit}
             pillClassName="rounded-full bg-primary"
+            // Кривая БЕЗ перелёта, в отличие от шапки. Полоса вкладок здесь —
+            // прокручиваемая лента, и плашка, проскочившая за правый край,
+            // раздувала её ширину: лента подкручивалась сама и дёргала весь
+            // текст (замер: скачок 8 px). Заодно спокойнее на глаз — та же
+            // кривая, что у всплывающих карточек и листов кабинета.
+            motionClassName="transition-[transform,width,height] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
             // min-w-full, а не flex-1: лента должна быть ШИРИНОЙ ПО ВКЛАДКАМ,
             // иначе она ровно по экрану, вкладки вылезают за её край, и
             // прокручивать становится нечего — на телефоне последние вкладки

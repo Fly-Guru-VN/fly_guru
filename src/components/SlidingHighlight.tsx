@@ -31,10 +31,22 @@ interface Box {
   height: number;
 }
 
+// Кривая переезда по умолчанию — упругая, с перелётом: плашка чуть проскакивает
+// цель и возвращается. Так она ведёт себя в шапке сайта.
+//
+// ⚠️ Перелёт годится только там, где ряд вкладок НИЧЕМ не ограничен по бокам.
+// Внутри горизонтально прокручиваемой ленты плашка на крайней вкладке
+// выскакивает за правый край обёртки, лента считает, что контента стало больше,
+// и прокручивается сама — вместе со всем текстом (замерено на прайсе: скачок
+// 8 px). Таким местам передавайте кривую без перелёта, см. motionClassName.
+const DEFAULT_MOTION =
+  "transition-[transform,width,height] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none";
+
 export function SlidingHighlight({
   activeKey,
   pillClassName,
   followHover = false,
+  motionClassName = DEFAULT_MOTION,
   className = "",
   children,
 }: {
@@ -42,6 +54,8 @@ export function SlidingHighlight({
   /** Как выглядит сама плашка (заливка, скругление). */
   pillClassName: string;
   followHover?: boolean;
+  /** Чем и как долго плашка едет. По умолчанию — упругая кривая шапки. */
+  motionClassName?: string;
   className?: string;
   children: ReactNode;
 }) {
@@ -67,12 +81,23 @@ export function SlidingHighlight({
       setBox(null);
       return;
     }
-    setBox({
+    const next = {
       left: el.offsetLeft,
       top: el.offsetTop,
       width: el.offsetWidth,
       height: el.offsetHeight,
-    });
+    };
+    // Тот же прямоугольник — тот же объект: иначе каждый вызов measure()
+    // (а его дёргает наблюдатель за размерами) перерисовывал бы ряд заново.
+    setBox((prev) =>
+      prev &&
+      prev.left === next.left &&
+      prev.top === next.top &&
+      prev.width === next.width &&
+      prev.height === next.height
+        ? prev
+        : next,
+    );
   }, [target]);
 
   useLayoutEffect(() => {
@@ -95,7 +120,13 @@ export function SlidingHighlight({
     if (!root || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => measure());
     observer.observe(root);
-    for (const child of Array.from(root.children)) observer.observe(child);
+    for (const child of Array.from(root.children)) {
+      // Саму плашку НЕ наблюдаем: её ширина меняется во время переезда, и
+      // наблюдатель поднимал бы пересчёт на каждом кадре анимации — ради
+      // размера, который мы же ей и задали.
+      if (child instanceof HTMLElement && child.dataset.slidingPill !== undefined) continue;
+      observer.observe(child);
+    }
     return () => observer.disconnect();
   }, [measure]);
 
@@ -116,10 +147,9 @@ export function SlidingHighlight({
       {box && (
         <span
           aria-hidden
+          data-sliding-pill=""
           className={`pointer-events-none absolute left-0 top-0 ${pillClassName} ${
-            animate
-              ? "transition-[transform,width,height] duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
-              : ""
+            animate ? motionClassName : ""
           }`}
           style={{
             transform: `translate3d(${box.left}px, ${box.top}px, 0)`,

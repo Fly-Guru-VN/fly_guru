@@ -127,9 +127,11 @@ export default async function PricesPage() {
         </div>
 
         <Container className="relative">
-          {/* Кадр шире текста (1 : 1.3): фотография у нас панорамная, и в
-              равных колонках она сжималась в узкую полоску. */}
-          <div className="items-center gap-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+          {/* Кадр почти вдвое шире текста и вдобавок уходит за правый край
+              контейнера (класс bleed-right в globals.css). По макету на него
+              приходится больше двух третей первого экрана; в равных колонках
+              панорамная фотография сжималась в полоску. */}
+          <div className="items-center gap-10 lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.55fr)]">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-primary">Прайс</p>
               <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">Стоимость услуг</h1>
@@ -143,7 +145,7 @@ export default async function PricesPage() {
             {/* Кадр вырезан волной по нижнему краю (прозрачный PNG → webp),
                 поэтому лежит прямо на фоне секции, без рамки и скруглений:
                 рамка обрезала бы саму волну. */}
-            <div className="relative mt-8 lg:mt-0">
+            <div className="bleed-right relative mt-8 lg:mt-0">
               <Image
                 src="/media/photo/prices/hero.webp"
                 alt="Электрофойл на воде в бухте Нячанга, на фоне город и горы"
@@ -151,13 +153,13 @@ export default async function PricesPage() {
                 height={502}
                 priority
                 quality={90}
-                sizes="(min-width: 1024px) 640px, 100vw"
+                sizes="(min-width: 1024px) 900px, 100vw"
                 className="h-auto w-full"
               />
               {/* Плашка «Безопасно». На ПК висит над кадром, как в макете; на
                   телефоне кадр всего ~130 px высотой, и плашка накрыла бы его
                   целиком — там она встаёт обычной карточкой под фотографией. */}
-              <div className="mt-4 max-w-sm rounded-2xl border border-line bg-surface/95 p-4 shadow-[0_16px_36px_-28px_rgba(15,34,51,0.55)] backdrop-blur-sm lg:absolute lg:right-0 lg:top-4 lg:mt-0 lg:w-60 lg:max-w-none">
+              <div className="mt-4 max-w-sm rounded-2xl border border-line bg-surface/95 p-4 shadow-[0_16px_36px_-28px_rgba(15,34,51,0.55)] backdrop-blur-sm bleed-right-anchor lg:absolute lg:top-4 lg:mt-0 lg:w-60 lg:max-w-none">
                 <p className="flex items-center gap-2 text-sm font-bold">
                   <IconShield aria-hidden className="h-5 w-5 shrink-0 text-primary" />
                   Безопасно
@@ -222,16 +224,24 @@ export default async function PricesPage() {
         <Container>
           <div className="overflow-hidden rounded-3xl border-2 border-primary bg-gradient-to-br from-surface via-surface to-surface-2 p-6 shadow-[0_24px_50px_-30px_rgba(15,34,51,0.5)] sm:p-8">
             <div className="lg:flex lg:items-center lg:gap-10">
-              <div className="lg:flex-1">
-                <div className="flex items-center gap-3">
-                  <span
-                    aria-hidden
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
-                  >
-                    <IconDrone className="h-6 w-6" />
-                  </span>
-                  <Badge>Новое</Badge>
-                </div>
+              {/* Сам дрон — крупно. Услугу продаёт именно он: «съёмка с дрона»
+                  словами ничего не говорит, а оранжевый аппарат с камерой
+                  узнаётся мгновенно. Кадр не декоративный (это ровно то, что
+                  полетит рядом с вами), поэтому у него настоящий alt. */}
+              <div className="mx-auto max-w-[16rem] shrink-0 sm:max-w-[19rem] lg:mx-0 lg:w-[23rem] lg:max-w-none">
+                <Image
+                  src={drone.image ?? "/placeholders/media.svg"}
+                  alt="Дрон Hover Aqua Pro в полёте над морем"
+                  width={900}
+                  height={900}
+                  quality={90}
+                  sizes="(min-width: 1024px) 368px, (min-width: 640px) 304px, 256px"
+                  className="h-auto w-full"
+                />
+              </div>
+
+              <div className="mt-6 lg:mt-0 lg:flex-1">
+                <Badge>Новое</Badge>
                 <h2 className="mt-4 text-2xl font-bold leading-tight sm:text-3xl">{drone.name}</h2>
                 <p className="mt-3 max-w-xl text-muted">
                   Дрон Hover Aqua Pro идёт над водой следом за вами и снимает
@@ -248,22 +258,25 @@ export default async function PricesPage() {
                     </li>
                   ))}
                 </ul>
-              </div>
 
-              {/* Цена и кнопка отдельным столбцом: на ПК стоят справа, на
-                  телефоне — под текстом во всю ширину. */}
-              <div className="mt-7 shrink-0 border-t border-line pt-6 lg:mt-0 lg:w-56 lg:border-l lg:border-t-0 lg:pl-8 lg:pt-0">
-                <p className="text-sm text-muted">Стоимость сессии</p>
-                <p className="mt-1 text-3xl font-bold text-primary">{formatVnd(drone.price)}</p>
-                <div className="mt-5">
-                  <BookBtn
-                    serviceId={dbId(drone.name)}
-                    place="prices-drone"
-                    size="lg"
-                    className="w-full"
-                  >
-                    Заказать съёмку
-                  </BookBtn>
+                {/* Цена и кнопка полосой под текстом, а не третьим столбцом:
+                    столбец рядом с крупным кадром оставлял тексту узкую
+                    колонку, и абзац вставал в семь строк. */}
+                <div className="mt-6 border-t border-line pt-5 sm:flex sm:items-center sm:justify-between sm:gap-6">
+                  <div>
+                    <p className="text-sm text-muted">Стоимость сессии</p>
+                    <p className="mt-1 text-3xl font-bold text-primary">{formatVnd(drone.price)}</p>
+                  </div>
+                  <div className="mt-4 sm:mt-0 sm:shrink-0">
+                    <BookBtn
+                      serviceId={dbId(drone.name)}
+                      place="prices-drone"
+                      size="lg"
+                      className="w-full sm:w-auto"
+                    >
+                      Заказать съёмку
+                    </BookBtn>
+                  </div>
                 </div>
               </div>
             </div>
