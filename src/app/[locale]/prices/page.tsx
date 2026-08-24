@@ -156,16 +156,23 @@ export default async function PricesPage() {
                 sizes="(min-width: 1024px) 900px, 100vw"
                 className="h-auto w-full"
               />
-              {/* Плашка «Безопасно». На ПК висит над кадром, как в макете; на
-                  телефоне кадр всего ~130 px высотой, и плашка накрыла бы его
-                  целиком — там она встаёт обычной карточкой под фотографией. */}
-              <div className="mt-4 max-w-sm rounded-2xl border border-line bg-surface/95 p-4 shadow-[0_16px_36px_-28px_rgba(15,34,51,0.55)] backdrop-blur-sm bleed-right-anchor lg:absolute lg:top-4 lg:mt-0 lg:w-60 lg:max-w-none">
+              {/* Плашка «Безопасно». На ПК лежит на кадре, как в макете, — но
+                  строго в небе: доска на фотографии занимает почти всю ширину
+                  (замерено по пикселям: x 271…1220 из 1400) и начинается с
+                  y=172, то есть свободны только верхние 34% кадра. Поэтому
+                  плашка низкая и в одну строку описания: в две она доставала
+                  до носа доски уже на 1024 px. Справа от доски места нет
+                  вовсе, так что двигать её туда бессмысленно — только вверх.
+
+                  На телефоне кадр всего ~130 px высотой, плашка накрыла бы его
+                  целиком: там она встаёт обычной карточкой под фотографией. */}
+              <div className="mt-4 max-w-sm rounded-2xl border border-line bg-surface/95 p-4 shadow-[0_16px_36px_-28px_rgba(15,34,51,0.55)] backdrop-blur-sm lg:absolute lg:right-5 lg:top-1 lg:mt-0 lg:w-[19rem] lg:max-w-none lg:p-3">
                 <p className="flex items-center gap-2 text-sm font-bold">
                   <IconShield aria-hidden className="h-5 w-5 shrink-0 text-primary" />
                   Безопасно
                 </p>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted">
-                  Всё снаряжение включено, инструктор всегда на связи.
+                <p className="mt-1.5 text-xs leading-relaxed text-muted lg:mt-0.5 lg:text-[11px] lg:leading-snug">
+                  Всё снаряжение включено, инструктор на связи.
                 </p>
               </div>
             </div>
@@ -245,9 +252,9 @@ export default async function PricesPage() {
                 <h2 className="mt-4 text-2xl font-bold leading-tight sm:text-3xl">{drone.name}</h2>
                 <p className="mt-3 max-w-xl text-muted">
                   Дрон Hover Aqua Pro идёт над водой следом за вами и снимает
-                  полёт со стороны — так, как со своей доски вы себя никогда не
-                  увидите. Одна сессия длится {drone.durationMin} минут, все
-                  исходники отдаём вам без обработки: монтируйте как хотите.
+                  полёт со стороны. Одна сессия длится {drone.durationMin} минут,
+                  все исходники отдаём без обработки. Если потребуется
+                  обработка — у нас есть услуга монтажа.
                 </p>
 
                 <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-3">

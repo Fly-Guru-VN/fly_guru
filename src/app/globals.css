@@ -329,17 +329,9 @@ details[open] > *:not(summary) {
    overflow-hidden, иначе страница поедет вбок.
 
    Вылет начинается с 1024 px: до этого макет одноколоночный, кадр и так во всю
-   ширину. bleed-right-anchor возвращает на край контейнера то, что должно
-   стоять по нему, — плашку «Безопасно» поверх кадра. */
-:root {
-  --bleed-right: max(0px, min(10rem, calc((100vw - 72rem) / 2)));
-}
-
+   ширину. */
 @media (min-width: 1024px) {
   .bleed-right {
-    margin-right: calc(var(--bleed-right) * -1);
-  }
-  .bleed-right-anchor {
-    right: var(--bleed-right);
+    margin-right: calc(max(0px, min(10rem, calc((100vw - 72rem) / 2))) * -1);
   }
 }
