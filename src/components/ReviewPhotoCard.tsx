@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { IconStar } from "./icons";
+import { GoogleMapsLink } from "./GoogleMapsLink";
 import type { Review } from "@/content/reviews";
 
 // Карточка отзыва с главной, собрана по макету: фото с занятия сверху, под ним
@@ -11,8 +12,9 @@ import type { Review } from "@/content/reviews";
 // сливается с телом карточки, и граница получается волнистой, без стыка.
 //
 // Текст обрезаем девятью строками: на телефоне полный отзыв — это пол-экрана
-// на карточку. Целиком отзывы читаются на /reviews.
-export function ReviewPhotoCard({ review }: { review: Review }) {
+// на карточку. На /reviews карточка та же, но там за отзывами и приходят —
+// clamp={false} снимает обрезку и показывает текст целиком.
+export function ReviewPhotoCard({ review, clamp = true }: { review: Review; clamp?: boolean }) {
   return (
     <figure className="flex h-full flex-col overflow-hidden rounded-3xl bg-surface shadow-[0_20px_45px_-30px_rgba(15,34,51,0.55)]">
       <div className="relative aspect-[16/9] w-full">
@@ -61,7 +63,7 @@ export function ReviewPhotoCard({ review }: { review: Review }) {
           ))}
         </div>
         <blockquote className="mt-4 flex-1 text-ink">
-          <p className="line-clamp-[9] leading-relaxed">{review.text}</p>
+          <p className={`leading-relaxed ${clamp ? "line-clamp-[9]" : ""}`}>{review.text}</p>
         </blockquote>
         <figcaption className="mt-6 flex gap-3">
           {review.avatar && (
@@ -77,42 +79,10 @@ export function ReviewPhotoCard({ review }: { review: Review }) {
           <div className="min-w-0">
             <p className="font-semibold leading-tight">{review.name}</p>
             {review.role && <p className="mt-0.5 text-sm text-muted">{review.role}</p>}
-            {review.sourceUrl && (
-              <a
-                href={review.sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1.5 inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink"
-              >
-                Отзыв в <span className="text-[#4285f4]">Google Maps</span>
-                <IconMapPin className="h-4 w-4" />
-              </a>
-            )}
+            {review.sourceUrl && <GoogleMapsLink href={review.sourceUrl} className="mt-1.5" />}
           </div>
         </figcaption>
       </div>
     </figure>
-  );
-}
-
-// Метка Google Maps: капля в четырёх фирменных цветах. Лежит тут, а не в общем
-// icons.tsx, — единственное место, где нужен чужой бренд, и цвета у неё свои,
-// а не currentColor.
-function IconMapPin({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden>
-      <defs>
-        <clipPath id="gmaps-pin">
-          <path d="M12 2.2c-3.9 0-7 3.1-7 7 0 5.2 7 12.6 7 12.6s7-7.4 7-12.6c0-3.9-3.1-7-7-7z" />
-        </clipPath>
-      </defs>
-      <g clipPath="url(#gmaps-pin)">
-        <rect x="0" y="0" width="24" height="24" fill="#ea4335" />
-        <path d="M0 24 24 0v7L7 24z" fill="#fbbc04" />
-        <path d="M0 24 24 6v7L11 24z" fill="#34a853" />
-        <path d="M0 0h13L0 13z" fill="#4285f4" />
-      </g>
-      <circle cx="12" cy="9.2" r="2.5" fill="#fff" />
-    </svg>
   );
 }
