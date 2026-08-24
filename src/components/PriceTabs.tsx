@@ -139,11 +139,17 @@ export function PriceTabs({ groups }: { groups: PriceGroup[] }) {
           role="tablist"
           aria-label="Группы услуг"
           onKeyDown={onKeyDown}
-          onMouseOver={(e) => {
+          // ⚠️ pointerover с проверкой мыши, а НЕ mouseover. Палец, легший на
+          // ленту чтобы её протянуть, шлёт браузеру и pointerover, и
+          // синтетический mouseover — плашка уезжала на вкладку под пальцем,
+          // хотя выбор не менялся, и там залипала: mouseleave после касания не
+          // приходит. Наведение бывает только мышкой, её и слушаем.
+          onPointerOver={(e) => {
+            if (e.pointerType !== "mouse") return;
             const el = (e.target as HTMLElement).closest<HTMLElement>("[data-tab]");
             setHover((el?.dataset.tab as ServiceCategory) ?? null);
           }}
-          onMouseLeave={() => setHover(null)}
+          onPointerLeave={() => setHover(null)}
         >
           <SlidingHighlight
             activeKey={lit}

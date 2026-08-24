@@ -134,11 +134,17 @@ export function SlidingHighlight({
     ? {
         // Делегирование вместо обработчиков на каждой вкладке: разметку вкладок
         // компонент не знает и знать не должен.
-        onMouseOver: (e: React.MouseEvent) => {
+        //
+        // ⚠️ Слушаем pointerover и отсеиваем всё, что не мышь. Касание пальцем
+        // шлёт и pointerover, и синтетический mouseover: плашка уезжала на
+        // вкладку под пальцем и залипала там, потому что mouseleave после
+        // касания не приходит. Наведение бывает только мышкой.
+        onPointerOver: (e: React.PointerEvent) => {
+          if (e.pointerType !== "mouse") return;
           const el = (e.target as HTMLElement).closest<HTMLElement>("[data-tab]");
           setHoverKey(el?.dataset.tab ?? null);
         },
-        onMouseLeave: () => setHoverKey(null),
+        onPointerLeave: () => setHoverKey(null),
       }
     : {};
 
