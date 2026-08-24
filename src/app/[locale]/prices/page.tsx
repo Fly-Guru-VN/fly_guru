@@ -103,13 +103,17 @@ export default async function PricesPage() {
       <JsonLd data={priceListSchema(site)} />
 
       {/* ── Шапка ── */}
+      {/* Верхнего поля на телефоне нет: кадр идёт полосой встык под шапкой,
+          как первый экран тандема. На ПК поле возвращается — там кадр стоит
+          сбоку от текста, и без воздуха сверху он упирался бы в шапку. */}
       <Section
         pad="tight"
-        className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2 pt-10 sm:pt-14"
+        className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2 pt-0 lg:pt-14"
       >
-        {/* Чайки — тот же декор, что на главной и на обучении. Только от md:
-            на телефоне они бы просто отъедали место у текста. */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
+        {/* Чайки — тот же декор, что на главной и на обучении. Только от lg:
+            на телефоне кадр теперь во всю ширину, и чайки легли бы прямо на
+            него. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
           <Image
             src="/media/decor/bird.webp"
             alt=""
@@ -127,30 +131,40 @@ export default async function PricesPage() {
         </div>
 
         <Container className="relative">
-          {/* Кадр больше чем вдвое шире текста и вдобавок уходит за правый край
-              контейнера (класс bleed-right в globals.css). Текстовой колонке
-              оставлено ровно столько, чтобы «Стоимость услуг» шло одной
-              строкой, — всё остальное отдано фотографии. */}
           {/* Две пропорции, а не одна: с 1280 контейнер уже упёрся в свои
               72rem и дальше растёт только свободное поле справа, поэтому там
               тексту можно оставить меньше. На 1024–1279 контейнер ещё
               сжимается вместе с окном, и при той же пропорции «Стоимость
-              услуг» ломалось на две строки (замерено). */}
-          <div className="items-center gap-8 lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.7fr)] xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.9fr)]">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-primary">Прайс</p>
-              <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">Стоимость услуг</h1>
-              <Squiggle long className="mt-4" />
-              <p className="mt-5 max-w-xl text-muted">
-                Все цены в донгах (₫), оплата на месте. Снаряжение, жилет и связь на
-                воде входят в стоимость занятия — доплачивать за них не нужно.
-              </p>
-            </div>
+              услуг» ломалось на две строки (замерено).
 
+              Кадр стоит в разметке ПЕРВЫМ — так он и должен идти на телефоне.
+              На ПК обе колонки расставлены явными col-start, поэтому порядок в
+              разметке на них не влияет. */}
+          <div className="items-center gap-8 lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.7fr)] xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.9fr)]">
             {/* Кадр вырезан волной по нижнему краю (прозрачный PNG → webp),
                 поэтому лежит прямо на фоне секции, без рамки и скруглений:
-                рамка обрезала бы саму волну. */}
-            <div className="bleed-right relative mt-8 lg:mt-0">
+                рамка обрезала бы саму волну.
+
+                Файлов два, и это не дубль. Кадр для ПК панорамный (1400×502) —
+                на телефоне он превращается в полоску 140 px высотой. Мобильный
+                обрезан по бокам до 1058×570: доска целиком, пустая вода и
+                хвост волны справа убраны, и на 390 px кадр выходит 210 px
+                высотой — как первый экран тандема.
+
+                Лишнего трафика при этом нет: у каждого кадра в sizes стоит 1px
+                для той ширины экрана, где он спрятан, и браузер скачивает для
+                него самый мелкий вариант вместо полноразмерного. */}
+            <div className="bleed-right relative -mx-4 sm:-mx-6 lg:col-start-2 lg:row-start-1 lg:mx-0">
+              <Image
+                src="/media/photo/prices/hero-mobile.webp"
+                alt="Электрофойл на воде в бухте Нячанга, на фоне город и горы"
+                width={1058}
+                height={570}
+                priority
+                quality={90}
+                sizes="(min-width: 1024px) 1px, 100vw"
+                className="h-auto w-full lg:hidden"
+              />
               <Image
                 src="/media/photo/prices/hero.webp"
                 alt="Электрофойл на воде в бухте Нячанга, на фоне город и горы"
@@ -158,8 +172,8 @@ export default async function PricesPage() {
                 height={502}
                 priority
                 quality={90}
-                sizes="(min-width: 1024px) 900px, 100vw"
-                className="h-auto w-full"
+                sizes="(min-width: 1024px) 900px, 1px"
+                className="hidden h-auto w-full lg:block"
               />
               {/* Плашка «Безопасно» — по макету hero_maket_2, где David
                   поставил её сам. Координаты сняты с макета пикселями и
@@ -172,17 +186,28 @@ export default async function PricesPage() {
                   поэтому ширину плашки не задаём вовсе: её определяют left и
                   right, и свободную зону справа от доски она занимает целиком.
 
-                  На телефоне кадр всего ~130 px высотой, плашка накрыла бы его
-                  целиком: там она встаёт обычной карточкой под фотографией. */}
-              <div className="mt-4 max-w-sm rounded-2xl border border-line bg-surface/95 p-4 shadow-[0_16px_36px_-28px_rgba(15,34,51,0.55)] backdrop-blur-sm lg:absolute lg:left-[63%] lg:right-[8%] lg:top-[8%] lg:mt-0 lg:max-w-none lg:p-3.5">
+                  На телефоне плашки нет совсем: там кадр идёт полосой во всю
+                  ширину, и любая карточка поверх него закрывала бы доску. */}
+              <div className="hidden rounded-2xl border border-line bg-surface/95 shadow-[0_16px_36px_-28px_rgba(15,34,51,0.55)] backdrop-blur-sm lg:absolute lg:left-[63%] lg:right-[8%] lg:top-[8%] lg:block lg:p-3.5">
                 <p className="flex items-center gap-2 text-sm font-bold">
                   <IconShield aria-hidden className="h-5 w-5 shrink-0 text-primary" />
                   Безопасно
                 </p>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted lg:mt-1 lg:text-[11px] lg:leading-snug">
+                <p className="mt-1 text-[11px] leading-snug text-muted">
                   Всё снаряжение включено, инструктор всегда на связи.
                 </p>
               </div>
+            </div>
+
+            {/* Надстрочника «Прайс» над заголовком больше нет: он повторял
+                название раздела, которое и так подсвечено в шапке. */}
+            <div className="mt-7 lg:col-start-1 lg:row-start-1 lg:mt-0">
+              <h1 className="text-3xl font-bold leading-tight sm:text-4xl">Стоимость услуг</h1>
+              <Squiggle long className="mt-4" />
+              <p className="mt-5 max-w-xl text-muted">
+                Все цены в донгах (₫), оплата на месте. Снаряжение, жилет и связь на
+                воде входят в стоимость занятия — доплачивать за них не нужно.
+              </p>
             </div>
           </div>
         </Container>
