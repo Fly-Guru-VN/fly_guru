@@ -1,55 +1,49 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { Container, Section, Badge, Button } from "@/components/ui";
 import { Squiggle } from "@/components/Squiggle";
-import { Marquee } from "@/components/Marquee";
-import { PriceRow } from "@/components/PriceRow";
 import { BookBtn } from "@/components/BookBtn";
 import { StickyBookBar } from "@/components/StickyBookBar";
 import { JsonLd } from "@/components/JsonLd";
+import { PriceTabs, type PriceGroup } from "@/components/PriceTabs";
 import { priceListSchema } from "@/lib/schema";
 import {
   CATEGORY_LABELS,
   formatVnd,
-  formatDuration,
   type ServiceCategory,
 } from "@/content/services";
 import { getActiveServices, getSiteServices, pickService } from "@/lib/services";
 import {
-  IconFoil,
-  IconTandem,
-  IconWaves,
-  IconClub,
-  IconPalm,
-  IconPlay,
   IconDrone,
   IconClock,
   IconCheck,
   IconArrowRight,
+  IconShield,
+  IconUser,
+  IconTrend,
+  IconSmile,
+  IconVest,
 } from "@/components/icons";
 
 export const metadata: Metadata = { title: "Прайс" };
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
-// Порядок групп в прайсе: сначала то, с чего начинают, потом клубное и допы.
+// Порядок вкладок в прайсе: сначала то, с чего начинают, потом клубное и допы.
 const ORDER: ServiceCategory[] = ["training", "tandem", "rental", "subscription", "tour", "extra"];
 
-// Иконка к заголовку группы — чтобы страница читалась как остальной сайт, а не
-// как выгрузка из таблицы.
-const GROUP_ICON = {
-  training: IconFoil,
-  tandem: IconTandem,
-  rental: IconWaves,
-  subscription: IconClub,
-  tour: IconPalm,
-  extra: IconPlay,
-} as const;
+// Самый ходовой формат школы — карточка с рамкой и меткой «Популярное».
+const POPULAR = "basic-adult";
 
-// Прайс собран тем же языком, что остальные страницы: компактная шапка,
-// бегущая строка и группы услуг карточками. Полноэкранного кадра тут нарочно
-// нет — на эту страницу приходят за цифрой, а не за впечатлением.
+// Прайс собран по макету: фигурный кадр в шапке, под ним — шесть тематических
+// вкладок, и в каждой карточки только своей группы услуг.
 //
-// Главное отличие от прежней таблицы: строка прайса — это кнопка. Тап по ней
-// открывает форму записи уже с выбранной услугой.
+// Почему вкладки, а не всё подряд. Услуг тринадцать, и списком в шесть колонок
+// страница читалась как выгрузка из таблицы: человек, пришедший за ценой
+// тандема, пролистывал мимо обучения, выездов и фото/видео. Теперь он тапает
+// «Тандем» и видит ровно две карточки.
+//
+// Карточки при этом лежат в HTML ВСЕ — спрятана только неактивная вкладка
+// (см. PriceTabs). Страница статическая, и поисковик получает все цены разом.
 export default async function PricesPage() {
   // Цены и тексты — из базы поверх контента; настоящие id — для формы записи.
   const [services, site] = await Promise.all([getActiveServices(), getSiteServices()]);
@@ -57,12 +51,41 @@ export default async function PricesPage() {
 
   const drone = pickService(site, "drone");
 
-  const marquee = [
-    "Оплата на месте",
-    "Снаряжение включено",
-    "Инструктор на связи",
-    "Дети с 8 лет",
-    "Нячанг · Marina Beach",
+  // Группы для вкладок. Пустых не бывает, но проверяем: услугу могут выключить
+  // в админке, и вкладка без карточек выглядела бы поломкой.
+  const groups: PriceGroup[] = ORDER.map((cat) => ({
+    cat,
+    label: CATEGORY_LABELS[cat],
+    items: site
+      .filter((s) => s.category === cat)
+      .map((service) => ({
+        service,
+        serviceId: dbId(service.name),
+        highlight: service.id === POPULAR,
+      })),
+  })).filter((g) => g.items.length > 0);
+
+  // Полоска под карточками: то, что входит в любую цену из прайса. Раньше это
+  // было бегущей строкой над списком — но ровно те же слова стоят в карточках
+  // и в тексте шапки, и на одном экране повторялись трижды.
+  const promises = [
+    {
+      icon: IconUser,
+      title: "Инструктор на связи",
+      text: "Всегда рядом и помогает на каждом этапе",
+    },
+    {
+      icon: IconTrend,
+      title: "90% встают на крыло",
+      text: "Уже на первом занятии, у большинства учеников",
+    },
+    { icon: IconSmile, title: "Дети с 8 лет", text: "Отдельные детские программы" },
+    { icon: IconVest, title: "Всё включено", text: "Снаряжение, жилет, связь на воде" },
+    {
+      icon: IconShield,
+      title: "Безопасная бухта",
+      text: "Закрытая бухта без волн и течений",
+    },
   ];
 
   // Что входит в съёмку с дрона — тремя короткими фактами, как в карточках
@@ -75,84 +98,126 @@ export default async function PricesPage() {
 
   return (
     <>
-      {/* Прайс для поисковиков: те же услуги и те же цены, что в списке ниже —
-          и то и другое берётся из базы, разъехаться не может. */}
+      {/* Прайс для поисковиков: те же услуги и те же цены, что в карточках
+          ниже — и то и другое берётся из базы, разъехаться не может. */}
       <JsonLd data={priceListSchema(site)} />
 
       {/* ── Шапка ── */}
-      <Section pad="tight" className="bg-gradient-to-b from-white to-surface-2 pt-10 sm:pt-14">
-        <Container>
-          <p className="text-sm font-semibold uppercase tracking-wide text-primary">Прайс</p>
-          <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">Стоимость услуг</h1>
-          <Squiggle long className="mt-4" />
-          <p className="mt-5 max-w-xl text-muted">
-            Все цены в донгах (₫), оплата на месте. Снаряжение, жилет и связь на
-            воде входят в стоимость занятия — доплачивать за них не нужно.
-          </p>
+      <Section
+        pad="tight"
+        className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2 pt-10 sm:pt-14"
+      >
+        {/* Чайки — тот же декор, что на главной и на обучении. Только от md:
+            на телефоне они бы просто отъедали место у текста. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute left-6 top-24 w-14 -rotate-6 opacity-80"
+          />
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute right-8 top-6 w-16 rotate-[8deg] opacity-80"
+          />
+        </div>
+
+        <Container className="relative">
+          {/* Кадр шире текста (1 : 1.3): фотография у нас панорамная, и в
+              равных колонках она сжималась в узкую полоску. */}
+          <div className="items-center gap-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-primary">Прайс</p>
+              <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">Стоимость услуг</h1>
+              <Squiggle long className="mt-4" />
+              <p className="mt-5 max-w-xl text-muted">
+                Все цены в донгах (₫), оплата на месте. Снаряжение, жилет и связь на
+                воде входят в стоимость занятия — доплачивать за них не нужно.
+              </p>
+            </div>
+
+            {/* Кадр вырезан волной по нижнему краю (прозрачный PNG → webp),
+                поэтому лежит прямо на фоне секции, без рамки и скруглений:
+                рамка обрезала бы саму волну. */}
+            <div className="relative mt-8 lg:mt-0">
+              <Image
+                src="/media/photo/prices/hero.webp"
+                alt="Электрофойл на воде в бухте Нячанга, на фоне город и горы"
+                width={1400}
+                height={502}
+                priority
+                quality={90}
+                sizes="(min-width: 1024px) 640px, 100vw"
+                className="h-auto w-full"
+              />
+              {/* Плашка «Безопасно». На ПК висит над кадром, как в макете; на
+                  телефоне кадр всего ~130 px высотой, и плашка накрыла бы его
+                  целиком — там она встаёт обычной карточкой под фотографией. */}
+              <div className="mt-4 max-w-sm rounded-2xl border border-line bg-surface/95 p-4 shadow-[0_16px_36px_-28px_rgba(15,34,51,0.55)] backdrop-blur-sm lg:absolute lg:right-0 lg:top-4 lg:mt-0 lg:w-60 lg:max-w-none">
+                <p className="flex items-center gap-2 text-sm font-bold">
+                  <IconShield aria-hidden className="h-5 w-5 shrink-0 text-primary" />
+                  Безопасно
+                </p>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted">
+                  Всё снаряжение включено, инструктор всегда на связи.
+                </p>
+              </div>
+            </div>
+          </div>
         </Container>
       </Section>
 
-      <Marquee items={marquee} />
-
-      {/* ── Группы услуг ── */}
+      {/* ── Вкладки с услугами ── */}
       <Section pad="tight" className="bg-gradient-to-b from-surface-2 to-white">
         <Container>
-          {/* Колонки, а не сетка: групп шесть и все разной длины (в обучении
-              четыре строки, в прокате одна). В сетке короткие карточки
-              оставляли под собой дыры до высоты соседней, а колонки набираются
-              подряд и сами выравниваются по высоте. */}
-          <div className="md:columns-2 md:gap-6">
-            {ORDER.map((cat) => {
-              const items = site.filter((s) => s.category === cat);
-              if (items.length === 0) return null;
-              const Icon = GROUP_ICON[cat];
-              return (
-                <div
-                  key={cat}
-                  className="mb-6 overflow-hidden rounded-3xl border border-line bg-surface shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)] md:break-inside-avoid"
+          <PriceTabs groups={groups} />
+
+          <div className="mt-10 overflow-hidden rounded-3xl border border-line bg-surface">
+            <ul className="grid sm:grid-cols-2 lg:grid-cols-5">
+              {promises.map((p, i) => (
+                <li
+                  key={p.title}
+                  // Разделители рисуем только там, где соседи реально стоят
+                  // рядом: на телефоне колонка одна, и вертикальные линии
+                  // висели бы в воздухе.
+                  className={`flex items-start gap-2.5 border-line p-3.5 ${
+                    i > 0 ? "border-t sm:border-t-0" : ""
+                  } ${i % 2 === 1 ? "sm:border-l" : ""} ${
+                    i >= 2 ? "sm:border-t" : ""
+                  } lg:border-l lg:border-t-0 ${i === 0 ? "lg:border-l-0" : ""}`}
                 >
-                  <h2 className="flex items-center gap-2.5 border-b border-line px-4 py-3.5 text-sm font-bold uppercase tracking-wide text-primary sm:px-5">
-                    <Icon aria-hidden className="h-5 w-5 shrink-0" />
-                    {CATEGORY_LABELS[cat]}
-                  </h2>
-                  <div className="divide-y divide-line">
-                    {items.map((s) => (
-                      <PriceRow
-                        key={s.id}
-                        name={s.name}
-                        // У фото/видео длительности нет — «—» под названием
-                        // выглядело браком вёрстки, поэтому такую строку
-                        // собираем только из того, что реально есть.
-                        meta={[
-                          formatDuration(s) === "—" ? null : formatDuration(s),
-                          s.note,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                        price={s.price}
-                        code={s.id}
-                        serviceId={dbId(s.name)}
-                        badge={
-                          s.membersOnly ? (
-                            <Badge className="ml-2 align-middle">
-                              По одобрению инструктора
-                            </Badge>
-                          ) : undefined
-                        }
-                      />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+                  <span
+                    aria-hidden
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+                  >
+                    <p.icon className="h-[18px] w-[18px]" />
+                  </span>
+                  {/* На ПК колонок пять на 1152 px — заголовок ужимаем на
+                      пункт, иначе «Инструктор на связи» встаёт в две строки и
+                      полоска растёт вдвое. */}
+                  <span className="min-w-0">
+                    <span className="block text-sm font-bold leading-tight lg:text-[13px]">
+                      {p.title}
+                    </span>
+                    <span className="mt-1 block text-xs leading-relaxed text-muted lg:text-[11px]">
+                      {p.text}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         </Container>
       </Section>
 
       {/* ── Съёмка с дрона ── */}
-      {/* Услуга новая, поэтому кроме строки в прайсе ей дан отдельный блок:
-          «съёмка с дрона» ничего не говорит, пока не объяснить, что дрон идёт
-          над водой следом за вами и что записи остаются у вас. */}
+      {/* Услуга новая, поэтому кроме карточки во вкладке «Дополнительно» ей дан
+          отдельный блок: «съёмка с дрона» ничего не говорит, пока не объяснить,
+          что дрон идёт над водой следом за вами и что записи остаются у вас. */}
       <Section pad="tight" className="bg-white">
         <Container>
           <div className="overflow-hidden rounded-3xl border-2 border-primary bg-gradient-to-br from-surface via-surface to-surface-2 p-6 shadow-[0_24px_50px_-30px_rgba(15,34,51,0.5)] sm:p-8">
