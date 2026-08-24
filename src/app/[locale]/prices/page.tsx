@@ -72,14 +72,14 @@ export default async function PricesPage() {
     {
       icon: IconUser,
       title: "Инструктор на связи",
-      text: "Всегда рядом и помогает на каждом этапе",
+      text: "Всегда поддерживает связь через наушник",
     },
     {
       icon: IconTrend,
       title: "90% встают на крыло",
-      text: "Уже на первом занятии, у большинства учеников",
+      text: "Большинство учеников осваивают доску на первом занятии",
     },
-    { icon: IconSmile, title: "Дети с 8 лет", text: "Отдельные детские программы" },
+    { icon: IconSmile, title: "Детям с 8 лет", text: "Отдельные детские программы" },
     { icon: IconVest, title: "Всё включено", text: "Снаряжение, жилет, связь на воде" },
     {
       icon: IconShield,
@@ -127,11 +127,16 @@ export default async function PricesPage() {
         </div>
 
         <Container className="relative">
-          {/* Кадр почти вдвое шире текста и вдобавок уходит за правый край
-              контейнера (класс bleed-right в globals.css). По макету на него
-              приходится больше двух третей первого экрана; в равных колонках
-              панорамная фотография сжималась в полоску. */}
-          <div className="items-center gap-10 lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.55fr)]">
+          {/* Кадр больше чем вдвое шире текста и вдобавок уходит за правый край
+              контейнера (класс bleed-right в globals.css). Текстовой колонке
+              оставлено ровно столько, чтобы «Стоимость услуг» шло одной
+              строкой, — всё остальное отдано фотографии. */}
+          {/* Две пропорции, а не одна: с 1280 контейнер уже упёрся в свои
+              72rem и дальше растёт только свободное поле справа, поэтому там
+              тексту можно оставить меньше. На 1024–1279 контейнер ещё
+              сжимается вместе с окном, и при той же пропорции «Стоимость
+              услуг» ломалось на две строки (замерено). */}
+          <div className="items-center gap-8 lg:grid lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.7fr)] xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.9fr)]">
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-primary">Прайс</p>
               <h1 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">Стоимость услуг</h1>
@@ -156,23 +161,26 @@ export default async function PricesPage() {
                 sizes="(min-width: 1024px) 900px, 100vw"
                 className="h-auto w-full"
               />
-              {/* Плашка «Безопасно». На ПК лежит на кадре, как в макете, — но
-                  строго в небе: доска на фотографии занимает почти всю ширину
-                  (замерено по пикселям: x 271…1220 из 1400) и начинается с
-                  y=172, то есть свободны только верхние 34% кадра. Поэтому
-                  плашка низкая и в одну строку описания: в две она доставала
-                  до носа доски уже на 1024 px. Справа от доски места нет
-                  вовсе, так что двигать её туда бессмысленно — только вверх.
+              {/* Плашка «Безопасно» — по макету hero_maket_2, где David
+                  поставил её сам. Координаты сняты с макета пикселями и
+                  заданы ДОЛЯМИ кадра, а не пикселями: кадр тянется вместе с
+                  экраном, и любой пиксельный отступ разъехался бы.
+
+                  left: 63% — левый край плашки. Доска на фотографии кончается
+                  на 62% ширины (замерено), дальше только небо и город. Именно
+                  эта цифра держит плашку в стороне от фойла на ЛЮБОЙ ширине,
+                  поэтому ширину плашки не задаём вовсе: её определяют left и
+                  right, и свободную зону справа от доски она занимает целиком.
 
                   На телефоне кадр всего ~130 px высотой, плашка накрыла бы его
                   целиком: там она встаёт обычной карточкой под фотографией. */}
-              <div className="mt-4 max-w-sm rounded-2xl border border-line bg-surface/95 p-4 shadow-[0_16px_36px_-28px_rgba(15,34,51,0.55)] backdrop-blur-sm lg:absolute lg:right-5 lg:top-1 lg:mt-0 lg:w-[19rem] lg:max-w-none lg:p-3">
+              <div className="mt-4 max-w-sm rounded-2xl border border-line bg-surface/95 p-4 shadow-[0_16px_36px_-28px_rgba(15,34,51,0.55)] backdrop-blur-sm lg:absolute lg:left-[63%] lg:right-[8%] lg:top-[8%] lg:mt-0 lg:max-w-none lg:p-3.5">
                 <p className="flex items-center gap-2 text-sm font-bold">
                   <IconShield aria-hidden className="h-5 w-5 shrink-0 text-primary" />
                   Безопасно
                 </p>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted lg:mt-0.5 lg:text-[11px] lg:leading-snug">
-                  Всё снаряжение включено, инструктор на связи.
+                <p className="mt-1.5 text-xs leading-relaxed text-muted lg:mt-1 lg:text-[11px] lg:leading-snug">
+                  Всё снаряжение включено, инструктор всегда на связи.
                 </p>
               </div>
             </div>
@@ -297,10 +305,10 @@ export default async function PricesPage() {
           <div className="rounded-3xl border border-line bg-surface p-5 sm:p-6">
             <ul className="grid gap-2.5 sm:grid-cols-2">
               {[
-                "Экскурсия и сафари — по одобрению инструктора: нужен опыт уверенного катания, абонемент для них не обязателен.",
-                "Абонемент выгоднее разового проката: окупается уже с пятой каталки.",
+                "Экскурсия и сафари — по одобрению инструктора: вы должны хорошо чувствовать доску.",
+                "Абонемент выгоднее разового проката.",
                 "Минуты абонемента действуют 3 месяца и списываются по факту катания.",
-                "Первый абонемент необученного гостя включает обучающее занятие с инструктором.",
+                "Первый абонемент включает обучающее занятие с инструктором.",
               ].map((t) => (
                 <li key={t} className="flex gap-2 text-sm text-muted">
                   <IconCheck aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-primary" />

@@ -79,7 +79,8 @@ export const services: Service[] = [
     durationMin: 10,
     price: 1_000_000,
     category: "tandem",
-    blurb: "Инструктор подбирает вас с пирса — и вы уже летите. Обучение не нужно.",
+    blurb:
+      "Инструктор управляет фойлом, вы наслаждаетесь. Ничего сложного, никаких ограничений.",
     image: "/media/photo/prices/tandem-adult.webp",
   },
   {
@@ -101,7 +102,8 @@ export const services: Service[] = [
     category: "tour",
     membersOnly: true,
     note: "Вдвоём — по 3 000 000 ₫ с человека",
-    blurb: "Полёт к острову Черепахи с инструктором — чтобы набрать опыт в открытом море.",
+    blurb:
+      "Полёт к острову Черепахи, первый опыт в открытом море. Быстрая поездка, чтобы набраться опыта.",
     image: "/media/photo/prices/excursion.webp",
   },
   {
@@ -112,7 +114,8 @@ export const services: Service[] = [
     price: 6_000_000,
     category: "tour",
     membersOnly: true,
-    blurb: "Остров Обезьян, резорт и дикий пляж Баунти. Маршрут решаете вместе с гидом.",
+    blurb:
+      "Остров Обезьян, резорт и дикий пляж Баунти. Маршрут определяете вместе с инструктором.",
     image: "/media/photo/prices/safari.webp",
   },
 
@@ -123,7 +126,8 @@ export const services: Service[] = [
     durationMin: 30,
     price: 1_000_000,
     category: "rental",
-    blurb: "Катаетесь сами, без инструктора на воде — если уже уверенно едете.",
+    blurb:
+      "Катаетесь сами, доступ открывается после прохождения обучения или по одобрению инструктора.",
     image: "/media/photo/prices/rental.webp",
   },
 
@@ -134,7 +138,7 @@ export const services: Service[] = [
     durationMin: 300,
     price: 6_000_000,
     category: "subscription",
-    blurb: "Пакет минут: катаете когда удобно, минута выходит дешевле разового проката.",
+    blurb: "Пакет минут: катаетесь в удобное время по предварительной записи.",
     image: "/media/photo/prices/subscription.webp",
   },
 
@@ -156,7 +160,7 @@ export const services: Service[] = [
     durationLabel: "—",
     price: 600_000,
     category: "extra",
-    blurb: "Те же кадры, но без сборки — исходники отдаём как есть.",
+    blurb: "Снимаем ваше занятие, без монтажа. Высылаем исходники.",
     image: "/media/photo/prices/video.webp",
   },
   {
