@@ -3,7 +3,7 @@
 // деньги школы, ЗП инструкторов и доли учредителей.
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { dayShort, vnMonthToDate, vnPeriod, vnPrevMonth, vnShiftDays, vnToday } from "@/lib/dates";
+import { dayShort, vnCurrentMonth, vnPeriod, vnPrevMonth, vnPrevWeek, vnRangeLabel, vnShiftDays, vnToday, vnWeekToDate } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import { channelNaming } from "@/lib/channels";
 import {
@@ -165,22 +165,24 @@ export async function DashboardScreen({
     dir = "d",
   } = await searchParams;
   const today = vnToday();
-  // По умолчанию — с 1-го числа по сегодня (не месяц целиком): в полях «С / По»
-  // не должно быть дат из будущего, см. vnMonthToDate.
-  const month = vnMonthToDate();
+  // По умолчанию — текущая неделя по сегодня (см. vnWeekToDate): школа живёт
+  // неделями, и в полях «С / По» не должно быть дат из будущего.
+  const week = vnWeekToDate();
+  const prevWeek = vnPrevWeek();
+  const curMonth = vnCurrentMonth();
   const prev = vnPrevMonth();
 
-  // Период из URL (обе даты включительно); мусор → текущий месяц.
+  // Период из URL (обе даты включительно); мусор → текущая неделя.
   const custom = Boolean(
     from && to && DAY_RE.test(from!) && DAY_RE.test(to!) && from! <= to!,
   );
-  const range = custom ? vnPeriod(from!, to!) : month;
-  const lastDay = custom ? to! : month.lastDay;
+  const range = custom ? vnPeriod(from!, to!) : week;
+  const lastDay = custom ? to! : week.lastDay;
   const label = custom
     ? from === ALL_FROM
       ? "Всё время"
       : `${from} — ${to}`
-    : month.label;
+    : vnRangeLabel(week.fromDay, week.lastDay);
 
   // Ссылка на этот же экран с изменёнными параметрами (сохраняет остальные).
   const href = (overrides: Record<string, string>) => {
@@ -478,16 +480,21 @@ export async function DashboardScreen({
           на треть экрана ниже. */}
       <PeriodBar
         presets={[
-          { label: "Этот месяц", href: href({ from: "", to: "" }), active: !custom },
+          { label: "Эта неделя", href: href({ from: "", to: "" }), active: !custom },
+          {
+            label: "Прошлая неделя",
+            href: href({ from: prevWeek.fromDay, to: prevWeek.lastDay }),
+            active: custom && from === prevWeek.fromDay && to === prevWeek.lastDay,
+          },
+          {
+            label: "Этот месяц",
+            href: href({ from: curMonth.fromDay, to: today }),
+            active: custom && from === curMonth.fromDay && to === today,
+          },
           {
             label: "Прошлый месяц",
             href: href({ from: prev.fromDay, to: prev.lastDay }),
             active: custom && from === prev.fromDay && to === prev.lastDay,
-          },
-          {
-            label: "7 дней",
-            href: href({ from: vnShiftDays(today, -6), to: today }),
-            active: custom && from === vnShiftDays(today, -6) && to === today,
           },
           {
             label: "30 дней",

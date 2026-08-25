@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { dayShort, monthLabel, vnCurrentMonth, vnMonth, vnPeriod, vnPrevMonth, vnPrevWeek, vnRangeLabel, vnShiftDays, vnToday, vnWeekOf } from "@/lib/dates";
+import { dayShort, monthLabel, vnCurrentMonth, vnMonth, vnPeriod, vnPrevMonth, vnPrevWeek, vnRangeLabel, vnShiftDays, vnToday, vnWeekToDate } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import {
   getMonthlyPayroll,
@@ -312,8 +312,11 @@ export default async function AdminPayrollPage({
 }) {
   const { from, to, m } = await searchParams;
 
-  const week = vnWeekOf(); // текущая неделя, пн–вс
-  const prevWeek = vnPrevWeek();
+  // Текущая неделя ПО СЕГОДНЯ: понедельник → сегодня. Целую неделю пн–вс
+  // здесь показывать нельзя — в поле «По» вставала дата из будущего, и цифра
+  // «за период» считалась по дням, которых ещё не было (правка от 25.08.2026).
+  const week = vnWeekToDate();
+  const prevWeek = vnPrevWeek(); // а вот прошлая неделя целая: она уже прошла
   const curMonth = vnCurrentMonth();
   const monthLast = vnShiftDays(curMonth.toDay, -1);
   const prevMonth = vnPrevMonth();
@@ -381,7 +384,10 @@ export default async function AdminPayrollPage({
         <p>
           <b>СММщик и разработчик:</b> фикс за каждую полную неделю с{" "}
           {epochLabel} плюс 1% с выручки — он закрывается по итогам месяца и
-          попадает в «осталось выдать» только за уже прошедшие месяцы.
+          попадает в «осталось выдать» только за уже прошедшие месяцы. Фикс
+          начисляется по субботам: если сегодня ещё не суббота, фикса этой
+          недели в левой цифре нет — он появится в саму субботу. На «осталось
+          выдать» это не влияет.
         </p>
         <p>
           <b>Агент:</b> награды за клиентов, дошедших до услуги.
@@ -446,6 +452,7 @@ export default async function AdminPayrollPage({
             type="date"
             name="from"
             defaultValue={fromDay}
+            max={vnToday()}
             className={`mt-1 ${NATIVE_PICKER} rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary`}
           />
         </label>
@@ -455,6 +462,7 @@ export default async function AdminPayrollPage({
             type="date"
             name="to"
             defaultValue={lastDay}
+            max={vnToday()}
             className={`mt-1 ${NATIVE_PICKER} rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary`}
           />
         </label>

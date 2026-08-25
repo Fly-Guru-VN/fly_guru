@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { channelLabel } from "@/lib/channels";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAppUser, isAdminLike } from "@/lib/auth";
-import { vnMonthToDate, vnPeriod, vnToday } from "@/lib/dates";
+import { vnPeriod, vnToday, vnWeekToDate } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
 import { getActiveDict } from "@/lib/dictionaries";
 import { SaveForm } from "@/app/[locale]/admin/SaveForm";
@@ -245,15 +245,15 @@ export default async function InstructorSessionsPage({
   if (!user) return null; // layout уже средиректил бы; страховка для типов
 
   const params = await searchParams;
-  // По умолчанию — с 1-го числа по сегодня (см. vnMonthToDate).
-  const month = vnMonthToDate();
+  // По умолчанию — текущая неделя по сегодня (см. vnWeekToDate).
+  const week = vnWeekToDate();
   const today = vnToday();
 
-  // Период: обе даты включительно; по умолчанию — этот месяц по сегодня.
-  const fromDay = DAY_RE.test(params.from ?? "") ? params.from! : month.fromDay;
+  // Период: обе даты включительно; по умолчанию — эта неделя по сегодня.
+  const fromDay = DAY_RE.test(params.from ?? "") ? params.from! : week.fromDay;
   const toInclusive = DAY_RE.test(params.to ?? "")
     ? params.to!
-    : month.lastDay;
+    : week.lastDay;
   const range = vnPeriod(fromDay, toInclusive);
 
   const supabase = await createClient();

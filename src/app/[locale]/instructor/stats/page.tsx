@@ -2,11 +2,13 @@ import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUser, isAdminLike } from "@/lib/auth";
 import {
-  vnMonthToDate,
+  vnCurrentMonth,
   vnPeriod,
   vnPrevMonth,
-  vnShiftDays,
+  vnPrevWeek,
+  vnRangeLabel,
   vnToday,
+  vnWeekToDate,
 } from "@/lib/dates";
 import { getInstructorStats, vnd, type StatsRange } from "@/lib/stats";
 import { SHIFT_PAY, SHIFT_PAY_LABEL } from "@/lib/salary";
@@ -15,9 +17,9 @@ import { setTourApprovedAction } from "../actions";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 
-// «Статистика» за произвольный период. По умолчанию — текущий месяц
-// (с 1-го числа); кнопка «Текущий месяц» всегда возвращает к нему, даже если
-// наклацал другие периоды. Каждый клиент — отдельный бар (сумма его чеков).
+// «Статистика» за произвольный период. По умолчанию — текущая неделя
+// (понедельник → сегодня); кнопка «Эта неделя» всегда возвращает к ней, даже
+// если наклацал другие периоды. Каждый клиент — отдельный бар (сумма его чеков).
 
 const CATEGORY_LABEL: Record<string, string> = {
   training: "Обучение",
@@ -58,17 +60,19 @@ export default async function StatsPage({
 
   const { from, to } = await searchParams;
   const today = vnToday();
-  // По умолчанию — с 1-го числа по сегодня (см. vnMonthToDate): дат из
+  // По умолчанию — текущая неделя по сегодня (см. vnWeekToDate): дат из
   // будущего в полях «С / По» быть не должно.
-  const month = vnMonthToDate();
+  const week = vnWeekToDate();
+  const prevWeek = vnPrevWeek();
+  const curMonth = vnCurrentMonth();
   const prev = vnPrevMonth();
 
-  // Период из URL (обе даты включительно); мусор → текущий месяц.
+  // Период из URL (обе даты включительно); мусор → текущая неделя.
   const custom = Boolean(from && to && DAY_RE.test(from!) && DAY_RE.test(to!) && from! <= to!);
-  const range: StatsRange = custom ? vnPeriod(from!, to!) : month;
+  const range: StatsRange = custom ? vnPeriod(from!, to!) : week;
   // Последний день периода включительно — для подписи и значений инпутов.
-  const lastDay = custom ? to! : month.lastDay;
-  const label = custom ? `${from} — ${to}` : month.label;
+  const lastDay = custom ? to! : week.lastDay;
+  const label = custom ? `${from} — ${to}` : vnRangeLabel(week.fromDay, week.lastDay);
 
   const supabase = await createClient();
   // В кабинет инструктора пускают и админа (requireRole — админ суперюзер),
@@ -104,6 +108,20 @@ export default async function StatsPage({
       {/* Пресеты + свой период */}
       <div className="mt-4 flex flex-wrap gap-2">
         <Link href="/instructor/stats" className={presetClass(!custom)}>
+          Эта неделя
+        </Link>
+        <Link
+          href={`/instructor/stats?from=${prevWeek.fromDay}&to=${prevWeek.lastDay}`}
+          className={presetClass(
+            custom && from === prevWeek.fromDay && to === prevWeek.lastDay,
+          )}
+        >
+          Прошлая неделя
+        </Link>
+        <Link
+          href={`/instructor/stats?from=${curMonth.fromDay}&to=${today}`}
+          className={presetClass(custom && from === curMonth.fromDay && to === today)}
+        >
           Текущий месяц
         </Link>
         <Link
@@ -111,12 +129,6 @@ export default async function StatsPage({
           className={presetClass(custom && from === prev.fromDay && to === prev.lastDay)}
         >
           Прошлый месяц
-        </Link>
-        <Link
-          href={`/instructor/stats?from=${vnShiftDays(today, -6)}&to=${today}`}
-          className={presetClass(custom && from === vnShiftDays(today, -6) && to === today)}
-        >
-          7 дней
         </Link>
       </div>
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAppUser, isOffice } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { vnMonthToDate, vnPeriod } from "@/lib/dates";
+import { vnPeriod, vnWeekToDate } from "@/lib/dates";
 import {
   channelKey,
   filterVisits,
@@ -36,9 +36,10 @@ export async function GET(request: NextRequest) {
   const p = request.nextUrl.searchParams;
   const from = p.get("from") ?? "";
   const to = p.get("to") ?? "";
-  const month = vnMonthToDate();
+  // Без параметров — та же текущая неделя, что открывается на экране.
+  const week = vnWeekToDate();
   const custom = DAY_RE.test(from) && DAY_RE.test(to) && from <= to;
-  const range = custom ? vnPeriod(from, to) : month;
+  const range = custom ? vnPeriod(from, to) : week;
 
   const supabase = await createClient();
   const { rows, visitsOf } = await loadVisits(supabase, range);
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
 
   // В имени файла — последний день периода включительно (range.toDay — граница
   // «строго меньше», то есть уже следующий день).
-  const name = `flyguru-visits-${range.fromDay}_${custom ? to : month.lastDay}`;
+  const name = `flyguru-visits-${range.fromDay}_${custom ? to : week.lastDay}`;
 
   // Книга Excel: у David русская Windows, и точку с запятой его Excel за
   // разделитель не считает — весь CSV падал в первый столбец. В .xlsx колонки

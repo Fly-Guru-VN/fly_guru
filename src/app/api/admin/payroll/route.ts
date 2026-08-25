@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAppUser, isAdminLike } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { vnMonth, vnPeriod, vnShiftDays, vnWeekOf } from "@/lib/dates";
+import { vnMonth, vnPeriod, vnShiftDays, vnWeekToDate } from "@/lib/dates";
 import {
   getMonthlyPayroll,
   getPayoutHistory,
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
   const from = p.get("from") ?? "";
   const to = p.get("to") ?? "";
   const m = p.get("m") ?? "";
-  const week = vnWeekOf(); // как на странице: без параметров — текущая неделя
+  const week = vnWeekToDate(); // как на странице: понедельник этой недели → сегодня
   const legacy = /^\d{4}-\d{2}$/.test(m) ? vnMonth(m) : null;
 
   const custom = DAY_RE.test(from) && DAY_RE.test(to) && from <= to;

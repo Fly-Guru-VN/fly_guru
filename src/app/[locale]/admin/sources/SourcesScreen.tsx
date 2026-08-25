@@ -4,11 +4,13 @@
 import { Link } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
-  vnMonthToDate,
+  vnCurrentMonth,
   vnPeriod,
   vnPrevMonth,
-  vnShiftDays,
+  vnPrevWeek,
+  vnRangeLabel,
   vnToday,
+  vnWeekToDate,
 } from "@/lib/dates";
 import { vnd, type StatsRange } from "@/lib/stats";
 import { getSourcesReport, type SourceKind } from "@/lib/sources";
@@ -53,13 +55,16 @@ export async function SourcesScreen({
 }) {
   const { from, to } = await searchParams;
   const today = vnToday();
-  const month = vnMonthToDate();
+  // По умолчанию — текущая неделя по сегодня (см. vnWeekToDate).
+  const week = vnWeekToDate();
+  const prevWeek = vnPrevWeek();
+  const curMonth = vnCurrentMonth();
   const prev = vnPrevMonth();
 
   const custom = Boolean(from && to && DAY_RE.test(from!) && DAY_RE.test(to!) && from! <= to!);
-  const range: StatsRange = custom ? vnPeriod(from!, to!) : month;
-  const lastDay = custom ? to! : month.lastDay;
-  const label = custom ? `${from} — ${to}` : month.label;
+  const range: StatsRange = custom ? vnPeriod(from!, to!) : week;
+  const lastDay = custom ? to! : week.lastDay;
+  const label = custom ? `${from} — ${to}` : vnRangeLabel(week.fromDay, week.lastDay);
 
   const supabase = await createClient();
   const report = await getSourcesReport(supabase, range);
@@ -71,16 +76,21 @@ export async function SourcesScreen({
 
       <PeriodBar
         presets={[
-          { label: "Текущий месяц", href: `${base}/sources`, active: !custom },
+          { label: "Эта неделя", href: `${base}/sources`, active: !custom },
+          {
+            label: "Прошлая неделя",
+            href: `${base}/sources?from=${prevWeek.fromDay}&to=${prevWeek.lastDay}`,
+            active: custom && from === prevWeek.fromDay && to === prevWeek.lastDay,
+          },
+          {
+            label: "Текущий месяц",
+            href: `${base}/sources?from=${curMonth.fromDay}&to=${today}`,
+            active: custom && from === curMonth.fromDay && to === today,
+          },
           {
             label: "Прошлый месяц",
             href: `${base}/sources?from=${prev.fromDay}&to=${prev.lastDay}`,
             active: custom && from === prev.fromDay && to === prev.lastDay,
-          },
-          {
-            label: "7 дней",
-            href: `${base}/sources?from=${vnShiftDays(today, -6)}&to=${today}`,
-            active: custom && from === vnShiftDays(today, -6) && to === today,
           },
         ]}
         fromDay={range.fromDay}
