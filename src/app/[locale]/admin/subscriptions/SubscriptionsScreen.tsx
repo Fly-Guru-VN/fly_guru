@@ -43,9 +43,17 @@ interface SubRow {
   seller: { name: string; role: AppRole } | null;
 }
 
+// Одна строка истории минут. Раньше здесь лежал готовый текст одной строкой —
+// и вся история выглядела серым абзацем, неотличимым от пояснений вокруг
+// (жалоба начальника от 25.08.2026). Теперь части разложены по полям, и
+// карточка рисует их таблицей: слева день и кто, справа минуты цветом.
 interface HistoryItem {
   at: string;
-  text: string;
+  kind: "use" | "adjust";
+  /** Изменение остатка: минус — минуты ушли (прокат или ручной минус), плюс — вернули. */
+  minutes: number;
+  who: string;
+  comment?: string | null;
 }
 
 const inputClass =
@@ -326,13 +334,41 @@ function SubscriptionCard({
             Старые корректировки никуда не делись — они в истории ниже и в
             остатке минут. */}
 
-        {/* История: списания + корректировки */}
+        {/* История: списания + корректировки. Отдельной карточкой в рамке, а
+            не серым списком в общем потоке: это единственное место, где видно,
+            КУДА ушли минуты, и раньше его просто не замечали — 11-й кегль тем
+            же серым, что и пояснения рядом. Минуты стоят справа колонкой и
+            цветом: красное — ушло, синее — вернули. */}
         {history.length > 0 && (
-          <div className="mt-4 border-t border-line/70 pt-3">
-            <p className="text-xs font-semibold text-muted">История минут</p>
-            <ul className="mt-1 space-y-1 text-xs text-muted">
+          <div className="mt-4 rounded-xl border border-line bg-surface-2/60 p-3">
+            <p className="text-sm font-bold">
+              История минут{" "}
+              <span className="font-normal text-muted">· {history.length}</span>
+            </p>
+            <ul className="mt-1 divide-y divide-line/70">
               {history.map((h, i) => (
-                <li key={i}>{h.text}</li>
+                <li key={i} className="flex items-baseline justify-between gap-3 py-2">
+                  <span className="min-w-0 text-sm">
+                    <span className="font-semibold">{momentDay(h.at)}</span>
+                    <span className="text-muted">
+                      {" "}
+                      · {h.kind === "use" ? "прокат" : "корректировка"} — {h.who}
+                    </span>
+                    {h.comment && (
+                      <span className="mt-0.5 block text-xs text-muted">
+                        «{h.comment}»
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={`shrink-0 whitespace-nowrap font-bold tabular-nums ${
+                      h.minutes > 0 ? "text-primary" : "text-red-600"
+                    }`}
+                  >
+                    {h.minutes > 0 ? "+" : "−"}
+                    {Math.abs(h.minutes)} мин
+                  </span>
+                </li>
               ))}
             </ul>
           </div>
@@ -511,7 +547,10 @@ export async function SubscriptionsScreen({
     const instructor = (r.instructor as unknown as { name: string } | null)?.name ?? "?";
     push(id, {
       at: r.date as string,
-      text: `${momentDay(r.date as string)} · списание ${r.minutes_used ?? 0} мин — ${instructor}`,
+      kind: "use",
+      // Прокат всегда уменьшает остаток — в истории он и стоит со знаком минус.
+      minutes: -(r.minutes_used ?? 0),
+      who: instructor,
     });
   }
   const adjBySub = new Map<string, number>();
@@ -522,7 +561,10 @@ export async function SubscriptionsScreen({
     const author = (r.author as unknown as { name: string } | null)?.name ?? "?";
     push(id, {
       at: r.created_at as string,
-      text: `${momentDay(r.created_at as string)} · корректировка ${delta > 0 ? "+" : ""}${delta} мин — ${r.comment} (${author})`,
+      kind: "adjust",
+      minutes: delta,
+      who: author,
+      comment: (r.comment as string | null) ?? null,
     });
   }
   for (const items of historyBySub.values()) {
