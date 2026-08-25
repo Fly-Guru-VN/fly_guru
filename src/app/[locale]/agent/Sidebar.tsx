@@ -3,22 +3,28 @@ import {
   type CabinetNavGroup,
 } from "@/components/cabinet/CabinetSidebar";
 
-// Боковое меню кабинета агента. Разделов ровно четыре — больше агенту нечего
-// делать в системе: посмотреть свои цифры, взять ссылку, проверить выплаты,
-// поправить профиль.
+// Боковое меню кабинета агента. В нижнюю панель телефона вынесены три раздела,
+// которыми пользуются на ходу: записать гостя, свои цифры, своя ссылка.
+// Материалы, выплаты и настройки открывают редко — они в листе «Ещё».
 
 const GROUPS: CabinetNavGroup[] = [
   {
-    title: "Моя работа",
+    title: "Каждый день",
     items: [
+      // «Записать гостя» — первым: это единственное действие в кабинете, всё
+      // остальное — просмотр.
+      { href: "/agent/record", label: "Записать гостя", short: "Записать", primary: true },
       { href: "/agent", label: "Статистика", primary: true },
       { href: "/agent/link", label: "Моя ссылка", short: "Ссылка", primary: true },
-      { href: "/agent/payouts", label: "Выплаты", primary: true },
     ],
   },
   {
     title: "Своё",
-    items: [{ href: "/agent/settings", label: "Настройки" }],
+    items: [
+      { href: "/agent/materials", label: "Материалы" },
+      { href: "/agent/payouts", label: "Выплаты" },
+      { href: "/agent/settings", label: "Настройки" },
+    ],
   },
 ];
 

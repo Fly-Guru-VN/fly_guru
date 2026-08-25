@@ -42,11 +42,20 @@ export const CHANNEL_OTHER = "__other__";
 // что угодно — режем на входе.
 export const CHANNEL_MAX = 60;
 
+// Метки, которые ставит сама система, а не человек в форме. Сейчас такая одна:
+// заявку завёл агент у себя в кабинете (25.08.2026). В справочник каналов её
+// класть нельзя — выбирать её руками незачем, — а показать по-человечески надо,
+// иначе в карточке заявки стоит английское «agent-cabinet».
+export const SYSTEM_CHANNELS: Record<string, string> = {
+  "agent-cabinet": "Записал агент",
+};
+
 // Как показать канал: имя из справочника и свободный текст показываем как есть,
-// старый ключ переводим по карте. null — канал не указан (заявки с сайта).
+// системную и старую метку переводим по картам. null — канал не указан (заявки
+// с сайта).
 export function channelLabel(src: string | null | undefined): string | null {
   if (!src) return null;
-  return LEGACY_CHANNELS[src] ?? src;
+  return SYSTEM_CHANNELS[src] ?? LEGACY_CHANNELS[src] ?? src;
 }
 
 // Метка в коротких ссылках /i/<метка> и /b/<метка>. Правило то же, что у

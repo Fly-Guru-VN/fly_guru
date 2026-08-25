@@ -3,12 +3,16 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getAppUser } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { createBooking } from "@/lib/bookings";
+import { getAgentProfile } from "@/lib/agentCabinet";
+import { PHONE_ERROR } from "@/lib/phone";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkPhoto } from "@/lib/photos";
 import type { ActionState } from "../instructor/actions";
 
-// Server actions кабинета агента. Пока он ровно один: агент правит свой
-// профиль. Всё остальное в кабинете — только чтение.
+// Server actions кабинета агента: правка своего профиля и запись гостя.
+// Всё остальное в кабинете — только чтение.
 
 // Свой профиль правит сам агент; админ, заглянувший в кабинет, чужой профиль
 // отсюда не меняет — экшен всегда пишет в строку залогиненного.
@@ -78,4 +82,59 @@ export async function updateAgentProfileAction(
   // Имя и фото стоят в карточке профиля бокового меню — обновляем весь макет.
   revalidatePath("/", "layout");
   return { error: null };
+}
+
+// ── Записать гостя (25.08.2026) ──────────────────────────────────────────────
+//
+// Зачем вкладка. Раньше атрибуция держалась ТОЛЬКО на ссылке: гость, который
+// пришёл сам и на словах сказал «я от Хунга», попадал в CRM без реф-кода — ни
+// скидки ему, ни награды агенту, и разбирались с этим вручную через начальника.
+// Гиды и отельеры оформляют гостя за стойкой, а не переписываются с ним
+// ссылками, поэтому заявку они теперь заводят сами.
+//
+// Реф-код берётся ИЗ БАЗЫ по залогиненному агенту, а не из формы: подставить
+// чужой код нельзя даже подделанным запросом. Всё остальное — общие правила
+// заявки (lib/bookings), те же, что у формы на сайте.
+export async function createAgentBookingAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireAgent();
+
+  const supabase = await createClient();
+  const profile = await getAgentProfile(supabase, user.id);
+  if (!profile) {
+    return { error: "К вашему аккаунту не привязана агентская ссылка." };
+  }
+  // Выключенному агенту награда не начисляется (так же, как по его ссылке), и
+  // молча завести заявку «как будто всё в порядке» было бы обманом.
+  if (!profile.active) {
+    return { error: "Ваша ссылка выключена — напишите начальнику школы." };
+  }
+
+  const result = await createBooking({
+    clientName: String(formData.get("clientName") ?? ""),
+    contact: String(formData.get("contact") ?? ""),
+    telegram: String(formData.get("telegram") ?? "") || null,
+    messenger: String(formData.get("messenger") ?? "") || null,
+    serviceId: String(formData.get("serviceId") ?? "") || null,
+    preferredDate: String(formData.get("preferredDate") ?? "") || null,
+    comment: String(formData.get("comment") ?? "") || null,
+    refCode: profile.refCode,
+    // Откуда пришла заявка: в «Источниках» такие видно отдельно от заявок с
+    // сайта по той же ссылке — агент записал гостя руками.
+    src: "agent-cabinet",
+  });
+
+  if (!result.ok) {
+    if (result.error === "missing_fields") {
+      return { error: "Заполните имя и телефон гостя." };
+    }
+    if (result.error === "bad_phone") return { error: PHONE_ERROR };
+    return { error: "Не удалось записать заявку. Попробуйте ещё раз." };
+  }
+
+  // Заявка попадёт в его же воронку на «Статистике».
+  revalidatePath("/", "layout");
+  redirect(`/agent/record?done=${result.bookingNo ?? ""}`);
 }
