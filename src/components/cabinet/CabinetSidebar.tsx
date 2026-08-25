@@ -108,11 +108,25 @@ export function CabinetSidebar({
       badge: item.href === badge?.href ? badge.count : 0,
       dot: item.href === updatesHref && hasNewUpdates,
     }));
-  const active = items.find((item) => pathname.startsWith(item.href)) ?? items[0];
+  // Раздел активен, если открыт он сам или что-то внутри него. Из нескольких
+  // подходящих выигрывает САМЫЙ ДЛИННЫЙ адрес — иначе раздел, живущий по корню
+  // кабинета, накрывает собой все остальные. Ровно это и случилось у агента
+  // (25.08.2026): «Статистика» стоит на «/agent», простое startsWith считало её
+  // активной и на «/agent/link», и на «/agent/payouts» — на ПК подсвечивался не
+  // тот пункт, а плашка на телефоне не двигалась вовсе.
+  const matchesPath = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
+  const bestMatch = <T extends { href: string }>(list: T[]): T | undefined =>
+    list
+      .filter((item) => matchesPath(item.href))
+      .sort((a, b) => b.href.length - a.href.length)[0];
+
+  const active = bestMatch(items) ?? items[0];
   // Нижняя панель телефона: главные разделы + «Ещё». «Ещё» подсвечиваем, когда
   // открыт раздел не из панели (или лист развёрнут).
   const primaryItems = items.filter((item) => item.primary);
-  const moreActive = !primaryItems.some((item) => pathname.startsWith(item.href));
+  const activePrimary = bestMatch(primaryItems);
+  const moreActive = !activePrimary;
   const byHref = new Map(items.map((item) => [item.href, item]));
 
   // Карточка профиля. На ПК она — шапка панели меню (рамку и фон даёт сама
@@ -262,17 +276,12 @@ export function CabinetSidebar({
 
         <nav className={mobileBarClass}>
           <SlidingHighlight
-            activeKey={
-              moreActive || open
-                ? "more"
-                : (primaryItems.find((item) => pathname.startsWith(item.href))
-                    ?.href ?? null)
-            }
+            activeKey={moreActive || open ? "more" : (activePrimary?.href ?? null)}
             pillClassName="rounded-xl bg-primary shadow-sm"
             className="flex flex-1 gap-1"
           >
             {primaryItems.map((item) => {
-              const isActive = pathname.startsWith(item.href);
+              const isActive = item.href === activePrimary?.href;
               // Есть новые заявки, а человек не на этой вкладке — красим
               // вкладку целиком, а не только уголок. Кружок в 16 пикселей на
               // пляже под солнцем не замечали, и заявка могла провисеть
