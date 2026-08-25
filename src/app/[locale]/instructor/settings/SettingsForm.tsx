@@ -5,6 +5,7 @@ import Image from "next/image";
 import { updateProfileAction, type ActionState } from "../actions";
 import { PHOTO_ACCEPT } from "@/lib/photos";
 import { PhotoInput } from "@/components/cabinet/PhotoInput";
+import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { Spinner } from "@/components/Spinner";
 
 const inputClass =
@@ -16,6 +17,8 @@ export function SettingsForm({
   age,
   monthlyGoal,
   showGoal = true,
+  birthday,
+  action = updateProfileAction,
 }: {
   name: string;
   photoUrl: string | null;
@@ -24,9 +27,17 @@ export function SettingsForm({
   // Цель по ЗП питает прогресс-бар на главном экране инструктора. У админа
   // такого экрана нет — прячем поле (форму саму переиспользуем как есть).
   showGoal?: boolean;
+  // Дата рождения вместо возраста (0049). Передана — рисуем поле даты, нет —
+  // остаётся привычное поле «Возраст». У сотрудников возраст заполнен числом,
+  // и превращать его в дату задним числом нечем.
+  birthday?: string | null;
+  // Кабинеты сохраняют профиль своим экшеном: у агента нет роли полевого
+  // сотрудника, и updateProfileAction его не пустит. Форма при этом одна на
+  // всех — второй копии этих полей в проекте быть не должно.
+  action?: (prev: ActionState, formData: FormData) => Promise<ActionState>;
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
-    updateProfileAction,
+    action,
     { error: null },
   );
 
@@ -95,21 +106,36 @@ export function SettingsForm({
         />
       </div>
 
-      <div>
-        <label htmlFor="age" className="mb-1 block text-sm font-medium">
-          Возраст
-        </label>
-        <input
-          id="age"
-          name="age"
-          type="number"
-          inputMode="numeric"
-          min={14}
-          max={99}
-          defaultValue={age ?? ""}
-          className={inputClass}
-        />
-      </div>
+      {birthday === undefined ? (
+        <div>
+          <label htmlFor="age" className="mb-1 block text-sm font-medium">
+            Возраст
+          </label>
+          <input
+            id="age"
+            name="age"
+            type="number"
+            inputMode="numeric"
+            min={14}
+            max={99}
+            defaultValue={age ?? ""}
+            className={inputClass}
+          />
+        </div>
+      ) : (
+        <div>
+          <label htmlFor="birthday" className="mb-1 block text-sm font-medium">
+            Дата рождения
+          </label>
+          <input
+            id="birthday"
+            name="birthday"
+            type="date"
+            defaultValue={birthday ?? ""}
+            className={`${NATIVE_PICKER} ${inputClass}`}
+          />
+        </div>
+      )}
 
       {showGoal && (
         <div>
