@@ -227,6 +227,12 @@ test("абонемент делится по составу штата на де
   assert.equal(shares.shares.get("misha"), 225_000);
   assert.equal(shares.shares.get("b"), 225_000 + 300_000);
   assert.equal(shares.soldCount.get("a"), 2);
+  // «Со скольких абонементов посчиталась доля» — не то же самое, что «продал
+  // сам»: Михаил не продал ни одного, но за 4-е число доля ему причитается,
+  // а за 6-е (уже уволен) — нет. У «a» обе цифры по два, но по разным причинам.
+  assert.equal(shares.sharedCount.get("misha"), 1);
+  assert.equal(shares.sharedCount.get("b"), 2);
+  assert.equal(shares.sharedCount.get("a"), 2);
 });
 
 test("абонемент, проданный админом, в котёл инструкторов не идёт", async () => {
@@ -263,6 +269,11 @@ test("абонемент админа с галочкой «в общий кот
   assert.equal(shares.shares.get("boss"), undefined);
   // Справка «сам продал N штук» — только про полевые продажи.
   assert.equal(shares.soldCount.size, 0);
+  // А вот в дележе абонемент участвовал: обоим он засчитывается в объяснение
+  // суммы, хотя своими руками они ничего не продавали.
+  assert.equal(shares.sharedCount.get("a"), 1);
+  assert.equal(shares.sharedCount.get("b"), 1);
+  assert.equal(shares.sharedCount.get("boss"), undefined);
 });
 
 // ── Выходы: 200 000 ₫ за каждый зачтённый ────────────────────────────────────

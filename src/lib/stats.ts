@@ -84,6 +84,12 @@ export interface InstructorStats {
   ownDays: number; // дней без смен — 15% достались мне целиком
   subsPool: number; // весь котёл за период (15% продаж инструкторов) — справка
   instructorsCount: number; // сколько инструкторов в штате сейчас — для подписи
+  /**
+   * Со скольких абонементов сложилась МОЯ доля котла. Не путать с paidSubsCount:
+   * доля капает с каждого абонемента, оплаченного в дни, когда я был в деле, —
+   * кто бы его ни продал (просьба начальника от 25.08.2026).
+   */
+  sharedSubsCount: number;
   paidSubsCount: number; // абонементы, проданные мной и оплаченные в периоде
   unpaidSubsCount: number; // мои неоплаченные (за всё время) — ждут оплату
   unpaidSubsSum: number;
@@ -277,6 +283,7 @@ export async function getInstructorStats(
     // инструкторов: СММщик берёт долю лишь за дни своих смен, ставить его в
     // знаменатель каждый день значило бы занижать чужую долю на экране.
     instructorsCount: activeStaff(staff).filter((m) => m.role === "instructor").length,
+    sharedSubsCount: isCrew ? (subsShares.sharedCount.get(instructorId) ?? 0) : 0,
     paidSubsCount: paidInRange.length,
     unpaidSubsCount: unpaid.length,
     unpaidSubsSum: unpaid.reduce((s, r) => s + Number(r.price ?? 0), 0),

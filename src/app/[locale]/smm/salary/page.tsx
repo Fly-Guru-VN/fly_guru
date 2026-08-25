@@ -153,7 +153,11 @@ export default async function SmmSalaryPage({
               </p>
             </div>
             <div className="flex items-baseline justify-between gap-2">
-              <p className="text-muted">Доля с абонементов</p>
+              {/* Со скольких абонементов посчитана доля: котёл общий, и без
+                  этой цифры сумма выглядит взятой с потолка. */}
+              <p className="text-muted">
+                Доля с абонементов · с {shiftStats.sharedSubsCount} шт.
+              </p>
               <p className="shrink-0 font-semibold">
                 {vnd(shiftStats.salaryFromSubs)}
               </p>

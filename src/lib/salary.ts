@@ -466,6 +466,14 @@ export interface SubsShares {
   pool: number; // весь котёл периода: 15% с абонементов, которые делятся
   shares: Map<string, number>; // инструктор → его доля
   soldCount: Map<string, number>; // инструктор → сколько продал сам (справка)
+  /**
+   * Инструктор → СО СКОЛЬКИХ абонементов сложилась его доля (просьба
+   * начальника от 25.08.2026). Это не то же самое, что soldCount: доля идёт с
+   * КАЖДОГО абонемента, оплаченного в дни, когда человек был в деле, кто бы
+   * его ни продал. Пока на экране стояла одна цифра «продал сам», выходило
+   * непонятное: продал один, а денег пришло как за пять.
+   */
+  sharedCount: Map<string, number>;
 }
 
 interface PoolSubRow {
@@ -535,10 +543,15 @@ export async function getSubsShares(
   const byId = new Map(staff.map((m) => [m.id, m]));
   const shares = new Map<string, number>();
   const soldCount = new Map<string, number>();
+  const sharedCount = new Map<string, number>();
   let pool = 0;
 
-  const add = (id: string, amount: number) =>
+  // Деньги и счётчик абонементов идут вместе: каждый раз, когда человеку падает
+  // доля, ему же засчитывается ещё один абонемент в знаменатель объяснения.
+  const add = (id: string, amount: number) => {
     shares.set(id, (shares.get(id) ?? 0) + amount);
+    sharedCount.set(id, (sharedCount.get(id) ?? 0) + 1);
+  };
 
   for (const raw of (data ?? []) as unknown as PoolSubRow[]) {
     const seller = raw.sold_by;
@@ -577,5 +590,5 @@ export async function getSubsShares(
     for (const m of crew) add(m.id, each);
   }
 
-  return { pool, shares, soldCount };
+  return { pool, shares, soldCount, sharedCount };
 }
