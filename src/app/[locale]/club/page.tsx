@@ -7,7 +7,6 @@ import { Marquee } from "@/components/Marquee";
 import { Media } from "@/components/Media";
 import { Faq } from "@/components/Faq";
 import { BookBtn } from "@/components/BookBtn";
-import { StickyBookBar } from "@/components/StickyBookBar";
 import {
   IconFoil,
   IconWaves,
@@ -481,7 +480,6 @@ export default async function ClubPage() {
         </Container>
       </Section>
 
-      <StickyBookBar serviceId={subId} label="Купить абонемент" />
     </>
   );
 }

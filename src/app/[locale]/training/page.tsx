@@ -4,7 +4,6 @@ import { Container, Section } from "@/components/ui";
 import { HeroStage } from "@/components/HeroStage";
 import { Marquee } from "@/components/Marquee";
 import { Rail, RailItem } from "@/components/Rail";
-import { StickyBookBar } from "@/components/StickyBookBar";
 import { FormatCard, type Format } from "@/components/FormatCard";
 import { TrainingSteps, type TrainingStep } from "@/components/TrainingSteps";
 import { WatchVideoBtn } from "@/components/WatchVideoBtn";
@@ -325,7 +324,6 @@ export default async function TrainingPage() {
         </Container>
       </Section>
 
-      <StickyBookBar serviceId={defaultServiceId} label="Записаться на обучение" />
     </>
   );
 }

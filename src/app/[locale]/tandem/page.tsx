@@ -3,7 +3,6 @@ import Image from "next/image";
 import { Container, Section, buttonClasses } from "@/components/ui";
 import { Squiggle } from "@/components/Squiggle";
 import { BookBtn } from "@/components/BookBtn";
-import { StickyBookBar } from "@/components/StickyBookBar";
 import { TandemSteps, type TandemStep } from "@/components/TandemSteps";
 import {
   IconClock,
@@ -252,7 +251,6 @@ export default async function TandemPage() {
         </Container>
       </Section>
 
-      <StickyBookBar serviceId={defaultServiceId} label="Записаться на тандем" />
     </>
   );
 }

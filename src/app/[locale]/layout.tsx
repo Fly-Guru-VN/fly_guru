@@ -8,6 +8,7 @@ import { routing } from "@/i18n/routing";
 import { SiteHeader } from "@/components/SiteHeader";
 import { PageTransition } from "@/components/PageTransition";
 import { SiteFooter } from "@/components/SiteFooter";
+import { MobileTabBar } from "@/components/MobileTabBar";
 import { Attribution } from "@/components/Attribution";
 import { BookingProvider } from "@/components/BookingProvider";
 import { getActiveServices } from "@/lib/services";
@@ -15,7 +16,10 @@ import { SITE_URL } from "@/lib/site";
 import "../globals.css";
 
 // Self-hosted шрифт (грузится с нашего домена, без обращения к Google на клиенте).
-const font = Manrope({ subsets: ["latin", "cyrillic"], variable: "--font-app" });
+const font = Manrope({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-app",
+});
 
 const TITLE = "FlyGuru — школа электрофойлов в Нячанге";
 const DESCRIPTION =
@@ -101,6 +105,10 @@ export default async function LocaleLayout({
               <PageTransition>{children}</PageTransition>
             </main>
             <SiteFooter />
+            {/* Нижняя панель разделов на телефоне. Стоит последней, потому что
+                рисуется поверх всего и сама же добавляет подвалу нижнее поле
+                под свою высоту (в кабинетах её нет — там панель своя). */}
+            <MobileTabBar />
           </BookingProvider>
         </NextIntlClientProvider>
         {/* Счётчик посещений Vercel: считает визиты и просмотры страниц БЕЗ

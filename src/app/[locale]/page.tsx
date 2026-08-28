@@ -9,7 +9,6 @@ import { HeroStage } from "@/components/HeroStage";
 import { Marquee } from "@/components/Marquee";
 import { RailItem } from "@/components/Rail";
 import { DotsRail } from "@/components/DotsRail";
-import { StickyBookBar } from "@/components/StickyBookBar";
 import { Faq } from "@/components/Faq";
 import { ReviewPhotoCard } from "@/components/ReviewPhotoCard";
 import { StepCard, type Step } from "@/components/StepCard";
@@ -397,7 +396,6 @@ export default async function HomePage() {
         </Container>
       </Section>
 
-      <StickyBookBar />
     </>
   );
 }

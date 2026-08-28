@@ -172,7 +172,12 @@ export function IconPalm(props: IconProps) {
       <mask id="fg-palm-mask" style={{ maskType: "alpha" }}>
         <image href="/media/icon/palm.png" x="0" y="0" width="24" height="24" />
       </mask>
-      <rect width="24" height="24" fill="currentColor" mask="url(#fg-palm-mask)" />
+      <rect
+        width="24"
+        height="24"
+        fill="currentColor"
+        mask="url(#fg-palm-mask)"
+      />
     </svg>
   );
 }
@@ -403,6 +408,27 @@ export function IconFacebook(props: IconProps) {
       <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
       <path d="M14.8 8.2h-1.2c-.9 0-1.5.6-1.5 1.5v9" />
       <path d="M9.8 12.4h4.6" />
+    </svg>
+  );
+}
+
+// Ценник — вкладка «Прайс» в нижней панели телефона.
+export function IconTag(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 11.2V4.8c0-.44.36-.8.8-.8h6.4c.21 0 .42.08.57.23l8 8a.8.8 0 0 1 0 1.13l-6.61 6.61a.8.8 0 0 1-1.13 0l-8-8A.8.8 0 0 1 4 11.2Z" />
+      <circle cx="8.2" cy="8.2" r="1.2" />
+    </svg>
+  );
+}
+
+// Календарь с плюсом — кнопка записи в нижней панели телефона.
+export function IconCalendarPlus(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="3.5" y="5" width="17" height="15" rx="2.5" />
+      <path d="M3.5 9.5h17M8 3.5v3m8-3v3" />
+      <path d="M12 12.5v4.5M9.75 14.75h4.5" />
     </svg>
   );
 }

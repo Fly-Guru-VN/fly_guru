@@ -3,7 +3,6 @@ import Image from "next/image";
 import { Container, Section, Badge, Button } from "@/components/ui";
 import { Squiggle } from "@/components/Squiggle";
 import { BookBtn } from "@/components/BookBtn";
-import { StickyBookBar } from "@/components/StickyBookBar";
 import { JsonLd } from "@/components/JsonLd";
 import { PriceTabs, type PriceGroup } from "@/components/PriceTabs";
 import { priceListSchema } from "@/lib/schema";
@@ -331,7 +330,6 @@ export default async function PricesPage() {
         </Container>
       </Section>
 
-      <StickyBookBar />
     </>
   );
 }
