@@ -87,8 +87,21 @@ export default function ReviewsPage() {
           </p>
         </div>
         <div>
-          {/* Оценка плашкой на кадре: цифра и есть главный довод страницы. */}
-          <div className="mt-6 inline-flex items-center gap-4 rounded-2xl border border-white/40 bg-white/10 px-5 py-4 backdrop-blur-sm">
+          {/* Оценка плашкой на кадре: цифра и есть главный довод страницы.
+              Плашка — ссылка, а не картинка: в неё и так тыкали пальцем (она
+              выглядит как кнопка), поэтому пусть ведёт туда же, куда кнопка
+              под ней, — в отзывы на карточке школы. Своё событие аналитики
+              (place «reviews-rating»), чтобы было видно, по чему именно жмут:
+              по плашке или по кнопке. */}
+          <TrackedLink
+            href={contacts.mapReviewsLink}
+            external
+            newTab
+            event="contact_click"
+            data={{ channel: "maps", place: "reviews-rating" }}
+            ariaLabel={`Оценка ${GOOGLE_RATING.value} из 5, ${GOOGLE_RATING.count} — читать в Google Maps`}
+            className="mt-6 inline-flex items-center gap-4 rounded-2xl border border-white/40 bg-white/10 px-5 py-4 backdrop-blur-sm transition hover:border-white/60 hover:bg-white/20 active:scale-[0.98]"
+          >
             <span className="text-5xl font-bold leading-none">{GOOGLE_RATING.value}</span>
             <span>
               <span className="flex gap-1 text-accent" aria-hidden>
@@ -100,10 +113,11 @@ export default function ReviewsPage() {
                 {GOOGLE_RATING.count} в Google Maps
               </span>
             </span>
-          </div>
+          </TrackedLink>
           <div className="mt-5">
+            {/* «Читать» — значит сразу отзывы, а не карточка целиком. */}
             <TrackedLink
-              href={contacts.mapLink}
+              href={contacts.mapReviewsLink}
               external
               newTab
               event="contact_click"

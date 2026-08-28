@@ -22,6 +22,7 @@ export function TrackedLink({
   external = false,
   newTab = false,
   className = "",
+  ariaLabel,
   children,
 }: {
   href: string;
@@ -32,6 +33,10 @@ export function TrackedLink({
   // noopener чужая страница получает доступ к нашей вкладке.
   newTab?: boolean;
   className?: string;
+  // Подпись для скринридера — когда содержимое ссылки само по себе непонятно
+  // (плашка с оценкой на /reviews — это «4,9» и пять звёздочек, вслух это
+  // просто число).
+  ariaLabel?: string;
   children: ReactNode;
 }) {
   // Событие уходит «в фоне» (sendBeacon внутри аналитики), переход не ждём —
@@ -44,6 +49,7 @@ export function TrackedLink({
         href={href}
         onClick={onClick}
         className={className}
+        aria-label={ariaLabel}
         {...(newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       >
         {children}
@@ -52,7 +58,7 @@ export function TrackedLink({
   }
 
   return (
-    <Link href={href} onClick={onClick} className={className}>
+    <Link href={href} onClick={onClick} className={className} aria-label={ariaLabel}>
       {children}
     </Link>
   );
