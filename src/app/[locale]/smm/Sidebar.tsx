@@ -9,8 +9,9 @@ import { SMM_UPDATES_SEEN_KEY } from "@/components/cabinet/useUpdatesSeen";
 //
 // Отличий от админского два: разделов тринадцать вместо шестнадцати (нет
 // календаря, выплат, членов клуба и услуг — это не его работа, зато есть своя
-// «Моя ЗП») и в профиле нет денег школы: их он видит только как выручку, во
-// вкладке «Статистика».
+// «Моя ЗП») и в карточке профиля не деньги школы, а его собственная выплаченная
+// ЗП — как у разработчика (28.08.2026). Деньги школы он видит только как
+// выручку, во вкладке «Статистика».
 //
 // «Смена» с 21.08.2026: СММщик выходит на пляж наравне с инструкторами, и день
 // на смене считается ему по инструкторской формуле. Экран — тот же, что у
@@ -65,16 +66,27 @@ const GROUPS: CabinetNavGroup[] = [
 export function Sidebar({
   name,
   photoUrl,
+  amountLabel,
+  amountSub,
   freshCount,
 }: {
   name: string;
   photoUrl: string | null;
+  amountLabel: string;
+  amountSub: string;
   freshCount: number;
 }) {
   return (
     <CabinetSidebar
       groups={GROUPS}
-      profile={{ name, photoUrl, role: "СММ" }}
+      profile={{
+        name,
+        photoUrl,
+        amount: { label: amountLabel, sub: amountSub },
+        // Сумма первой строкой, имя мелким сверху — ровно как у разработчика
+        // в админке: в карточку смотрят ради денег, своё имя не читают.
+        amountFirst: true,
+      }}
       badge={{ href: "/smm/bookings", count: freshCount }}
       updates={{ href: UPDATES_HREF, seenKey: SMM_UPDATES_SEEN_KEY }}
     />
