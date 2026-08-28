@@ -9,6 +9,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { PageTransition } from "@/components/PageTransition";
 import { SiteFooter } from "@/components/SiteFooter";
 import { MobileTabBar } from "@/components/MobileTabBar";
+import { SwipeNav } from "@/components/SwipeNav";
 import { Attribution } from "@/components/Attribution";
 import { BookingProvider } from "@/components/BookingProvider";
 import { getActiveServices } from "@/lib/services";
@@ -102,7 +103,12 @@ export default async function LocaleLayout({
           <BookingProvider services={services}>
             <SiteHeader />
             <main className="flex-1">
-              <PageTransition>{children}</PageTransition>
+              {/* SwipeNav снаружи PageTransition: пролистывание пальцем двигает
+                  всё содержимое страницы разом, а появление после перехода
+                  остаётся на PageTransition — он для этого и заведён. */}
+              <SwipeNav>
+                <PageTransition>{children}</PageTransition>
+              </SwipeNav>
             </main>
             <SiteFooter />
             {/* Нижняя панель разделов на телефоне. Стоит последней, потому что
