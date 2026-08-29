@@ -147,8 +147,15 @@ export default function ReviewsPage() {
               className="h-auto w-full"
             />
 
-            {/* Малый кадр внахлёст — доли от ширины большого, чтобы наложение
-                держалось на любой ширине окна. */}
+            {/* Малый кадр внахлёст. Прижат к НИЗУ большого (bottom-0), а не
+                поставлен по координате сверху: у обоих файлов нижняя кромка
+                вырезана волной, и при общем низе они сливаются в одну белую
+                ленту через всю композицию — ровно как на макете. Стоило
+                поднять малый кадр выше, и он повисал наклейкой посреди
+                фотографии (так и было в первой версии).
+                Доли — от ширины большого кадра, чтобы посадка держалась на
+                любой ширине окна. 53% подобраны по макету: правый край малого
+                кадра встаёт на 91%, там где его хвост переходит в волну. */}
             <Image
               src="/media/photo/reviews/hero-small.webp"
               alt="Девочка самостоятельно едет на электрофойле рядом с инструктором"
@@ -156,7 +163,7 @@ export default function ReviewsPage() {
               height={872}
               quality={90}
               sizes="(min-width: 1024px) 28vw, 50vw"
-              className="absolute left-[36%] top-[38%] h-auto w-[50%]"
+              className="absolute bottom-0 left-[38%] h-auto w-[53%]"
             />
 
             {/* Три коротких отзыва плашками поверх кадра.
@@ -348,11 +355,7 @@ export default function ReviewsPage() {
                       ))}
                     </span>
                     <p className="mt-3 text-lg font-bold leading-tight">
-                      Это не все отзывы
-                    </p>
-                    <p className="mt-2 text-sm text-white/90">
-                      В Google их {GOOGLE_RATING.count.replace("более ", "больше ")} — все
-                      от настоящих гостей школы.
+                      Читать все отзывы
                     </p>
                     <TrackedLink
                       href={contacts.mapReviewsLink}
@@ -360,9 +363,9 @@ export default function ReviewsPage() {
                       newTab
                       event="contact_click"
                       data={{ channel: "maps", place: "reviews-more" }}
-                      className={buttonClasses({ variant: "light", className: "mt-5 w-full" })}
+                      className={buttonClasses({ variant: "light", className: "mt-4 w-full" })}
                     >
-                      Читать все в Google Maps
+                      Читать отзывы в Google Maps
                     </TrackedLink>
                   </div>
                 )}
