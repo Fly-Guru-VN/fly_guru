@@ -1,14 +1,14 @@
+import { Fragment } from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { Container, Section, buttonClasses } from "@/components/ui";
 import { Squiggle } from "@/components/Squiggle";
-import { HeroStage } from "@/components/HeroStage";
 import { Marquee } from "@/components/Marquee";
 import { RailItem } from "@/components/Rail";
 import { DotsRail } from "@/components/DotsRail";
 import { ReviewCard } from "@/components/ReviewCard";
 import { ReviewPhotoCard } from "@/components/ReviewPhotoCard";
-import { GoogleMapsLink } from "@/components/GoogleMapsLink";
+import { GoogleMapsLink, IconGoogleMapsPin } from "@/components/GoogleMapsLink";
 import { BookBtn } from "@/components/BookBtn";
 import { TrackedLink } from "@/components/TrackedLink";
 import { IconStar, IconArrowRight } from "@/components/icons";
@@ -49,12 +49,29 @@ const QUOTES = [
   "«Инструктор всё спокойно объяснял»",
 ];
 
+// Три коротких отзыва плашками на первом экране. Фразы вырезаны из настоящих
+// отзывов дословно (полные тексты — ниже на этой же странице).
+//
+// Аватарки вместо фотографий — кружок с первой буквой имени, как рисует их сам
+// Google тем, у кого в профиле нет снимка. Цвет Google считает от аккаунта, и
+// снаружи его не вычислить: здесь взяты цвета из его же палитры монограмм.
+// Если сверить со скриншотами отзывов — правьте color, больше нигде не всплывёт.
+const HERO_CHIPS = [
+  { name: "Polina Shchegoleva", text: "Полетели с первого раза", rating: 5, color: "#1a73e8" },
+  { name: "Евгений Курьянов", text: "Обязательно повторим!", rating: 5, color: "#1e8e3e" },
+  { name: "Илья Яковлев", text: "Непередаваемые эмоции!", rating: 5, color: "#9334e6" },
+];
+
 // Фраза для крупной врезки. Вырезана из отзыва Полины дословно — врезка не
 // пересказывает отзыв, а цитирует его.
 const PULL_QUOTE = {
   name: "Полина Черненькая",
   text: "Я уже вернулась в Россию, но до сих пор живу воспоминаниями об этом уроке. Это был один из самых ярких моментов поездки!",
 };
+
+// Возле какого отзыва встаёт плашка «читать все» — см. комментарий у неё
+// самой в разметке.
+const MORE_CTA_AFTER = "Илья Яковлев";
 
 export default function ReviewsPage() {
   // С фотографиями — истории целиком, остальные — кладкой ниже.
@@ -66,82 +83,194 @@ export default function ReviewsPage() {
   return (
     <>
       {/* ── Первый экран ── */}
-      {/* Кадр ученика, а не инструктора: страница о тех, кто пришёл и поехал. */}
-      <HeroStage
-        image="/media/photo/training-uchenik.webp"
-        alt="Ученик FlyGuru самостоятельно летит на электрофойле у острова в Нячанге"
-        bleed
-      >
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-white/80 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
-            Отзывы
-          </p>
-          <h1 className="mt-3 text-4xl font-bold leading-[1.05] drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)] sm:text-5xl md:text-6xl">
-            Что говорят
-            <br />
-            ученики
-          </h1>
-          <p className="mt-4 max-w-md text-base text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-lg">
-            Настоящие отзывы гостей школы — все с карточки FlyGuru в Google
-            Maps, ни один не написан нами.
-          </p>
+      {/* Собран по макету hero_png (1282×886 после обрезки прозрачных полей):
+          до lg кадр идёт полосой во всю ширину, текст под ним; от lg кадр
+          уходит в правый край окна, а текст занимает левую половину — тот же
+          приём, что на прайсе и тандеме.
+
+          Section тут не используется: у первого экрана свои поля, кадр должен
+          вставать встык под шапку. Фон градиентом в surface-2, чтобы стык с
+          бегущей строкой ниже не читался ступенькой.
+
+          Кадр по центру высоты (items-center), а не встык к шапке: текста в
+          левой колонке больше, чем высоты фотографии, и при верхнем
+          выравнивании под кадром зияла пустая полоса в треть экрана.
+
+          min-h на ПК — ровно высота кадра: 52% ширины окна, делённые на
+          пропорцию файла 1282/886, то есть 35.9vw. Кадр лежит absolute и
+          высоту секции не задаёт; её задавал текст, и от 1600 px фотография
+          становилась выше текста — overflow-hidden срезал ей и волну снизу, и
+          верхнюю плашку с отзывом (мерил 29.08.2026). Меняете долю кадра или
+          файл — пересчитайте и это число. */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2 lg:flex lg:min-h-[35.9vw] lg:items-center">
+        {/* Чайки — как на прайсе. Обе слева: правую половину от lg занимает
+            кадр, а ниже lg он идёт во всю ширину и чайка легла бы на воду.
+            От xl, а не от lg: до 1280 px контейнер прижат к краям окна, и
+            птица садилась прямо на заголовок (проверено на 1024). */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 hidden xl:block">
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute left-6 top-24 w-14 -rotate-[7deg] opacity-90"
+          />
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute left-2 top-48 w-[4.5rem] rotate-[5deg] opacity-80"
+          />
         </div>
-        <div>
-          {/* Оценка плашкой на кадре: цифра и есть главный довод страницы.
-              Плашка — ссылка, а не картинка: в неё и так тыкали пальцем (она
-              выглядит как кнопка), поэтому пусть ведёт туда же, куда кнопка
-              под ней, — в отзывы на карточке школы. Своё событие аналитики
-              (place «reviews-rating»), чтобы было видно, по чему именно жмут:
-              по плашке или по кнопке. */}
-          <TrackedLink
-            href={contacts.mapReviewsLink}
-            external
-            newTab
-            event="contact_click"
-            data={{ channel: "maps", place: "reviews-rating" }}
-            ariaLabel={`Оценка ${GOOGLE_RATING.value} из 5, ${GOOGLE_RATING.count} — читать в Google Maps`}
-            className="mt-6 inline-flex items-center gap-4 rounded-2xl border border-white/40 bg-white/10 px-5 py-4 backdrop-blur-sm transition hover:border-white/60 hover:bg-white/20 active:scale-[0.98]"
-          >
-            <span className="text-5xl font-bold leading-none">{GOOGLE_RATING.value}</span>
-            <span>
-              <span className="flex gap-1 text-accent" aria-hidden>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <IconStar key={i} className="h-5 w-5" />
-                ))}
-              </span>
-              <span className="mt-1.5 block text-sm font-semibold text-white/90">
-                {GOOGLE_RATING.count} в Google Maps
-              </span>
-            </span>
-          </TrackedLink>
-          <div className="mt-5">
-            {/* «Читать» — значит сразу отзывы, а не карточка целиком. */}
+
+        {/* Кадры и плашки. Обе фотографии — PNG со своими краями: у большой
+            зашиты скруглённый левый угол и волна снизу, у малой — белая
+            обводка по фигурной форме. Ни подложек, ни масок им не нужно,
+            прозрачные края показывают фон страницы.
+            52% — доля кадра от ширины ОКНА, ровно как на прайсе. Число решает
+            всё: контейнер с текстом (max-w-6xl) с ростом окна отъезжает вправо
+            со скоростью половины ширины, а левый край кадра — со скоростью
+            (1 − доля). При 54% они сходились и на 1920 текст уже лез на
+            фотографию (мерил 29.08.2026); при 52% зазор держится хоть на 2560.
+            Меняете долю — перемеряйте на широких экранах. */}
+        <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:flex lg:w-[52%] lg:items-center">
+          <div className="relative w-full">
+            <Image
+              src="/media/photo/reviews/hero.webp"
+              alt="Семья с электрофойлами на пляже в Нячанге после занятия с FlyGuru"
+              width={1282}
+              height={886}
+              priority
+              quality={90}
+              sizes="(min-width: 1024px) 54vw, 100vw"
+              className="h-auto w-full"
+            />
+
+            {/* Малый кадр внахлёст — доли от ширины большого, чтобы наложение
+                держалось на любой ширине окна. */}
+            <Image
+              src="/media/photo/reviews/hero-small.webp"
+              alt="Девочка самостоятельно едет на электрофойле рядом с инструктором"
+              width={1144}
+              height={872}
+              quality={90}
+              sizes="(min-width: 1024px) 28vw, 50vw"
+              className="absolute left-[36%] top-[38%] h-auto w-[50%]"
+            />
+
+            {/* Три коротких отзыва плашками поверх кадра.
+                Только от lg: на телефоне кадр идёт полосой во всю ширину, и
+                плашки поверх него легли бы на лица. Ничего при этом не
+                теряется — ровно эти же фразы едут в бегущей строке сразу под
+                первым экраном. */}
+            <ul className="absolute right-[2%] top-[6%] hidden w-[34%] flex-col gap-2.5 lg:flex">
+              {HERO_CHIPS.map((c) => (
+                <li
+                  key={c.name}
+                  className="flex items-center gap-2.5 rounded-2xl bg-white/95 p-2.5 shadow-[0_16px_34px_-22px_rgba(15,34,51,0.6)] backdrop-blur-sm xl:gap-3 xl:p-3"
+                >
+                  {/* Аватарка — кружок с первой буквой имени, как это рисует
+                      сам Google тем, у кого в профиле нет фотографии. */}
+                  <span
+                    aria-hidden
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white xl:h-9 xl:w-9 xl:text-base"
+                    style={{ backgroundColor: c.color }}
+                  >
+                    {c.name[0]}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="flex gap-0.5 text-accent" aria-hidden>
+                      {Array.from({ length: c.rating }).map((_, i) => (
+                        <IconStar key={i} className="h-3 w-3 xl:h-3.5 xl:w-3.5" />
+                      ))}
+                    </span>
+                    <span className="mt-0.5 block text-[0.72rem] font-semibold leading-tight xl:text-sm">
+                      {c.text}
+                    </span>
+                    <span className="sr-only">— {c.name}, отзыв в Google Maps</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <Container className="relative">
+          <div className="pb-10 pt-8 lg:max-w-[46%] lg:py-14">
+            <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+              Отзывы
+            </p>
+            <Squiggle className="mt-3" />
+            {/* Размер подобран так, чтобы вторая строка («каждому гостю
+                улыбку!») влезала в колонку целиком: она длиннее первой, а
+                колонка — 46% контейнера. С text-5xl на 1440 её срывало на
+                третью строку (мерил 29.08.2026). */}
+            <h1 className="mt-5 text-3xl font-bold leading-[1.1] sm:text-4xl lg:text-[2rem] xl:text-[2.5rem]">
+              Стараемся подарить
+              <br />
+              каждому гостю улыбку!
+            </h1>
+            <p className="mt-5 max-w-md text-muted">
+              Более 170 гостей уже поделились впечатлениями о FlyGuru.
+            </p>
+
+            {/* Оценка плашкой. Плашка — ссылка, а не картинка: она выглядит как
+                кнопка, в неё и так тыкают пальцем, поэтому ведёт туда же, куда
+                кнопка под ней, — в отзывы на карточке школы. Своё событие
+                аналитики (place «reviews-rating»), чтобы было видно, по чему
+                именно жмут: по плашке или по кнопке. */}
             <TrackedLink
               href={contacts.mapReviewsLink}
               external
               newTab
               event="contact_click"
-              data={{ channel: "maps", place: "reviews-hero" }}
-              className={buttonClasses({ variant: "light", size: "lg", className: "w-full sm:w-auto" })}
+              data={{ channel: "maps", place: "reviews-rating" }}
+              ariaLabel={`Оценка ${GOOGLE_RATING.value} из 5, ${GOOGLE_RATING.count} — читать в Google Maps`}
+              className="mt-8 flex max-w-md items-center gap-4 rounded-2xl bg-surface p-5 shadow-[0_20px_44px_-26px_rgba(15,34,51,0.55)] transition hover:shadow-[0_24px_50px_-24px_rgba(15,34,51,0.6)] active:scale-[0.99] sm:gap-5"
             >
-              Читать в Google Maps
+              <span className="text-4xl font-bold leading-none sm:text-5xl">
+                {GOOGLE_RATING.value}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex gap-1 text-accent" aria-hidden>
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <IconStar key={i} className="h-5 w-5" />
+                  ))}
+                </span>
+                <span className="mt-1.5 block text-sm font-semibold text-muted">
+                  {GOOGLE_RATING.count} в Google Maps
+                </span>
+              </span>
+              <IconGoogleMapsPin className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" />
             </TrackedLink>
+
+            {/* «Читать отзывы» — значит сразу отзывы, а не карточка целиком. */}
+            <div className="mt-6">
+              <TrackedLink
+                href={contacts.mapReviewsLink}
+                external
+                newTab
+                event="contact_click"
+                data={{ channel: "maps", place: "reviews-hero" }}
+                className={buttonClasses({ size: "lg", className: "w-full sm:w-auto" })}
+              >
+                Читать отзывы в Google Maps
+              </TrackedLink>
+            </div>
           </div>
-        </div>
-      </HeroStage>
+        </Container>
+      </section>
 
       <Marquee items={QUOTES} />
 
       {/* ── Три истории с фото ── */}
+      {/* Заголовка и подписи у блока нет намеренно: карточки идут сразу за
+          первым экраном и читаются как его продолжение — три отзыва с
+          фотографиями тех самых занятий. Объяснять словами, что это отзывы,
+          после экрана с крупной надписью «Отзывы» было нечего. */}
       <Section pad="tight" className="bg-gradient-to-b from-white to-surface-2">
         <Container>
-          <h2 className="text-3xl font-bold sm:text-4xl">Как это было</h2>
-          <Squiggle long className="mt-4" />
-          <p className="mt-5 max-w-2xl text-muted">
-            Три отзыва с фотографиями тех самых занятий. Тексты целиком, как они
-            написаны в Google.
-          </p>
-
           {/* Лента: на телефоне листается пальцем, на ПК — три колонки. Та же,
               что в блоке отзывов на главной, только текст здесь не обрезаем. */}
           <DotsRail count={withPhoto.length} className="md:grid-cols-3">
@@ -192,7 +321,7 @@ export default function ReviewsPage() {
       {/* ── Остальные отзывы ── */}
       <Section pad="tight" className="bg-gradient-to-b from-surface-2 to-white">
         <Container>
-          <h2 className="text-3xl font-bold sm:text-4xl">Все отзывы</h2>
+          <h2 className="text-3xl font-bold sm:text-4xl">Больше отзывов</h2>
           <Squiggle long className="mt-4" />
 
           {/* Кладка (CSS columns), а не сетка: отзывы разной длины, и в сетке
@@ -201,26 +330,62 @@ export default function ReviewsPage() {
               для несвязанных между собой отзывов это нормально. */}
           <div className="mt-8 gap-5 sm:columns-2 lg:columns-3 [&>figure]:mb-5">
             {rest.map((r) => (
-              <ReviewCard key={r.name} review={r} />
+              <Fragment key={r.name}>
+                <ReviewCard review={r} />
+                {r.name === MORE_CTA_AFTER && (
+                  // Плашка «читать все» — ровно в ту дыру, которую кладка
+                  // оставляла внизу средней колонки: отзывы разной длины,
+                  // колонки выравниваются по высоте, и средняя кончалась на
+                  // 260 px раньше соседних (мерил 29.08.2026).
+                  //
+                  // Место задано именем соседа, а не номером в массиве:
+                  // отзывы в reviews.ts добавляют сверху, и номер уехал бы.
+                  // Добавите отзывов — перепроверьте, где теперь дыра.
+                  <div className="mb-5 break-inside-avoid overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-primary-strong p-6 text-center text-white shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)]">
+                    <span aria-hidden className="flex justify-center gap-1 text-accent">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <IconStar key={i} className="h-5 w-5" />
+                      ))}
+                    </span>
+                    <p className="mt-3 text-lg font-bold leading-tight">
+                      Это не все отзывы
+                    </p>
+                    <p className="mt-2 text-sm text-white/90">
+                      В Google их {GOOGLE_RATING.count.replace("более ", "больше ")} — все
+                      от настоящих гостей школы.
+                    </p>
+                    <TrackedLink
+                      href={contacts.mapReviewsLink}
+                      external
+                      newTab
+                      event="contact_click"
+                      data={{ channel: "maps", place: "reviews-more" }}
+                      className={buttonClasses({ variant: "light", className: "mt-5 w-full" })}
+                    >
+                      Читать все в Google Maps
+                    </TrackedLink>
+                  </div>
+                )}
+              </Fragment>
             ))}
           </div>
         </Container>
       </Section>
 
-      {/* ── Карточка в Google ── */}
-      {/* Здесь и живёт всегда свежая цифра: плашку с оценкой и точным числом
-          отзывов рисует сам Google внутри карты. Вырезать из неё одну плашку и
-          повесить на первый экран нельзя — высота плашки скачет от ширины
-          карты, и при 800 px строчка с оценкой уходит за край обрезки (мерил
-          24.08.2026). Поэтому карта стоит целиком, как ей и положено. */}
+      {/* ── Где мы находимся ── */}
+      {/* Заодно здесь живёт всегда свежая цифра: плашку с оценкой и точным
+          числом отзывов рисует сам Google внутри карты. Вырезать из неё одну
+          плашку и повесить на первый экран нельзя — высота плашки скачет от
+          ширины карты, и при 800 px строчка с оценкой уходит за край обрезки
+          (мерил 24.08.2026). Поэтому карта стоит целиком, как ей и положено. */}
       <Section pad="tight" className="bg-white">
         <Container>
-          <h2 className="text-3xl font-bold sm:text-4xl">Карточка школы в Google</h2>
+          <h2 className="text-3xl font-bold sm:text-4xl">Где мы находимся</h2>
           <Squiggle long className="mt-4" />
           <p className="mt-5 max-w-2xl text-muted">
-            Оценку и число отзывов на карте показывает сам Google — там они
-            всегда свежие. Нажмите на плашку, чтобы открыть карточку и прочитать
-            все отзывы до последнего.
+            Наша база находится в тихой и спокойной бухте. Даже в дождливый
+            сезон у нас спокойное море, так что мы можем круглый год обучать вас
+            кататься на фойлах.
           </p>
 
           <div className="mt-8 overflow-hidden rounded-3xl border border-line shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)]">
@@ -246,8 +411,7 @@ export default function ReviewsPage() {
             </span>
             <h2 className="mt-4 text-2xl font-bold sm:text-3xl">Уже катались с нами?</h2>
             <p className="mx-auto mt-3 max-w-xl text-white/90">
-              Будем рады вашему отзыву — он откроется прямо в нашей карточке
-              Google Maps.
+              Будем рады вашему отзыву на Google Maps.
             </p>
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               {/* Ведём в карточку школы, а не на /contacts: человек дочитал
