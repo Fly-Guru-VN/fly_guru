@@ -20,6 +20,7 @@ import {
 } from "@/lib/phone";
 import { subscriptionExpiry, vnIsoAt, vnToday } from "@/lib/dates";
 import { minutesLeft } from "@/lib/subscriptions";
+import { parseRiders, writeOffNote } from "@/lib/riders";
 import { sendInstructorsBookingAlert } from "@/lib/telegram";
 import { pickChannel } from "@/lib/channels";
 import { DICT_LABEL, type DictTable } from "@/lib/dictionaries";
@@ -1014,14 +1015,17 @@ export async function writeOffMinutesAction(
   const supabase = await officeClient(user);
 
   const subId = String(formData.get("subscriptionId") ?? "");
-  const minutes = Math.trunc(Number(formData.get("minutes")));
+  const duration = Math.trunc(Number(formData.get("minutes")));
+  // Сколько человек каталось одновременно с ОДНОГО абонемента (см. parseRiders).
+  const riders = parseRiders(formData.get("riders"));
   const date = String(formData.get("date") ?? "").trim();
   const instructorId = String(formData.get("instructorId") ?? "");
   // Пометка к прокату — необязательная, уходит в примечание сессии.
   const comment = String(formData.get("comment") ?? "").trim();
-  if (!subId || !Number.isFinite(minutes) || minutes <= 0) {
+  if (!subId || !Number.isFinite(duration) || duration <= 0) {
     return { error: "Минуты — целое число больше нуля." };
   }
+  const minutes = duration * riders;
   if (!DAY_RE.test(date)) return { error: "Укажите дату проката." };
 
   const { data: sub } = await supabase
@@ -1038,7 +1042,8 @@ export async function writeOffMinutesAction(
   // оформляется отдельной сессией по прайсу проката.
   const left = await minutesLeft(supabase, sub);
   if (minutes > left) {
-    return { error: `Остаток ${left} мин — списать ${minutes} нельзя.` };
+    const asked = riders > 1 ? `${minutes} (${duration} × ${riders})` : `${minutes}`;
+    return { error: `Остаток ${left} мин — списать ${asked} нельзя.` };
   }
 
   const { error } = await supabase.from("sessions").insert({
@@ -1048,7 +1053,7 @@ export async function writeOffMinutesAction(
     amount: 0, // прокат по абонементу — деньги получены при его продаже
     instructor_id: instructorId || null,
     created_by: user.id,
-    note: comment || null,
+    note: writeOffNote(riders, comment),
     date,
   });
   if (error) return { error: `Не удалось списать: ${error.message}` };

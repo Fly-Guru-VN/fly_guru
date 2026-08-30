@@ -8,6 +8,7 @@ import {
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { Spinner } from "@/components/Spinner";
+import { RIDERS_MAX } from "@/lib/riders";
 
 // Клиентские кусочки страницы абонементов: две формы с ошибками без
 // перезагрузки (useActionState). Кнопка с confirm() — в ../ConfirmSubmit.
@@ -260,23 +261,50 @@ export function WriteOffMinutesForm({
     error: null,
   });
 
+  // Длительность и число катавшихся — в состоянии ради подсказки «спишется
+  // 60 мин»: с абонемента уходит длительность × райдеров, и без строки под
+  // полями кажется, что программа списала вдвое больше введённого.
+  const [duration, setDuration] = useState("");
+  const [riders, setRiders] = useState(1);
+  const parsed = Math.trunc(Number(duration));
+  const total = Number.isFinite(parsed) && parsed > 0 ? parsed * riders : 0;
+
   return (
     <form action={formAction} className="mt-3 space-y-2">
       <input type="hidden" name="subscriptionId" value={subscriptionId} />
-      {/* Четыре поля в две ровные пары: минуты + дата, инструктор +
-          комментарий. Раньше «Инструктор» растягивался на всю ширину и
-          болтался один — места под пометку не было вовсе. */}
+      {/* Пять полей: минуты + катающиеся, дата + инструктор, комментарий во всю
+          ширину. Раньше «Инструктор» растягивался на всю ширину и болтался
+          один — места под пометку не было вовсе. */}
       <div className="grid grid-cols-2 items-end gap-2">
         <label className="min-w-0 text-xs text-muted">
-          Откатал, мин
+          Откатал, мин <span className="text-muted/70">на одного</span>
           <input
             type="number"
             name="minutes"
             min={1}
             placeholder="45"
             required
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
             className={`mt-1 ${inputClass}`}
           />
+        </label>
+        {/* Сколько человек каталось одновременно с этого абонемента: двое по
+            30 минут — 60 минут с абонемента. */}
+        <label className="min-w-0 text-xs text-muted">
+          Катающихся
+          <select
+            name="riders"
+            value={riders}
+            onChange={(e) => setRiders(Number(e.target.value))}
+            className={`mt-1 ${inputClass}`}
+          >
+            {Array.from({ length: RIDERS_MAX }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="min-w-0 text-xs text-muted">
           Дата проката
@@ -302,7 +330,7 @@ export function WriteOffMinutesForm({
         </label>
         {/* Необязательная пометка к прокату — уходит в примечание сессии, то
             же поле, что инструктор видит в «Сессиях». */}
-        <label className="min-w-0 text-xs text-muted">
+        <label className="col-span-2 min-w-0 text-xs text-muted">
           Комментарий
           <input
             type="text"
@@ -312,6 +340,11 @@ export function WriteOffMinutesForm({
           />
         </label>
       </div>
+      {riders > 1 && total > 0 && (
+        <p className="text-xs text-muted">
+          Спишется <b>{total} мин</b> ({parsed} × {riders}).
+        </p>
+      )}
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
       <button
         type="submit"

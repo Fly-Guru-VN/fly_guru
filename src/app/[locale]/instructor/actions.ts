@@ -22,6 +22,7 @@ import { vnToday, subscriptionExpiry } from "@/lib/dates";
 import { checkRecordDate } from "@/lib/recordDate";
 import { isPaymentClaim } from "@/lib/paymentClaim";
 import { minutesLeft } from "@/lib/subscriptions";
+import { parseRiders, writeOffNote } from "@/lib/riders";
 import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
 import {
@@ -680,14 +681,18 @@ export async function writeOffAction(
 
   const clientId = String(formData.get("clientId") ?? "");
   const clientName = String(formData.get("clientName") ?? "");
-  const minutes = Math.floor(Number(formData.get("minutes")));
+  const duration = Math.floor(Number(formData.get("minutes")));
+  // Сколько человек каталось одновременно с ОДНОГО абонемента: двое по 30
+  // минут — это 60 минут с абонемента (правило начальника от 30.08.2026).
+  const riders = parseRiders(formData.get("riders"));
   // Пометка к прокату — необязательная, уходит в примечание сессии (то же
   // поле, что заполняет админ в своей форме списания).
   const comment = String(formData.get("comment") ?? "").trim();
 
-  if (!clientId || !Number.isFinite(minutes) || minutes <= 0) {
+  if (!clientId || !Number.isFinite(duration) || duration <= 0) {
     return { error: "Укажите, сколько минут списать." };
   }
+  const minutes = duration * riders;
 
   // Последний активный абонемент клиента.
   const { data: sub } = await supabase
@@ -719,8 +724,11 @@ export async function writeOffAction(
   const left = await minutesLeft(supabase, sub);
 
   if (minutes > left) {
+    // При парном катании называем и раскладку: «списать 60» после введённых
+    // 30 выглядит опечаткой, пока не видно, что минуты умножились на райдеров.
+    const asked = riders > 1 ? `${minutes} (${duration} × ${riders})` : `${minutes}`;
     return {
-      error: `Остаток ${left} мин — списать ${minutes} нельзя. Превышение оформите отдельной сессией по прайсу проката.`,
+      error: `Остаток ${left} мин — списать ${asked} нельзя. Превышение оформите отдельной сессией по прайсу проката.`,
     };
   }
 
@@ -733,7 +741,7 @@ export async function writeOffAction(
       amount: 0, // списание с абонемента — чека нет, комиссия не начисляется
       instructor_id: user.id,
       created_by: user.id,
-      note: comment || null,
+      note: writeOffNote(riders, comment),
       date: vnToday(),
     })
     .select("id")
