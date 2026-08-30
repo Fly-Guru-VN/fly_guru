@@ -1,31 +1,21 @@
 import type { Metadata } from "next";
-import { Container, Section, SectionHeading } from "@/components/ui";
-import { requireRole } from "@/lib/auth";
-import { logoutAction } from "../login/actions";
+import { MemberApp } from "./MemberApp";
 
-export const metadata: Metadata = { title: "Кабинет члена клуба" };
+// Кабинет клиента. Вход не по паролю, а через Telegram: страницу открывает
+// мини-приложение бота, оно же передаёт подписанные данные о том, кто пришёл
+// (см. lib/tgAuth). Поэтому здесь нет ни requireRole, ни редиректа на логин —
+// личность проверяет серверное действие при каждом запросе данных.
+//
+// Открытая в обычном браузере, страница честно скажет, что живёт в Telegram,
+// и предложит бота: без initData узнать человека невозможно.
 
-// Заглушка. Кабинет члена клуба (остаток минут, история, «приведи друга») — Этап 5.
-export default async function MemberPage() {
-  const user = await requireRole("member", "/member");
+export const metadata: Metadata = {
+  title: "Кабинет FlyGuru",
+  // В поиске ему делать нечего: без Telegram страница пустая (и /member уже
+  // закрыт в robots.ts).
+  robots: { index: false, follow: false },
+};
 
-  return (
-    <Section className="pt-10 sm:pt-14">
-      <Container>
-        <SectionHeading
-          eyebrow={`Клуб · ${user.name}`}
-          title="Кабинет в разработке"
-          subtitle="Остаток минут, история каталок и ссылка «приведи друга» появятся здесь совсем скоро."
-        />
-        <form action={logoutAction} className="mt-6">
-          <button
-            type="submit"
-            className="rounded-full border border-line px-5 py-2 text-sm font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
-          >
-            Выйти
-          </button>
-        </form>
-      </Container>
-    </Section>
-  );
+export default function MemberPage() {
+  return <MemberApp />;
 }

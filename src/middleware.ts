@@ -5,7 +5,7 @@ import { routing } from "./i18n/routing";
 
 // Middleware делает две вещи:
 // 1. next-intl: разбирает язык из URL и переписывает путь на сегмент [locale];
-// 2. защита кабинетов: /admin, /instructor, /mechanic, /smm, /member, /agent доступны только
+// 2. защита кабинетов: /admin, /instructor, /mechanic, /smm, /agent доступны только
 //    залогиненным пользователям с подходящей ролью (роль читается из JWT —
 //    app_metadata.role, без запроса в базу). Админ может заходить в любой кабинет.
 //
@@ -15,7 +15,12 @@ import { routing } from "./i18n/routing";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
-const PROTECTED = new Set(["admin", "instructor", "mechanic", "smm", "member", "agent"]);
+// /member здесь намеренно НЕТ. Это кабинет клиента, и входит он не через
+// Supabase-логин, а через Telegram: страницу открывает мини-приложение бота,
+// личность проверяет серверное действие по подписи Telegram (lib/tgAuth).
+// Оставь /member в этом списке — и каждого клиента middleware уводил бы на
+// страницу входа, где ему нечего вводить: пароля у него нет и не будет.
+const PROTECTED = new Set(["admin", "instructor", "mechanic", "smm", "agent"]);
 
 // Разработчик (0044) — тот же админ по правам, и кабинет у него админский:
 // раздела /dev не существует, он ходит в /admin. Поэтому везде, где раньше

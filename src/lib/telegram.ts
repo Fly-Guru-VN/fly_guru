@@ -114,6 +114,16 @@ export async function sendShiftReminder(kind: "open" | "close"): Promise<void> {
   await sendTelegram(chatId, text);
 }
 
+// Свободное сообщение в рабочий чат админа. Нужно там, где текст не подходит
+// ни под «новая заявка», ни под напоминание о смене: например, клиент сам
+// отменил свою запись в кабинете — это надо увидеть до того, как инструктор
+// поедет на воду.
+export async function sendStaffMessage(text: string): Promise<void> {
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!chatId) return;
+  await sendTelegram(chatId, text);
+}
+
 // Общая отправка простым текстом (без Markdown — надёжнее, ничего не надо
 // экранировать). Операцию не роняем из-за уведомления, но и не глотаем сбой
 // молча — пишем в лог, иначе «уведомление не пришло» невозможно расследовать.
