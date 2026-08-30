@@ -4,7 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Spinner } from "@/components/Spinner";
 import { SITE_URL, SUPPORT_URL } from "@/lib/site";
 import { RIDERS_MAX } from "@/lib/riders";
-import { canCancelBooking, firstBookableDay, parseTimeText } from "@/lib/bookingWindow";
+import {
+  canCancelBooking,
+  firstBookableDay,
+  isBookingOpenNow,
+  parseTimeText,
+} from "@/lib/bookingWindow";
 import type { MemberData } from "@/lib/memberCabinet";
 import { bookAction, cancelAction, loadCabinetAction } from "./actions";
 
@@ -201,6 +206,7 @@ export function MemberApp() {
       {screen === "book" && initData && (
         <BookScreen
           initData={initData}
+          onSupport={openSupport}
           onDone={async () => {
             await refresh(initData);
             setScreen("list");
@@ -273,7 +279,15 @@ function Message({
 }
 
 // ── запись ───────────────────────────────────────────────────────────────────
-function BookScreen({ initData, onDone }: { initData: string; onDone: () => void }) {
+function BookScreen({
+  initData,
+  onSupport,
+  onDone,
+}: {
+  initData: string;
+  onSupport: () => void;
+  onDone: () => void;
+}) {
   const minDay = firstBookableDay();
   const [date, setDate] = useState(minDay);
   const [time, setTime] = useState("09:00");
@@ -294,12 +308,32 @@ function BookScreen({ initData, onDone }: { initData: string; onDone: () => void
     else setError(res.error);
   };
 
+  // Ночью форму даже не показываем: сервер такую заявку всё равно не примет,
+  // а человеку честнее сразу дать кнопку поддержки, чем отказ после заполнения.
+  if (!isBookingOpenNow()) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-xl font-bold">Записаться</h1>
+        <div className={card}>
+          <p className="text-base text-muted">
+            Запись работает с 8:00 до 20:00. Сейчас закрыто — напишите в поддержку, вас
+            оформят вручную.
+          </p>
+        </div>
+        <button type="button" className={bigButton} onClick={onSupport}>
+          <span>💬 Поддержка</span>
+          <span className="text-muted">↗</span>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Записаться</h1>
       <p className="text-sm text-muted">
-        Запись принимаем до 20:00 предыдущего дня. Мы подтвердим её и напишем вам — время
-        закрепляется после подтверждения.
+        Записываем с 8:00 до 20:00 и не позднее 20:00 предыдущего дня. Мы подтвердим
+        заявку и напишем вам — время закрепляется после подтверждения.
       </p>
 
       <label className="block text-sm font-medium">

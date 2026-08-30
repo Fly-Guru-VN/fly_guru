@@ -9,7 +9,7 @@ import {
   resolveMember,
   type MemberState,
 } from "@/lib/memberCabinet";
-import { canBookOn, canCancelBooking } from "@/lib/bookingWindow";
+import { canBookOn, canCancelBooking, isBookingOpenNow } from "@/lib/bookingWindow";
 import { isRealDay } from "@/lib/bookings";
 import { minutesLeft } from "@/lib/subscriptions";
 import { parseRiders } from "@/lib/riders";
@@ -73,6 +73,14 @@ export async function bookAction(
   if ("state" in who) return { ok: false, error: BAD_AUTH };
 
   // ── правила начальника ───────────────────────────────────────────────────
+  // Ночью заявку не принимаем совсем: бронь подтверждает живой админ.
+  if (!isBookingOpenNow()) {
+    return {
+      ok: false,
+      error:
+        "Запись работает с 8:00 до 20:00. Сейчас закрыто — напишите в поддержку, вас оформят вручную.",
+    };
+  }
   if (!isRealDay(input.date)) return { ok: false, error: "Выберите дату." };
   if (!canBookOn(input.date)) {
     return {

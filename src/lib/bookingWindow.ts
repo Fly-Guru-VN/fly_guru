@@ -2,7 +2,8 @@ import { VN_OFFSET_MS } from "@/lib/dates";
 
 // Окна брони и отмены — правила начальника от 30.08.2026.
 //
-//   Записаться  — не позднее 20:00 дня, ПРЕДЫДУЩЕГО дню катания.
+//   Записаться  — не позднее 20:00 дня, ПРЕДЫДУЩЕГО дню катания,
+//                 и само окно приёма заявок открыто с 8:00 до 20:00.
 //   Отменить    — не позднее чем за час до начала.
 //
 // Функции чистые (только считают, никуда не ходят) и живут отдельным файлом
@@ -13,6 +14,7 @@ import { VN_OFFSET_MS } from "@/lib/dates";
 // Всё время считаем по Нячангу: сервер на Vercel живёт в UTC, и «20:00»
 // без явного часового пояса означало бы 03:00 вьетнамского утра.
 
+export const BOOKING_OPEN_HOUR = 8; // раньше 8 утра заявки не принимаем
 export const BOOKING_DEADLINE_HOUR = 20; // 20:00 предыдущего дня
 export const CANCEL_WINDOW_MIN = 60; // за час до начала
 
@@ -32,6 +34,17 @@ export function bookingDeadlineMs(day: string): number | null {
   if (dayStart === null) return null;
   // Минус сутки, плюс 20 часов = 20:00 предыдущего дня.
   return dayStart - 24 * 3600 * 1000 + BOOKING_DEADLINE_HOUR * 3600 * 1000;
+}
+
+// Открыт ли приём заявок ПРЯМО СЕЙЧАС. Ответ начальника (30.08.2026):
+// «промежуток записи с 8 утра до 8 вечера, после 8 — только через поддержку».
+// Это отдельное правило от дедлайна: дедлайн говорит, НА КАКОЙ день можно
+// записаться, а это — в КАКИЕ часы кабинет вообще принимает заявку. Ночью
+// человек не запишется даже на следующую неделю: живой админ всё равно спит,
+// а бронь у нас подтверждает он.
+export function isBookingOpenNow(nowMs: number = Date.now()): boolean {
+  const vnHour = new Date(nowMs + VN_OFFSET_MS).getUTCHours();
+  return vnHour >= BOOKING_OPEN_HOUR && vnHour < BOOKING_DEADLINE_HOUR;
 }
 
 export function canBookOn(day: string, nowMs: number = Date.now()): boolean {

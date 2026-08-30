@@ -5,6 +5,7 @@ import {
   canBookOn,
   canCancelBooking,
   firstBookableDay,
+  isBookingOpenNow,
   parseTimeText,
   vnMomentMs,
 } from "@/lib/bookingWindow";
@@ -25,6 +26,20 @@ test("вьетнамское время переводится в UTC со сд�
 
 test("крайний срок брони — 20:00 предыдущего дня по Нячангу", () => {
   assert.equal(bookingDeadlineMs("2026-09-02"), vn("2026-09-01", "20:00"));
+});
+
+test("окно приёма заявок — с 8:00 до 20:00 по Нячангу", () => {
+  // 7:59 — ещё спим.
+  assert.equal(isBookingOpenNow(vn("2026-09-01", "07:59")), false);
+  // 8:00 — открылись.
+  assert.equal(isBookingOpenNow(vn("2026-09-01", "08:00")), true);
+  assert.equal(isBookingOpenNow(vn("2026-09-01", "19:59")), true);
+  // 20:00 — закрылись, дальше только поддержка.
+  assert.equal(isBookingOpenNow(vn("2026-09-01", "20:00")), false);
+  assert.equal(isBookingOpenNow(vn("2026-09-01", "23:30")), false);
+  // Полночь по Нячангу — это ещё предыдущие сутки по UTC: как раз тот случай,
+  // ради которого тест и написан.
+  assert.equal(isBookingOpenNow(vn("2026-09-01", "00:30")), false);
 });
 
 test("до 20:00 записаться на завтра можно, после — уже нет", () => {
