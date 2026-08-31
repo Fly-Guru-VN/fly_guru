@@ -11,3 +11,8 @@ export const SITE_URL = "https://www.flyguru.pro";
 
 // Живой человек, к которому ведёт кнопка «Поддержка» в кабинете клиента.
 export const SUPPORT_URL = "https://t.me/davidnaumenko";
+
+// Клиентский бот — единственная дверь в кабинет. Нужен на экране «Кабинет живёт
+// в Telegram»: туда попадают те, кто открыл /member в обычном браузере, и без
+// ссылки на бота этот экран — тупик.
+export const CLIENT_BOT_URL = "https://t.me/flygurru_bot";

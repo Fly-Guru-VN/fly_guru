@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Spinner } from "@/components/Spinner";
-import { SITE_URL, SUPPORT_URL } from "@/lib/site";
+import { CLIENT_BOT_URL, SITE_URL, SUPPORT_URL } from "@/lib/site";
 import { RIDERS_MAX } from "@/lib/riders";
 import {
   canCancelBooking,
@@ -119,6 +119,11 @@ export function MemberApp() {
   const openSite = () => window.Telegram?.WebApp?.openLink(SITE_URL) ?? window.open(SITE_URL);
   const openSupport = () =>
     window.Telegram?.WebApp?.openTelegramLink(SUPPORT_URL) ?? window.open(SUPPORT_URL);
+  // Сюда жмут только из обычного браузера (в телеграме бот уже открыт), поэтому
+  // на деле сработает window.open — но ветку через WebApp оставляем, чтобы
+  // кнопка вела себя одинаково, где бы её ни показали.
+  const openBot = () =>
+    window.Telegram?.WebApp?.openTelegramLink(CLIENT_BOT_URL) ?? window.open(CLIENT_BOT_URL);
 
   if (phase.kind === "loading") {
     return (
@@ -134,6 +139,7 @@ export function MemberApp() {
         phase={phase}
         onSupport={openSupport}
         onSite={openSite}
+        onBot={openBot}
       />
     );
   }
@@ -233,10 +239,12 @@ function Message({
   phase,
   onSupport,
   onSite,
+  onBot,
 }: {
   phase: Phase;
   onSupport: () => void;
   onSite: () => void;
+  onBot: () => void;
 }) {
   const texts: Record<string, { title: string; body: string }> = {
     outside: {
@@ -265,6 +273,14 @@ function Message({
         <p className="mt-2 text-base text-muted">{t.body}</p>
       </div>
       <div className="mt-4 space-y-3">
+        {/* Только на экране «зашёл мимо телеграма»: в остальных случаях человек
+            уже внутри бота, и вести его в бота из бота незачем. */}
+        {phase.kind === "outside" && (
+          <button type="button" className={bigButton} onClick={onBot}>
+            <span>✈️ Открыть бота</span>
+            <span className="text-muted">↗</span>
+          </button>
+        )}
         <button type="button" className={bigButton} onClick={onSupport}>
           <span>💬 Поддержка</span>
           <span className="text-muted">↗</span>
