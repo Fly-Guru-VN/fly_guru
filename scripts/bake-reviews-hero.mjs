@@ -164,23 +164,75 @@ for (let pass = 0; pass < 3; pass++) {
   }
 }
 
-// ── 5. Обрезка прозрачных полей и запись ──────────────────────────────────
+// ── 5. Обрезка полей, твёрдые кромки сверху и справа, запись ──────────────
+// Сначала обычная обрезка прозрачных полей (в исходнике их 407 px слева).
+const trimmed = await sharp(data, { raw: { width: W, height: H, channels: C } })
+  .trim({ threshold: 0 })
+  .raw()
+  .toBuffer({ resolveWithObject: true });
+
+const TW = trimmed.info.width;
+const TH = trimmed.info.height;
+const TC = trimmed.info.channels;
+const tAt = (x, y) => (y * TW + x) * TC;
+
+// Верх и правый край кадра — ПРЯМЫЕ СРЕЗЫ композиции: на странице кадр встаёт
+// встык под шапку и уходит за правую кромку окна. У среза остаётся сглаженная
+// полупрозрачная кромка в 2–3 px, и на белом фоне страницы она читается
+// бледной ниточкой вдоль края (David поймал её на ПК 01.09.2026). Срезаем её.
+//
+// Левый край и низ НЕ трогаем: там силуэт — скруглённый угол и волна, их
+// сглаженная кромка как раз и нужна, иначе края станут ступенчатыми.
+//
+// Считаем по МЕДИАНЕ, а не по максимуму: в крайнем ряду попадаются отдельные
+// плотные пиксели, и по максимуму кромка выглядела бы твёрдой, хотя почти вся
+// линия прозрачна на три четверти.
+const SOLID = 250;
+const median = (vals) => {
+  if (!vals.length) return 0;
+  vals.sort((a, b) => a - b);
+  return vals[vals.length >> 1];
+};
+const rowAlpha = (y) => {
+  const v = [];
+  for (let x = 0; x < TW; x++) {
+    const a = trimmed.data[tAt(x, y) + 3];
+    if (a > 0) v.push(a);
+  }
+  return median(v);
+};
+const colAlpha = (x) => {
+  const v = [];
+  for (let y = 0; y < TH; y++) {
+    const a = trimmed.data[tAt(x, y) + 3];
+    if (a > 0) v.push(a);
+  }
+  return median(v);
+};
+
+let cutTop = 0;
+while (cutTop < 10 && rowAlpha(cutTop) < SOLID) cutTop++;
+let cutRight = 0;
+while (cutRight < 10 && colAlpha(TW - 1 - cutRight) < SOLID) cutRight++;
+console.log(`мягкая кромка: сверху ${cutTop} px, справа ${cutRight} px — срезаем`);
+
 // Обрезка и кодирование — одной цепочкой: если сначала сложить webp в буфер, а
 // потом отдать его новому sharp'у на запись, файл кодируется ВТОРОЙ раз уже с
 // качеством по умолчанию, и quality: 90 пропадает впустую.
-const written = await sharp(data, { raw: { width: W, height: H, channels: C } })
-  .trim({ threshold: 0 })
+const written = await sharp(trimmed.data, { raw: { width: TW, height: TH, channels: TC } })
+  .extract({ left: 0, top: cutTop, width: TW - cutRight, height: TH - cutTop })
   .webp({ quality: 90 })
   .toFile(OUT);
 
 console.log(`готово: ${OUT} — ${written.width}×${written.height}, ${(written.size / 1024) | 0} КБ`);
+console.log(`пропорция для min-h: 52 / (${written.width}/${written.height}) = ${(52 / (written.width / written.height)).toFixed(2)}vw`);
 
 // ── 6. Координаты плашек для page.tsx ─────────────────────────────────────
 // Печатаем центры рамок в процентах от ОБРЕЗАННОГО кадра — ровно в том виде,
 // в каком они лежат в HERO_CHIPS. Обрезка сдвигает начало координат, поэтому
 // вычитаем её отступы (sharp отдаёт их отрицательными).
-const offX = -(written.trimOffsetLeft ?? 0);
-const offY = -(written.trimOffsetTop ?? 0);
+const offX = -(trimmed.info.trimOffsetLeft ?? 0);
+const offY = -(trimmed.info.trimOffsetTop ?? 0) + cutTop;
 console.log(`рамок найдено: ${FRAMES.length}. Центры для HERO_CHIPS:`);
 for (const f of FRAMES) {
   const cx = ((f.x0 + f.x1 + 1) / 2 - offX) / written.width;
