@@ -97,7 +97,10 @@ export default async function ContactsPage() {
         </div>
 
         <Container className="relative">
-          <div className="grid items-center gap-10 pb-12 pt-8 lg:grid-cols-2 lg:gap-12 lg:pb-16 lg:pt-12">
+          {/* items-stretch: обе колонки одной высоты, и низ левой части ровно
+              совпадает с низом карты — так просил David 03.09.2026. Высоту
+              задаёт та колонка, что выше: обычно левая с плашками. */}
+          <div className="grid items-stretch gap-10 pb-12 pt-8 lg:grid-cols-2 lg:gap-12 lg:pb-16 lg:pt-12">
             {/* ── Левая колонка: кто мы и как до нас достучаться ── */}
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-primary">
@@ -176,25 +179,14 @@ export default async function ContactsPage() {
                   Нячанг · Maryna Beach Club
                 </li>
               </ul>
-            </div>
 
-            {/* ── Правая колонка: карта с плашками ── */}
-            {/* От lg плашки и кнопка ЛЕЖАТ НА карте (absolute), как в макете.
-                Ниже lg наложения нет: карта, под ней плашки сеткой, дальше
-                кнопка — иначе на телефоне плашки закрыли бы карту целиком.
-                Разметка одна, переключается классами. */}
-            <div className="relative">
-              <div className="overflow-hidden rounded-3xl border border-line shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)]">
-                <iframe
-                  title="FlyGuru на карте — Maryna Beach Club, Нячанг"
-                  src={contacts.mapEmbed}
-                  className="block h-[300px] w-full sm:h-[380px] lg:h-[540px]"
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-              </div>
-
-              <ul className="mt-4 grid gap-3 sm:grid-cols-3 lg:absolute lg:left-5 lg:top-5 lg:mt-0 lg:w-[15rem] lg:grid-cols-1">
+              {/* Мессенджеры — здесь, а не на карте. На карте они закрывали
+                  собственные кнопки Google («Открыть в Картах» сверху, логотип
+                  и обзор улицы снизу): дотянуться до них стилями нельзя, карта
+                  идёт в окне с чужого домена, а прятать логотип запрещают
+                  правила Google. Поэтому вся связь собрана слева, справа —
+                  чистая карта (решение David 03.09.2026). */}
+              <ul className="mt-6 grid gap-3 sm:grid-cols-3">
                 {MESSENGERS.map((m) => (
                   <li key={m.key}>
                     <TrackedLink
@@ -202,15 +194,12 @@ export default async function ContactsPage() {
                       external
                       newTab
                       event="contact_click"
-                      data={{ channel: m.key, place: "contacts-map" }}
-                      className="group flex h-full items-start gap-3 rounded-2xl bg-white/95 p-3.5 shadow-[0_20px_44px_-26px_rgba(15,34,51,0.65)] backdrop-blur-sm transition hover:shadow-[0_24px_50px_-24px_rgba(15,34,51,0.7)] active:scale-[0.99]"
+                      data={{ channel: m.key, place: "contacts-hero" }}
+                      className="group flex h-full items-start gap-3 rounded-2xl border border-line bg-surface p-3.5 transition hover:border-primary/40 hover:shadow-[0_20px_44px_-26px_rgba(15,34,51,0.55)] active:scale-[0.99]"
                     >
                       <AppIcon app={m.app} className="h-10 w-10" />
                       <span className="min-w-0">
                         <span className="block font-bold leading-tight">{m.title}</span>
-                        <span className="mt-0.5 block text-xs text-muted">
-                          {contacts.phone.display}
-                        </span>
                         <span className="mt-1.5 inline-flex items-center gap-1 text-sm font-semibold text-primary group-hover:text-primary-strong">
                           Написать
                           <IconArrowRight aria-hidden className="h-4 w-4" />
@@ -220,7 +209,26 @@ export default async function ContactsPage() {
                   </li>
                 ))}
               </ul>
+            </div>
 
+            {/* ── Правая колонка: карта ── */}
+            {/* Карта тянется на высоту всей строки, поэтому её нижний край
+                совпадает с нижним краем левой колонки. min-h нужен на случай,
+                когда левая колонка короче карты (узкие ноутбуки). */}
+            <div className="relative lg:h-full">
+              <div className="h-full overflow-hidden rounded-3xl border border-line shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)]">
+                <iframe
+                  title="FlyGuru на карте — Maryna Beach Club, Нячанг"
+                  src={contacts.mapEmbed}
+                  className="block h-[300px] w-full sm:h-[380px] lg:h-full lg:min-h-[480px]"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+
+              {/* Единственное, что лежит НА карте. По центру и над надписью
+                  Google: слева от неё логотип и окошко обзора улицы, справа —
+                  строка «Картографические данные», и закрывать их нельзя. */}
               <TrackedLink
                 href={contacts.mapLink}
                 external
@@ -228,11 +236,11 @@ export default async function ContactsPage() {
                 event="contact_click"
                 data={{ channel: "maps", place: "contacts-map" }}
                 className={buttonClasses({
-                  // lg:bottom-10, а не bottom-5: у самого низа карты Google
-                  // рисует свой логотип и строку «Map data ©», и кнопка на
-                  // bottom-5 ложилась ровно на них (мерил 03.09.2026).
+                  // whitespace-nowrap обязателен: у absolute-элемента со сдвигом
+                  // от левого края ширина считается от ОСТАТКА карты, и на
+                  // телефоне подпись ломалась на две строки (мерил 03.09.2026).
                   className:
-                    "mt-4 w-full sm:w-auto lg:absolute lg:bottom-10 lg:left-5 lg:mt-0 lg:shadow-[0_20px_44px_-26px_rgba(15,34,51,0.65)]",
+                    "absolute bottom-9 left-1/2 -translate-x-1/2 whitespace-nowrap shadow-[0_20px_44px_-26px_rgba(15,34,51,0.65)]",
                 })}
               >
                 <IconPin aria-hidden className="h-5 w-5" />
