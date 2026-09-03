@@ -8,6 +8,11 @@
 // Запуск:
 //   node scripts/trace-icon.mjs photo_video/иконки/icon_foil.png
 //   node scripts/trace-icon.mjs photo_video/иконки/*.png     (несколько сразу)
+//   node scripts/trace-icon.mjs --top=0.64 photo_video/иконки/icon_tandem.png
+//
+// --top=<доля> обводит только верхнюю часть рисунка. Нужно, когда низ картинки
+// съедает место: у тандема мачта с крылом занимала половину высоты, и фигурки
+// в коробке 24×24 выходили вдвое мельче соседних иконок.
 //
 // Печатает готовое содержимое <path d="…" /> — остаётся вставить в icons.tsx.
 //
@@ -23,8 +28,13 @@ const EPS = 0.9; // насколько упрощать ломаную, в то�
 const BOX = 24; // коробка иконки, как у остальных в icons.tsx
 
 // Чёрно-белая маска: что фигура, а что фон.
-async function readMask(src) {
-  const { data, info } = await sharp(src).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+async function readMask(src, top) {
+  const img = sharp(src).ensureAlpha();
+  if (top < 1) {
+    const meta = await img.metadata();
+    img.extract({ left: 0, top: 0, width: meta.width, height: Math.round(meta.height * top) });
+  }
+  const { data, info } = await img.raw().toBuffer({ resolveWithObject: true });
   const { width: w, height: h } = info;
 
   // Часть иконок пришла с прозрачным фоном, часть — с залитым чёрным. Смотрим
@@ -196,8 +206,8 @@ const area = (p) =>
     }, 0) / 2,
   );
 
-export async function traceIcon(src) {
-  const { m, w, h, byAlpha } = await readMask(src);
+export async function traceIcon(src, top = 1) {
+  const { m, w, h, byAlpha } = await readMask(src, top);
   const box = bounds(m, w, h);
   const small = shrink(m, w, h, box);
   const k = BOX / Math.max(small.w, small.h);
@@ -222,13 +232,16 @@ export async function traceIcon(src) {
   return { d, loops: loops.length, points: loops.reduce((s, l) => s + l.length, 0), byAlpha };
 }
 
-const files = process.argv.slice(2);
+const args = process.argv.slice(2);
+const topArg = args.find((a) => a.startsWith("--top="));
+const top = topArg ? Number(topArg.slice(6)) : 1;
+const files = args.filter((a) => !a.startsWith("--"));
 if (!files.length) {
   console.log("Использование: node scripts/trace-icon.mjs <png> [<png> …]");
   process.exit(1);
 }
 for (const f of files) {
-  const r = await traceIcon(f);
+  const r = await traceIcon(f, top);
   console.error(`${f}: петель ${r.loops}, точек ${r.points}, ${r.d.length} байт, фон ${r.byAlpha ? "прозрачный" : "залитый"}`);
   console.log(`<path d="${r.d}" />`);
 }
