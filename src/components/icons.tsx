@@ -356,24 +356,8 @@ export function IconWhatsApp(props: IconProps) {
 }
 
 // Бумажный самолётик — Telegram.
-export function IconTelegram(props: IconProps) {
-  return (
-    <svg {...base} {...props}>
-      <path d="M20.8 4.2 3.4 11a.4.4 0 0 0 0 .8l4.4 1.4 1.7 5a.4.4 0 0 0 .7.2l2.3-2.5 4.1 3a.4.4 0 0 0 .6-.2l3.9-14a.4.4 0 0 0-.3-.5Z" />
-      <path d="m7.8 13.2 10.3-7.4-6 8.8-.2 3.9" />
-    </svg>
-  );
-}
 
 // «Z» в скруглённом квадрате — Zalo.
-export function IconZalo(props: IconProps) {
-  return (
-    <svg {...base} {...props}>
-      <path d="M20.5 12.6c0 4.1-3.8 6.9-8.5 6.9-1 0-2-.1-2.9-.4l-5.6 1.4 1.6-3.5a6.6 6.6 0 0 1-1.6-4.4c0-4.1 3.8-7.6 8.5-7.6s8.5 3.5 8.5 7.6Z" />
-      <path d="M9.2 9.9h5.4l-5.4 5.2h5.6" />
-    </svg>
-  );
-}
 
 // Конверт — почта.
 export function IconMail(props: IconProps) {
@@ -386,46 +370,12 @@ export function IconMail(props: IconProps) {
 }
 
 // Скруглённый квадрат, объектив и точка вспышки — Instagram.
-export function IconInstagram(props: IconProps) {
-  return (
-    <svg {...base} {...props}>
-      <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <path d="M16.9 7.1h.01" strokeWidth="2.4" />
-    </svg>
-  );
-}
 
 // Экран с треугольником — YouTube.
-export function IconYouTube(props: IconProps) {
-  return (
-    <svg {...base} {...props}>
-      <rect x="2.5" y="5.5" width="19" height="13" rx="4" />
-      <path d="M10.4 9.4v5.2l4.4-2.6-4.4-2.6Z" />
-    </svg>
-  );
-}
 
 // Нота с «хвостом» — TikTok.
-export function IconTikTok(props: IconProps) {
-  return (
-    <svg {...base} {...props}>
-      <path d="M14.2 3.5v10.4a3.6 3.6 0 1 1-3.6-3.6c.4 0 .8 0 1.1.2" />
-      <path d="M14.2 3.5c.4 2.3 2 4 4.3 4.2" />
-    </svg>
-  );
-}
 
 // Буква «f» в скруглённом квадрате — Facebook.
-export function IconFacebook(props: IconProps) {
-  return (
-    <svg {...base} {...props}>
-      <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
-      <path d="M14.8 8.2h-1.2c-.9 0-1.5.6-1.5 1.5v9" />
-      <path d="M9.8 12.4h4.6" />
-    </svg>
-  );
-}
 
 // Ценник — вкладка «Прайс» в нижней панели телефона.
 export function IconTag(props: IconProps) {

@@ -42,10 +42,12 @@ export const contacts = {
   hours: "Ежедневно 8:30 – 18:00",
 } as const;
 
+// app — какой логотип рисовать (см. components/AppIcon.tsx). Лежит здесь, а не
+// на странице: тот же список рисует и подвал на каждой странице сайта.
 export const socials = [
-  { name: "Instagram", href: "https://www.instagram.com/flyguru.club/" },
-  { name: "YouTube", href: "https://www.youtube.com/@fly_guru" },
-  { name: "TikTok", href: "https://www.tiktok.com/@denisflyguru" },
-  { name: "Facebook", href: "https://www.facebook.com/profile.php?id=61585234337399" },
-  { name: "Telegram-канал", href: "https://t.me/flyguru_club" },
+  { name: "Instagram", app: "instagram", href: "https://www.instagram.com/flyguru.club/" },
+  { name: "YouTube", app: "youtube", href: "https://www.youtube.com/@fly_guru" },
+  { name: "TikTok", app: "tiktok", href: "https://www.tiktok.com/@denisflyguru" },
+  { name: "Facebook", app: "facebook", href: "https://www.facebook.com/profile.php?id=61585234337399" },
+  { name: "Telegram-канал", app: "telegram", href: "https://t.me/flyguru_club" },
 ] as const;

@@ -4,6 +4,7 @@ import { NAV_LINKS } from "./nav";
 import { IconPhone, IconChat, IconPin } from "./icons";
 import { TrackedLink } from "./TrackedLink";
 import { contacts, socials } from "@/content/contacts";
+import { AppIcon } from "./AppIcon";
 
 // Футер: навигация + контакты/соцсети/мессенджеры.
 // Данные — из src/content/contacts.ts.
@@ -100,7 +101,10 @@ export function SiteFooter() {
               </TrackedLink>
             </li>
           </ul>
-          <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+          {/* Соцсети — фирменными значками, а не словами: в логотип на телефоне
+              попадают пальцем с первого раза, а мелкие ссылки в строчку
+              приходилось выцеливать. Название остаётся для читалки экрана. */}
+          <div className="mt-4 flex flex-wrap gap-3">
             {socials.map((s) => (
               <TrackedLink
                 key={s.name}
@@ -112,9 +116,10 @@ export function SiteFooter() {
                 // приводим к нижнему регистру, чтобы в отчёте не появлялись
                 // две строки на одну и ту же ссылку.
                 data={{ channel: s.name.toLowerCase(), place: "footer" }}
-                className="text-primary hover:text-primary-strong"
+                ariaLabel={s.name}
+                className="rounded-xl transition-transform hover:-translate-y-0.5 active:scale-95"
               >
-                {s.name}
+                <AppIcon app={s.app} className="h-9 w-9" />
               </TrackedLink>
             ))}
           </div>

@@ -5,6 +5,7 @@ import { Squiggle } from "@/components/Squiggle";
 import { Marquee } from "@/components/Marquee";
 import { BookBtn } from "@/components/BookBtn";
 import { TrackedLink } from "@/components/TrackedLink";
+import { AppIcon } from "@/components/AppIcon";
 import { JsonLd } from "@/components/JsonLd";
 import { businessSchema, priceRangeLabel } from "@/lib/schema";
 import { getSiteServices } from "@/lib/services";
@@ -15,13 +16,7 @@ import {
   IconChat,
   IconArrowRight,
   IconWhatsApp,
-  IconTelegram,
-  IconZalo,
   IconMail,
-  IconInstagram,
-  IconYouTube,
-  IconTikTok,
-  IconFacebook,
 } from "@/components/icons";
 import { contacts, socials } from "@/content/contacts";
 
@@ -40,23 +35,23 @@ export const dynamic = "force-static"; // статичная страница, �
 // Ничего сверх того, что лежит в src/content/contacts.ts, страница не обещает:
 // часы, адрес, каналы — оттуда, правятся в одном месте.
 
-// Значок соцсети и её адрес «как в приложении»: имя канала человек ищет
-// глазами быстрее, чем длинную ссылку. Ключ — имя из списка socials.
-const SOCIAL_META = {
-  Instagram: { icon: IconInstagram, handle: "@flyguru.club" },
-  YouTube: { icon: IconYouTube, handle: "@fly_guru" },
-  TikTok: { icon: IconTikTok, handle: "@denisflyguru" },
-  Facebook: { icon: IconFacebook, handle: "FlyGuru" },
-  "Telegram-канал": { icon: IconTelegram, handle: "@flyguru_club" },
-} as const;
+// Адрес соцсети «как в приложении»: имя канала человек ищет глазами быстрее,
+// чем длинную ссылку. Ключ — имя из списка socials, логотип лежит там же.
+const SOCIAL_HANDLE: Record<string, string> = {
+  Instagram: "@flyguru.club",
+  YouTube: "@fly_guru",
+  TikTok: "@denisflyguru",
+  Facebook: "FlyGuru",
+  "Telegram-канал": "@flyguru_club",
+};
 
 // Мессенджеры плашками на карте — ровно три, как в макете. Порядок по частоте:
 // большая часть заявок приходит в WhatsApp.
 const MESSENGERS = [
-  { key: "whatsapp", icon: IconWhatsApp, title: "WhatsApp", href: contacts.phone.whatsapp },
-  { key: "telegram", icon: IconTelegram, title: "Telegram", href: contacts.telegram },
-  { key: "zalo", icon: IconZalo, title: "Zalo", href: contacts.zalo },
-];
+  { key: "whatsapp", app: "whatsapp", title: "WhatsApp", href: contacts.phone.whatsapp },
+  { key: "telegram", app: "telegram", title: "Telegram", href: contacts.telegram },
+  { key: "zalo", app: "zalo", title: "Zalo", href: contacts.zalo },
+] as const;
 
 export default async function ContactsPage() {
   // Вилка цен для разметки — из базы, как и на главной (см. lib/schema.ts).
@@ -210,12 +205,7 @@ export default async function ContactsPage() {
                       data={{ channel: m.key, place: "contacts-map" }}
                       className="group flex h-full items-start gap-3 rounded-2xl bg-white/95 p-3.5 shadow-[0_20px_44px_-26px_rgba(15,34,51,0.65)] backdrop-blur-sm transition hover:shadow-[0_24px_50px_-24px_rgba(15,34,51,0.7)] active:scale-[0.99]"
                     >
-                      <span
-                        aria-hidden
-                        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-white"
-                      >
-                        <m.icon className="h-5 w-5" />
-                      </span>
+                      <AppIcon app={m.app} className="h-10 w-10" />
                       <span className="min-w-0">
                         <span className="block font-bold leading-tight">{m.title}</span>
                         <span className="mt-0.5 block text-xs text-muted">
@@ -266,9 +256,7 @@ export default async function ContactsPage() {
           </p>
 
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {socials.map((s) => {
-              const meta = SOCIAL_META[s.name];
-              return (
+            {socials.map((s) => (
                 <TrackedLink
                   key={s.name}
                   href={s.href}
@@ -281,17 +269,11 @@ export default async function ContactsPage() {
                   data={{ channel: s.name.toLowerCase(), place: "contacts" }}
                   className="flex flex-col items-center gap-2 rounded-3xl border border-line bg-surface px-3 py-5 text-center transition-colors hover:border-primary/40"
                 >
-                  <span
-                    aria-hidden
-                    className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"
-                  >
-                    <meta.icon className="h-6 w-6" />
-                  </span>
+                  <AppIcon app={s.app} className="h-12 w-12" />
                   <span className="text-sm font-bold leading-tight">{s.name}</span>
-                  <span className="break-all text-xs text-muted">{meta.handle}</span>
+                  <span className="break-all text-xs text-muted">{SOCIAL_HANDLE[s.name]}</span>
                 </TrackedLink>
-              );
-            })}
+            ))}
           </div>
         </Container>
       </Section>
