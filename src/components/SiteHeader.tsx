@@ -137,7 +137,7 @@ export function SiteHeader() {
         <nav className="hidden items-center gap-1 min-[960px]:flex">
           <SlidingHighlight
             activeKey={NAV_LINKS.find((l) => isCurrent(l.href))?.href ?? null}
-            pillClassName="rounded-full bg-white/20"
+            pillClassName="bg-white/20"
             followHover
             className="flex items-center gap-1"
           >
