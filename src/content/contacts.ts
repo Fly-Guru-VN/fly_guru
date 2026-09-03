@@ -38,7 +38,15 @@ export const contacts = {
     "https://www.google.com/maps/place//data=!4m3!3m2!1s0x31706942a733ab3f:0xa675909174d42e6d!9m1!1b1",
   // Встраиваемая карта: iframe не принимает короткие ссылки maps.app.goo.gl,
   // поэтому ищем точку по названию карточки в Google Maps.
-  mapEmbed: "https://www.google.com/maps?q=FlyGuru+Efoil+Nha+Trang&output=embed",
+  //
+  // t=h — вид «гибрид»: спутниковый снимок и поверх него названия улиц и мест.
+  // Бухту с базой на снимке видно сразу, а по схеме это был безымянный кусок
+  // берега. z=17 — крупный план базы, а не всего Нячанга.
+  // Параметр t у встраиваемой карты недокументированный (как и сам output=embed):
+  // если Google его сломает, карта просто вернётся к схеме — блок не развалится.
+  // Проверено 03.09.2026.
+  mapEmbed:
+    "https://www.google.com/maps?q=FlyGuru+Efoil+Nha+Trang&t=h&z=17&output=embed",
   hours: "Ежедневно 8:30 – 18:00",
 } as const;
 
