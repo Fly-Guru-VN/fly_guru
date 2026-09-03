@@ -70,11 +70,12 @@ function layout(count: number): { cols: string; box: string } {
 export function PriceTabs({ groups }: { groups: PriceGroup[] }) {
   const [active, setActive] = useState<ServiceCategory>(groups[0]?.cat ?? "training");
   const [hover, setHover] = useState<ServiceCategory | null>(null);
-  // Счётчик переключений. Нужен, чтобы карточки всплывали при КАЖДОЙ смене
-  // вкладки: css-анимация играет один раз при появлении элемента, а панели из
-  // разметки не исчезают. Тот же приём, что в PageTransition, — меняем key и
-  // элемент собирается заново.
-  const [seq, setSeq] = useState(0);
+  // Группы, чьи карточки уже всплывали. Всплытие играет ОДИН раз — когда группу
+  // открыли впервые. Раньше оно играло при каждом переключении: лента карточек
+  // пересобиралась заново, и этот пик работы приходился ровно на тот момент,
+  // когда плашка вкладок доезжала до места, — она об него и спотыкалась.
+  // Теперь панели просто прячутся и показываются, React ничего не пересобирает.
+  const [played, setPlayed] = useState<ServiceCategory[]>([]);
   // Докручена ли лента вкладок до конца. Пока нет — у правого края висит
   // подсказка «листай вправо»: на телефоне шесть вкладок в экран не влезают, и
   // без неё человек видит четыре и думает, что это все.
@@ -98,8 +99,20 @@ export function PriceTabs({ groups }: { groups: PriceGroup[] }) {
   const select = (cat: ServiceCategory) => {
     if (cat === active) return;
     setActive(cat);
-    setSeq((n) => n + 1);
   };
+
+  // Открытую группу помечаем как отыгравшую — но только после того, как
+  // всплытие доиграло (220 мс, .animate-page-in), иначе снятый класс оборвал бы
+  // его на полпути.
+  const firstShow = !played.includes(active);
+  useEffect(() => {
+    if (!firstShow) return;
+    const id = setTimeout(
+      () => setPlayed((p) => (p.includes(active) ? p : [...p, active])),
+      300,
+    );
+    return () => clearTimeout(id);
+  }, [active, firstShow]);
 
   // Куда встала плашка: под курсором, а если курсора нет — на выбранной.
   const lit = hover ?? active;
@@ -241,11 +254,11 @@ export function PriceTabs({ groups }: { groups: PriceGroup[] }) {
           </RailItem>
         ));
         // Карточки не просто появляются, а всплывают — тем же движением, что и
-        // содержимое при переходе между страницами сайта. Анимация играет один
-        // раз при появлении элемента, а панели из разметки не исчезают —
-        // поэтому меняем key, и лента собирается заново (приём из PageTransition).
-        const railKey = g.cat === active ? `on-${seq}` : "off";
-        const railClass = `animate-page-in ${cols}`;
+        // содержимое при переходе между страницами сайта. Играет оно только при
+        // первом открытии группы: спрятанная панель, которую снова показали,
+        // запускает css-анимацию сама, поэтому у отыгравших групп класса просто
+        // нет.
+        const railClass = `${g.cat === active && firstShow ? "animate-page-in " : ""}${cols}`;
         return (
           <div
             key={g.cat}
@@ -260,11 +273,11 @@ export function PriceTabs({ groups }: { groups: PriceGroup[] }) {
                 под лентой, как у отзывов на главной; одной карточке точка не
                 нужна, поэтому у «Проката» и «Абонемента» просто лента. */}
             {g.items.length > 1 ? (
-              <DotsRail key={railKey} count={g.items.length} className={railClass}>
+              <DotsRail count={g.items.length} className={railClass}>
                 {cards}
               </DotsRail>
             ) : (
-              <Rail key={railKey} className={`mt-8 ${railClass}`}>
+              <Rail className={`mt-8 ${railClass}`}>
                 {cards}
               </Rail>
             )}
