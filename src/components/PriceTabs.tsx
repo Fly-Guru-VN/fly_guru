@@ -8,7 +8,7 @@ import { DotsRail } from "./DotsRail";
 import {
   IconFoil,
   IconTandem,
-  IconWaves,
+  IconRent,
   IconClub,
   IconPalm,
   IconPlay,
@@ -21,7 +21,7 @@ import type { Service, ServiceCategory } from "@/content/services";
 const TAB_ICON = {
   training: IconFoil,
   tandem: IconTandem,
-  rental: IconWaves,
+  rental: IconRent,
   subscription: IconClub,
   tour: IconPalm,
   extra: IconPlay,
