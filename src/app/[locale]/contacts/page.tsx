@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { Container, Section, buttonClasses } from "@/components/ui";
 import { Squiggle } from "@/components/Squiggle";
-import { HeroStage } from "@/components/HeroStage";
 import { Marquee } from "@/components/Marquee";
 import { BookBtn } from "@/components/BookBtn";
 import { TrackedLink } from "@/components/TrackedLink";
@@ -29,13 +28,14 @@ import { contacts, socials } from "@/content/contacts";
 export const metadata: Metadata = { title: "Контакты" };
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
-// Страница контактов собрана тем же языком, что обучение, тандем и клуб: кадр
-// во весь экран, бегущая строка, дальше — крупные блоки без лишнего текста.
+// Страница контактов собрана по макету ref_rewie_hero (01.09.2026): на первом
+// экране слева текст с кнопками, справа карта карточкой, а на карте — плашки
+// мессенджеров и кнопка маршрута.
 //
-// Главное отличие от прежней версии: контакт — это ДЕЙСТВИЕ, а не строчка
-// справочника. Поэтому каждый канал связи здесь целая карточка-ссылка, в
-// которую попадаешь пальцем с первого раза, а самый быстрый канал (WhatsApp)
-// выделен рамкой, как «популярный» формат на обучении.
+// Главное отличие от прежней версии: карта уехала НАВЕРХ, и отдельного блока
+// «Где нас найти» внизу больше нет — адрес, часы и маршрут живут в первом
+// экране. Каналов связи отдельным блоком тоже нет: они и так лежат плашками на
+// карте, а ниже дублировались один в один.
 //
 // Ничего сверх того, что лежит в src/content/contacts.ts, страница не обещает:
 // часы, адрес, каналы — оттуда, правятся в одном месте.
@@ -50,12 +50,17 @@ const SOCIAL_META = {
   "Telegram-канал": { icon: IconTelegram, handle: "@flyguru_club" },
 } as const;
 
+// Мессенджеры плашками на карте — ровно три, как в макете. Порядок по частоте:
+// большая часть заявок приходит в WhatsApp.
+const MESSENGERS = [
+  { key: "whatsapp", icon: IconWhatsApp, title: "WhatsApp", href: contacts.phone.whatsapp },
+  { key: "telegram", icon: IconTelegram, title: "Telegram", href: contacts.telegram },
+  { key: "zalo", icon: IconZalo, title: "Zalo", href: contacts.zalo },
+];
+
 export default async function ContactsPage() {
   // Вилка цен для разметки — из базы, как и на главной (см. lib/schema.ts).
   const priceRange = priceRangeLabel(await getSiteServices());
-
-  // Условия связи — плашками на кадре: их ищут глазами первыми.
-  const heroFacts = [contacts.hours, "Нячанг · Maryna Beach Club", "Отвечаем в мессенджере"];
 
   const marquee = [
     contacts.hours,
@@ -65,63 +70,6 @@ export default async function ContactsPage() {
     contacts.phone.display,
   ];
 
-  // Каналы связи. primary — тот, которым пользуются чаще всего: на него
-  // приходит большая часть заявок, поэтому он выделен рамкой.
-  // newTab только у внешних приложений: tel: и mailto: открывают не страницу, а
-  // звонилку с почтой, и пустая вкладка после них висела бы мусором.
-  const channels = [
-    {
-      icon: IconWhatsApp,
-      title: "WhatsApp",
-      value: contacts.phone.display,
-      action: "Написать",
-      href: contacts.phone.whatsapp,
-      key: "whatsapp",
-      newTab: true,
-      primary: true,
-    },
-    {
-      icon: IconTelegram,
-      title: "Telegram",
-      value: contacts.phone.display,
-      action: "Написать",
-      href: contacts.telegram,
-      key: "telegram",
-      newTab: true,
-      primary: false,
-    },
-    {
-      icon: IconZalo,
-      title: "Zalo",
-      value: contacts.phone.display,
-      action: "Написать",
-      href: contacts.zalo,
-      key: "zalo",
-      newTab: true,
-      primary: false,
-    },
-    {
-      icon: IconPhone,
-      title: "Позвонить",
-      value: contacts.phone.display,
-      action: "Набрать номер",
-      href: contacts.phone.tel,
-      key: "phone",
-      newTab: false,
-      primary: false,
-    },
-    {
-      icon: IconMail,
-      title: "Почта",
-      value: contacts.email,
-      action: "Написать письмо",
-      href: `mailto:${contacts.email}`,
-      key: "email",
-      newTab: false,
-      primary: false,
-    },
-  ];
-
   return (
     <>
       {/* Та же карточка школы, что и на главной (общий @id внутри): именно эту
@@ -129,205 +77,183 @@ export default async function ContactsPage() {
       <JsonLd data={businessSchema(priceRange)} />
 
       {/* ── Первый экран ── */}
-      {/* Кадр во весь экран и вплотную к шапке, как на обучении. Главное
-          действие страницы — кнопка мессенджера — лежит прямо на кадре: до
-          карточек ниже человеку с телефона ещё надо доскроллить. */}
-      <HeroStage
-        image="/media/photo/training-master.webp"
-        alt="Райдер летит на электрофойле над бирюзовой водой в Нячанге"
-        bleed
-      >
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-white/80 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
-            Контакты
-          </p>
-          <h1 className="mt-3 text-4xl font-bold leading-[1.05] drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)] sm:text-5xl md:text-6xl">
-            Мы на связи
-            <br />
-            каждый день
-          </h1>
-          <p className="mt-4 max-w-md text-base text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-lg">
-            Напишите в любой мессенджер: подберём время, ответим на вопросы и
-            подскажем, как нас найти.
-          </p>
-        </div>
-        <div>
-          <ul className="mt-6 flex flex-wrap gap-2">
-            {heroFacts.map((f) => (
-              <li
-                key={f}
-                className="rounded-full border border-white/40 bg-white/10 px-3 py-1.5 text-sm font-semibold backdrop-blur-sm"
-              >
-                {f}
-              </li>
-            ))}
-          </ul>
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-            <TrackedLink
-              href={contacts.phone.whatsapp}
-              external
-              newTab
-              event="contact_click"
-              data={{ channel: "whatsapp", place: "contacts-hero" }}
-              className={buttonClasses({ size: "lg", className: "w-full sm:w-auto" })}
-            >
-              Написать в WhatsApp
-            </TrackedLink>
-            <TrackedLink
-              href={contacts.phone.tel}
-              external
-              event="contact_click"
-              data={{ channel: "phone", place: "contacts-hero" }}
-              className={buttonClasses({ variant: "light", size: "lg", className: "w-full sm:w-auto" })}
-            >
-              Позвонить
-            </TrackedLink>
-          </div>
-        </div>
-      </HeroStage>
-
-      <Marquee items={marquee} />
-
-      {/* ── Каналы связи ── */}
-      <Section pad="tight" className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2">
-        {/* Чайки — как в блоках главной: только от md, на телефоне декор съедал
-            бы место. */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
+      {/* Светлая секция встык под шапку, как на отзывах: Section тут не
+          используется, у первого экрана свои поля. Фон градиентом в surface-2,
+          чтобы стык с бегущей строкой ниже не читался ступенькой. */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2">
+        {/* Чайки — как на отзывах и прайсе. Только слева и только от xl:
+            правую половину занимает карта, а до 1280 px контейнер прижат к
+            краям окна и птица садилась бы прямо на заголовок. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 hidden xl:block">
           <Image
             src="/media/decor/bird.webp"
             alt=""
             width={320}
             height={117}
-            className="absolute right-24 top-10 w-14 -rotate-[7deg] opacity-90"
+            className="absolute left-6 top-20 w-14 -rotate-[7deg] opacity-90"
           />
           <Image
             src="/media/decor/bird.webp"
             alt=""
             width={320}
             height={117}
-            className="absolute right-8 top-24 w-[4.5rem] rotate-[5deg]"
+            className="absolute left-2 top-44 w-[4.5rem] rotate-[5deg] opacity-80"
           />
         </div>
 
         <Container className="relative">
-          <h2 className="text-3xl font-bold sm:text-4xl">Напишите нам</h2>
-          <Squiggle long className="mt-4" />
-          <p className="mt-5 max-w-2xl text-muted">
-            Быстрее всего — в мессенджер: там мы отвечаем в течение дня и сразу
-            держим переписку под рукой. Звонок тоже работает, но в море трубку
-            берут не всегда.
-          </p>
-
-          {/* Каждый канал — целая карточка-ссылка, а не строчка текста: по ней
-              легко попасть пальцем, и видно, что произойдёт после нажатия. */}
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {channels.map((c) => (
-              <TrackedLink
-                key={c.title}
-                href={c.href}
-                external
-                newTab={c.newTab}
-                event="contact_click"
-                data={{ channel: c.key, place: "contacts" }}
-                className={`group flex items-start gap-4 rounded-3xl bg-surface p-5 transition-colors ${
-                  c.primary
-                    ? "border-2 border-primary shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)]"
-                    : "border border-line hover:border-primary/40"
-                }`}
-              >
-                <span
-                  aria-hidden
-                  className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"
-                >
-                  <c.icon className="h-6 w-6" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-bold">{c.title}</span>
-                  <span className="mt-0.5 block break-words text-sm text-muted">{c.value}</span>
-                  <span className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary group-hover:text-primary-strong">
-                    {c.action}
-                    <IconArrowRight aria-hidden className="h-4 w-4" />
-                  </span>
-                </span>
-              </TrackedLink>
-            ))}
-          </div>
-        </Container>
-      </Section>
-
-      {/* ── Где нас найти ── */}
-      <Section pad="tight" className="bg-gradient-to-b from-surface-2 to-white">
-        <Container>
-          <h2 className="text-3xl font-bold sm:text-4xl">Где нас найти</h2>
-          <Squiggle long className="mt-4" />
-
-          {/* Адрес слева, карта справа и во всю высоту карточки: на карту
-              смотрят дольше, чем читают адрес, поэтому места ей больше.
-              На телефоне порядок тот же — сначала адрес словами, потом карта. */}
-          <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
-            <div className="flex flex-col rounded-3xl border border-line bg-surface p-6 shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)]">
-              <div className="flex items-start gap-3">
-                <span
-                  aria-hidden
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"
-                >
-                  <IconPin className="h-6 w-6" />
-                </span>
-                <div>
-                  <h3 className="font-bold">Адрес</h3>
-                  <p className="mt-1 text-sm text-muted">{contacts.address}</p>
-                </div>
-              </div>
-
-              <div className="mt-5 flex items-start gap-3">
-                <span
-                  aria-hidden
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"
-                >
-                  <IconClock className="h-6 w-6" />
-                </span>
-                <div>
-                  <h3 className="font-bold">Работаем</h3>
-                  <p className="mt-1 text-sm text-muted">{contacts.hours}</p>
-                </div>
-              </div>
-
-              <p className="mt-5 text-sm text-muted">
-                Школа стоит на территории пляжного клуба — метка на карте наша,
-                по ней и ориентируйтесь.
+          <div className="grid items-center gap-10 pb-12 pt-8 lg:grid-cols-2 lg:gap-12 lg:pb-16 lg:pt-12">
+            {/* ── Левая колонка: кто мы и как до нас достучаться ── */}
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+                Контакты
               </p>
+              <Squiggle className="mt-3" />
+              <h1 className="mt-5 text-4xl font-bold leading-[1.05] sm:text-5xl">
+                Всегда на связи
+              </h1>
+              <p className="mt-5 max-w-md text-muted">
+                Напишите нам — ответим на вопросы, подберём время и подскажем,
+                как нас найти.
+              </p>
+
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                <TrackedLink
+                  href={contacts.phone.whatsapp}
+                  external
+                  newTab
+                  event="contact_click"
+                  data={{ channel: "whatsapp", place: "contacts-hero" }}
+                  className={buttonClasses({ size: "lg", className: "w-full sm:w-auto" })}
+                >
+                  <IconWhatsApp aria-hidden className="h-5 w-5" />
+                  Написать в WhatsApp
+                </TrackedLink>
+                <TrackedLink
+                  href={contacts.phone.tel}
+                  external
+                  event="contact_click"
+                  data={{ channel: "phone", place: "contacts-hero" }}
+                  className={buttonClasses({
+                    variant: "secondary",
+                    size: "lg",
+                    className: "w-full sm:w-auto",
+                  })}
+                >
+                  <IconPhone aria-hidden className="h-5 w-5" />
+                  Позвонить
+                </TrackedLink>
+              </div>
+
+              {/* Номер и почта — плашки-ССЫЛКИ: выглядят как справка, но по ним
+                  жмут, поэтому они открывают звонилку и почту. */}
+              <div className="mt-6 flex flex-wrap gap-3">
+                <TrackedLink
+                  href={contacts.phone.tel}
+                  external
+                  event="contact_click"
+                  data={{ channel: "phone", place: "contacts-hero-chip" }}
+                  className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:border-primary/40"
+                >
+                  <IconPhone aria-hidden className="h-4 w-4 text-primary" />
+                  {contacts.phone.display}
+                </TrackedLink>
+                <TrackedLink
+                  href={`mailto:${contacts.email}`}
+                  external
+                  event="contact_click"
+                  data={{ channel: "email", place: "contacts-hero-chip" }}
+                  className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-semibold transition-colors hover:border-primary/40"
+                >
+                  <IconMail aria-hidden className="h-4 w-4 text-primary" />
+                  {contacts.email}
+                </TrackedLink>
+              </div>
+
+              {/* Часы и место — не ссылки, а справка: их читают глазами. */}
+              <ul className="mt-3 flex flex-wrap gap-3">
+                <li className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-semibold">
+                  <IconClock aria-hidden className="h-4 w-4 text-primary" />
+                  {contacts.hours}
+                </li>
+                <li className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-semibold">
+                  <IconPin aria-hidden className="h-4 w-4 text-primary" />
+                  Нячанг · Maryna Beach Club
+                </li>
+              </ul>
+            </div>
+
+            {/* ── Правая колонка: карта с плашками ── */}
+            {/* От lg плашки и кнопка ЛЕЖАТ НА карте (absolute), как в макете.
+                Ниже lg наложения нет: карта, под ней плашки сеткой, дальше
+                кнопка — иначе на телефоне плашки закрыли бы карту целиком.
+                Разметка одна, переключается классами. */}
+            <div className="relative">
+              <div className="overflow-hidden rounded-3xl border border-line shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)]">
+                <iframe
+                  title="FlyGuru на карте — Maryna Beach Club, Нячанг"
+                  src={contacts.mapEmbed}
+                  className="block h-[300px] w-full sm:h-[380px] lg:h-[540px]"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+
+              <ul className="mt-4 grid gap-3 sm:grid-cols-3 lg:absolute lg:left-5 lg:top-5 lg:mt-0 lg:w-[15rem] lg:grid-cols-1">
+                {MESSENGERS.map((m) => (
+                  <li key={m.key}>
+                    <TrackedLink
+                      href={m.href}
+                      external
+                      newTab
+                      event="contact_click"
+                      data={{ channel: m.key, place: "contacts-map" }}
+                      className="group flex h-full items-start gap-3 rounded-2xl bg-white/95 p-3.5 shadow-[0_20px_44px_-26px_rgba(15,34,51,0.65)] backdrop-blur-sm transition hover:shadow-[0_24px_50px_-24px_rgba(15,34,51,0.7)] active:scale-[0.99]"
+                    >
+                      <span
+                        aria-hidden
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-white"
+                      >
+                        <m.icon className="h-5 w-5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block font-bold leading-tight">{m.title}</span>
+                        <span className="mt-0.5 block text-xs text-muted">
+                          {contacts.phone.display}
+                        </span>
+                        <span className="mt-1.5 inline-flex items-center gap-1 text-sm font-semibold text-primary group-hover:text-primary-strong">
+                          Написать
+                          <IconArrowRight aria-hidden className="h-4 w-4" />
+                        </span>
+                      </span>
+                    </TrackedLink>
+                  </li>
+                ))}
+              </ul>
 
               <TrackedLink
                 href={contacts.mapLink}
                 external
                 newTab
                 event="contact_click"
-                data={{ channel: "maps", place: "contacts" }}
-                // mt-auto: на широком экране карточка растянута под высоту карты, и кнопка
-                // должна лежать у её нижнего края, а не висеть в середине пустоты.
-                className={buttonClasses({ variant: "sea", className: "mt-6 w-full lg:mt-auto" })}
+                data={{ channel: "maps", place: "contacts-map" }}
+                className={buttonClasses({
+                  // lg:bottom-10, а не bottom-5: у самого низа карты Google
+                  // рисует свой логотип и строку «Map data ©», и кнопка на
+                  // bottom-5 ложилась ровно на них (мерил 03.09.2026).
+                  className:
+                    "mt-4 w-full sm:w-auto lg:absolute lg:bottom-10 lg:left-5 lg:mt-0 lg:shadow-[0_20px_44px_-26px_rgba(15,34,51,0.65)]",
+                })}
               >
-                Открыть в Google Maps
-                <IconArrowRight aria-hidden className="h-4 w-4" />
+                <IconPin aria-hidden className="h-5 w-5" />
+                Открыть маршрут
               </TrackedLink>
-            </div>
-
-            {/* Карта тянется на высоту соседней карточки (растяжение грид-строки),
-                но на телефоне и планшете колонка одна — там высоту задаём сами.
-                Нижний предел нужен на 1024 px: там карточка адреса короткая, и
-                без него карта превращалась в полоску высотой в четверть экрана. */}
-            <div className="overflow-hidden rounded-3xl border border-line shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)] lg:min-h-[420px]">
-              <iframe
-                title="FlyGuru на карте — Maryna Beach Club, Нячанг"
-                src={contacts.mapEmbed}
-                className="h-[320px] w-full sm:h-[420px] lg:h-full"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
             </div>
           </div>
         </Container>
-      </Section>
+      </section>
+
+      <Marquee items={marquee} />
 
       {/* ── Соцсети ── */}
       <Section pad="tight" className="bg-white">
