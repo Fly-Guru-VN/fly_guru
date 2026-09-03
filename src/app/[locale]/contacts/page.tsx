@@ -108,11 +108,11 @@ export default async function ContactsPage() {
               </p>
               <Squiggle className="mt-3" />
               <h1 className="mt-5 text-4xl font-bold leading-[1.05] sm:text-5xl">
-                Всегда на связи
+                Мы всегда на связи
               </h1>
               <p className="mt-5 max-w-md text-muted">
-                Напишите нам — ответим на вопросы, подберём время и подскажем,
-                как нас найти.
+                Поможем вам выбрать подходящий формат обучения, подберём время и
+                подарим крутые эмоции!
               </p>
 
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -259,8 +259,8 @@ export default async function ContactsPage() {
           <h2 className="text-3xl font-bold sm:text-4xl">Мы в соцсетях</h2>
           <Squiggle long className="mt-4" />
           <p className="mt-5 max-w-2xl text-muted">
-            Там видно, как проходят занятия и куда мы ходим на выездах — это и
-            есть самый честный ответ на вопрос «а что там вообще происходит».
+            Мы также стараемся вести соцсети, чтобы максимально передать
+            ощущения, которые испытываем сами.
           </p>
 
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -288,8 +288,8 @@ export default async function ContactsPage() {
 
       {/* ── Заявка ── */}
       {/* Страница заканчивается морской плашкой: человеку, который дочитал до
-          низа и так и не написал в мессенджер, остаётся способ проще — форма,
-          где мы напишем ему сами. */}
+          низа и так и не написал в мессенджер, остаётся способ проще — оставить
+          заявку и ждать, пока свяжутся сами. */}
       <Section pad="tight" className="bg-gradient-to-b from-white to-surface-2">
         <Container>
           <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-primary-strong px-6 py-10 text-center text-white shadow-[0_24px_50px_-30px_rgba(15,34,51,0.6)] sm:px-10 sm:py-12">
@@ -299,10 +299,10 @@ export default async function ContactsPage() {
             >
               <IconChat className="h-7 w-7" />
             </span>
-            <h2 className="mt-4 text-2xl font-bold sm:text-3xl">Не любите переписку?</h2>
+            <h2 className="mt-4 text-2xl font-bold sm:text-3xl">Хотите сразу записаться?</h2>
             <p className="mx-auto mt-3 max-w-xl text-white/90">
-              Оставьте заявку — напишем сами, подберём время и ответим на все
-              вопросы. Это две минуты и три поля.
+              Оставьте заявку — мы сами с вами свяжемся для подтверждения записи
+              и уточнения времени 😌
             </p>
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <BookBtn place="contacts-cta" size="lg" className="w-full sm:w-auto">
