@@ -277,9 +277,8 @@ export function CabinetSidebar({
         <nav className={mobileBarClass}>
           <SlidingHighlight
             activeKey={moreActive || open ? "more" : (activePrimary?.href ?? null)}
-            pillClassName="bg-primary"
-            pillRadius="0.75rem"
-            pillShadow="0 1px 2px rgb(0 0 0 / 0.05)"
+            pillClassName="bg-primary shadow-sm"
+            pillRadius={12}
             className="flex flex-1 gap-1"
           >
             {primaryItems.map((item) => {

@@ -23,64 +23,60 @@ import {
 // followHover — плашка подтягивается к вкладке под курсором и возвращается к
 // активной, когда мышь ушла. Только для ПК: на телефоне наведения нет.
 //
-// ── Почему плашка нарисована вырезом, а не своим размером ──
-// Раньше плашка была маленьким прямоугольником, которому на каждом кадре
-// задавались новые ширина и высота. Изменение ширины — это «пересчитай
-// раскладку», самая дорогая работа браузера, и делается она в том же потоке,
-// что и весь остальной JS: часть кадров браузер просто не успевал нарисовать, и
-// переезд выглядел рывками (David, 03.09.2026: «будто кадров мало»).
+// ── Почему плашка едет ТОЛЬКО через transform ──
+// Браузер отдаёт видеокарте всего два свойства: transform и opacity. Всё
+// остальное — ширину, clip-path, радиус — рисует главный поток, тот самый, где
+// работает React и переход на новую страницу. Обе прежние версии плашки ехали
+// главным потоком (сначала width/height, потом clip-path) и замирали ровно в
+// момент приземления: там React пересобирает карточки прайса или браузер уходит
+// на новую страницу, поток занят — кадры не рисуются (David, 03.09.2026:
+// «подвисает в момент фиксации на иконке»).
 //
-// Теперь плашка растянута на весь ряд и никогда не меняет размер, а видимым
-// остаётся только прямоугольник над нужной вкладкой — его вырезает clip-path.
-// Браузеру остаётся перекрасить кусок, раскладку он не трогает вовсе.
-// Скругление задаётся прямо в вырезе (round), поэтому таблетка остаётся
-// таблеткой на любой ширине — масштабированием так нельзя, круглые торцы
-// превратились бы в овалы.
+// Поэтому теперь у плашки ПОСТОЯННЫЙ размер (по самой широкой вкладке ряда), а
+// на нужную вкладку она встаёт переездом и растяжением:
+// translate3d(...) scale(...). Такая анимация идёт на видеокарте и не может
+// подвиснуть, чем бы ни был занят главный поток.
 //
-// ⚠️ Вырез не умеет выходить за края ряда: у крайних вкладок перелёт кривой не
-// вылетает наружу, а упирается в край — плашка на миг чуть растягивается. На
-// шапке это незаметно и даже приятно, но помнить об этом стоит.
-//
-// ⚠️ clip-path режет ВСЁ, что нарисовал элемент, включая box-shadow: тень у
-// плашки задаётся не классом, а пропом pillShadow — она рисуется на обёртке
-// поверх уже вырезанной плашки (filter: drop-shadow).
+// Растяжение превратило бы круглые торцы в овалы, поэтому радиус задаётся
+// раздельно по горизонтали и вертикали (border-radius: rx / ry) и делится на
+// масштаб: в покое форма точная. Радиус НЕ анимируется намеренно — это работа
+// для главного потока, а ради неё портить главное движение незачем: в полёте
+// торцы едва заметно «упругие», и это движению только на пользу.
 
 interface Box {
   left: number;
   top: number;
   width: number;
   height: number;
-  // Размер всего ряда: от него считаются отступы выреза справа и снизу.
-  rootWidth: number;
-  rootHeight: number;
+  // Постоянный размер плашки — самая широкая и самая высокая вкладка ряда.
+  // Всё остальное получается из него масштабом.
+  baseWidth: number;
+  baseHeight: number;
 }
 
 // Кривая переезда по умолчанию — упругая, с лёгким перелётом: плашка чуть
 // проскакивает цель и возвращается. Так она ведёт себя в шапке сайта и в нижних
 // панелях.
 //
-// 450 мс, а не 300: то же расстояние плашка проходит за 27 кадров вместо 18, и
-// движение читается как жидкое, а не как несколько отдельных положений.
+// Перелёт именно ЛЁГКИЙ (1.2, а не 1.56 как было): через полменю плашка едет
+// далеко, и заметный отскок в конце читается не как упругость, а как дёрганье.
 const DEFAULT_MOTION =
-  "transition-[clip-path] duration-[450ms] ease-[cubic-bezier(0.34,1.4,0.64,1)] motion-reduce:transition-none";
+  "transition-transform duration-[450ms] ease-[cubic-bezier(0.34,1.2,0.64,1)] motion-reduce:transition-none";
 
 export function SlidingHighlight({
   activeKey,
   pillClassName,
-  pillRadius = "9999px",
-  pillShadow,
+  pillRadius = 9999,
   followHover = false,
   motionClassName = DEFAULT_MOTION,
   className = "",
   children,
 }: {
   activeKey: string | null;
-  /** Как выглядит сама плашка — только заливка: скругление задаётся pillRadius. */
+  /** Как выглядит сама плашка — заливка и тень: скругление задаётся pillRadius. */
   pillClassName: string;
-  /** Скругление плашки, любая длина CSS. По умолчанию — таблетка. */
-  pillRadius?: string;
-  /** Тень плашки: значение для drop-shadow(), например "0 1px 2px rgb(0 0 0 / 0.05)". */
-  pillShadow?: string;
+  /** Скругление плашки в пикселях. По умолчанию таблетка (радиус в полвысоты). */
+  pillRadius?: number;
   followHover?: boolean;
   /** Чем и как долго плашка едет. По умолчанию — упругая кривая шапки. */
   motionClassName?: string;
@@ -109,13 +105,22 @@ export function SlidingHighlight({
       setBox(null);
       return;
     }
+    // Размер плашки берём по самой крупной вкладке ряда: от неё считается
+    // масштаб, и он получается не больше единицы — плашка всегда сжимается,
+    // никогда не растягивается сверх своего разрешения.
+    let baseWidth = 0;
+    let baseHeight = 0;
+    for (const tab of root.querySelectorAll<HTMLElement>("[data-tab]")) {
+      baseWidth = Math.max(baseWidth, tab.offsetWidth);
+      baseHeight = Math.max(baseHeight, tab.offsetHeight);
+    }
     const next = {
       left: el.offsetLeft,
       top: el.offsetTop,
       width: el.offsetWidth,
       height: el.offsetHeight,
-      rootWidth: root.offsetWidth,
-      rootHeight: root.offsetHeight,
+      baseWidth,
+      baseHeight,
     };
     // Тот же прямоугольник — тот же объект: иначе каждый вызов measure()
     // (а его дёргает наблюдатель за размерами) перерисовывал бы ряд заново.
@@ -125,8 +130,8 @@ export function SlidingHighlight({
       prev.top === next.top &&
       prev.width === next.width &&
       prev.height === next.height &&
-      prev.rootWidth === next.rootWidth &&
-      prev.rootHeight === next.rootHeight
+      prev.baseWidth === next.baseWidth &&
+      prev.baseHeight === next.baseHeight
         ? prev
         : next,
     );
@@ -153,8 +158,8 @@ export function SlidingHighlight({
     const observer = new ResizeObserver(() => measure());
     observer.observe(root);
     for (const child of Array.from(root.children)) {
-      // Саму плашку НЕ наблюдаем: она размером с весь ряд, и наблюдатель
-      // поднимал бы пересчёт на её собственное появление.
+      // Саму плашку НЕ наблюдаем: её размер постоянен, но наблюдатель всё равно
+      // поднимал бы лишний пересчёт на её появление.
       if (child instanceof HTMLElement && child.dataset.slidingPill !== undefined) continue;
       observer.observe(child);
     }
@@ -179,37 +184,39 @@ export function SlidingHighlight({
       }
     : {};
 
-  // Вырез по активной вкладке: сверху, справа, снизу, слева — и скругление.
-  const clipPath = box
-    ? `inset(${box.top}px ${Math.max(0, box.rootWidth - box.left - box.width)}px ${Math.max(0, box.rootHeight - box.top - box.height)}px ${box.left}px round ${pillRadius})`
-    : undefined;
-
-  const pill = (
-    <span
-      aria-hidden
-      data-sliding-pill=""
-      className={`pointer-events-none absolute inset-0 ${pillClassName} ${
-        animate ? motionClassName : ""
-      }`}
-      style={{ clipPath }}
-    />
-  );
+  // Масштаб плашки и раздельные радиусы под него: рисованный радиус равен
+  // css-радиусу, умноженному на масштаб, поэтому css-радиус на масштаб делим.
+  let style: React.CSSProperties | undefined;
+  if (box && box.baseWidth > 0 && box.baseHeight > 0) {
+    const scaleX = box.width / box.baseWidth;
+    const scaleY = box.height / box.baseHeight;
+    // Таблетка (радиус 9999) на деле скругляется вполвысоты — с этим числом и
+    // считаем, иначе браузер ужал бы радиусы сам и по-своему.
+    const radius = Math.min(pillRadius, box.height / 2, box.width / 2);
+    style = {
+      width: box.baseWidth,
+      height: box.baseHeight,
+      transformOrigin: "0 0",
+      transform: `translate3d(${box.left}px, ${box.top}px, 0) scale(${scaleX}, ${scaleY})`,
+      borderRadius: `${radius / scaleX}px / ${radius / scaleY}px`,
+      // Слой под плашку браузер готовит заранее, а не в момент первого движения
+      // — иначе первый переезд начинается с рывка.
+      willChange: "transform",
+    };
+  }
 
   return (
     <div ref={ref} className={`relative ${className}`} {...hoverProps}>
-      {box &&
-        (pillShadow ? (
-          <span
-            aria-hidden
-            data-sliding-pill=""
-            className="pointer-events-none absolute inset-0"
-            style={{ filter: `drop-shadow(${pillShadow})` }}
-          >
-            {pill}
-          </span>
-        ) : (
-          pill
-        ))}
+      {style && (
+        <span
+          aria-hidden
+          data-sliding-pill=""
+          className={`pointer-events-none absolute left-0 top-0 ${pillClassName} ${
+            animate ? motionClassName : ""
+          }`}
+          style={style}
+        />
+      )}
       {children}
     </div>
   );
