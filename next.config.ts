@@ -6,10 +6,14 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
-  // Служебный адрес продакшн-деплоя (fly-guru.vercel.app) отдаёт тот же сайт,
-  // что и основной домен, и не закрыт от индексации — для поисковика это сайт
-  // ДВОЙНИК, который отбирает у flyguru.pro позиции. Уводим его на основной
+  // Служебный адрес продакшн-деплоя (fly-guru-ten.vercel.app) отдаёт тот же
+  // сайт, что и основной домен, и не закрыт от индексации — для поисковика это
+  // сайт ДВОЙНИК, который отбирает у flyguru.pro позиции. Уводим его на основной
   // домен навсегда (308), сохраняя путь: /training → www.flyguru.pro/training.
+  //
+  // Хост брать из Vercel (Project -> Domains), а НЕ угадывать по имени проекта:
+  // до 04.09.2026 здесь стоял fly-guru.vercel.app — алиас старого, заброшенного
+  // проекта, и правило не срабатывало ни разу.
   //
   // Хост перечислен ПОИМЁННО, не по маске *.vercel.app: у превью-деплоев
   // (ветки, пул-реквесты) адреса тоже на vercel.app, и по маске они бы
@@ -92,7 +96,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/:path*",
-        has: [{ type: "host", value: "fly-guru.vercel.app" }],
+        has: [{ type: "host", value: "fly-guru-ten.vercel.app" }],
         destination: "https://www.flyguru.pro/:path*",
         permanent: true,
       },
