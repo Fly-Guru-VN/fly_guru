@@ -10,9 +10,15 @@ Claude не приняла исправления за случайный нез
 - Изменения разложены по логическим коммитам в ветке
   `codex/security-hardening-20260904`. Актуальный статус PR и CI нужно смотреть
   в GitHub, а preview — в Vercel.
-- В Vercel для Preview и Production добавлены скрытые
-  `TELEGRAM_CLIENT_BOT_TOKEN`, `TELEGRAM_CLIENT_BOT_SECRET` и новый случайный
-  `CRON_SECRET`. Их значения не выводились и не сохранялись в Git.
+- В локально связанный Vercel-проект `fly-guru/fly-guru`
+  (`prj_I5ps3Ds3JN13yIxuViaFxzomNsks`) для Preview и Production добавлены
+  скрытые `TELEGRAM_CLIENT_BOT_TOKEN`, `TELEGRAM_CLIENT_BOT_SECRET` и новый
+  случайный `CRON_SECRET`. Их значения не выводились и не сохранялись в Git.
+- GitHub App при этом публикует PR в другом Vercel-контексте,
+  `fly-guru-vn/fly-guru`. Текущий CLI-аккаунт не может прочитать его deployment,
+  поэтому наличие `CRON_SECRET` именно там независимо не подтверждено. До merge
+  нужно определить настоящий production-проект и дать CLI доступ к нему либо
+  исправить Git-интеграцию.
 - Telegram webhook и production deployment не изменялись.
 - По сообщению владельца проекта, миграции `0051`–`0054` применены 4 сентября
   2026 года. Codex не сверял production-схему независимо и не выполнял DDL.
@@ -44,7 +50,7 @@ Claude не приняла исправления за случайный нез
 - Добавлен корневой `AGENTS.md` с постоянными правилами для AI-агентов.
 - `codebase-memory-mcp` обновлён с `0.9.0` до `0.10.8` и зарегистрирован в
   Codex. Финальный индекс `home-project1-fly_guru` имеет статус `ready`:
-  2776 узлов и 10000 связей.
+  2786 узлов и 10025 связей.
 - SQL у memory-плагина частично помечается `parse_partial`. Это ограничение
   best-effort парсера, поэтому миграции всегда дополнительно читать через
   `rg`/обычный просмотр файлов.
@@ -219,6 +225,10 @@ Supabase/Postgres/Docker-контура. Миграции проверены ч�
 
 - GitHub CLI авторизован как `EzDavidos` (права `ADMIN` на репозиторий), Vercel
   CLI — как `ezdavidos`, доступ к team/project `fly-guru/fly-guru` подтверждён.
+- GitHub Vercel App деплоит в `fly-guru-vn/fly-guru`, которого текущий CLI не
+  видит. До production deploy нужно выдать `ezdavidos` доступ именно к этому
+  team/project либо подтвердить, что эта интеграция устарела и должна быть
+  перепривязана к `fly-guru/fly-guru`.
 - Поднять local Supabase на хосте с Docker либо создать отдельную staging базу
   для миграционных и RLS integration tests.
 - `.claude/settings.local.json` уже сокращён до минимальных allow/ask/deny.
