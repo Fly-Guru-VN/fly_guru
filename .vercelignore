@@ -1,0 +1,23 @@
+# Local dependencies and build/test output must never be uploaded by the CLI.
+node_modules/
+.next/
+out/
+build/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Local credentials, tool state, and working material.
+.env*
+.vercel/
+.claude/
+prompts/
+description/
+photo_video/
+
+# Repository and editor/runtime noise.
+.git/
+*.log
+*.tsbuildinfo
+.DS_Store
