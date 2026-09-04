@@ -50,7 +50,7 @@ export async function SourcesScreen({
 }: {
   searchParams: Promise<{ from?: string; to?: string }>;
   /** Кабинет, из которого открыт экран: «/admin» или «/smm». Ссылки внутри
-      должны вести туда же, иначе СММщика выкинет middleware. */
+      должны вести туда же, иначе СММщика выкинет proxy.ts. */
   base: string;
 }) {
   const { from, to } = await searchParams;
