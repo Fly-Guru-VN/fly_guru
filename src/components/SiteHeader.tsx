@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { Link } from "@/i18n/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useBooking } from "./BookingProvider";
 import { NAV_LINKS } from "./nav";
@@ -41,7 +40,7 @@ export function SiteHeader() {
       // Роль спрашиваем у базы, а НЕ у JWT (app_metadata.role). Токен в браузере
       // отстаёт: у повышенного до admin инструктора он до ближайшего обновления
       // всё ещё говорит «instructor» — и кнопка вела в чужой кабинет, куда
-      // middleware спокойно пускал (роль в токене совпала с разделом). Запрос
+      // proxy.ts спокойно пускал (роль в токене совпала с разделом). Запрос
       // уходит только у залогиненных; RLS users_select_own отдаёт свою строку.
       const { data: row } = await supabase
         .from("users")

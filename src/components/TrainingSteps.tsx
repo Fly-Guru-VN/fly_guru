@@ -85,6 +85,9 @@ export function TrainingSteps({ steps }: { steps: TrainingStep[] }) {
                   width={320}
                   height={320}
                   sizes="128px"
+                  // Иллюстрации шагов — анимированные WebP. Оптимизатор Next
+                  // всё равно отдаёт их как есть и без флага пишет warning.
+                  unoptimized
                   className="hidden h-24 w-24 shrink-0 md:block"
                 />
                 <div className="min-w-0">
@@ -105,6 +108,7 @@ export function TrainingSteps({ steps }: { steps: TrainingStep[] }) {
                 width={320}
                 height={320}
                 sizes="128px"
+                unoptimized
                 className="mx-auto mt-3 h-28 w-28 md:hidden"
               />
             </div>

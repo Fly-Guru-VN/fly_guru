@@ -18,6 +18,8 @@ export type Format = {
   desc: string;
   // Круглая иллюстрация формата.
   image: string;
+  // Анимированные WebP Next.js не оптимизирует — передаём их как есть.
+  unoptimized?: boolean;
   // Три коротких факта в подвале — как в макете.
   facts: { icon: Icon; label: string }[];
   // Самый ходовой формат: рамка вокруг карточки и плашка «Популярное».
@@ -33,7 +35,7 @@ export type Format = {
 // рядом (pt-10 у каждой карточки), поэтому все четыре одной высоты и с общей
 // верхней границей, а метка всё равно стоит ровно над базовым обучением.
 export function FormatCard({ format }: { format: Format }) {
-  const { service, serviceId, desc, image, facts, highlight } = format;
+  const { service, serviceId, desc, image, unoptimized, facts, highlight } = format;
 
   return (
     <div className="relative h-full pt-10">
@@ -56,6 +58,7 @@ export function FormatCard({ format }: { format: Format }) {
             width={440}
             height={440}
             sizes="124px"
+            unoptimized={unoptimized}
             className="h-[7.7rem] w-[7.7rem]"
           />
           <h3 className="mt-3 text-lg font-bold leading-tight">{service.name}</h3>
