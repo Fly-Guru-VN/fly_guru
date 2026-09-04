@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { createAdminClient } from "@/lib/supabase/admin";
+import { failIfReadError } from "@/lib/dbError";
 
 // «Кто привёл гостя» — расшифровка реф-кода заявки в живого человека.
 //
@@ -48,12 +49,10 @@ export async function resolveRefOwners(
       .eq("role", "instructor")
       .in("ref_code", unique),
   ]);
-  if (agentsRes.error) {
-    console.error("[refOwner] agents load error:", agentsRes.error.message);
-  }
-  if (usersRes.error) {
-    console.error("[refOwner] users load error:", usersRes.error.message);
-  }
+  // Пустая карта означает «код точно неизвестен» и влияет на скидку, награду
+  // агента и удаление кода из браузера. Ошибка БД — не тот же результат.
+  failIfReadError(agentsRes.error, "не удалось прочитать реф-коды агентов");
+  failIfReadError(usersRes.error, "не удалось прочитать реф-коды инструкторов");
 
   // Инструкторов кладём первыми, агентов — поверх: коды уникальны в каждой
   // таблице, но между таблицами теоретически могут совпасть, и тогда агент

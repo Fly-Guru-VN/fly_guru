@@ -16,9 +16,8 @@
 //
 // Ключи берутся из .env.local:
 //   TELEGRAM_CLIENT_BOT_TOKEN  — токен бота от @BotFather (обязательно)
-//   TELEGRAM_CLIENT_BOT_SECRET — секретное слово для webhook (необязательно,
-//                                но крайне желательно: без него адрес открыт
-//                                всему интернету)
+//   TELEGRAM_CLIENT_BOT_SECRET — обязательный секрет webhook: без него скрипт
+//                                откажется публиковать небезопасный адрес
 // ============================================================================
 
 import { readFileSync } from "node:fs";
@@ -76,12 +75,12 @@ if (values.show) {
 
 const secret = process.env.TELEGRAM_CLIENT_BOT_SECRET;
 if (!secret) {
-  console.warn(
-    "⚠️  TELEGRAM_CLIENT_BOT_SECRET не задан. Адрес webhook будет открыт всему\n" +
-      "    интернету: кто угодно сможет прислать поддельный «контакт» с чужим\n" +
-      "    номером. Придумайте любую длинную строку и положите её в .env.local\n" +
-      "    и в переменные Vercel, потом запустите скрипт снова.\n",
+  console.error(
+    "TELEGRAM_CLIENT_BOT_SECRET не задан — webhook не будет установлен.\n" +
+      "Придумайте длинную случайную строку, положите её в .env.local и в\n" +
+      "Environment Variables Vercel, затем запустите скрипт снова.",
   );
+  process.exit(1);
 }
 
 const me = await call("getMe");

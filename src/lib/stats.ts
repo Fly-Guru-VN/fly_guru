@@ -18,6 +18,7 @@ import {
   type StaffMember,
 } from "@/lib/staff";
 import type { AppRole } from "@/lib/auth";
+import { failIfReadError } from "@/lib/dbError";
 
 // Общий расчёт статистики инструктора — им пользуются главный экран кабинета
 // (цифры за текущий месяц) и экран «Статистика» (произвольный период).
@@ -176,7 +177,7 @@ export async function getInstructorStats(
   inputs?: PayInputs,
 ): Promise<InstructorStats> {
   // Мои сессии за период. RLS отдаёт ещё и чужие списания — фильтруем явно.
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("sessions")
     .select(
       "client_id, amount, agent_commission, minutes_used, clients(name), services(category)",
@@ -184,6 +185,7 @@ export async function getInstructorStats(
     .eq("instructor_id", instructorId)
     .gte("date", range.fromDay)
     .lt("date", range.toDay);
+  failIfReadError(error, "не удалось прочитать сессии инструктора");
   const rows = (data ?? []) as unknown as SessionRow[];
 
   // Выручка по МОИМ сессиям — это по-прежнему «сколько я накатал», а не база

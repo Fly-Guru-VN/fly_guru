@@ -392,13 +392,14 @@ async function loadAgentRewards(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<Map<string, { count: number; sum: number }>> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("referral_rewards")
     .select("referrer_id, amount")
     .eq("referrer_type", "agent")
     .eq("status", "confirmed")
     .gte("confirmed_at", range.fromIso)
     .lt("confirmed_at", range.toIso);
+  failIfReadError(error, "не удалось прочитать награды агентов");
 
   const byAgent = new Map<string, { count: number; sum: number }>();
   for (const r of data ?? []) {

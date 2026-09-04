@@ -135,6 +135,9 @@ export async function getAgentStats(
 
   // Ноль в деньгах должен быть фактом, а не последствием сбойного запроса
   // (lib/dbError): «мне ничего не начислили» — слишком серьёзное заявление.
+  // То же относится к воронке: ошибка чтения не равна нулю переходов/заявок.
+  failIfReadError(visitsRes.error, "не удалось прочитать переходы");
+  failIfReadError(bookingsRes.error, "не удалось прочитать заявки агента");
   failIfReadError(rewardsRes.error, "не удалось прочитать награды");
   failIfReadError(payoutsRes.error, "не удалось прочитать выплаты");
   failIfReadError(clientsRes.error, "не удалось прочитать клиентов");

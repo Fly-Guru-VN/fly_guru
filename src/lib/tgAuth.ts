@@ -25,6 +25,20 @@ export interface TgUser {
 // работала вечно. Сутки, а не час: люди держат мини-приложение открытым.
 const MAX_AGE_SEC = 24 * 60 * 60;
 
+// Проверить секрет webhook, который Telegram кладёт в HTTP-заголовок.
+// Отсутствующий секрет — это не «режим разработки», а закрытая дверь: иначе
+// любой человек сможет прислать чужой номер и привязать чужой кабинет.
+// Сравниваем хэши постоянной длины, чтобы время ответа не зависело от места
+// первого несовпавшего символа и длины присланной строки.
+export function verifyWebhookSecret(
+  configuredSecret: string | undefined,
+  receivedSecret: string | null,
+): boolean {
+  if (!configuredSecret || !receivedSecret) return false;
+  const digest = (value: string) => crypto.createHash("sha256").update(value).digest();
+  return crypto.timingSafeEqual(digest(configuredSecret), digest(receivedSecret));
+}
+
 // Сравнение подписей за постоянное время: обычное === выходит раньше на первом
 // же непохожем символе, и по времени ответа можно подбирать подпись посимвольно.
 function safeEqualHex(a: string, b: string): boolean {

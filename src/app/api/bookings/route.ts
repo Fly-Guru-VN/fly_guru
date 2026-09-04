@@ -68,6 +68,9 @@ export async function POST(req: NextRequest) {
     serviceId: body.serviceId ?? null,
     preferredDate: body.preferredDate ?? null,
     comment: body.comment ?? null,
+    // Это текст, который ввёл сам гость: его можно вернуть тому же клиенту в
+    // Mini App. Служебные комментарии агента этот флаг не получают.
+    publicNote: body.comment ?? null,
     refCode: body.ref_code ?? null,
     src: body.src ?? null,
     utm: cleanUtm(body.utm),
