@@ -14,6 +14,7 @@ import {
 import {
   activeStaff,
   inShiftCrew,
+  loadDayShareBosses,
   loadShiftCrew,
   type StaffMember,
 } from "@/lib/staff";
@@ -113,6 +114,9 @@ interface SessionRow {
 // человека незачем.
 export interface PayInputs {
   staff: StaffMember[];
+  // Начальство, которое делит 15% за дни своих выходов (staff → DAY_SHARE_BOSS_ROLES).
+  // В staff его нет и быть не должно: выход и котёл боссу не положены.
+  bosses: StaffMember[];
   subsShares: SubsShares;
   shiftPay: Map<string, ShiftPayInfo>;
   sessionShare: Map<string, SessionShare>;
@@ -131,18 +135,25 @@ export async function loadPayInputs(
   // Весь полевой состав, включая уволенных: их выходы и занятия за отработанные
   // дни считаются как обычно, а в дележе котла участвуют только дни, когда
   // человек был в штате (см. lib/salary → getSubsShares).
-  const staff = await loadShiftCrew(supabase);
+  const [staff, bosses] = await Promise.all([
+    loadShiftCrew(supabase),
+    loadDayShareBosses(supabase),
+  ]);
   const crewIds = staff.map((m) => m.id);
+  // Начальник идёт ТОЛЬКО в дележ 15%: за выход ему не платят, и котёл
+  // абонементов его не касается — поэтому в getShiftPay и getSubsShares его
+  // списка нет (решение David от 04.09.2026).
+  const bossIds = bosses.map((m) => m.id);
 
   // Выходы и дележ 15% — через payClient: обе величины считаются по ВСЕМ
   // сменам и сессиям дня, а не только по своим (см. lib/salary).
   const [subsShares, shiftPay, sessionShare] = await Promise.all([
     getSubsShares(supabase, range, staff),
     getShiftPay(payClient, range, crewIds),
-    getSessionShare(payClient, range, crewIds),
+    getSessionShare(payClient, range, crewIds, bossIds),
   ]);
 
-  return { staff, subsShares, shiftPay, sessionShare };
+  return { staff, bosses, subsShares, shiftPay, sessionShare };
 }
 
 /** Три слагаемых ЗП одного инструктора из общих частей — без запросов. */

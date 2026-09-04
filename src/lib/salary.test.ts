@@ -203,6 +203,155 @@ test("комиссия агента вычитается до дележа — �
   assert.equal(share.get("a")?.amount, 105_000); // 700 000 × 15%
 });
 
+// ── Начальник на пляже (решение David от 04.09.2026) ─────────────────────────
+//
+// Босс не в полевом составе: 200 000 ₫ за выход и котёл абонементов ему не
+// положены. Но в день, когда он сам вышел и катал, он делит 15% наравне со
+// сменщиками — и его чеки идут в базу этого дня. Правило действует с
+// BOSS_DAY_SHARE_FROM (1 сентября 2026) и назад не смотрит.
+
+test("в день выхода начальника его чеки идут в базу и делятся с напарником", async () => {
+  const db = fakeDb({
+    sessions: [
+      { date: "2026-09-10", amount: 6_000_000, agent_commission: 0, instructor_id: "a" },
+      { date: "2026-09-10", amount: 2_000_000, agent_commission: 0, instructor_id: "boss" },
+    ],
+    shifts: [
+      { date: "2026-09-10", instructor_id: "a", opened_at: vn("2026-09-10", "08:00"), closed_at: null },
+      { date: "2026-09-10", instructor_id: "boss", opened_at: vn("2026-09-10", "12:00"), closed_at: vn("2026-09-10", "12:00") },
+    ],
+  });
+
+  const share = await getSessionShare(
+    db,
+    vnPeriod("2026-09-10", "2026-09-10"),
+    ["a"],
+    ["boss"],
+  );
+  // База дня 8 000 000 (чек босса тоже в ней), 15% = 1 200 000 на двоих.
+  assert.equal(share.get("a")?.amount, 600_000);
+  assert.equal(share.get("boss")?.amount, 600_000);
+});
+
+test("живой день 2 сентября: Дмитрий и начальник делят день пополам", async () => {
+  // Настоящие строки из базы. Начальник (Денис) откатал пять тандемов на
+  // 3 000 000, Дмитрий — три занятия на 4 000 000, оба открыли смену. Механик
+  // тоже открыл смену, но в дележе он не участвует никогда.
+  const db = fakeDb({
+    sessions: [
+      { date: "2026-09-02", amount: 500_000, agent_commission: 0, instructor_id: "boss" },
+      { date: "2026-09-02", amount: 1_000_000, agent_commission: 0, instructor_id: "boss" },
+      { date: "2026-09-02", amount: 500_000, agent_commission: 0, instructor_id: "boss" },
+      { date: "2026-09-02", amount: 500_000, agent_commission: 0, instructor_id: "boss" },
+      { date: "2026-09-02", amount: 500_000, agent_commission: 0, instructor_id: "boss" },
+      { date: "2026-09-02", amount: 500_000, agent_commission: 0, instructor_id: "dmitry" },
+      { date: "2026-09-02", amount: 1_500_000, agent_commission: 0, instructor_id: "dmitry" },
+      { date: "2026-09-02", amount: 2_000_000, agent_commission: 0, instructor_id: "dmitry" },
+    ],
+    shifts: [
+      { date: "2026-09-02", instructor_id: "dmitry", opened_at: vn("2026-09-02", "07:46"), closed_at: vn("2026-09-02", "18:03") },
+      { date: "2026-09-02", instructor_id: "boss", opened_at: vn("2026-09-02", "08:56"), closed_at: vn("2026-09-02", "18:56") },
+      { date: "2026-09-02", instructor_id: "mechanic", opened_at: vn("2026-09-02", "08:01"), closed_at: null },
+    ],
+  });
+
+  const share = await getSessionShare(
+    db,
+    vnPeriod("2026-09-02", "2026-09-02"),
+    ["dmitry"],
+    ["boss"],
+  );
+  // База 7 000 000, 15% = 1 050 000, пополам. Доля начальника считается, но
+  // никому не выплачивается — она остаётся в кассе.
+  assert.equal(share.get("dmitry")?.amount, 525_000);
+  assert.equal(share.get("boss")?.amount, 525_000);
+  assert.equal(share.get("mechanic"), undefined);
+});
+
+test("до 1 сентября правило не работает: август считается по-старому", async () => {
+  // Тот же расклад, что и выше, но в августе. Смена у босса открыта — и всё
+  // равно его чек мимо ЗП, а инструктор берёт свои 15% со своей выручки.
+  const db = fakeDb({
+    sessions: [
+      { date: "2026-08-31", amount: 6_000_000, agent_commission: 0, instructor_id: "a" },
+      { date: "2026-08-31", amount: 2_000_000, agent_commission: 0, instructor_id: "boss" },
+    ],
+    shifts: [
+      { date: "2026-08-31", instructor_id: "a", opened_at: vn("2026-08-31", "08:00"), closed_at: null },
+      { date: "2026-08-31", instructor_id: "boss", opened_at: vn("2026-08-31", "12:00"), closed_at: vn("2026-08-31", "12:00") },
+    ],
+  });
+
+  const share = await getSessionShare(
+    db,
+    vnPeriod("2026-08-31", "2026-08-31"),
+    ["a"],
+    ["boss"],
+  );
+  assert.equal(share.get("a")?.amount, 900_000); // 6 000 000 × 15%, всё ему
+  assert.equal(share.get("boss"), undefined);
+});
+
+test("без своей открытой смены начальник в дележ не входит вовсе", async () => {
+  const db = fakeDb({
+    sessions: [
+      { date: "2026-09-10", amount: 6_000_000, agent_commission: 0, instructor_id: "a" },
+      { date: "2026-09-10", amount: 2_000_000, agent_commission: 0, instructor_id: "boss" },
+    ],
+    shifts: [
+      { date: "2026-09-10", instructor_id: "a", opened_at: vn("2026-09-10", "08:00"), closed_at: null },
+      // Смена боссу назначена, но не открыта — он не выходил.
+      { date: "2026-09-10", instructor_id: "boss", opened_at: null, closed_at: null },
+    ],
+  });
+
+  const share = await getSessionShare(
+    db,
+    vnPeriod("2026-09-10", "2026-09-10"),
+    ["a"],
+    ["boss"],
+  );
+  // Чек босса мимо ЗП: база дня прежние 6 000 000, всё уходит инструктору.
+  assert.equal(share.get("a")?.amount, 900_000);
+  assert.equal(share.get("boss"), undefined);
+});
+
+test("в день без смен чек начальника не даёт 15% никому", async () => {
+  const db = fakeDb({
+    sessions: [
+      { date: "2026-09-10", amount: 1_000_000, agent_commission: 0, instructor_id: "a" },
+      { date: "2026-09-10", amount: 2_000_000, agent_commission: 0, instructor_id: "boss" },
+    ],
+    shifts: [],
+  });
+
+  const share = await getSessionShare(
+    db,
+    vnPeriod("2026-09-10", "2026-09-10"),
+    ["a"],
+    ["boss"],
+  );
+  assert.equal(share.get("a")?.amount, 150_000);
+  assert.equal(share.get("boss"), undefined);
+});
+
+test("выход начальника не оплачивается: 200 000 ₫ ему не начисляются", async () => {
+  const db = fakeDb({
+    shifts: [
+      {
+        date: "2026-09-10",
+        instructor_id: "boss",
+        opened_at: vn("2026-09-10", "08:00"),
+        closed_at: vn("2026-09-10", "18:30"),
+      },
+    ],
+  });
+
+  // Босса нет в crewIds getShiftPay — и не будет: за выход школа ему не платит.
+  const pay = await getShiftPay(db, vnPeriod("2026-09-10", "2026-09-10"), ["a"]);
+  assert.equal(pay.get("boss"), undefined);
+});
+
 // ── Котёл абонементов: каждый делится между теми, кто был в штате в ДЕНЬ
 //    ЕГО ОПЛАТЫ ────────────────────────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
-import { SESSION_RATE, getShiftPay, getSubsShares } from "@/lib/salary";
-import { loadShiftCrew } from "@/lib/staff";
+import { getSessionShare, getShiftPay, getSubsShares } from "@/lib/salary";
+import { loadDayShareBosses, loadShiftCrew } from "@/lib/staff";
 import { loadAllSessions } from "@/lib/sessions";
 import { failIfReadError } from "@/lib/dbError";
 
@@ -262,7 +262,7 @@ export async function getFinance(
   //  • moneySessions — что оплачено в этом периоде: выручка школы;
   //  • workSessions — что откатано в этом периоде: с них 15% и комиссии агентов.
   // У занятия без paid_on обе даты совпадают, и наборы одинаковы — как раньше.
-  const [moneySessions, workSessions, subsRes, expensesRes, staff] =
+  const [moneySessions, workSessions, subsRes, expensesRes, staff, bosses] =
     await Promise.all([
       loadAllSessions<SessionMoneyRow>(supabase, "amount, agent_commission", {
         fromDay: range.fromDay,
@@ -289,10 +289,17 @@ export async function getFinance(
         .lt("date", range.toDay)
         .order("amount", { ascending: false }),
       loadShiftCrew(supabase),
+      loadDayShareBosses(supabase),
     ]);
   // Полевой состав: инструкторы и СММщик, который тоже выходит на смену
   // (см. staff → SHIFT_CREW_ROLES). Механик и босс сюда не входят.
   const crewIds = staff.map((m) => m.id);
+  // Начальник — не полевой состав, но за дни СВОИХ выходов он делит 15% дня
+  // наравне со сменщиками (решение David от 04.09.2026). Его чеки поэтому
+  // входят в базу дня, а вот ЕГО доля никому не начисляется: зарплату самому
+  // себе он не выплачивает, и эти деньги просто остаются в кассе. Ниже из
+  // дележа берутся доли только полевого состава.
+  const bossIds = bosses.map((m) => m.id);
 
   // Выходы и котёл абонементов считает lib/salary — те же правила, что в
   // кабинете инструктора и в «Расчёте выплат». Здесь нужен итог по школе:
@@ -303,11 +310,13 @@ export async function getFinance(
   // Начисление и выдача — разные события: в расчёт прибыли ЗП уходит сразу, а
   // деньги на руки отдают раз в неделю и не всегда всем сразу. Список
   // инструкторов нужен ей фильтром, поэтому запрос ждёт staff.
-  const [shiftPay, subsShares, instructorPaidOut] = await Promise.all([
-    getShiftPay(supabase, range, crewIds),
-    getSubsShares(supabase, range, staff),
-    loadPaidOut(supabase, range, crewIds),
-  ]);
+  const [shiftPay, subsShares, instructorPaidOut, sessionShare] =
+    await Promise.all([
+      getShiftPay(supabase, range, crewIds),
+      getSubsShares(supabase, range, staff),
+      loadPaidOut(supabase, range, crewIds),
+      getSessionShare(supabase, range, crewIds, bossIds),
+    ]);
 
   const subs = subsRes.data ?? [];
   const sessionsRevenue = moneySessions.rows.reduce(
@@ -320,16 +329,6 @@ export async function getFinance(
   // агента. Абонементы в ней целиком — агентов там не бывает.
   const percentBase = netSessionsBase(moneySessions.rows) + paidSubsRevenue;
 
-  // Выручка школы — вся; а вот ЗП платим только за работу инструкторов.
-  // Всё, что откатал/продал сам админ, мимо ЗП — это его прибыль.
-  const isInstructor = new Set(crewIds);
-  const instructorSessions = workSessions.rows.filter(
-    (r) => r.instructor_id && isInstructor.has(r.instructor_id as string),
-  );
-  // База 15% — та же, что у остальных долей: чек минус комиссия агента. Здесь
-  // считается по дате ЗАНЯТИЯ (это плата за работу), а не по денежной, поэтому
-  // набор строк другой, чем у percentBase выше.
-  const instructorSessionsBase = netSessionsBase(instructorSessions);
   // Все комиссии агентов за период — отдельная статья расхода школы: агент
   // забирает их «сверху» чека, из прибыли босса это надо вычесть.
   const agentCommissions = workSessions.rows.reduce(
@@ -346,7 +345,15 @@ export async function getFinance(
   }
 
   const marina = percentBase * MARINA_RATE;
-  const instructorSessionPay = instructorSessionsBase * SESSION_RATE;
+  // 15% с занятий — не «база × 15%», а СУММА готовых долей полевого состава из
+  // дележа дня. Разница появилась вместе с выходами начальника: его чеки в базу
+  // дня входят, но его доля никому не выплачивается и остаётся в кассе.
+  // Считать здесь по базе значило бы записать в расход школы и эту долю тоже.
+  // По дню занятия, а не по денежной дате: это плата за работу.
+  const instructorSessionPay = crewIds.reduce(
+    (sum, id) => sum + (sessionShare.get(id)?.amount ?? 0),
+    0,
+  );
   // Котёл целиком (кому сколько досталось — дело lib/salary): школе важна сумма.
   const instructorSubsPay = subsShares.pool;
   const instructorPay = instructorSessionPay + instructorShiftPay + instructorSubsPay;

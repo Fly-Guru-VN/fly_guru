@@ -51,13 +51,24 @@ export interface StaffMember {
 // Кого тут намеренно нет:
 //   • механик — у него фикс 10 млн в месяц (MECHANIC_MONTH_PAY), за смену он
 //     не получает ничего, хотя открывает её так же;
-//   • админ и разработчик — они боссы: их выход не оплачивается, а их занятия
-//     не наполняют 15% инструкторов (та же логика, что в lib/finance).
+//   • админ и разработчик — они боссы: их выход не оплачивается.
+//     Занятия начальника с 04.09.2026 всё же делятся по дням (см. ниже), но
+//     сюда его добавлять НЕЛЬЗЯ: 200 000 ₫ за выход и котёл абонементов ему не
+//     положены, а этот список раздаёт именно их.
 export const SHIFT_CREW_ROLES: AppRole[] = ["instructor", "smm"];
 
 export function inShiftCrew(role: AppRole): boolean {
   return SHIFT_CREW_ROLES.includes(role);
 }
+
+// Кто делит 15% с занятий дня, НЕ будучи в полевом составе (решение David от
+// 04.09.2026). Начальник иногда катает сам, и раньше его чек выпадал из дня
+// целиком — 15% с него не получал никто, включая напарника, который в этот день
+// работал. Теперь босс входит в дележ, но только за дни своих открытых смен и
+// только этой одной долей: ни выхода, ни котла (см. lib/salary → getSessionShare).
+//
+// Разработчика здесь намеренно нет: David решил, что правило про начальника.
+export const DAY_SHARE_BOSS_ROLES: AppRole[] = ["admin"];
 
 // Работал ли человек в этот день. Обе границы включительно.
 export function worksOn(m: StaffMember, day: string): boolean {
@@ -111,6 +122,13 @@ export async function loadDevs(client: Supabase): Promise<StaffMember[]> {
 
 export async function loadAdmins(client: Supabase): Promise<StaffMember[]> {
   return loadByRole(client, "admin");
+}
+
+// Начальство, которое участвует в дележе 15% по дням своих выходов
+// (DAY_SHARE_BOSS_ROLES). Отдельным именем, а не loadAdmins: расчёты ЗП должны
+// читаться как «полевой состав + боссы дня», а не как «а зачем тут админы».
+export async function loadDayShareBosses(client: Supabase): Promise<StaffMember[]> {
+  return loadByRole(client, DAY_SHARE_BOSS_ROLES);
 }
 
 // Полевой состав: все, кому ЗП считается по сменам (см. SHIFT_CREW_ROLES).

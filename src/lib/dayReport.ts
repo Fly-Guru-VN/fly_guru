@@ -1,9 +1,10 @@
 import type { createClient } from "@/lib/supabase/server";
 import { vnPeriod } from "@/lib/dates";
 import { MARINA_RATE, netSessionsBase } from "@/lib/finance";
-import { loadShiftCrew } from "@/lib/staff";
+import { loadDayShareBosses, loadShiftCrew } from "@/lib/staff";
 import { failIfReadError } from "@/lib/dbError";
 import {
+  BOSS_DAY_SHARE_FROM,
   getSessionShare,
   getShiftPay,
   getSubsShares,
@@ -163,7 +164,7 @@ export async function getDayReport(
 ): Promise<DayReport> {
   const range = vnPeriod(date, date);
 
-  const [sessionsRes, subsRes, shifts, staff] = await Promise.all([
+  const [sessionsRes, subsRes, shifts, staff, bosses] = await Promise.all([
     admin
       .from("sessions")
       .select(
@@ -178,8 +179,18 @@ export async function getDayReport(
       .lt("paid_at", range.toIso),
     loadDayShifts(admin, date),
     loadShiftCrew(admin),
+    loadDayShareBosses(admin),
   ]);
   const crewIds = staff.map((m) => m.id);
+  // Начальник в полевом составе не числится, но за день своего выхода делит
+  // 15% наравне со сменщиками (решение David от 04.09.2026). В отчёте он
+  // поэтому должен стоять в составе дня — иначе цифры «ЗП за день» и остаток
+  // после выплат разойдутся с «Расчётом выплат».
+  //
+  // До BOSS_DAY_SHARE_FROM правила не было: отчёт за августовский день должен
+  // выглядеть ровно как раньше, без строки босса.
+  const bossIds =
+    date >= BOSS_DAY_SHARE_FROM ? bosses.map((m) => m.id) : [];
 
   type SessionRow = {
     amount: number | null;
@@ -245,25 +256,32 @@ export async function getDayReport(
   // ту же функцию.
   const [shiftPay, sessionShare, subsShares] = await Promise.all([
     getShiftPay(admin, range, crewIds),
-    getSessionShare(admin, range, crewIds),
+    getSessionShare(admin, range, crewIds, bossIds),
     getSubsShares(admin, range, staff),
   ]);
 
-  const crewSet = new Set(crewIds);
+  const crewSet = new Set([...crewIds, ...bossIds]);
+  const bossSet = new Set(bossIds);
 
   // На смене — те, кто её ОТКРЫЛ. Назначенная, но не открытая смена в отчёт не
   // идёт: человек не вышел, ЗП за день у него нулевая (та же логика, что в
-  // дележе 15%). Механик и босс в списке не появятся — они не в crewIds, за
-  // выход им не платят (см. staff → SHIFT_CREW_ROLES).
+  // дележе 15%). Механик в списке не появится — за выход ему не платят
+  // (см. staff → SHIFT_CREW_ROLES). Начальник в составе появится, но с нулевой
+  // ЗП — см. ниже.
   const crew: DayCrewMember[] = shifts
     .filter((s) => s.opened_at && crewSet.has(s.instructor_id))
     .map((s) => ({
       id: s.instructor_id,
       name: s.users?.name ?? "Инструктор",
-      salary:
-        (sessionShare.get(s.instructor_id)?.amount ?? 0) +
-        (shiftPay.get(s.instructor_id)?.amount ?? 0) +
-        (subsShares.shares.get(s.instructor_id) ?? 0),
+      // У начальника ЗП за день ноль: его доля 15% никому не выплачивается и
+      // остаётся в кассе (он не платит зарплату сам себе). В составе он всё
+      // равно стоит — иначе непонятно, почему у напарника половина дня, а не
+      // весь день.
+      salary: bossSet.has(s.instructor_id)
+        ? 0
+        : (sessionShare.get(s.instructor_id)?.amount ?? 0) +
+          (shiftPay.get(s.instructor_id)?.amount ?? 0) +
+          (subsShares.shares.get(s.instructor_id) ?? 0),
       shiftOpen: !s.closed_at,
     }))
     .sort((a, b) => b.salary - a.salary);

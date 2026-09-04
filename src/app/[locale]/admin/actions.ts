@@ -37,6 +37,7 @@ import {
   type AgentPlan,
 } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
+import { BOSS_DAY_SHARE_FROM } from "@/lib/salary";
 import {
   claimBooking,
   linkBookingResult,
@@ -425,6 +426,74 @@ async function resolveClient(
 // Скидка по агентской ссылке и условия награды агента — общие с кабинетом
 // инструктора, живут в lib/agentReward.
 
+// Смена начальника, открытая записью клиента (решение David от 04.09.2026).
+//
+// Босс иногда катает сам. Раньше его чек выпадал из дня ЦЕЛИКОМ: 15% с него не
+// получал никто, включая напарника, который в этот день реально работал.
+// Теперь запись занятия НА СЕБЯ — это и есть отметка «я сегодня на пляже»:
+// заводим смену на дату занятия, и дележ дня начинает её видеть
+// (lib/salary → getSessionShare).
+//
+// Открываем и закрываем ОДНИМ моментом. Регламент 9:00/18:00 к боссу не
+// применяется: 200 000 ₫ за выход ему всё равно не платят (его нет в
+// SHIFT_CREW_ROLES), зато незакрытая смена висела бы в календаре и в отчёте
+// дня как забытая. Решение David: «админу пох на время, главное чтобы открыл».
+//
+// Занятие задним числом отмечаем полуднем ТОГО дня: сегодняшний timestamp на
+// прошлой дате врал бы в календаре.
+//
+// Пишем клиентом админа — политика shifts_admin_all (0014) это разрешает,
+// служебный ключ здесь не нужен.
+async function openBossShift(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  date: string,
+): Promise<void> {
+  // Правило заработало 1 сентября 2026 и назад не смотрит (см. lib/salary →
+  // BOSS_DAY_SHARE_FROM). Смена на августовский день ничего не изменила бы в
+  // деньгах, зато осталась бы в календаре непонятной строкой.
+  if (date < BOSS_DAY_SHARE_FROM) return;
+
+  const at =
+    date === vnToday()
+      ? new Date().toISOString()
+      : (vnIsoAt(date, "12:00") ?? new Date().toISOString());
+
+  const { data: existing } = await supabase
+    .from("shifts")
+    .select("id, opened_at")
+    .eq("instructor_id", userId)
+    .eq("date", date)
+    .maybeSingle();
+
+  // Смену этого дня уже открывали — время не переписываем: второй записанный
+  // клиент не делает выход «более открытым».
+  if (existing?.opened_at) return;
+
+  const { error } = existing
+    ? await supabase
+        .from("shifts")
+        .update({ opened_at: at, closed_at: at })
+        .eq("id", existing.id as string)
+    : await supabase.from("shifts").insert({
+        instructor_id: userId,
+        date,
+        planned: false,
+        opened_at: at,
+        closed_at: at,
+        note: "Смена открыта записью клиента",
+        created_by: userId,
+      });
+
+  // Не кидаем по той же причине, что и с наградой агента ниже: занятие уже
+  // записано, и ошибка на экране толкнула бы админа оформить его второй раз —
+  // получили бы дубль чека в выручке. Смену в крайнем случае поставит он сам.
+  // 23505 = её только что завёл параллельный запрос, это вообще не ошибка.
+  if (error && error.code !== "23505") {
+    console.error("[admin] boss shift open error:", error.message);
+  }
+}
+
 // Создать сессию задним числом: инструктор забыл оформить занятие — админ
 // вносит его вручную на любую дату. Тем же экшеном пользуется админская
 // «Запись клиента» (может закрыть заявку и учесть реф-скидку/награду — см.
@@ -663,6 +732,20 @@ export async function createSessionAction(
     // админа оформить занятие второй раз — получили бы дубль чека в выручке.
     // Награду в крайнем случае восстановит админ, дубль денег — нет.
     if (rewardError) console.error("[admin] reward insert error:", rewardError.message);
+  }
+
+  // Начальник записал занятие на СЕБЯ = он в этот день был на пляже: открываем
+  // ему смену, чтобы 15% дня делились между ним и напарником. Флаг autoShift
+  // шлёт только форма «Записать клиента» — во вкладке «Сессии» админ вносит
+  // чужое прошлое, и смена там означала бы неправду. Роль admin здесь точная,
+  // а не isAdminLike: правило David'а — про начальника, разработчик по-прежнему
+  // босс без смен и долей (staff → DAY_SHARE_BOSS_ROLES).
+  if (
+    user.role === "admin" &&
+    instructorId === user.id &&
+    formData.get("autoShift") === "1"
+  ) {
+    await openBossShift(supabase, user.id, date);
   }
   // Заявка уже закрыта захватом выше.
 

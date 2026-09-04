@@ -212,6 +212,55 @@ interface SessionRow {
   instructor_id: string | null;
 }
 
+// ── Начальник на пляже (решение David от 04.09.2026) ────────────────────────
+//
+// ⚠️ ПРАВИЛО ДЕЙСТВУЕТ С 1 СЕНТЯБРЯ 2026 и назад не смотрит. Август и всё, что
+// раньше, должны считаться ровно так, как считались: недели там уже закрыты
+// выплатами, отчёты начальнику отправлены, и молчаливый пересчёт задним числом
+// сдвинул бы чужие суммы. Отсечка живёт одной строкой — BOSS_DAY_SHARE_FROM;
+// её проверяют дележ дня, расчёт прибыли, «Расчёт выплат» и сама отметка
+// выхода (admin/actions → openBossShift не заводит смену на день раньше неё).
+//
+// Босс в полевом составе не числится и никогда не будет: за выход ему не платят
+// 200 000 ₫ и котёл абонементов его не касается (см. staff → SHIFT_CREW_ROLES).
+// Но катает он сам — и до сих пор его чек выпадал из дня ЦЕЛИКОМ: 15% с него не
+// получал никто, включая второго инструктора, который в этот день реально
+// работал. Записал начальник клиента на себя — и напарник остался без доли с
+// этого занятия.
+//
+// Теперь начальник входит в дележ дня наравне со всеми, но только в тот день,
+// когда он ФАКТИЧЕСКИ вышел, — то есть у него есть смена с opened_at. Её
+// заводит сама «Запись клиента», когда босс ставит инструктором себя
+// (admin/actions → openBossShift). Назначенная, но не открытая смена у него не
+// считается вовсе: планировать смену боссу некому.
+//
+// Во все остальные дни всё как раньше: его чеки мимо ЗП, это прибыль школы.
+// Обратная сторона, о которой знает David: в день выхода босса доля напарника
+// уменьшается — база дня растёт на чеки начальника, но делится уже на двоих.
+//
+// ⚠️ Долю босса эта функция считает, но школа её НИКОМУ НЕ ВЫПЛАЧИВАЕТ: он не
+// платит зарплату сам себе, и эти деньги просто остаются в кассе (решение
+// David от 04.09.2026). Поэтому в «Расчёте выплат» строки начальника нет, а
+// lib/finance складывает в расход только доли полевого состава. Смысл его доли
+// ровно один — уменьшить долю напарника до честной половины дня.
+export const BOSS_DAY_SHARE_FROM = "2026-09-01"; // раньше — старые правила
+
+function bossDaysFrom(
+  shifts: ShiftRow[],
+  bossIds: string[],
+): Map<string, Set<string>> {
+  const bosses = new Set(bossIds);
+  const days = new Map<string, Set<string>>();
+  for (const s of shifts) {
+    if (s.date < BOSS_DAY_SHARE_FROM) continue;
+    if (!s.opened_at || !bosses.has(s.instructor_id)) continue;
+    const set = days.get(s.instructor_id) ?? new Set<string>();
+    set.add(s.date);
+    days.set(s.instructor_id, set);
+  }
+  return days;
+}
+
 // Дележ 15% по дням. Возвращаем карту «инструктор → его доля за период».
 //
 // База дня — чеки сессий инструкторов минус комиссии агентов по ним (агент
@@ -220,10 +269,14 @@ interface SessionRow {
 //     даже если сессию оформил кто-то другой (в этом и смысл: работали вдвоём);
 //   • никто не открылся, но смены назначены → делим между назначенными;
 //   • смен нет → каждый получает 15% со своих чеков этого дня.
+//
+// bossIds — начальники (роль admin): они попадают в дележ только за дни своих
+// открытых смен, см. блок выше.
 export async function getSessionShare(
   client: Supabase,
   range: StatsRange,
   crewIds: string[],
+  bossIds: string[] = [],
 ): Promise<Map<string, SessionShare>> {
   const [sessionsRes, shifts] = await Promise.all([
     client
@@ -236,13 +289,18 @@ export async function getSessionShare(
 
   const allowed = new Set(crewIds);
   const sessions = (sessionsRes.data ?? []) as unknown as SessionRow[];
+  // Дни выходов босса считаем ДО базы дня: от них зависит, идут его чеки в
+  // дележ или остаются прибылью школы.
+  const bossDays = bossDaysFrom(shifts, bossIds);
+  const worksThatDay = (id: string, date: string): boolean =>
+    allowed.has(id) || Boolean(bossDays.get(id)?.has(date));
 
-  // День → база (только сессии инструкторов) и вклад каждого в этот день.
+  // День → база (сессии тех, кто в этот день в составе) и вклад каждого.
   const dayBase = new Map<string, number>();
   const dayOwn = new Map<string, Map<string, number>>();
   for (const s of sessions) {
     const id = s.instructor_id;
-    if (!id || !allowed.has(id)) continue;
+    if (!id || !worksThatDay(id, s.date)) continue;
     const net = Math.max(
       0,
       Number(s.amount ?? 0) - Number(s.agent_commission ?? 0),
@@ -262,7 +320,7 @@ export async function getSessionShare(
   const dayOpened = new Map<string, Set<string>>();
   const dayPlanned = new Map<string, Set<string>>();
   for (const s of shifts) {
-    if (!allowed.has(s.instructor_id)) continue;
+    if (!worksThatDay(s.instructor_id, s.date)) continue;
     const target = s.opened_at ? dayOpened : dayPlanned;
     const set = target.get(s.date) ?? new Set<string>();
     set.add(s.instructor_id);
