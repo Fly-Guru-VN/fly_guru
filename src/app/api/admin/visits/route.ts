@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAppUser, isOffice } from "@/lib/auth";
+import { getActiveAppUser, isOffice } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { vnPeriod, vnWeekToDate } from "@/lib/dates";
 import {
@@ -14,7 +14,7 @@ import { buildXlsx, xlsxHeaders } from "@/lib/xlsx";
 
 // CSV таблицы визитов со «Статистики»: /api/admin/visits?from&to&cat&inst&pay&ch&sort&dir.
 // Параметры — те же, что у страницы, и считает всё та же lib/visits: файл не
-// может разойтись с экраном. /api не проходит через middleware (см. matcher),
+// может разойтись с экраном. /api не проходит через proxy.ts (см. matcher),
 // поэтому роль проверяем сами.
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -28,7 +28,7 @@ function cell(v: string | number): string {
 export async function GET(request: NextRequest) {
   // Выгрузку качают и админ, и СММщик: таблица визитов есть в обоих кабинетах,
   // а файл обязан повторять то, что человек видит на экране.
-  const user = await getAppUser();
+  const user = await getActiveAppUser();
   if (!user || !isOffice(user.role)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }

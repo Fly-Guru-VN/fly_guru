@@ -49,6 +49,7 @@ export function ClientPhoto({
           alt={name}
           width={64}
           height={64}
+          unoptimized
           className="h-16 w-16 shrink-0 rounded-xl object-cover"
         />
       ) : (

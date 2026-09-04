@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAppUser, isAdminLike } from "@/lib/auth";
+import { getActiveAppUser, isAdminLike } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { vnMonth, vnPeriod, vnShiftDays, vnWeekToDate } from "@/lib/dates";
 import {
@@ -12,7 +12,7 @@ import { buildXlsx, xlsxHeaders } from "@/lib/xlsx";
 // Выгрузка расчёта выплат: /api/admin/payroll?from=YYYY-MM-DD&to=YYYY-MM-DD
 // (старое ?m=YYYY-MM тоже понимаем — месяц целиком). Данные — та же функция,
 // что у страницы /admin/payroll, файл не может разойтись с экраном.
-// /api не проходит через middleware (см. matcher), поэтому роль проверяем сами.
+// /api не проходит через proxy.ts (см. matcher), поэтому роль проверяем сами.
 
 // Подписи ролей в файле — те же слова, что на вкладке.
 const KIND: Record<DueRow["kind"], string> = {
@@ -33,7 +33,7 @@ function cell(v: string | number): string {
 }
 
 export async function GET(request: NextRequest) {
-  const user = await getAppUser();
+  const user = await getActiveAppUser();
   if (!user || !isAdminLike(user.role)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }

@@ -6,7 +6,7 @@ import { vnToday } from "@/lib/dates";
 // «Кто сейчас залогинен» для серверных компонентов и server actions.
 //
 // Роль хранится в двух местах: в JWT (app_metadata.role — для быстрых проверок
-// в middleware) и в таблице users (источник правды). Здесь читаем users:
+// в proxy.ts) и в таблице users (источник правды). Здесь читаем users:
 // кабинетам нужны и id, и имя.
 
 export type AppRole =
@@ -72,7 +72,7 @@ export function isOffice(role: AppRole): boolean {
 
 // Базовый путь кабинета, в котором человек сейчас работает. Экраны админки
 // переиспользуются СММщиком, и ссылки внутри них должны вести в ЕГО кабинет,
-// а не в /admin, куда его не пустит middleware.
+// а не в /admin, куда его не пустит proxy.ts.
 export function cabinetBase(role: AppRole): string {
   return ROLE_HOME[role] ?? "/admin";
 }
@@ -101,6 +101,14 @@ export const getAppUser = cache(async (): Promise<AppUser | null> => {
 
   return { left_at: null, ...(row.data as object) } as AppUser;
 });
+
+// Server actions и API нельзя защищать только layout-редиректом: их можно
+// вызвать напрямую со старой, но ещё живой сессией. Поэтому привилегированные
+// обработчики получают пользователя через этот fail-closed слой.
+export async function getActiveAppUser(): Promise<AppUser | null> {
+  const user = await getAppUser();
+  return user && !isLeftStaff(user) ? user : null;
+}
 
 // Куда отправить человека сразу после входа.
 //

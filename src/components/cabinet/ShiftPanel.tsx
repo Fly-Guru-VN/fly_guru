@@ -130,6 +130,7 @@ function PhotoThumb({ photo, deletable }: { photo: ShiftPhoto; deletable: boolea
         alt={label}
         width={96}
         height={96}
+        unoptimized
         className="h-24 w-24 rounded-xl object-cover"
       />
       <span className="absolute inset-x-0 bottom-0 truncate rounded-b-xl bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white">

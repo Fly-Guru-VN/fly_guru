@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { phoneDigits, phonesMatch } from "@/lib/phone";
 import { minutesLeft } from "@/lib/subscriptions";
+import { failIfReadError } from "@/lib/dbError";
 
 // Кабинет клиента: кто это, сколько у него минут и что у него записано.
 //
@@ -31,6 +32,47 @@ export interface MemberVisit {
   minutes: number | null;
   serviceName: string | null;
   note: string | null;
+}
+
+export interface MemberBookingRow {
+  id: string;
+  booking_no: number | null;
+  preferred_date: string | null;
+  scheduled_time: string | null;
+  status: string;
+  public_note: string | null;
+  services: { name: string } | null;
+}
+
+export interface MemberVisitRow {
+  date: string;
+  minutes_used: number | null;
+  public_note: string | null;
+  services: { name: string } | null;
+}
+
+// Эти преобразования — security boundary: типы намеренно не содержат
+// bookings.internal_note и sessions.note, поэтому служебный текст нельзя
+// случайно протащить в объект, который получает браузер клиента.
+export function toMemberBooking(row: MemberBookingRow): MemberBooking {
+  return {
+    id: row.id,
+    bookingNo: row.booking_no,
+    date: row.preferred_date,
+    time: row.scheduled_time,
+    serviceName: row.services?.name ?? null,
+    status: row.status,
+    note: row.public_note,
+  };
+}
+
+export function toMemberVisit(row: MemberVisitRow): MemberVisit {
+  return {
+    date: row.date,
+    minutes: row.minutes_used,
+    serviceName: row.services?.name ?? null,
+    note: row.public_note,
+  };
 }
 
 export interface MemberData {
@@ -67,11 +109,12 @@ async function findClientByPhone(
   supabase: Admin,
   digits: string,
 ): Promise<{ id: string; name: string } | null> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("clients")
     .select("id, name, phone")
     .not("phone", "is", null)
     .limit(5000);
+  failIfReadError(error, "не удалось найти клиента по телефону");
 
   const hit = (data ?? []).find((c) => phonesMatch(c.phone, digits));
   return hit ? { id: hit.id, name: hit.name } : null;
@@ -89,7 +132,7 @@ export async function linkTelegramAccount(input: {
   const digits = phoneDigits(input.phone);
   const client = digits ? await findClientByPhone(supabase, digits) : null;
 
-  await supabase.from("client_telegram").upsert(
+  const { error: linkError } = await supabase.from("client_telegram").upsert(
     {
       telegram_id: input.telegramId,
       client_id: client?.id ?? null,
@@ -100,6 +143,10 @@ export async function linkTelegramAccount(input: {
     },
     { onConflict: "telegram_id" },
   );
+  if (linkError) {
+    console.error("[member] telegram link upsert error:", linkError.message);
+    throw new Error("не удалось сохранить связь Telegram с клиентом");
+  }
 
   return { clientId: client?.id ?? null, clientName: client?.name ?? null };
 }
@@ -111,11 +158,12 @@ export async function resolveMember(
   supabase: Admin,
   telegramId: number,
 ): Promise<{ clientId: string; clientName: string } | MemberState> {
-  const { data: link } = await supabase
+  const { data: link, error: linkError } = await supabase
     .from("client_telegram")
     .select("client_id, phone")
     .eq("telegram_id", telegramId)
     .maybeSingle();
+  failIfReadError(linkError, "не удалось прочитать связь Telegram с клиентом");
 
   if (!link) return { state: "no_phone" };
 
@@ -129,10 +177,14 @@ export async function resolveMember(
     if (!found) return { state: "no_client", phone: link.phone as string };
     clientId = found.id;
     clientName = found.name;
-    await supabase
+    const { error: updateError } = await supabase
       .from("client_telegram")
       .update({ client_id: clientId, linked_at: new Date().toISOString() })
       .eq("telegram_id", telegramId);
+    if (updateError) {
+      console.error("[member] telegram relink error:", updateError.message);
+      throw new Error("не удалось привязать найденного клиента к Telegram");
+    }
   }
 
   // Для проверяющего типы: выше clientId уже либо был, либо мы вышли с
@@ -140,11 +192,12 @@ export async function resolveMember(
   if (!clientId) return { state: "no_client", phone: link.phone as string };
 
   if (!clientName) {
-    const { data: c } = await supabase
+    const { data: c, error: clientError } = await supabase
       .from("clients")
       .select("name")
       .eq("id", clientId)
       .maybeSingle();
+    failIfReadError(clientError, "не удалось прочитать имя клиента");
     clientName = c?.name ?? "Гость";
   }
 
@@ -159,7 +212,7 @@ export async function loadMemberData(telegramId: number): Promise<MemberState> {
 
   // Абонемент — последний активный. Остаток считаем общей функцией: та же
   // формула, что видят админ и инструктор, чтобы цифры не разошлись.
-  const { data: sub } = await supabase
+  const { data: sub, error: subError } = await supabase
     .from("subscriptions")
     .select("id, total_minutes, expires_at")
     .eq("client_id", who.clientId)
@@ -167,39 +220,26 @@ export async function loadMemberData(telegramId: number): Promise<MemberState> {
     .order("sold_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  failIfReadError(subError, "не удалось прочитать абонемент клиента");
 
   const [left, bookingsRes, historyRes] = await Promise.all([
     sub ? minutesLeft(supabase, sub) : Promise.resolve(0),
     supabase
       .from("bookings")
-      .select("id, booking_no, preferred_date, scheduled_time, status, internal_note, services(name)")
+      .select("id, booking_no, preferred_date, scheduled_time, status, public_note, services(name)")
       .eq("client_id", who.clientId)
       .in("status", ACTIVE_BOOKING_STATUSES as unknown as string[])
       .order("preferred_date", { ascending: true })
       .limit(20),
     supabase
       .from("sessions")
-      .select("date, minutes_used, note, services(name)")
+      .select("date, minutes_used, public_note, services(name)")
       .eq("client_id", who.clientId)
       .order("date", { ascending: false })
       .limit(30),
   ]);
-
-  type BookingRow = {
-    id: string;
-    booking_no: number | null;
-    preferred_date: string | null;
-    scheduled_time: string | null;
-    status: string;
-    internal_note: string | null;
-    services: { name: string } | null;
-  };
-  type SessionRow = {
-    date: string;
-    minutes_used: number | null;
-    note: string | null;
-    services: { name: string } | null;
-  };
+  failIfReadError(bookingsRes.error, "не удалось прочитать записи клиента");
+  failIfReadError(historyRes.error, "не удалось прочитать историю клиента");
 
   return {
     state: "ok",
@@ -214,21 +254,12 @@ export async function loadMemberData(telegramId: number): Promise<MemberState> {
             expiresAt: sub.expires_at,
           }
         : null,
-      bookings: ((bookingsRes.data ?? []) as unknown as BookingRow[]).map((b) => ({
-        id: b.id,
-        bookingNo: b.booking_no,
-        date: b.preferred_date,
-        time: b.scheduled_time,
-        serviceName: b.services?.name ?? null,
-        status: b.status,
-        note: b.internal_note,
-      })),
-      history: ((historyRes.data ?? []) as unknown as SessionRow[]).map((s) => ({
-        date: s.date,
-        minutes: s.minutes_used,
-        serviceName: s.services?.name ?? null,
-        note: s.note,
-      })),
+      bookings: ((bookingsRes.data ?? []) as unknown as MemberBookingRow[]).map(
+        toMemberBooking,
+      ),
+      history: ((historyRes.data ?? []) as unknown as MemberVisitRow[]).map(
+        toMemberVisit,
+      ),
     },
   };
 }

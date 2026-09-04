@@ -33,6 +33,7 @@ export function ShiftPhotos({ photos }: { photos: ShiftPhoto[] }) {
               alt={`${phase}: ${what}`}
               width={200}
               height={200}
+              unoptimized
               className="aspect-square w-full rounded-lg border border-line object-cover transition-opacity group-hover:opacity-90"
             />
             <p className="mt-1 text-[11px] font-semibold leading-tight">

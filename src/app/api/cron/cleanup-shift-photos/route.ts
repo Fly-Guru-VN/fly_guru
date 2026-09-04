@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isShiftPhotoStoragePath } from "@/lib/photos";
 
 // Чистилка фото смен (пак C). Снимки нужны боссу пару дней — понять, на чьей
 // смене случилась поломка. Дальше это мёртвый груз: держать их вечно = платить
 // за хранение сотен фото воды. Крон раз в сутки сносит всё старше 3 дней —
 // сначала файлы из бакета, потом строки.
 //
-// /api без middleware — защищаемся секретом (Vercel шлёт Authorization: Bearer
+// /api не проходит через proxy.ts — защищаемся секретом (Vercel шлёт Authorization: Bearer
 // <CRON_SECRET>) и ходим service_role клиентом. Без секрета роут не работает
 // вообще: иначе чужой человек мог бы снести фото смен одной ссылкой.
 
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
 
   const { data: stale, error: selError } = await supabase
     .from("shift_photos")
-    .select("id, path")
+    .select("id, shift_id, phase, kind, path")
     .lt("created_at", cutoff);
   if (selError) {
     console.error("[cron cleanup] select error:", selError.message);
@@ -43,14 +44,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ deleted: 0 });
   }
 
+  // Таблица доступна сотрудникам на insert через RLS. Даже если кто-то
+  // обойдёт интерфейс и подложит в свою строку путь чужого объекта, cron с
+  // service_role не должен становиться «удалителем» этого объекта.
+  if (stale.some((photo) => !isShiftPhotoStoragePath(photo))) {
+    console.error("[cron cleanup] unsafe shift photo path; cleanup aborted");
+    return NextResponse.json({ error: "unsafe_photo_path" }, { status: 500 });
+  }
+
   // Сначала файлы: если следом упадёт удаление строк, повторный запуск просто
   // не найдёт уже снесённые объекты — remove по несуществующим путям безопасен.
   const paths = stale.map((p) => p.path as string);
   const { error: rmError } = await supabase.storage.from("shifts").remove(paths);
   if (rmError) {
     console.error("[cron cleanup] storage remove error:", rmError.message);
-    // Не прерываемся: строки всё равно чистим, осиротевшие файлы догонит
-    // следующий запуск (пути ещё в базе не будет — но это редкий случай сбоя).
+    // Строки сохраняем: именно в них лежат пути для повторной попытки. Если
+    // удалить их сейчас, осиротевшие файлы следующий запуск уже не найдёт.
+    // Повтор remove безопасен и для объектов, которые успели удалиться частично.
+    return NextResponse.json({ error: rmError.message }, { status: 500 });
   }
 
   const ids = stale.map((p) => p.id as string);

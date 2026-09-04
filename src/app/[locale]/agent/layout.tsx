@@ -8,7 +8,10 @@ import { AdminViewBanner } from "@/components/cabinet/AdminViewBanner";
 import { ToastHost } from "@/components/cabinet/Toast";
 import { Sidebar } from "./Sidebar";
 
-export const metadata: Metadata = { title: "Кабинет агента" };
+export const metadata: Metadata = {
+  title: "Кабинет агента",
+  robots: { index: false, follow: false },
+};
 
 // Кабинет агента (0049, решение David от 25.08.2026). Оболочка — та же, что у
 // механика и инструктора: на ПК колонка меню слева, на телефоне нижняя панель.

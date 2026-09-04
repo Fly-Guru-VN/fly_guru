@@ -10,13 +10,16 @@ import { BookingsBadgeRefresh } from "@/components/BookingsBadgeRefresh";
 import { ToastHost } from "@/components/cabinet/Toast";
 import { Sidebar } from "./Sidebar";
 
-export const metadata: Metadata = { title: "Кабинет СММ" };
+export const metadata: Metadata = {
+  title: "Кабинет СММ",
+  robots: { index: false, follow: false },
+};
 
 // Кабинет СММщика: слева меню, справа раздел — та же оболочка, что в админке.
 // Разделы внутри — те же экраны админки, переиспользованные с базовым путём
 // /smm (см. src/lib/auth.ts, cabinetBase): второй копии логики в проекте нет.
 //
-// Доступ: middleware (быстрый рубеж) → requireRole (роль из БД) → RLS (0040).
+// Доступ: proxy.ts (быстрый рубеж) → requireRole (роль из БД) → RLS (0040).
 export default async function SmmLayout({
   children,
 }: {

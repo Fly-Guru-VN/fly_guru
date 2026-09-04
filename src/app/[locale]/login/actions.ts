@@ -10,6 +10,7 @@ import { phoneDigits, phonesMatch } from "@/lib/phone";
 import { vnToday } from "@/lib/dates";
 import { checkRateLimit, clientIp } from "@/lib/rateLimit";
 import { SITE_URL } from "@/lib/site";
+import { loginRateKey, passwordResetOrigin } from "@/lib/loginSecurity";
 
 // Вход по email ИЛИ телефону + пароль (архитектура, раздел 5: SMS не используем).
 // Supabase логинит только по email, поэтому телефон сперва превращаем в email:
@@ -20,16 +21,21 @@ export interface LoginState {
   error: string | null;
 }
 
+const LOGIN_FAILED = "Неверный логин или пароль.";
+const LOGIN_MAX_PER_IP = 10;
+const LOGIN_MAX_PER_ACCOUNT = 5;
+
 // Телефон → email через сервисный ключ (пользователь ещё не залогинен,
 // поэтому RLS его к users не пустит — резолвим на сервере).
 async function resolveEmailByPhone(rawPhone: string): Promise<string | null> {
   const admin = createAdminClient();
   // Таблица users маленькая (персонал + члены клуба), поэтому просто
   // перебираем номера с гибким сравнением (последние 9 цифр).
-  const { data } = await admin
+  const { data, error } = await admin
     .from("users")
     .select("email, phone")
     .not("phone", "is", null);
+  if (error) throw new Error(`users lookup failed: ${error.message}`);
   const found = (data ?? []).find((u) => phonesMatch(u.phone, rawPhone));
   return found?.email ?? null;
 }
@@ -46,40 +52,62 @@ export async function loginAction(
     return { error: "Введите логин и пароль." };
   }
 
+  // Два независимых барьера: один IP не перебирает много аккаунтов, один
+  // аккаунт не перебирают с пачки адресов. Это мягкий per-instance лимит;
+  // строгий распределённый барьер потребует общего хранилища (rateLimit.ts).
+  const head = await headers();
+  const allowedByIp = checkRateLimit(
+    `login-ip:${clientIp(head)}`,
+    LOGIN_MAX_PER_IP,
+  );
+  const allowedByAccount = checkRateLimit(
+    `login-account:${loginRateKey(identifier)}`,
+    LOGIN_MAX_PER_ACCOUNT,
+  );
+  if (!allowedByIp || !allowedByAccount) {
+    return { error: "Слишком много попыток. Подождите минуту." };
+  }
+
   let email: string | null;
   if (identifier.includes("@")) {
     email = identifier;
   } else if (phoneDigits(identifier).length >= 7) {
-    email = await resolveEmailByPhone(identifier);
+    try {
+      email = await resolveEmailByPhone(identifier);
+    } catch (error) {
+      console.error("[login] phone lookup error:", error);
+      return { error: "Не удалось проверить доступ. Попробуйте ещё раз." };
+    }
   } else {
     return { error: "Логин — это email или номер телефона." };
   }
 
   if (!email) {
-    return { error: "Пользователь с таким номером не найден." };
+    // Не подтверждаем постороннему, зарегистрирован ли такой телефон.
+    return { error: LOGIN_FAILED };
   }
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error || !data.user) {
-    return { error: "Неверный логин или пароль." };
+    return { error: LOGIN_FAILED };
   }
 
   // Роль берём из БД (источник правды), а не из JWT: токен отстаёт, если роль
   // сменили после его выдачи, и тогда вход кидал бы, например, повышенного до
-  // admin инструктора обратно в кабинет инструктора. JWT — только фолбэк.
-  let dbRes = await supabase
+  // admin инструктора обратно в кабинет инструктора.
+  const dbRes = await supabase
     .from("users")
     .select("role, left_at")
     .eq("auth_id", data.user.id)
     .maybeSingle();
-  // left_at появился в 0036 — до наката читаем без него.
-  if (dbRes.error)
-    dbRes = await supabase
-      .from("users")
-      .select("role")
-      .eq("auth_id", data.user.id)
-      .maybeSingle();
+  // Ошибка чтения роли/увольнения должна закрывать вход. Старый повтор без
+  // left_at удалён: он превращал любой сбой БД в «сотрудник не уволен».
+  if (dbRes.error) {
+    console.error("[login] app user lookup error:", dbRes.error.message);
+    await supabase.auth.signOut();
+    return { error: "Не удалось проверить доступ. Попробуйте ещё раз." };
+  }
   const dbUser = dbRes.data as { role?: string; left_at?: string | null } | null;
 
   // Уволенный (0036): пароль верный, но в школе он больше не работает.
@@ -91,10 +119,9 @@ export async function loginAction(
     };
   }
 
-  const role =
-    (dbUser?.role as AppRole | undefined) ??
-    (data.user.app_metadata?.role as AppRole | undefined) ??
-    null;
+  // JWT здесь не фолбэк: токен может отстать от таблицы users, а строка в БД
+  // является обязательным источником роли и статуса сотрудника.
+  const role = (dbUser?.role as AppRole | undefined) ?? null;
   if (!role || !(role in ROLE_HOME)) {
     // Аккаунт есть в auth, но роль не проставлена — создан мимо скрипта.
     await supabase.auth.signOut();
@@ -139,27 +166,31 @@ export async function requestPasswordResetAction(
   if (identifier.includes("@")) {
     email = identifier;
   } else if (phoneDigits(identifier).length >= 7) {
-    email = await resolveEmailByPhone(identifier);
+    try {
+      email = await resolveEmailByPhone(identifier);
+    } catch (error) {
+      console.error("[password reset] phone lookup error:", error);
+      return {
+        error: "Сервис временно недоступен. Попробуйте ещё раз.",
+        sent: false,
+      };
+    }
   } else {
     return { error: "Логин — это email или номер телефона.", sent: false };
   }
 
   if (email?.endsWith(TECH_EMAIL_SUFFIX)) {
-    return {
-      error:
-        "К этому аккаунту не привязана почта — новый пароль вам выдаст администратор.",
-      sent: false,
-    };
+    // Технический адрес не является почтовым ящиком, но отдельный ответ
+    // подтвердил бы постороннему, что введённый телефон зарегистрирован.
+    // Возвращаем тот же результат, что для неизвестного аккаунта, и ничего
+    // никуда не отправляем. Нейтральная подсказка про администратора есть в UI.
+    email = null;
   }
 
   if (email) {
-    // Адрес возврата берём из запроса, чтобы ссылка вела туда же, откуда её
-    // запросили (на localhost при проверке — на localhost). Подделать домен
-    // через заголовок Host нельзя: Supabase принимает только адреса из списка
-    // Redirect URLs, остальное молча заменяет на Site URL.
-    const host = head.get("host");
-    const proto = head.get("x-forwarded-proto") ?? "https";
-    const origin = host ? `${proto}://${host}` : SITE_URL;
+    // В production не доверяем Host из запроса: security-ссылка всегда ведёт
+    // на канонический сайт. Helper разрешает localhost только при разработке.
+    const origin = passwordResetOrigin(head, SITE_URL);
 
     // Здесь намеренно НЕ наш обычный серверный клиент. Он собран поверх
     // @supabase/ssr, а тот принудительно включает режим PKCE: ссылка в письме
@@ -173,10 +204,14 @@ export async function requestPasswordResetAction(
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
-    // Ошибку сознательно не показываем — см. ниже.
-    await supabase.auth.resetPasswordForEmail(email, {
+    // Ошибку не показываем клиенту: разный ответ выдал бы существование email.
+    // Но обязательно пишем её в серверный лог, иначе поломка SMTP невидима.
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${origin}/reset-password`,
     });
+    if (error) {
+      console.error("[password reset] send error:", error.message);
+    }
   }
 
   // Ответ одинаковый и когда аккаунт нашёлся, и когда нет. Иначе форма
