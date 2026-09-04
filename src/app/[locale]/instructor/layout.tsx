@@ -9,11 +9,14 @@ import { AdminViewBanner } from "@/components/cabinet/AdminViewBanner";
 import { ToastHost } from "@/components/cabinet/Toast";
 import { Sidebar } from "./Sidebar";
 
-export const metadata: Metadata = { title: "Кабинет инструктора" };
+export const metadata: Metadata = {
+  title: "Кабинет инструктора",
+  robots: { index: false, follow: false },
+};
 
 // Кабинет инструктора: слева боковое меню (на ПК — колонка, на телефоне —
 // разворачиваемая плашка), справа — контент активного раздела.
-// Доступ уже проверил middleware (быстрый рубеж), здесь — второй рубеж
+// Доступ уже проверил proxy.ts (быстрый рубеж), здесь — второй рубеж
 // с чтением роли из БД, третий — RLS в самой базе.
 export default async function InstructorLayout({
   children,

@@ -14,6 +14,7 @@ import {
 } from "@/lib/agentTerms";
 import { BookBtn } from "@/components/BookBtn";
 import { RefVisitLogger } from "@/components/RefVisitLogger";
+import { failIfReadError } from "@/lib/dbError";
 
 // Реф-лендинг: гость приходит по личной ссылке /r/<код>. Ссылка бывает двух
 // видов: агентская (даёт скидку на базовое и парное обучение, суммы — в
@@ -38,20 +39,22 @@ async function resolveRef(
   code: string,
 ): Promise<{ kind: RefKind; plan: AgentPlan }> {
   const supabase = createAdminClient();
-  const { data: agent } = await supabase
+  const { data: agent, error: agentError } = await supabase
     .from("agents")
     .select("id, terms_plan")
     .eq("ref_code", code)
     .eq("active", true)
     .maybeSingle();
+  failIfReadError(agentError, "не удалось проверить агентский реф-код");
   if (agent) return { kind: "agent", plan: asAgentPlan(agent.terms_plan) };
 
-  const { data: instructor } = await supabase
+  const { data: instructor, error: instructorError } = await supabase
     .from("users")
     .select("id")
     .eq("ref_code", code)
     .eq("role", "instructor")
     .maybeSingle();
+  failIfReadError(instructorError, "не удалось проверить реф-код инструктора");
   if (instructor) return { kind: "instructor", plan: DEFAULT_AGENT_PLAN };
 
   return { kind: null, plan: DEFAULT_AGENT_PLAN };

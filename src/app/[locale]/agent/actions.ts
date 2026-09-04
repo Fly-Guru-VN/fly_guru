@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getAppUser } from "@/lib/auth";
+import { getActiveAppUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createBooking } from "@/lib/bookings";
 import { getAgentProfile } from "@/lib/agentCabinet";
@@ -17,7 +17,7 @@ import type { ActionState } from "../instructor/actions";
 // Свой профиль правит сам агент; админ, заглянувший в кабинет, чужой профиль
 // отсюда не меняет — экшен всегда пишет в строку залогиненного.
 async function requireAgent() {
-  const user = await getAppUser();
+  const user = await getActiveAppUser();
   if (!user || user.role !== "agent") redirect("/login?next=/agent");
   return user;
 }
@@ -58,7 +58,7 @@ export async function updateAgentProfileAction(
 
   const photo = formData.get("photo");
   if (photo instanceof File && photo.size > 0) {
-    const checked = checkPhoto(photo);
+    const checked = await checkPhoto(photo);
     if (checked.error) return { error: checked.error };
 
     const path = `${user.id}.${checked.ext}`;

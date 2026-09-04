@@ -85,13 +85,13 @@ export async function sendInstructorsBookingAlert(b: {
 // закроет. Крон дёргает это утром (open) и вечером (close).
 const SHIFT_URL = `${SITE_URL}/instructor/shift`;
 
-export async function sendShiftReminder(kind: "open" | "close"): Promise<void> {
+export async function sendShiftReminder(kind: "open" | "close"): Promise<boolean> {
   const chatId = process.env.TELEGRAM_INSTRUCTORS_CHAT_ID;
   if (!chatId) {
     // Молчаливый выход тут — главный подозреваемый в «напоминалка не пришла»,
     // поэтому оставляем след в логах крона, а не гадаем потом.
     console.error("[telegram] TELEGRAM_INSTRUCTORS_CHAT_ID не задан — напоминалка не отправлена");
-    return;
+    return false;
   }
 
   const text =
@@ -111,7 +111,7 @@ export async function sendShiftReminder(kind: "open" | "close"): Promise<void> {
           SHIFT_URL,
         ].join("\n");
 
-  await sendTelegram(chatId, text);
+  return sendTelegram(chatId, text);
 }
 
 // Свободное сообщение в рабочий чат админа. Нужно там, где текст не подходит
@@ -132,9 +132,12 @@ export async function sendStaffMessage(text: string): Promise<void> {
 // инстанс — DNS + TLS-хендшейк) бывает заметно медленнее и не укладывался в
 // прежний таймаут 4с — терялось именно первое уведомление, а «тёплые» доходили.
 // Больший таймаут + ретрай это закрывают.
-async function sendTelegram(chatId: string, text: string): Promise<void> {
+async function sendTelegram(chatId: string, text: string): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) return;
+  if (!token) {
+    console.error("[telegram] TELEGRAM_BOT_TOKEN не задан — сообщение не отправлено");
+    return false;
+  }
 
   const url = `https://api.telegram.org/bot${token}/sendMessage`;
   const body = JSON.stringify({ chat_id: chatId, text });
@@ -147,7 +150,7 @@ async function sendTelegram(chatId: string, text: string): Promise<void> {
         body,
         signal: AbortSignal.timeout(8000),
       });
-      if (res.ok) return;
+      if (res.ok) return true;
 
       // Telegram ответил ошибкой. 4xx — наш запрос кривой (неверный chat_id и
       // т.п.), ретрай не поможет: логируем и выходим. 5xx/сеть — пробуем ещё.
@@ -155,7 +158,7 @@ async function sendTelegram(chatId: string, text: string): Promise<void> {
       console.error(
         `[telegram] send failed (attempt ${attempt}): ${res.status} ${detail}`,
       );
-      if (res.status >= 400 && res.status < 500) return;
+      if (res.status >= 400 && res.status < 500) return false;
     } catch (e) {
       // Таймаут/сеть — не роняем операцию, но фиксируем в логе и ретраим.
       console.error(
@@ -164,4 +167,5 @@ async function sendTelegram(chatId: string, text: string): Promise<void> {
       );
     }
   }
+  return false;
 }

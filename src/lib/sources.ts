@@ -1,6 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
 import { channelLabel, channelNaming, normChannel, LEGACY_CHANNELS } from "@/lib/channels";
+import { failIfReadError } from "@/lib/dbError";
 
 // «Источники» — откуда к нам приходят люди и что из этого выходит (10.08.2026,
 // просьба СММщика: он ставит ссылки в шапку Instagram и в описания роликов на
@@ -308,12 +309,13 @@ export async function getSourcesReport(
   // 3. Деньги: занятия этих клиентов за тот же период.
   const clientIds = [...sourceByClient.keys()];
   if (clientIds.length > 0) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("sessions")
       .select("client_id, amount")
       .in("client_id", clientIds)
       .gte("date", range.fromDay)
       .lt("date", range.toDay);
+    failIfReadError(error, "не удалось прочитать выручку по источникам");
 
     for (const s of (data ?? []) as { client_id: string | null; amount: number | null }[]) {
       if (!s.client_id) continue;

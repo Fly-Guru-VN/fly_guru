@@ -40,7 +40,12 @@ export function useAgentRef(refCode?: string | null): AgentPlan | null {
       : answers.has(code)
         ? Promise.resolve(answers.get(code)!)
         : fetch(`/api/ref/${encodeURIComponent(code)}`)
-            .then((res) => (res.ok ? res.json() : { kind: null }))
+            // 404-like `kind:null` можно кэшировать, а 429/503 — временный
+            // сбой. Его не превращаем в «не агент» и не кладём в answers.
+            .then((res) => {
+              if (!res.ok) throw new Error(`ref lookup failed: ${res.status}`);
+              return res.json();
+            })
             .then((data: { kind?: string | null; plan?: string | null }) => {
               const agentPlan = data.kind === "agent" ? asAgentPlan(data.plan) : null;
               answers.set(code, agentPlan);

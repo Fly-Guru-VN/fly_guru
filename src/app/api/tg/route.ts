@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { linkTelegramAccount } from "@/lib/memberCabinet";
+import { verifyWebhookSecret } from "@/lib/tgAuth";
 import {
   CABINET_KEYBOARD,
   SHARE_PHONE_KEYBOARD,
@@ -16,9 +17,10 @@ import {
 //      постоянную кнопку «Кабинет»;
 //   3. всё остальное → напоминаем, что делать.
 //
-// Отвечаем 200 на что угодно (даже на своё исключение): на любой другой код
-// Telegram считает доставку неудачной и присылает то же обновление снова и
-// снова. Ошибки при этом не глотаем — пишем в лог.
+// После успешной проверки секрета отвечаем 200 даже на исключение обработки:
+// на другой код Telegram присылает то же обновление снова и снова. Ошибки при
+// этом не глотаем — пишем в лог. Ошибка аутентификации, наоборот, получает
+// 401, а отсутствие обязательного секрета в конфигурации — 503.
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +37,16 @@ export async function POST(req: NextRequest) {
   if (!clientBotToken()) return ok();
 
   // Секретное слово в заголовке (задаётся при регистрации адреса у Telegram).
-  // Без него адрес открыт всему интернету: кто угодно прислал бы поддельное
-  // «вот мой контакт» с чужим номером и получил доступ к чужому абонементу.
+  // Fail-closed: если переменную забыли при деплое, не обрабатываем вообще ни
+  // один update. 503 заставит настоящий Telegram повторить доставку после
+  // исправления конфигурации; запрос с неверным секретом получает 401.
   const secret = process.env.TELEGRAM_CLIENT_BOT_SECRET;
-  if (secret && req.headers.get("x-telegram-bot-api-secret-token") !== secret) {
+  const receivedSecret = req.headers.get("x-telegram-bot-api-secret-token");
+  if (!verifyWebhookSecret(secret, receivedSecret)) {
+    if (!secret) {
+      console.error("[tg-client] TELEGRAM_CLIENT_BOT_SECRET не задан — webhook закрыт");
+      return NextResponse.json({ ok: false }, { status: 503 });
+    }
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 

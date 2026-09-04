@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { routing } from "./i18n/routing";
 
-// Middleware делает две вещи:
+// Proxy делает две вещи:
 // 1. next-intl: разбирает язык из URL и переписывает путь на сегмент [locale];
 // 2. защита кабинетов: /admin, /instructor, /mechanic, /smm, /agent доступны только
 //    залогиненным пользователям с подходящей ролью (роль читается из JWT —
@@ -18,7 +18,7 @@ const intlMiddleware = createIntlMiddleware(routing);
 // /member здесь намеренно НЕТ. Это кабинет клиента, и входит он не через
 // Supabase-логин, а через Telegram: страницу открывает мини-приложение бота,
 // личность проверяет серверное действие по подписи Telegram (lib/tgAuth).
-// Оставь /member в этом списке — и каждого клиента middleware уводил бы на
+// Оставь /member в этом списке — и каждого клиента proxy уводил бы на
 // страницу входа, где ему нечего вводить: пароля у него нет и не будет.
 const PROTECTED = new Set(["admin", "instructor", "mechanic", "smm", "agent"]);
 
@@ -36,15 +36,37 @@ function stripLocale(pathname: string): string {
   return pathname;
 }
 
-export default async function middleware(request: NextRequest) {
-  const response = intlMiddleware(request);
+export async function proxy(request: NextRequest) {
+  // Next 16.3 повторно вызывает proxy после внутреннего rewrite next-intl
+  // (/training → /ru/training). Повторно запускать intlMiddleware нельзя: он
+  // канонизирует /ru/training обратно в /training, и получается вечный 307.
+  // Служебный заголовок ставит сам next-intl на переписанном запросе.
+  // ВАЖНО: ниже всё равно выполняются проверки auth/ролей — заголовок не даёт
+  // возможности обойти защиту кабинетов, даже если клиент подделает его.
+  const response = request.headers.has("x-next-intl-locale")
+    ? NextResponse.next()
+    : intlMiddleware(request);
 
   // next-intl сам решил средиректить (смена языка и т.п.) — не вмешиваемся,
-  // на следующем запросе middleware отработает снова.
+  // на следующем запросе proxy отработает снова.
   if (response.headers.has("location")) return response;
 
   const path = stripLocale(request.nextUrl.pathname);
   const section = path.split("/")[1];
+
+  // Telegram Web открывает Mini App в iframe. Общий заголовок из next.config
+  // запрещает framing всего сайта; исключение ставим именно на ФИНАЛЬНЫЙ
+  // ответ next-intl, иначе locale middleware перезапишет config override.
+  // Другим origin и всем остальным страницам встраивание по-прежнему закрыто.
+  if (section === "member") {
+    response.headers.set(
+      "Content-Security-Policy",
+      "frame-ancestors 'self' https://web.telegram.org",
+    );
+    response.headers.delete("X-Frame-Options");
+    return response;
+  }
+
   if (!PROTECTED.has(section)) return response;
 
   // Supabase-клиент, привязанный к кукам запроса. Обновлённые токены
@@ -79,7 +101,7 @@ export default async function middleware(request: NextRequest) {
 
   // Роль из JWT — быстрый кэш в токене. Она ОТСТАЁТ, если роль в таблице users
   // сменили уже после выдачи токена (инструктора повысили до admin — а токен
-  // всё ещё instructor). Тогда middleware выгонял такого «админа» из /admin в
+  // всё ещё instructor). Тогда proxy выгонял такого «админа» из /admin в
   // /instructor, хотя страницы и RLS (они смотрят в БД) пускают его как админа.
   let role = (user.app_metadata?.role as string | undefined) ?? "";
 
@@ -124,6 +146,6 @@ export default async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // Прогоняем через middleware всё, кроме служебных путей Next и файлов с расширением.
+  // Прогоняем через proxy всё, кроме служебных путей Next и файлов с расширением.
   matcher: "/((?!api|_next|_vercel|.*\\..*).*)",
 };

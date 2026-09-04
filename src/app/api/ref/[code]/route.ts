@@ -44,22 +44,30 @@ export async function GET(
   // между таблицами он главнее (то же правило, что в lib/refOwner и на
   // лендинге /r/[code]). Выключенного агента не отдаём вовсе: скидки по его
   // ссылке уже не будет, и обещать её нельзя.
-  const { data: agent } = await supabase
+  const { data: agent, error: agentError } = await supabase
     .from("agents")
     .select("id, terms_plan")
     .eq("ref_code", code)
     .eq("active", true)
     .maybeSingle();
+  if (agentError) {
+    console.error("[ref lookup] agents query error:", agentError.message);
+    return NextResponse.json({ error: "service_unavailable" }, { status: 503 });
+  }
   if (agent) {
     return NextResponse.json({ kind: "agent", plan: asAgentPlan(agent.terms_plan) });
   }
 
-  const { data: instructor } = await supabase
+  const { data: instructor, error: instructorError } = await supabase
     .from("users")
     .select("id")
     .eq("ref_code", code)
     .eq("role", "instructor")
     .maybeSingle();
+  if (instructorError) {
+    console.error("[ref lookup] users query error:", instructorError.message);
+    return NextResponse.json({ error: "service_unavailable" }, { status: 503 });
+  }
   if (instructor) return NextResponse.json({ kind: "instructor" });
 
   return NextResponse.json({ kind: null });

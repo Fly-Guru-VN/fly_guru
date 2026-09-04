@@ -11,7 +11,7 @@ import { sendShiftReminder } from "@/lib/telegram";
 // В итоге за всё время в группу не ушло ни одного напоминания. Напоминалка —
 // это будильник, а не отчёт по базе: она нужна ровно до того, как смену открыли.
 //
-// /api не проходит через middleware, сессии тут нет — защищаемся секретом
+// /api не проходит через proxy.ts, сессии тут нет — защищаемся секретом
 // (Vercel сам шлёт Authorization: Bearer <CRON_SECRET>). Без секрета роут не
 // работает вообще: иначе чужой человек мог бы спамить группу инструкторов.
 
@@ -30,6 +30,9 @@ export async function GET(request: NextRequest) {
   }
 
   const type = request.nextUrl.searchParams.get("type") === "open" ? "open" : "close";
-  await sendShiftReminder(type);
+  const sent = await sendShiftReminder(type);
+  if (!sent) {
+    return NextResponse.json({ type, sent: false }, { status: 502 });
+  }
   return NextResponse.json({ type, sent: true });
 }

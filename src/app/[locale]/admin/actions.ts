@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   cabinetBase,
-  getAppUser,
+  getActiveAppUser,
   isAdminLike,
   isOffice,
   type AppRole,
@@ -27,6 +27,7 @@ import { DICT_LABEL, type DictTable } from "@/lib/dictionaries";
 import type { EquipmentKind } from "@/lib/equipment";
 import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
+import { replacePrivateClientPhoto } from "@/lib/privateStorage";
 import {
   agentCommissionFor,
   agentRewardApplies,
@@ -51,7 +52,7 @@ import type { ActionState } from "../instructor/actions";
 // Разработчик (0044) — тот же админ: и права, и кабинет у него админские,
 // поэтому все экшены админки открыты и ему.
 async function requireAdmin() {
-  const user = await getAppUser();
+  const user = await getActiveAppUser();
   if (!user || !isAdminLike(user.role)) redirect("/login?next=/admin");
   return user;
 }
@@ -62,7 +63,7 @@ async function requireAdmin() {
 // живут в коде, а не в RLS: премию пишем service_role-клиентом (см. 0020 —
 // политика не умеет ограничивать набор колонок).
 async function requireAdminOrMechanic() {
-  const user = await getAppUser();
+  const user = await getActiveAppUser();
   if (!user || !(isAdminLike(user.role) || user.role === "mechanic")) {
     redirect("/login?next=/admin");
   }
@@ -77,7 +78,7 @@ async function requireAdminOrMechanic() {
 // механик (подошли на пляже) и СММщик (написали в директ). Премию за смену
 // или ленту заявок это право не открывает — для них свои проверки.
 async function requireBookingAuthor() {
-  const user = await getAppUser();
+  const user = await getActiveAppUser();
   if (!user || !(isAdminLike(user.role) || ["mechanic", "smm"].includes(user.role))) {
     redirect("/login?next=/admin");
   }
@@ -85,7 +86,7 @@ async function requireBookingAuthor() {
 }
 
 async function requireOffice() {
-  const user = await getAppUser();
+  const user = await getActiveAppUser();
   if (!user || !isOffice(user.role)) redirect("/login?next=/admin");
   return user;
 }
@@ -102,7 +103,7 @@ async function officeClient(user: { role: AppRole }) {
 
 // Куда возвращать после сохранения: в кабинет того, кто сохранял. Раньше все
 // эти экшены редиректили жёстко в /admin/... — СММщика оттуда выбросил бы
-// middleware, и он видел бы не результат, а свою же ленту заявок.
+// proxy.ts, и он видел бы не результат, а свою же ленту заявок.
 function officeRedirect(user: { role: AppRole }, path: string): never {
   redirect(`${cabinetBase(user.role)}${path}`);
 }
@@ -1252,26 +1253,13 @@ export async function uploadClientPhotoAction(
   if (!(photo instanceof File) || photo.size === 0) {
     return { error: "Выберите фото." };
   }
-  const checked = checkPhoto(photo);
-  if (checked.error) return { error: checked.error };
-
-  const admin = createAdminClient();
-  // Путь стабильный (одно фото на клиента, upsert перезаписывает старое),
-  // а ?v= в сохранённом URL сбрасывает кеш браузера и next/image.
-  const path = `${id}.${checked.ext}`;
-  const { error: uploadError } = await admin.storage
-    .from("clients")
-    .upload(path, photo, { upsert: true, contentType: photo.type });
-  if (uploadError) {
-    return { error: `Не удалось загрузить фото: ${uploadError.message}` };
+  const checked = await checkPhoto(photo);
+  if (!checked.ext) {
+    return { error: checked.error ?? "Не удалось проверить формат фото." };
   }
 
-  const { data: pub } = admin.storage.from("clients").getPublicUrl(path);
-  const { error } = await admin
-    .from("clients")
-    .update({ photo_url: `${pub.publicUrl}?v=${Date.now()}` })
-    .eq("id", id);
-  if (error) return { error: `Не удалось сохранить фото: ${error.message}` };
+  const result = await replacePrivateClientPhoto(id, photo, checked.ext);
+  if (result.error) return result;
 
   revalidatePath("/", "layout");
   return { error: null };
@@ -1415,9 +1403,9 @@ export async function createInviteAction(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
-// Сделать клиента членом клуба вручную. Обычно членство создаёт продажа
-// абонемента; ручная кнопка — для случаев вроде «прошёл базовое обучение»
-// (условия членства ещё уточняются у руководителя).
+// Сделать клиента членом клуба вручную. Продажа абонемента membership сейчас
+// не создаёт: это отдельное решение администратора. Публичная страница клуба
+// пока описывает другое правило — конфликт зафиксирован в questions.md.
 export async function addMemberAction(formData: FormData) {
   await requireAdmin();
   const clientId = String(formData.get("clientId") ?? "");
@@ -1995,7 +1983,8 @@ export async function deleteSalaryPayoutAction(formData: FormData) {
 // ней остаются его занятия, смены и все прошлые расчёты — начальнику нужно
 // видеть, что такой человек был и сколько ему выплатили.
 //
-// left_at — ПОСЛЕДНИЙ рабочий день включительно. Со следующего дня человек:
+// left_at — ПОСЛЕДНИЙ оплачиваемый день включительно. В интерфейсе человек
+// считается уволенным уже с этой даты (см. lib/staff → isFired), поэтому сразу:
 //   • исчезает из списков в формах (кто провёл, кто продал, кому ставить смену),
 //   • не участвует в дележе абонементов, оплаченных после его ухода,
 //   • не может войти в кабинет (см. lib/auth).

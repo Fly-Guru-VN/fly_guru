@@ -4,12 +4,15 @@ import { AdminViewBanner } from "@/components/cabinet/AdminViewBanner";
 import { ToastHost } from "@/components/cabinet/Toast";
 import { Sidebar } from "./Sidebar";
 
-export const metadata: Metadata = { title: "Кабинет механика" };
+export const metadata: Metadata = {
+  title: "Кабинет механика",
+  robots: { index: false, follow: false },
+};
 
 // Кабинет механика: слева боковое меню, справа контент раздела — та же
 // оболочка, что у инструктора. Запросов за ЗП и счётчиком записей здесь нет:
 // зарплату механику не считают, а заявки он только заводит.
-// Доступ уже проверил middleware (быстрый рубеж), здесь — второй рубеж
+// Доступ уже проверил proxy.ts (быстрый рубеж), здесь — второй рубеж
 // с чтением роли из БД, третий — RLS в самой базе.
 export default async function MechanicLayout({
   children,

@@ -1,133 +1,144 @@
 # FlyGuru
 
-Сайт-экосистема школы электрофойлов в Нячанге (Вьетнам): обучение, клубная система,
-магазин фойлов, рефералы и CRM.
+Сайт и CRM школы электрофойлов FlyGuru в Нячанге: публичные страницы,
+заявки, клиенты, занятия, абонементы, смены, выплаты, агентские рефералы и
+Telegram Mini App для клиентов.
 
-**Источник правды по проекту** — [`docs/flyguru_architecture.md`](docs/flyguru_architecture.md).
-Разработка идёт по этапам из раздела 10 того документа. Текущий статус: **Этап 0** (сетап).
+## Что является источником правды
+
+1. Исполняемый код в `src/`.
+2. Последовательность SQL-миграций в `supabase/migrations/`.
+3. `supabase/seed.sql` — итоговый справочник услуг только для чистой базы.
+4. Документы — объяснение текущей реализации, но не замена проверки кода.
+
+Актуальный обзор системы: [`docs/flyguru_architecture.md`](docs/flyguru_architecture.md).
+Практические команды: [`docs/commands.md`](docs/commands.md).
+
+## Текущее состояние
+
+Реализованы:
+
+- публичные страницы: главная, обучение, тандем, клуб, цены, отзывы, контакты
+  и витрина магазина;
+- формы заявок, атрибуция источников и агентские ссылки/QR;
+- CRM админа и рабочие кабинеты инструктора, механика и СММ;
+- учёт клиентов, занятий, абонементов, смен, расходов и выплат;
+- кабинет агента со статистикой, материалами и выплатами;
+- кабинет клиента как Telegram Mini App: остаток минут, запись, отмена и история;
+- Telegram-уведомления, SMTP-сброс пароля и Vercel Cron.
+
+В коде ещё остаётся старый invite/password-flow для членов клуба. Основной
+клиентский кабинет сейчас работает через Telegram; legacy-flow не следует
+расширять, пока не принято решение оставить его или удалить.
 
 ## Стек
 
-- **Next.js 16** (App Router) + TypeScript + Tailwind CSS v4
-- **Supabase** (Postgres, Auth, RLS)
-- **next-intl** — i18n (ru по умолчанию, en/vi — каркас)
-- Деплой: **Vercel**, домен на timeweb → DNS на Vercel
+- Next.js 16 App Router, React 19, TypeScript;
+- Tailwind CSS v4;
+- Supabase Postgres, Auth, Storage и RLS;
+- next-intl: `ru` без префикса, каркас `en` и `vi`;
+- Vercel, регион `syd1`;
+- Telegram Bot API и SMTP.
 
-## Структура проекта
+## Структура
 
-```
-src/
-  app/[locale]/        публичные страницы (сегмент [locale] — язык из URL)
-  i18n/                конфигурация next-intl (routing, request, navigation)
-  lib/supabase/        клиенты Supabase (client.ts — браузер, server.ts — сервер)
-  middleware.ts        роутинг локалей
-messages/              переводы: ru.json (контент), en.json, vi.json (каркас)
-supabase/
-  migrations/          SQL-миграции схемы БД
-  seed.sql             сиды (справочник услуг)
-docs/                  архитектурный документ
+```text
+src/app/[locale]/        публичные страницы и кабинеты
+src/app/api/             API, Telegram webhook и cron-задачи
+src/components/          общие UI-компоненты
+src/content/             тексты публичных услуг и товаров
+src/lib/                 бизнес-логика, расчёты, auth и Supabase
+messages/                сообщения next-intl
+scripts/                 операционные скрипты
+supabase/migrations/     миграции 0001…0054 в строгом порядке
+supabase/seed.sql        стандартные услуги для воспроизводимой базы
+docs/                    актуальный обзор и инструкции
 ```
 
 ## Локальный запуск
 
-1. Установить зависимости:
-   ```bash
-   npm install
-   ```
-2. Создать `.env.local` из шаблона и заполнить ключами Supabase:
-   ```bash
-   cp .env.example .env.local
-   ```
-   Где брать значения — см. комментарии в `.env.example` (дашборд Supabase →
-   Project Settings → Data API / API Keys).
-3. Запустить дев-сервер:
-   ```bash
-   npm run dev
-   ```
-   Открыть http://localhost:3000
-
-Прочие команды: `npm run build` (прод-сборка), `npm run start` (запуск сборки),
-`npm run lint`.
-
-## Роутинг локалей
-
-`localePrefix: "as-needed"` (см. `src/i18n/routing.ts`):
-- `ru` (по умолчанию) — **без префикса**: `/`, `/training`, `/club`
-- `en` / `vi` — **с префиксом**: `/en/training`, `/vi/club`
-
-## База данных: миграции и сиды
-
-Схема лежит в `supabase/migrations/`, сиды услуг — в `supabase/seed.sql`.
-Два способа накатить на чистый проект Supabase.
-
-### Вариант A — Supabase CLI (рекомендуется)
-
-CLI глобально ставить не нужно, запускаем через `npx`.
+Требуется Node.js 20+.
 
 ```bash
-# 1. Логин (откроет браузер)
-npx supabase login
-
-# 2. Привязать локальную папку к своему проекту (project ref — в URL дашборда)
-npx supabase link --project-ref <your-project-ref>
-
-# 3. Накатить миграции из supabase/migrations
-npx supabase db push
-
-# 4. Залить сиды
-npx supabase db push --include-seed
-# либо выполнить seed вручную:
-#   psql "<connection-string>" -f supabase/seed.sql
+npm install
+cp .env.example .env.local
+npm run dev
 ```
 
-> `supabase db reset` пересоздаёт БД и автоматически прогоняет миграции + `seed.sql`.
-> На удалённом проекте это **стирает данные** — использовать осознанно.
+Приложение откроется на `http://localhost:3000`. Все переменные и назначение
+трёх Telegram-ботов описаны в `.env.example`. Секреты нельзя добавлять в Git
+или вставлять в документацию.
 
-### Вариант B — вручную через дашборд
+## Проверки перед коммитом
 
-Dashboard → **SQL Editor** → New query:
-1. Вставить содержимое `supabase/migrations/0001_init.sql` → Run.
-2. Вставить содержимое `supabase/seed.sql` → Run.
+```bash
+npm run lint
+npx tsc --noEmit
+npm test
+npm run build
+npm run test:e2e
+```
 
-### Проверка
+Unit-тесты покрывают отдельные функции бизнес-логики. Интеграционные тесты
+server actions и RLS пока отсутствуют, поэтому изменения авторизации и денежных
+расчётов нужно дополнительно проверять сценариями разных ролей. Playwright
+проверяет публичные страницы в desktop/mobile Chromium, ошибки браузерной
+консоли и защитные HTTP-заголовки. Перед первым локальным запуском установите
+браузер: `npx playwright install chromium`.
 
-Dashboard → **Table Editor** → таблица `services`: должно быть **11 услуг** с ценами
-из раздела 3 архитектуры (у «Путешествия» цена пустая — TBD).
+Те же lint, typecheck, unit tests, build и public E2E запускаются в
+`.github/workflows/ci.yml` для pull request и push в `main`. Quality job
+проверяет Node 20 и production-major Node 24; browser E2E работает на Node 24,
+как текущий Vercel-проект.
 
-> RLS включён на всех таблицах без политик (deny-all). Клиентские ключи пока
-> ничего не видят — это ожидаемо, политики появятся на Этапе 3.
+## Воспроизводимая база Supabase
 
-## Деплой на Vercel
+Supabase CLI и `supabase/config.toml` закреплены в проекте. Для запуска
+локального стека нужен работающий Docker daemon:
 
-1. Запушить репозиторий на GitHub.
-2. https://vercel.com/new → **Import** этот репозиторий. Vercel сам определит Next.js.
-3. В **Environment Variables** добавить те же ключи, что в `.env.local`:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY`
-4. **Deploy**. После сборки проект открывается по адресу `https://<project>.vercel.app`.
+```bash
+npx supabase start
+npx supabase db reset
+```
 
-Дальнейшие пуши в основную ветку деплоятся автоматически.
+Миграции должны выполниться все, от `0001_init.sql` до текущей последней.
+`db reset` пересоздаёт **локальную** базу, применяет миграции и затем seed.
+`seed.sql` добавляет недостающие стандартные услуги по уникальному `code`, не
+перезаписывая уже существующие строки.
 
-## Домен с timeweb → Vercel
+При ручной установке через SQL Editor порядок такой:
 
-Домен остаётся зарегистрированным на timeweb, меняем только DNS-записи, чтобы
-трафик шёл на Vercel.
+1. Выполнить **каждый** файл `supabase/migrations/*.sql` по номеру.
+2. После последней миграции выполнить `supabase/seed.sql`.
+3. Проверить, что у стандартных услуг заполнены уникальные `code`.
 
-1. В Vercel: проект → **Settings → Domains** → добавить свой домен (напр. `flyguru.ru`).
-   Vercel покажет нужные записи.
-2. В панели timeweb (**Домены и поддомены → DNS-записи**) прописать:
+Нельзя ограничиваться одной миграцией `0001`: последующие файлы добавляют
+роли, RLS-политики, денежную модель, Telegram-кабинет и остальные рабочие поля.
 
-   | Тип   | Имя (host) | Значение                | Назначение              |
-   |-------|------------|-------------------------|-------------------------|
-   | A     | `@`        | `76.76.21.21`           | корневой домен → Vercel |
-   | CNAME | `www`      | `cname.vercel-dns.com`  | поддомен www → Vercel   |
+Для новой одноразовой dev/staging-базы можно использовать `db push
+--include-seed`. Для production — только предварительный просмотр и pending
+миграции, без seed:
 
-   > Точные значения всегда сверяй с тем, что показывает Vercel в Settings → Domains —
-   > он может дать другой A-адрес или запросить проверочную запись.
-3. Удалить старые A/CNAME-записи timeweb, конфликтующие с `@` и `www`.
-4. Подождать распространение DNS (от минут до нескольких часов). Vercel сам выпустит
-   TLS-сертификат, когда увидит корректные записи.
+```bash
+npx supabase link --project-ref <project-ref>
+npx supabase migration list
+npx supabase db push --dry-run
+npx supabase db push
+```
 
-> План Б (резерв): VPS timeweb `194.87.220.7` на случай проблем доступности из РФ —
-> в Этапе 0 не задействуется.
+Перед DDL-изменениями production нужна проверяемая резервная копия. Никогда не
+используйте `db reset --linked` для production: команда удаляет данные.
+
+## Деплой
+
+Production разворачивается на Vercel из основной ветки. Перед выкладкой нужно:
+
+- выполнить четыре проверки выше;
+- применить недостающие миграции;
+- сверить Environment Variables с `.env.example`;
+- убедиться, что `TELEGRAM_CLIENT_BOT_SECRET` и `CRON_SECRET` заданы;
+- проверить webhook клиентского бота командой из `docs/commands.md`.
+
+Основной домен и редирект со служебного Vercel-домена задаются в
+`next.config.ts`. Точные DNS-значения нужно брать из текущего Vercel Dashboard,
+а не из старых инструкций.

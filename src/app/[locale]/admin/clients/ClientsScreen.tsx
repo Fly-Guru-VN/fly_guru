@@ -13,6 +13,10 @@ import { updateClientAction } from "../actions";
 import { SaveForm } from "../SaveForm";
 import { ClientPhoto } from "./ClientPhoto";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import {
+  createPrivatePhotoUrls,
+  privatePhotoPath,
+} from "@/lib/privateStorage";
 
 // База клиентов: поиск по имени/телефону, карточка с историей трат,
 // абонементами и внутренней заметкой. Клиенты появляются сами — из
@@ -30,6 +34,8 @@ interface ClientRow {
   city: string | null;
   tour_approved: boolean;
   telegram_username: string | null;
+  photo_path: string | null;
+  // Legacy до 0052: используем только для извлечения пути, наружу не отдаём.
   photo_url: string | null;
   created_at: string;
 }
@@ -94,7 +100,15 @@ function ClientsHead() {
   );
 }
 
-function ClientCard({ c, stats }: { c: ClientRow; stats: ClientStats }) {
+function ClientCard({
+  c,
+  stats,
+  photoUrl,
+}: {
+  c: ClientRow;
+  stats: ClientStats;
+  photoUrl: string | null;
+}) {
   return (
     <details className="group rounded-2xl border border-line bg-surface">
       <summary className="flex cursor-pointer list-none items-center gap-2 p-4 [&::-webkit-details-marker]:hidden">
@@ -102,12 +116,13 @@ function ClientCard({ c, stats }: { c: ClientRow; stats: ClientStats }) {
             не раскрывая карточку (пак B, пункт 7). Без фото — кружок с
             буквой: место занято всегда, иначе строки без фото сдвигались
             влево и колонки переставали стоять друг под другом. */}
-        {c.photo_url ? (
+        {photoUrl ? (
           <Image
-            src={c.photo_url}
+            src={photoUrl}
             alt={c.name}
             width={36}
             height={36}
+            unoptimized
             className="h-9 w-9 shrink-0 rounded-full object-cover"
           />
         ) : (
@@ -205,7 +220,7 @@ function ClientCard({ c, stats }: { c: ClientRow; stats: ClientStats }) {
         </div>
 
         <div className="mt-3">
-          <ClientPhoto clientId={c.id} photoUrl={c.photo_url} name={c.name} />
+          <ClientPhoto clientId={c.id} photoUrl={photoUrl} name={c.name} />
         </div>
 
         <SaveForm action={updateClientAction} className="mt-3">
@@ -316,7 +331,7 @@ export async function ClientsScreen({
     // поиск переставал бы находить всех, кто не попал в первую тысячу.
     loadAllClients<ClientRow>(
       supabase,
-      "id, name, phone, source, referrer_type, referrer_id, internal_note, age, city, tour_approved, telegram_username, photo_url, created_at",
+      "id, name, phone, source, referrer_type, referrer_id, internal_note, age, city, tour_approved, telegram_username, photo_path, photo_url, created_at",
     ),
     // Тоже постранично (lib/sessions): .limit(10000) молча занизил бы
     // и число занятий, и сумму трат у клиентов.
@@ -378,8 +393,14 @@ export async function ClientsScreen({
   const agentIds = shown
     .filter((c) => c.referrer_type === "agent" && c.referrer_id)
     .map((c) => c.referrer_id as string);
+  const photoPathByClient = new Map(
+    shown.map((c) => [
+      c.id,
+      privatePhotoPath("clients", c.photo_path, c.photo_url),
+    ]),
+  );
 
-  const [subsRes, membersRes, agentsRes] = await Promise.all([
+  const [subsRes, membersRes, agentsRes, photoUrls] = await Promise.all([
     ids.length
       ? supabase
           .from("subscriptions")
@@ -395,6 +416,7 @@ export async function ClientsScreen({
           .select("id, ref_code, user:users!user_id(name)")
           .in("id", agentIds)
       : Promise.resolve({ data: [] }),
+    createPrivatePhotoUrls("clients", [...photoPathByClient.values()]),
   ]);
   for (const r of subsRes.data ?? []) {
     if (r.status === "active") stat(r.client_id as string).activeSubs += 1;
@@ -476,9 +498,17 @@ export async function ClientsScreen({
       )}
       {shown.length > 0 && <ClientsHead />}
       <div className="mt-3 space-y-3 xl:mt-1">
-        {shown.map((c) => (
-          <ClientCard key={c.id} c={c} stats={stat(c.id)} />
-        ))}
+        {shown.map((c) => {
+          const path = photoPathByClient.get(c.id);
+          return (
+            <ClientCard
+              key={c.id}
+              c={c}
+              stats={stat(c.id)}
+              photoUrl={path ? (photoUrls.get(path) ?? null) : null}
+            />
+          );
+        })}
       </div>
     </div>
   );

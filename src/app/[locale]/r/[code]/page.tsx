@@ -1,5 +1,6 @@
 import { redirect } from "@/i18n/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { failIfReadError } from "@/lib/dbError";
 
 // Личная ссылка /r/<код> (агента или инструктора).
 //
@@ -22,20 +23,22 @@ import { createAdminClient } from "@/lib/supabase/admin";
 async function refExists(code: string): Promise<boolean> {
   const supabase = createAdminClient();
 
-  const { data: agent } = await supabase
+  const { data: agent, error: agentError } = await supabase
     .from("agents")
     .select("id")
     .eq("ref_code", code)
     .eq("active", true)
     .maybeSingle();
+  failIfReadError(agentError, "не удалось проверить агентский реф-код");
   if (agent) return true;
 
-  const { data: instructor } = await supabase
+  const { data: instructor, error: instructorError } = await supabase
     .from("users")
     .select("id")
     .eq("ref_code", code)
     .eq("role", "instructor")
     .maybeSingle();
+  failIfReadError(instructorError, "не удалось проверить реф-код инструктора");
   return Boolean(instructor);
 }
 

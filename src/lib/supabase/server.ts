@@ -21,7 +21,7 @@ export async function createClient() {
             );
           } catch {
             // Вызов из Server Component — записать cookie нельзя.
-            // Это норма, если сессию обновляет middleware. Игнорируем.
+            // Это норма, если сессию обновляет proxy.ts. Игнорируем.
           }
         },
       },

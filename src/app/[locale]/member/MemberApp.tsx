@@ -76,6 +76,7 @@ type Phase =
   | { kind: "noPhone" } // не поделился номером
   | { kind: "noClient" } // номер есть, а карточки клиента нет
   | { kind: "badAuth" }
+  | { kind: "serverError" }
   | { kind: "ok"; data: MemberData };
 
 function ruDate(day: string | null): string {
@@ -91,11 +92,16 @@ export function MemberApp() {
   const [screen, setScreen] = useState<Screen>("home");
 
   const refresh = useCallback(async (data: string) => {
-    const res = await loadCabinetAction(data);
-    if (res.state === "ok") setPhase({ kind: "ok", data: res.data });
-    else if (res.state === "no_phone") setPhase({ kind: "noPhone" });
-    else if (res.state === "no_client") setPhase({ kind: "noClient" });
-    else setPhase({ kind: "badAuth" });
+    try {
+      const res = await loadCabinetAction(data);
+      if (res.state === "ok") setPhase({ kind: "ok", data: res.data });
+      else if (res.state === "no_phone") setPhase({ kind: "noPhone" });
+      else if (res.state === "no_client") setPhase({ kind: "noClient" });
+      else setPhase({ kind: "badAuth" });
+    } catch (error) {
+      console.error("[member] cabinet load error:", error);
+      setPhase({ kind: "serverError" });
+    }
   }, []);
 
   useEffect(() => {
@@ -262,6 +268,10 @@ function Message({
     badAuth: {
       title: "Не удалось вас узнать",
       body: "Закройте кабинет и откройте заново из бота. Если повторится — напишите в поддержку.",
+    },
+    serverError: {
+      title: "Кабинет временно недоступен",
+      body: "Не удалось получить данные. Попробуйте обновить через минуту; если повторится — напишите в поддержку.",
     },
   };
   const t = texts[phase.kind] ?? texts.badAuth;

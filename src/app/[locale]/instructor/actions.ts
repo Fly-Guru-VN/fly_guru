@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  getAppUser,
+  getActiveAppUser,
   isAdminLike,
   ROLE_HOME,
   type AppRole,
@@ -24,7 +24,8 @@ import { isPaymentClaim } from "@/lib/paymentClaim";
 import { minutesLeft } from "@/lib/subscriptions";
 import { parseRiders, writeOffNote } from "@/lib/riders";
 import { parseVnd } from "@/lib/money";
-import { checkPhoto } from "@/lib/photos";
+import { checkPhoto, isShiftPhotoStoragePath } from "@/lib/photos";
+import { replacePrivateClientPhoto } from "@/lib/privateStorage";
 import {
   agentCommissionFor,
   agentRewardApplies,
@@ -55,7 +56,7 @@ export interface ActionState {
 // lib/agentReward: их должны одинаково понимать и кабинет, и админка.
 
 async function requireStaff(): Promise<AppUser> {
-  const user = await getAppUser();
+  const user = await getActiveAppUser();
   if (!user || !(user.role === "instructor" || isAdminLike(user.role))) {
     redirect("/login?next=/instructor");
   }
@@ -80,7 +81,7 @@ async function requireStaff(): Promise<AppUser> {
 const FIELD_ROLES: AppRole[] = ["instructor", "mechanic", "smm"];
 
 async function requireFieldStaff(): Promise<AppUser> {
-  const user = await getAppUser();
+  const user = await getActiveAppUser();
   if (!user || !(isAdminLike(user.role) || FIELD_ROLES.includes(user.role))) {
     redirect("/login?next=/instructor");
   }
@@ -183,12 +184,13 @@ export async function acceptBookingAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  await createAdminClient()
+  const { error } = await createAdminClient()
     .from("bookings")
     .update({ accepted_by: user.id, accepted_at: new Date().toISOString() })
     .eq("id", id)
     .eq("status", "confirmed")
     .is("accepted_by", null);
+  failIfError(error, "не удалось принять заявку");
 
   // Перерисовать счётчики (кнопка «Записи», бейдж в шапке) везде.
   revalidatePath("/", "layout");
@@ -200,11 +202,12 @@ export async function declineBookingAction(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  await createAdminClient()
+  const { error } = await createAdminClient()
     .from("bookings")
     .update({ accepted_by: null, accepted_at: null })
     .eq("id", id)
     .eq("accepted_by", user.id);
+  failIfError(error, "не удалось отказаться от заявки");
 
   revalidatePath("/", "layout");
 }
@@ -340,8 +343,8 @@ export async function recordClientAction(
     refCode = booking.ref_code ?? null;
   }
 
-  // Резолвим реф-код → агент. Коды членов клуба появятся на этапе 5 —
-  // TODO(этап 5): искать код и среди членов, награда минутами (+10/+30).
+  // Резолвим реф-код → агент. Реф-коды и награды для членов клуба в текущей
+  // модели не реализованы; открытое бизнес-решение зафиксировано в questions.md.
   // commission_fixed из карточки агента больше не читаем: с 16.08.2026 размер
   // награды зависит от услуги (lib/agentTerms). А с 17.08.2026 — ещё и от
   // тарифа агента (agents.terms_plan, 0046): у одного партнёра свои условия.
@@ -827,7 +830,7 @@ export async function updateProfileAction(
 
   const photo = formData.get("photo");
   if (photo instanceof File && photo.size > 0) {
-    const checked = checkPhoto(photo);
+    const checked = await checkPhoto(photo);
     if (checked.error) return { error: checked.error };
     const ext = checked.ext;
 
@@ -1039,26 +1042,13 @@ export async function uploadClientPhotoFromInstructorAction(
   if (!(photo instanceof File) || photo.size === 0) {
     return { error: "Выберите фото." };
   }
-  const checked = checkPhoto(photo);
-  if (checked.error) return { error: checked.error };
-
-  const admin = createAdminClient();
-  // Путь стабильный (одно фото на клиента, upsert перезаписывает старое),
-  // а ?v= в сохранённом URL сбрасывает кеш браузера и next/image.
-  const path = `${id}.${checked.ext}`;
-  const { error: uploadError } = await admin.storage
-    .from("clients")
-    .upload(path, photo, { upsert: true, contentType: photo.type });
-  if (uploadError) {
-    return { error: `Не удалось загрузить фото: ${uploadError.message}` };
+  const checked = await checkPhoto(photo);
+  if (!checked.ext) {
+    return { error: checked.error ?? "Не удалось проверить формат фото." };
   }
 
-  const { data: pub } = admin.storage.from("clients").getPublicUrl(path);
-  const { error } = await admin
-    .from("clients")
-    .update({ photo_url: `${pub.publicUrl}?v=${Date.now()}` })
-    .eq("id", id);
-  if (error) return { error: `Не удалось сохранить фото: ${error.message}` };
+  const result = await replacePrivateClientPhoto(id, photo, checked.ext);
+  if (result.error) return result;
 
   revalidatePath("/", "layout");
   return { error: null };
@@ -1339,7 +1329,7 @@ export async function addShiftPhotoAction(
   if (!(photo instanceof File) || photo.size === 0) {
     return { error: "Сделайте снимок." };
   }
-  const checked = checkPhoto(photo);
+  const checked = await checkPhoto(photo);
   if (checked.error) return { error: checked.error };
 
   const supabase = await createClient();
@@ -1362,8 +1352,8 @@ export async function addShiftPhotoAction(
     return { error: "Смена уже открыта." };
   }
 
-  // Путь содержит id смены и uuid — снаружи не угадать; бакет публичный, как
-  // avatars/clients. Файл кладём service_role: на бакете shifts политик нет.
+  // Бакет приватный. Файл кладём service_role (политик записи у shifts нет),
+  // а короткоживущую ссылку сервер подпишет только при чтении доступной смены.
   const path = `${shift.id}/${phase}-${kind}-${crypto.randomUUID()}.${checked.ext}`;
   const admin = createAdminClient();
   const { error: uploadError } = await admin.storage
@@ -1372,8 +1362,6 @@ export async function addShiftPhotoAction(
   if (uploadError) {
     return { error: `Не удалось загрузить фото: ${uploadError.message}` };
   }
-  const { data: pub } = admin.storage.from("shifts").getPublicUrl(path);
-
   // Строку пишем под пользователем — RLS shift_photos_insert_own проверит, что
   // смена его. created_by = user.id обязателен политикой.
   const { error: rowError } = await supabase.from("shift_photos").insert({
@@ -1382,7 +1370,6 @@ export async function addShiftPhotoAction(
     kind,
     equipment_id: equipmentId,
     path,
-    url: pub.publicUrl,
     created_by: user.id,
   });
   if (rowError) {
@@ -1428,33 +1415,56 @@ export async function deleteShiftPhotoAction(formData: FormData) {
   if (!id) return;
 
   const supabase = await createClient();
-  // Читаем снимок вместе со статусом смены: RLS-select пускает инструктора к
-  // фото своих смен, поэтому чужой id вернёт пусто.
-  const { data: photo } = await supabase
+  // Staff по RLS видит фото ВСЕХ смен (механику это нужно для контроля),
+  // поэтому одной успешной выборки недостаточно: владельца проверяем явно до
+  // любого service_role-действия со Storage.
+  const { data: photo, error: photoError } = await supabase
     .from("shift_photos")
-    .select("id, path, phase, kind, shifts(opened_at, closed_at)")
+    .select(
+      "id, shift_id, path, phase, kind, shifts(instructor_id, opened_at, closed_at)",
+    )
     .eq("id", id)
     .maybeSingle();
+  failIfError(photoError, "не удалось прочитать снимок смены");
   if (!photo) return;
 
   const shift = photo.shifts as unknown as {
+    instructor_id: string;
     opened_at: string | null;
     closed_at: string | null;
   } | null;
+  if (!shift || shift.instructor_id !== user.id) return;
   // Отметку о приходе и об уходе не удаляем: это не иллюстрация, а сам факт
   // выхода — снеся кадр, инструктор стёр бы обоснование своей смены.
   if (photo.kind === "checkin") return;
   // После закрытия день зафиксирован целиком.
   if (shift?.closed_at) return;
 
-  const { error } = await supabase.from("shift_photos").delete().eq("id", id);
-  if (error) {
-    console.error("[instructor] shift photo delete error:", error.message);
+  if (!isShiftPhotoStoragePath(photo)) {
+    console.error("[instructor] shift photo has unsafe storage path");
     return;
   }
-  // Файл из бакета — service_role (политик записи на shifts нет).
+  const path = photo.path as string;
+
+  // Сначала файл, затем строка. Если Storage недоступен, строку с путём
+  // сохраняем для повторной попытки — иначе файл станет невидимым сиротой.
+  // Путь выше обязательно привязан к shift_id этой доступной пользователю
+  // строки: service_role не превращается в удаление произвольного объекта.
   const admin = createAdminClient();
-  await admin.storage.from("shifts").remove([photo.path as string]);
+  const { error: storageError } = await admin.storage.from("shifts").remove([path]);
+  failIfError(storageError, "не удалось удалить файл снимка");
+
+  const { data: deleted, error: rowError } = await supabase
+    .from("shift_photos")
+    .delete()
+    .eq("id", id)
+    .eq("shift_id", photo.shift_id)
+    .select("id")
+    .maybeSingle();
+  failIfError(rowError, "не удалось удалить запись снимка");
+  if (!deleted) {
+    throw new Error("Не удалось удалить запись снимка: состояние смены изменилось");
+  }
 
   revalidatePath(`${cabinetBase(user)}/shift`);
 }

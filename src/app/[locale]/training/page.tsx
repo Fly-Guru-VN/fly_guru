@@ -65,6 +65,7 @@ export default async function TrainingPage() {
       service: pickService(site, "basic-adult"),
       desc: "Первое знакомство с eFoil под руководством инструктора.",
       image: "/media/photo/format-solo.webp",
+      unoptimized: true,
       highlight: true,
       facts: [
         { icon: IconVest, label: "Снаряжение включено" },
@@ -86,6 +87,7 @@ export default async function TrainingPage() {
       service: pickService(site, "individual-training"),
       desc: "Инструктор выезжает с вами на воду и точнее контролирует процесс обучения.",
       image: "/media/photo/format-solo.webp",
+      unoptimized: true,
       facts: [
         { icon: IconUser, label: "1 на 1 с инструктором" },
         { icon: IconSliders, label: "Индивидуальный подход" },

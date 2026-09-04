@@ -10,11 +10,14 @@ import { BookingsBadgeRefresh } from "@/components/BookingsBadgeRefresh";
 import { ToastHost } from "@/components/cabinet/Toast";
 import { Sidebar } from "./Sidebar";
 
-export const metadata: Metadata = { title: "Админка" };
+export const metadata: Metadata = {
+  title: "Админка",
+  robots: { index: false, follow: false },
+};
 
 // Кабинет админа: слева боковое меню (на ПК — колонка, на телефоне —
 // разворачиваемая плашка), справа — контент активного раздела.
-// Доступ: middleware (быстрый рубеж) → requireRole (роль из БД) → RLS.
+// Доступ: proxy.ts (быстрый рубеж) → requireRole (роль из БД) → RLS.
 export default async function AdminLayout({
   children,
 }: {

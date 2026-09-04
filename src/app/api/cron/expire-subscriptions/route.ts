@@ -14,7 +14,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // трогает: выручка считается по paid_at (месяц оплаты), а не по статусу.
 // Отменённые (cancelled) не воскрешаем и не трогаем — это другое состояние.
 //
-// /api без middleware — защищаемся секретом (Vercel шлёт Authorization: Bearer
+// /api не проходит через proxy.ts — защищаемся секретом (Vercel шлёт Authorization: Bearer
 // <CRON_SECRET>) и ходим service_role клиентом, как остальные кроны.
 
 function authorized(request: NextRequest): boolean {

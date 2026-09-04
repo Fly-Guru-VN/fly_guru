@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { PaymentClaim } from "@/lib/paymentClaim";
+import { failIfReadError } from "@/lib/dbError";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -67,6 +68,11 @@ export async function minutesLeft(
       .select("delta_minutes")
       .eq("subscription_id", sub.id),
   ]);
+  // Ноль допустим только после успешного ответа БД. Если один из запросов
+  // упал, продолжение занизило бы расход или корректировки и могло разрешить
+  // лишнее списание/бронирование сверх реального остатка.
+  failIfReadError(used.error, "не удалось прочитать списания абонемента");
+  failIfReadError(adj.error, "не удалось прочитать корректировки абонемента");
   const usedSum = (used.data ?? []).reduce((s, r) => s + (r.minutes_used ?? 0), 0);
   const adjSum = (adj.data ?? []).reduce((s, r) => s + (r.delta_minutes ?? 0), 0);
   return sub.total_minutes + adjSum - usedSum;

@@ -6,10 +6,14 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
-  // Служебный адрес продакшн-деплоя (fly-guru.vercel.app) отдаёт тот же сайт,
-  // что и основной домен, и не закрыт от индексации — для поисковика это сайт
-  // ДВОЙНИК, который отбирает у flyguru.pro позиции. Уводим его на основной
+  // Служебный адрес продакшн-деплоя (fly-guru-ten.vercel.app) отдаёт тот же
+  // сайт, что и основной домен, и не закрыт от индексации — для поисковика это
+  // сайт ДВОЙНИК, который отбирает у flyguru.pro позиции. Уводим его на основной
   // домен навсегда (308), сохраняя путь: /training → www.flyguru.pro/training.
+  //
+  // Хост брать из Vercel (Project -> Domains), а НЕ угадывать по имени проекта:
+  // до 04.09.2026 здесь стоял fly-guru.vercel.app — алиас старого, заброшенного
+  // проекта, и правило не срабатывало ни разу.
   //
   // Хост перечислен ПОИМЁННО, не по маске *.vercel.app: у превью-деплоев
   // (ветки, пул-реквесты) адреса тоже на vercel.app, и по маске они бы
@@ -29,14 +33,23 @@ const nextConfig: NextConfig = {
   // без одноразовых меток (nonce) просто погасила бы весь сайт. Это отдельная
   // работа, а не строчка в конфиге.
   async headers() {
+    const frameDeniedSections = [
+      "admin",
+      "instructor",
+      "mechanic",
+      "smm",
+      "agent",
+      "login",
+      "forgot-password",
+      "reset-password",
+      "invite",
+    ];
+    const localePrefixes = ["", "/en", "/vi"];
+
     return [
       {
         source: "/:path*",
         headers: [
-          // Вставлять наши страницы в чужой iframe нельзя. Два заголовка
-          // подряд — старый понимают все браузеры, новый точнее.
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
           // Не угадывать тип файла по содержимому: загруженная «картинка»,
           // внутри которой лежит скрипт, не должна вдруг стать скриптом.
           { key: "X-Content-Type-Options", value: "nosniff" },
@@ -51,6 +64,31 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Clickjacking запрещён на всём сайте, кроме Telegram Mini App. Нельзя
+      // задать общий CSP и потом переопределить его в proxy: config-header
+      // применяется к middleware-ответу последним. Поэтому исключаем member
+      // из matcher, а его узкий allowlist ставит src/proxy.ts.
+      {
+        source: "/",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+        ],
+      },
+      {
+        source:
+          "/:path((?!member(?:/.*)?$|ru/member(?:/.*)?$|en/member(?:/.*)?$|vi/member(?:/.*)?$).+)",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+        ],
+      },
+      // Старый X-Frame-Options не умеет allowlist. Оставляем его там, где
+      // iframe точно не нужен и особенно опасен: кабинеты и auth-страницы.
+      ...frameDeniedSections.flatMap((section) =>
+        localePrefixes.map((prefix) => ({
+          source: `${prefix}/${section}/:path*`,
+          headers: [{ key: "X-Frame-Options", value: "DENY" }],
+        })),
+      ),
     ];
   },
 
@@ -58,7 +96,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/:path*",
-        has: [{ type: "host", value: "fly-guru.vercel.app" }],
+        has: [{ type: "host", value: "fly-guru-ten.vercel.app" }],
         destination: "https://www.flyguru.pro/:path*",
         permanent: true,
       },
@@ -78,9 +116,9 @@ const nextConfig: NextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    // Аватарки инструкторов и фото клиентов лежат в публичных бакетах
-    // Supabase Storage. Перечисляем бакеты поимённо, а не /public/** целиком:
-    // так новый бакет не начнёт раздаваться через наш домен по недосмотру.
+    // Аватарки сотрудников публичные. Фото клиентов и смен приватные: сервер
+    // передаёт next/image только короткоживущие signed URL. Перечисляем бакеты
+    // поимённо, чтобы новый бакет не открылся по недосмотру.
     remotePatterns: [
       {
         protocol: "https",
@@ -90,12 +128,12 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "*.supabase.co",
-        pathname: "/storage/v1/object/public/clients/**",
+        pathname: "/storage/v1/object/sign/clients/**",
       },
       {
         protocol: "https",
         hostname: "*.supabase.co",
-        pathname: "/storage/v1/object/public/shifts/**",
+        pathname: "/storage/v1/object/sign/shifts/**",
       },
     ],
   },

@@ -24,6 +24,9 @@ export interface NewBooking {
   serviceId?: string | null;
   preferredDate?: string | null; // 'YYYY-MM-DD'
   comment?: string | null;
+  // Явно публичная версия комментария. Кабинет агента передаёт только
+  // comment (служебный контекст), форма самого гостя — оба поля.
+  publicNote?: string | null;
   refCode?: string | null;
   src?: string | null;
   utm?: Record<string, string>;
@@ -81,15 +84,16 @@ export async function createBooking(input: NewBooking): Promise<BookingResult> {
     input.serviceId && isUuid(input.serviceId) ? input.serviceId : null;
   const messenger = trimField(input.messenger, 40);
   const comment = trimField(input.comment, 1000);
+  const publicNote = trimField(input.publicNote, 1000);
   const preferredDateRaw = trimField(input.preferredDate, 10);
   const preferredDate =
     preferredDateRaw && isRealDay(preferredDateRaw) ? preferredDateRaw : null;
   const refCode = trimField(input.refCode, 32);
   const src = trimField(input.src, 64);
 
-  // Канал связи и комментарий клиента кладём в internal_note (стартовая
-  // заметка для админа; дальше он ведёт в ней договорённости с клиентом).
-  // Отдельных колонок в схеме нет, а терять пожелания клиента нельзя.
+  // Канал связи и комментарий кладём также в internal_note: это стартовая
+  // заметка для админа, которую сотрудники дальше могут менять. publicNote
+  // хранится отдельно и после этого не смешивается со служебным текстом.
   const noteParts: string[] = [];
   if (messenger) noteParts.push(`Связь: ${messenger}`);
   if (comment) noteParts.push(`Клиент: ${comment}`);
@@ -105,7 +109,13 @@ export async function createBooking(input: NewBooking): Promise<BookingResult> {
   // откуда пришёл гость, мы всё равно знаем.
   let refOwner: RefOwner | undefined;
   if (refCode) {
-    refOwner = (await resolveRefOwners(supabase, [refCode])).get(refCode);
+    try {
+      refOwner = (await resolveRefOwners(supabase, [refCode])).get(refCode);
+    } catch {
+      // Без подтверждения владельца нельзя молча записать заявку без скидки и
+      // комиссии, а затем велеть браузеру забыть настоящий код.
+      return { ok: false, error: "db_error" };
+    }
   }
   const storedRefCode = refOwner ? refCode : null;
 
@@ -124,6 +134,7 @@ export async function createBooking(input: NewBooking): Promise<BookingResult> {
       src,
       utm: input.utm ?? {},
       internal_note: internalNote,
+      public_note: publicNote,
     })
     .select("booking_no")
     .single();

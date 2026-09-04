@@ -2,6 +2,7 @@ import type { createClient } from "@/lib/supabase/server";
 import { vnMonth } from "@/lib/dates";
 import { hiddenStaffIds } from "@/lib/staff";
 import { failIfReadError } from "@/lib/dbError";
+import { createPrivatePhotoUrls } from "@/lib/privateStorage";
 
 // Данные календаря за месяц — общий источник для админского и инструкторского
 // кабинетов (цифры не должны расходиться). Собираем карту «день → смены +
@@ -230,7 +231,7 @@ export async function loadShiftPhotos(
 
   const { data, error } = await supabase
     .from("shift_photos")
-    .select("id, shift_id, phase, kind, equipment_id, path, url, equipment(name)")
+    .select("id, shift_id, phase, kind, equipment_id, path, equipment(name)")
     .in("shift_id", shiftIds)
     .order("created_at");
   if (error) {
@@ -238,7 +239,18 @@ export async function loadShiftPhotos(
     return map;
   }
 
+  // Сначала RLS определяет, какие строки сотруднику вообще разрешено видеть;
+  // только после этого service_role подписывает пути из полученного набора.
+  const urls = await createPrivatePhotoUrls(
+    "shifts",
+    (data ?? []).map((photo) => photo.path as string),
+  );
+
   for (const p of data ?? []) {
+    const path = p.path as string;
+    const url = urls.get(path);
+    // Ошибка подписи одного объекта не должна ломать календарь целиком.
+    if (!url) continue;
     const equip = p.equipment as unknown as { name: string } | null;
     const photo: ShiftPhoto = {
       id: p.id as string,
@@ -246,8 +258,8 @@ export async function loadShiftPhotos(
       kind: p.kind as PhotoKind,
       equipmentId: (p.equipment_id as string | null) ?? null,
       equipmentName: equip?.name ?? null,
-      path: p.path as string,
-      url: p.url as string,
+      path,
+      url,
     };
     const sid = p.shift_id as string;
     const list = map.get(sid);

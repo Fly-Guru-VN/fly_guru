@@ -48,11 +48,15 @@ export async function GET(
   // обучения, и напечатанный раньше QR не должен внезапно ломаться. А вот
   // чужой строки в базе нет — на неё и отвечаем «нет такой».
   const supabase = createAdminClient();
-  const { data: agent } = await supabase
+  const { data: agent, error: agentError } = await supabase
     .from("agents")
     .select("id")
     .eq("ref_code", code)
     .maybeSingle();
+  if (agentError) {
+    console.error("[agent qr] lookup error:", agentError.message);
+    return new NextResponse("Сервис временно недоступен", { status: 503 });
+  }
   if (!agent) return new NextResponse("Нет такого агента", { status: 404 });
 
   const png = await QRCode.toBuffer(`${SITE_URL}/r/${code}`, {

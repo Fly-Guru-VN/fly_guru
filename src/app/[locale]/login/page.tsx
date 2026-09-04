@@ -4,7 +4,10 @@ import { Container, Section } from "@/components/ui";
 import { getAppUser, isLeftStaff, ROLE_HOME } from "@/lib/auth";
 import { LoginForm } from "./LoginForm";
 
-export const metadata: Metadata = { title: "Вход" };
+export const metadata: Metadata = {
+  title: "Вход",
+  robots: { index: false, follow: false },
+};
 
 // Единый вход для всех ролей. После входа каждый попадает в свой кабинет
 // (или обратно на страницу, с которой его выбросило, — параметр ?next=).

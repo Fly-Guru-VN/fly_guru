@@ -101,7 +101,7 @@ export async function bookAction(
 
   // Хватит ли минут. Проверяем, только если абонемент есть: без абонемента это
   // обычная платная запись, и минуты тут ни при чём.
-  const { data: sub } = await supabase
+  const { data: sub, error: subError } = await supabase
     .from("subscriptions")
     .select("id, total_minutes")
     .eq("client_id", who.clientId)
@@ -109,6 +109,10 @@ export async function bookAction(
     .order("sold_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (subError) {
+    console.error("[member] subscription lookup error:", subError.message);
+    return { ok: false, error: "Не удалось проверить абонемент. Попробуйте ещё раз." };
+  }
 
   if (sub) {
     const left = await minutesLeft(supabase, sub);
@@ -121,11 +125,24 @@ export async function bookAction(
   }
 
   // Телефон обязателен в заявке — берём из карточки клиента, а не с клиента.
-  const { data: client } = await supabase
+  const { data: client, error: clientError } = await supabase
     .from("clients")
     .select("name, phone")
     .eq("id", who.clientId)
     .maybeSingle();
+  if (clientError || !client) {
+    console.error(
+      "[member] client lookup error:",
+      clientError?.message ?? "client row missing",
+    );
+    return { ok: false, error: "Не удалось получить данные клиента. Попробуйте ещё раз." };
+  }
+  if (!client.phone) {
+    return {
+      ok: false,
+      error: "В карточке нет телефона. Напишите в поддержку — добавим номер и запишем вас.",
+    };
+  }
 
   const noteParts = [
     "Запись из кабинета",
@@ -136,12 +153,15 @@ export async function bookAction(
   if (comment) noteParts.push(`Клиент: ${comment}`);
 
   const { error } = await supabase.from("bookings").insert({
-    client_name: client?.name ?? who.clientName,
-    phone: client?.phone ?? "",
+    client_name: client.name ?? who.clientName,
+    phone: client.phone,
     client_id: who.clientId,
     preferred_date: input.date,
     scheduled_time: input.time,
     internal_note: noteParts.join(" · "),
+    // В public_note лежит только исходное пожелание самого клиента. Служебная
+    // раскладка минут остаётся в internal_note и назад в Mini App не уходит.
+    public_note: comment || null,
     src: "cabinet",
   });
   if (error) {
@@ -151,8 +171,8 @@ export async function bookAction(
 
   await sendBookingNotification({
     serviceName: sub ? "Катание по абонементу" : "Катание (без абонемента)",
-    clientName: client?.name ?? who.clientName,
-    contact: client?.phone ?? "",
+    clientName: client.name ?? who.clientName,
+    contact: client.phone,
     messenger: "Telegram-кабинет",
     preferredDate: input.date,
     comment: `${input.time}, ${duration} мин${riders > 1 ? ` × ${riders}` : ""}${comment ? ` · ${comment}` : ""}`,
@@ -175,12 +195,16 @@ export async function cancelAction(
   const who = await resolveMember(supabase, tgId);
   if ("state" in who) return { ok: false, error: BAD_AUTH };
 
-  const { data: booking } = await supabase
+  const { data: booking, error: bookingError } = await supabase
     .from("bookings")
     .select("id, booking_no, preferred_date, scheduled_time, status, client_name")
     .eq("id", bookingId)
     .eq("client_id", who.clientId)
     .maybeSingle();
+  if (bookingError) {
+    console.error("[member] booking lookup error:", bookingError.message);
+    return { ok: false, error: "Не удалось проверить запись. Попробуйте ещё раз." };
+  }
 
   if (!booking) return { ok: false, error: "Запись не найдена." };
   if (!(ACTIVE_BOOKING_STATUSES as readonly string[]).includes(booking.status)) {
@@ -194,14 +218,22 @@ export async function cancelAction(
     };
   }
 
-  const { error } = await supabase
+  const { data: cancelled, error } = await supabase
     .from("bookings")
     .update({ status: "cancelled" })
     .eq("id", booking.id)
-    .eq("client_id", who.clientId);
+    .eq("client_id", who.clientId)
+    // Между чтением выше и update админ мог уже завершить/отменить запись.
+    // Не перетираем более свежее состояние устаревшим нажатием клиента.
+    .in("status", ACTIVE_BOOKING_STATUSES as unknown as string[])
+    .select("id")
+    .maybeSingle();
   if (error) {
     console.error("[member] cancel error:", error.message);
     return { ok: false, error: "Не получилось отменить. Попробуйте ещё раз." };
+  }
+  if (!cancelled) {
+    return { ok: false, error: "Статус записи уже изменился. Обновите кабинет." };
   }
 
   // Отмену обязательно видно в рабочем чате: инструктор мог уже планировать

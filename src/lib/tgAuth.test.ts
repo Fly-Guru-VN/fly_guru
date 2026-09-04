@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
-import { verifyInitData } from "@/lib/tgAuth";
+import { verifyInitData, verifyWebhookSecret } from "@/lib/tgAuth";
 
 // Вход в кабинет клиента без пароля. Запуск: npm test
 //
@@ -28,6 +28,18 @@ function makeInitData(
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 const user = (id: number) => JSON.stringify({ id, first_name: "Вася", username: "vasya" });
+
+test("webhook принимает только точно совпавший настроенный секрет", () => {
+  assert.equal(verifyWebhookSecret("длинный-секрет", "длинный-секрет"), true);
+  assert.equal(verifyWebhookSecret("длинный-секрет", "чужой-секрет"), false);
+  assert.equal(verifyWebhookSecret("длинный-секрет", "длинный-секрет-лишнее"), false);
+});
+
+test("webhook закрыт, если секрет не настроен или не пришёл", () => {
+  assert.equal(verifyWebhookSecret(undefined, "что-угодно"), false);
+  assert.equal(verifyWebhookSecret("", "что-угодно"), false);
+  assert.equal(verifyWebhookSecret("длинный-секрет", null), false);
+});
 
 test("настоящая подпись Telegram принимается", () => {
   const initData = makeInitData({ user: user(777), auth_date: String(nowSec()) });
