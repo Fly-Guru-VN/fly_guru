@@ -12,6 +12,7 @@ import { MobileTabBar } from "@/components/MobileTabBar";
 import { SwipeNav } from "@/components/SwipeNav";
 import { Attribution } from "@/components/Attribution";
 import { BookingProvider } from "@/components/BookingProvider";
+import { HideInMiniApp } from "@/components/HideInMiniApp";
 import { getActiveServices } from "@/lib/services";
 import { SITE_URL } from "@/lib/site";
 import "../globals.css";
@@ -101,7 +102,9 @@ export default async function LocaleLayout({
           {/* Невидимая «ловушка меток» источника — работает на всех страницах. */}
           <Attribution />
           <BookingProvider services={services}>
-            <SiteHeader />
+            <HideInMiniApp>
+              <SiteHeader />
+            </HideInMiniApp>
             <main className="flex-1">
               {/* SwipeNav снаружи PageTransition: пролистывание пальцем двигает
                   всё содержимое страницы разом, а появление после перехода
@@ -110,7 +113,9 @@ export default async function LocaleLayout({
                 <PageTransition>{children}</PageTransition>
               </SwipeNav>
             </main>
-            <SiteFooter />
+            <HideInMiniApp>
+              <SiteFooter />
+            </HideInMiniApp>
             {/* Нижняя панель разделов на телефоне. Стоит последней, потому что
                 рисуется поверх всего и сама же добавляет подвалу нижнее поле
                 под свою высоту (в кабинетах её нет — там панель своя). */}

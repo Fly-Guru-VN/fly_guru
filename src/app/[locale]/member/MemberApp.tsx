@@ -6,6 +6,7 @@ import { CLIENT_BOT_URL, SITE_URL, SUPPORT_URL } from "@/lib/site";
 import { RIDERS_MAX } from "@/lib/riders";
 import {
   canCancelBooking,
+  CANCEL_WINDOW_MIN,
   firstBookableDay,
   isBookingOpenNow,
   parseTimeText,
@@ -29,6 +30,10 @@ interface TelegramWebApp {
   expand: () => void;
   openLink: (url: string) => void;
   openTelegramLink: (url: string) => void;
+  // Появилось в Bot API 7.7 и есть не у всех клиентов — отсюда «?».
+  // Пока свайпы включены, Telegram перехватывает движение пальца по экрану и
+  // таскает само окно приложения; для человека это выглядит как «кабинет ездит».
+  disableVerticalSwipes?: () => void;
   HapticFeedback?: { impactOccurred: (style: string) => void };
 }
 declare global {
@@ -79,6 +84,21 @@ type Phase =
   | { kind: "serverError" }
   | { kind: "ok"; data: MemberData };
 
+// Часы, которые тикают раз в минуту.
+//
+// Зачем: можно ли ещё отменить — считается от «сейчас». Открытый и забытый на
+// столе кабинет считал это один раз, при отрисовке: час до занятия давно
+// прошёл, а кнопка «Отменить» так и оставалась живой. Нажатие сервер, конечно,
+// отбивал — но человеку показывали кнопку, которая уже ничего не делает.
+function useMinuteTick(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
 function ruDate(day: string | null): string {
   if (!day) return "дата не указана";
   const [y, m, d] = day.split("-");
@@ -104,6 +124,20 @@ export function MemberApp() {
     }
   }, []);
 
+  // Экран кабинета не должен оттягиваться и пружинить: внутри Telegram это
+  // читается как «приложение ездит». overscroll-behavior запрещает и оттяг за
+  // край, и передачу прокрутки наружу — тому самому окну, которое Telegram
+  // рисует вокруг нас. Значение возвращаем при уходе со страницы: на обычных
+  // страницах сайта пружина уместна.
+  useEffect(() => {
+    const root = document.documentElement;
+    const was = root.style.overscrollBehavior;
+    root.style.overscrollBehavior = "none";
+    return () => {
+      root.style.overscrollBehavior = was;
+    };
+  }, []);
+
   useEffect(() => {
     let alive = true;
     loadTelegramScript().then((tg) => {
@@ -114,6 +148,9 @@ export function MemberApp() {
       }
       tg.ready();
       tg.expand();
+      // Свайпы, которыми Telegram двигает окно приложения, кабинету только
+      // мешают: пролистывать здесь нечего, а экран от них уезжает.
+      tg.disableVerticalSwipes?.();
       setInitData(tg.initData);
       void refresh(tg.initData);
     });
@@ -466,6 +503,7 @@ function BookingsScreen({
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const now = useMinuteTick();
 
   const cancel = async (id: string) => {
     setBusyId(id);
@@ -479,6 +517,17 @@ function BookingsScreen({
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">Мои записи</h1>
+      {/* Правило отмены — на виду, а не только в отказе после нажатия: человек
+          должен узнать про час ДО того, как соберётся отменять. */}
+      {data.bookings.length > 0 && (
+        <p className="rounded-2xl border border-line bg-primary/5 px-4 py-3 text-sm text-muted">
+          ⏳ Отменить запись можно не позднее чем за{" "}
+          {CANCEL_WINDOW_MIN >= 60
+            ? `${CANCEL_WINDOW_MIN / 60} ч`
+            : `${CANCEL_WINDOW_MIN} мин`}{" "}
+          до начала. Позже — напишите в поддержку, отменим вручную.
+        </p>
+      )}
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {data.bookings.length === 0 && (
@@ -495,7 +544,7 @@ function BookingsScreen({
       )}
 
       {data.bookings.map((b) => {
-        const canCancel = canCancelBooking(b.date, b.time);
+        const canCancel = canCancelBooking(b.date, b.time, now);
         return (
           <div key={b.id} className={card}>
             <p className="text-base font-semibold">
@@ -516,6 +565,12 @@ function BookingsScreen({
               {busyId === b.id && <Spinner />}
               {canCancel ? "Отменить" : "Отменить уже нельзя"}
             </button>
+            {!canCancel && (
+              <p className="mt-2 text-sm text-muted">
+                До начала меньше часа. Если планы изменились — напишите в
+                поддержку.
+              </p>
+            )}
           </div>
         );
       })}

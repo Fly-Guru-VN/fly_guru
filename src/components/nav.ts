@@ -38,3 +38,16 @@ export const NO_TAB_BAR_PREFIXES = [
   "/forgot-password",
   "/reset-password",
 ] as const;
+
+// Разделы, которые открываются как Telegram Mini App. Там нет ни шапки сайта,
+// ни подвала: заголовок с названием и крестиком рисует сам Telegram, а ссылки
+// подвала уводили человека из кабинета на обычные страницы сайта прямо внутри
+// бота — и вот они уже листаются свайпом вбок (David, 04.09.2026: «экран ездит
+// в стороны»). Уйти на сайт можно кнопкой внутри самого кабинета.
+export const MINI_APP_PREFIXES = ["/member"] as const;
+
+export function isMiniAppPath(pathname: string): boolean {
+  return MINI_APP_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+}
