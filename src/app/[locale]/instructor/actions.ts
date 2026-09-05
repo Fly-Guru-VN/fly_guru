@@ -22,6 +22,7 @@ import { vnToday, subscriptionExpiry } from "@/lib/dates";
 import { checkRecordDate } from "@/lib/recordDate";
 import { isPaymentClaim } from "@/lib/paymentClaim";
 import { minutesLeft } from "@/lib/subscriptions";
+import { writeOffSubscription } from "@/lib/subscriptionWriteOff";
 import { parseRiders, writeOffNote } from "@/lib/riders";
 import { parseVnd } from "@/lib/money";
 import { checkPhoto, isShiftPhotoStoragePath } from "@/lib/photos";
@@ -45,8 +46,8 @@ import {
 
 // Server actions кабинета инструктора. Общий принцип безопасности:
 // instructor_id / sold_by / created_by берутся из СЕССИИ на сервере (user.id),
-// а не из формы — подделать чужой id нельзя. Вторым рубежом это же проверяет
-// RLS (политики sessions_insert_instructor и т.п.).
+// а не из формы — подделать чужой id нельзя. Прямые денежные записи через
+// пользовательский JWT закрыты RLS; на сервере разрешены только явные поля.
 
 export interface ActionState {
   error: string | null;
@@ -68,7 +69,7 @@ async function requireStaff(): Promise<AppUser> {
 // открывает любой сотрудник.
 // Отдельная проверка (а не «пустить их в requireStaff») намеренно: денежные
 // действия — запись клиента, продажа абонемента, списание минут, правка
-// сессии — остаются за инструктором, и RLS это подтверждает второй раз.
+// сессии — остаются за инструктором и проверяются через requireStaff.
 //
 // ⚠️ Хозяев админки проверяем через isAdminLike, а НЕ строкой 'admin' в списке.
 // Пока здесь был литерал, роль dev (0044) в него не попадала, и любое фоновое
@@ -434,7 +435,7 @@ export async function recordClientAction(
   // Комиссию агента фиксируем на сессии: с неё начинается вся остальная
   // арифметика занятия — 35% Marina, 15% инструкторам и 2% CRM считаются с чека
   // МИНУС эта комиссия. См. миграцию 0021 и lib/finance.
-  const { data: session, error: sessionError } = await supabase
+  const { data: session, error: sessionError } = await createAdminClient()
     .from("sessions")
     .insert({
       client_id: clientId,
@@ -681,114 +682,45 @@ export async function writeOffAction(
 ): Promise<ActionState> {
   const user = await requireStaff();
   const supabase = await createClient();
-
   const clientId = String(formData.get("clientId") ?? "");
   const clientName = String(formData.get("clientName") ?? "");
-  const duration = Math.floor(Number(formData.get("minutes")));
-  // Сколько человек каталось одновременно с ОДНОГО абонемента: двое по 30
-  // минут — это 60 минут с абонемента (правило начальника от 30.08.2026).
+  const duration = Number(formData.get("minutes"));
   const riders = parseRiders(formData.get("riders"));
-  // Пометка к прокату — необязательная, уходит в примечание сессии (то же
-  // поле, что заполняет админ в своей форме списания).
   const comment = String(formData.get("comment") ?? "").trim();
-
-  if (!clientId || !Number.isFinite(duration) || duration <= 0) {
-    return { error: "Укажите, сколько минут списать." };
+  if (!clientId || !Number.isSafeInteger(duration) || duration <= 0) {
+    return { error: "Укажите целое число минут больше нуля." };
   }
   const minutes = duration * riders;
 
-  // Последний активный абонемент клиента.
-  const { data: sub } = await supabase
+  // Выбор карточки — RLS-запрос. Проверка срока, остатка и запись происходят
+  // вместе внутри RPC; прочитанный здесь статус не считается разрешением.
+  const { data: sub, error } = await supabase
     .from("subscriptions")
-    .select("id, total_minutes, expires_at, status")
+    .select("id")
     .eq("client_id", clientId)
     .eq("status", "active")
     .order("sold_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (error) return { error: "Не удалось прочитать абонемент. Попробуйте ещё раз." };
   if (!sub) return { error: "У клиента нет активного абонемента." };
 
-  // Статус абонемента правим service_role-клиентом (0030). Политика
-  // subscriptions_update_instructor разрешала инструктору update ЛЮБОЙ колонки
-  // ЛЮБОГО абонемента: запросом мимо интерфейса можно было проставить себе
-  // sold_by, отметить оплату (paid_at идёт в выручку и в комиссию продавца),
-  // накинуть total_minutes или переписать цену. Приложению от этой политики
-  // нужны ровно два статуса — их и оставляем, всё остальное закрыто.
-  if (sub.expires_at && new Date(sub.expires_at) < new Date()) {
-    await createAdminClient()
-      .from("subscriptions")
-      .update({ status: "expired" })
-      .eq("id", sub.id);
-    return { error: "Абонемент истёк (минуты живут 3 месяца). Продайте новый." };
-  }
+  const result = await writeOffSubscription(createAdminClient(), {
+    subscriptionId: sub.id,
+    minutes,
+    instructorId: user.id,
+    actorId: user.id,
+    note: writeOffNote(riders, comment),
+    date: vnToday(),
+  });
+  if (result.error !== null) return { error: result.error };
 
-  // Остаток = всего + ручные корректировки админа − все списания (в т.ч.
-  // другими инструкторами — RLS такие сессии и корректировки видеть разрешает).
-  const left = await minutesLeft(supabase, sub);
-
-  if (minutes > left) {
-    // При парном катании называем и раскладку: «списать 60» после введённых
-    // 30 выглядит опечаткой, пока не видно, что минуты умножились на райдеров.
-    const asked = riders > 1 ? `${minutes} (${duration} × ${riders})` : `${minutes}`;
-    return {
-      error: `Остаток ${left} мин — списать ${asked} нельзя. Превышение оформите отдельной сессией по прайсу проката.`,
-    };
-  }
-
-  const { data: written, error: sessionError } = await supabase
-    .from("sessions")
-    .insert({
-      client_id: clientId,
-      subscription_id: sub.id,
-      minutes_used: minutes,
-      amount: 0, // списание с абонемента — чека нет, комиссия не начисляется
-      instructor_id: user.id,
-      created_by: user.id,
-      note: writeOffNote(riders, comment),
-      date: vnToday(),
-    })
-    .select("id")
-    .single();
-  if (sessionError) return { error: `Не удалось списать: ${sessionError.message}` };
-
-  // Проверка «хватает ли минут» выше сделана ДО записи, и между ними успевает
-  // влезть второй инструктор: оба видят остаток 60, оба списывают по 40 — и на
-  // абонементе минус 20. Поэтому пересчитываем остаток уже ПОСЛЕ записи и, если
-  // ушли в минус, убираем собственную строку. Удаляем именно свою (по id), а не
-  // «последнюю»: чужое списание — не наше дело.
-  //
-  // Удаляем service_role-клиентом: у инструктора политики delete на sessions
-  // нет вовсе (0005 даёт ему только insert и select), поэтому его же клиент
-  // снёс бы ноль строк молча — без ошибки, но и без отката.
-  const leftAfter = await minutesLeft(supabase, sub);
-  if (leftAfter < 0) {
-    const { error: rollbackError } = await createAdminClient()
-      .from("sessions")
-      .delete()
-      .eq("id", written.id);
-    if (rollbackError) {
-      console.error("[instructor] writeoff rollback error:", rollbackError.message);
-    }
-    return {
-      error:
-        "Пока вы заполняли форму, минуты списал кто-то ещё — остаток изменился. Откройте списание заново.",
-    };
-  }
-
-  if (leftAfter === 0) {
-    await createAdminClient()
-      .from("subscriptions")
-      .update({ status: "used_up" })
-      .eq("id", sub.id);
-  }
-
-  revalidatePath("/", "layout"); // см. комментарий в recordClientAction
-
+  revalidatePath("/", "layout");
   const params = new URLSearchParams({
     type: "writeoff",
     name: clientName,
     minutes: String(minutes),
-    left: String(left - minutes),
+    left: String(result.left),
   });
   redirect(`/instructor/done?${params.toString()}`);
 }
@@ -1072,7 +1004,7 @@ export async function addInstructorExpenseAction(
   const dateRaw = String(formData.get("date") ?? "").trim();
   const date = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : vnToday();
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase.from("expenses").insert({
     date,
     amount,
@@ -1086,15 +1018,14 @@ export async function addInstructorExpenseAction(
   return { error: null };
 }
 
-// Удалить можно только свой расход: .eq("created_by", user.id) — не столько
-// защита (её держит RLS), сколько честный ноль строк вместо тихого успеха,
-// если id прилетел чужой.
+// Service role обходит RLS: фильтр created_by обязателен даже для владельца
+// админки, использующего форму личных расходов.
 export async function deleteInstructorExpenseAction(formData: FormData) {
   const user = await requireFieldStaff();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("expenses")
     .delete()

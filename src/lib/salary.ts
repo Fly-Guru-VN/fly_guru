@@ -287,6 +287,7 @@ export async function getSessionShare(
     loadShifts(client, range),
   ]);
 
+  failIfReadError(sessionsRes.error, "не удалось прочитать занятия для расчёта зарплаты");
   const allowed = new Set(crewIds);
   const sessions = (sessionsRes.data ?? []) as unknown as SessionRow[];
   // Дни выходов босса считаем ДО базы дня: от них зависит, идут его чеки в
@@ -578,7 +579,7 @@ export async function getSubsShares(
   range: StatsRange,
   staff: StaffMember[],
 ): Promise<SubsShares> {
-  const [{ data }, shifts] = await Promise.all([
+  const [{ data, error }, shifts] = await Promise.all([
     client
       .from("subscriptions")
       .select("price, paid_at, sold_by, pool_share")
@@ -587,6 +588,8 @@ export async function getSubsShares(
       .lt("paid_at", range.toIso),
     loadShifts(client, range),
   ]);
+
+  failIfReadError(error, "не удалось прочитать абонементы для расчёта зарплаты");
 
   // День → кто в этот день открыл смену. Нужен только «второй работе»: у
   // инструктора выходной долю котла не отнимает, это его основной оклад.

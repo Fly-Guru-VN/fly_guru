@@ -18,12 +18,13 @@
 // списание сверх купленного лимита.
 
 export function failIfReadError(
-  error: { message: string } | null,
+  error: { message: string } | string | null,
   what: string,
 ): void {
   if (!error) return;
-  console.error(`[read] ${what}:`, error.message);
+  const message = typeof error === "string" ? error : error.message;
+  console.error(`[read] ${what}:`, message);
   throw new Error(
-    `${what}: ${error.message}. Цифры показывать нельзя — обновите страницу, и если повторяется, смотрите логи.`,
+    `${what}: ${message}. Цифры показывать нельзя — обновите страницу, и если повторяется, смотрите логи.`,
   );
 }

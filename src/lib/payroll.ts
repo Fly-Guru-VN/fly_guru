@@ -349,6 +349,8 @@ async function loadNames(
     supabase.from("users").select("id, name"),
     supabase.from("agents").select("id, user:users!user_id(name)"),
   ]);
+  failIfReadError(usersRes.error, "не удалось прочитать получателей выплат штату");
+  failIfReadError(agentsRes.error, "не удалось прочитать получателей выплат агентам");
 
   return {
     staff: new Map(
@@ -500,6 +502,8 @@ export async function getMonthlyPayroll(
       // смены, дележ 15%) — читаем один раз на период, а не на каждого.
       loadPayInputs(supabase, range),
     ]);
+
+  failIfReadError(agentsRes.error, "не удалось прочитать агентов для расчёта выплат");
 
   // То же самое за накопительный период — им считается «осталось выдать».
   // Выбран ровно он — второй раз не читаем.

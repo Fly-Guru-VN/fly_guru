@@ -1,5 +1,4 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { phoneDigits, phonesMatch } from "@/lib/phone";
 import { minutesLeft } from "@/lib/subscriptions";
 import { failIfReadError } from "@/lib/dbError";
 
@@ -98,25 +97,18 @@ export type MemberState =
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-// Найти карточку клиента по номеру телефона.
-//
-// Почему перебором, а не запросом с like: номера в базе лежат вперемешку —
-// заявки с сайта пишут только цифры, а карточки, заведённые руками, хранят
-// «+84 90 123 45 67» с пробелами и плюсом. Сравнение по хвосту (phonesMatch)
-// умеет и то и другое, а SQL пришлось бы учить чистить строку. Клиентов у
-// школы сотни, не миллионы — такой перебор дешевле, чем ошибка «не нашли».
+// Только полное нормализованное совпадение, с индексом (0056). Две карточки
+// с одним номером — неоднозначность, а не повод выбрать первую.
 async function findClientByPhone(
   supabase: Admin,
-  digits: string,
+  phone: string,
 ): Promise<{ id: string; name: string } | null> {
-  const { data, error } = await supabase
-    .from("clients")
-    .select("id, name, phone")
-    .not("phone", "is", null)
-    .limit(5000);
+  const { data, error } = await supabase.rpc("find_member_client_by_phone", {
+    p_phone: phone,
+  });
   failIfReadError(error, "не удалось найти клиента по телефону");
 
-  const hit = (data ?? []).find((c) => phonesMatch(c.phone, digits));
+  const hit = data?.length === 1 ? data[0] : null;
   return hit ? { id: hit.id, name: hit.name } : null;
 }
 
@@ -129,14 +121,14 @@ export async function linkTelegramAccount(input: {
   firstName?: string | null;
 }): Promise<{ clientId: string | null; clientName: string | null }> {
   const supabase = createAdminClient();
-  const digits = phoneDigits(input.phone);
-  const client = digits ? await findClientByPhone(supabase, digits) : null;
+  const phone = input.phone.trim();
+  const client = phone ? await findClientByPhone(supabase, phone) : null;
 
   const { error: linkError } = await supabase.from("client_telegram").upsert(
     {
       telegram_id: input.telegramId,
       client_id: client?.id ?? null,
-      phone: digits,
+      phone,
       username: input.username ?? null,
       first_name: input.firstName ?? null,
       linked_at: client ? new Date().toISOString() : null,
@@ -167,41 +159,24 @@ export async function resolveMember(
 
   if (!link) return { state: "no_phone" };
 
-  // Карточки не было в момент, когда человек делился номером, — пробуем ещё
-  // раз сейчас. Так гость, записавшийся после знакомства с ботом, получает
-  // кабинет сам, без повторного вопроса про телефон.
-  let clientId = link.client_id as string | null;
-  let clientName: string | null = null;
-  if (!clientId) {
-    const found = await findClientByPhone(supabase, link.phone as string);
-    if (!found) return { state: "no_client", phone: link.phone as string };
-    clientId = found.id;
-    clientName = found.name;
+  // client_id — кэш, НЕ доказательство владения. Перепроверяем и старые связи:
+  // раньше они могли появиться по совпадению хвоста; телефон карточки также
+  // мог измениться, а дубликат — появиться уже после привязки.
+  const found = await findClientByPhone(supabase, link.phone as string);
+  if (!found) return { state: "no_client", phone: link.phone as string };
+  if (link.client_id !== found.id) {
     const { error: updateError } = await supabase
       .from("client_telegram")
-      .update({ client_id: clientId, linked_at: new Date().toISOString() })
-      .eq("telegram_id", telegramId);
+      .update({ client_id: found.id, linked_at: new Date().toISOString() })
+      .eq("telegram_id", telegramId)
+      .eq("phone", link.phone);
     if (updateError) {
       console.error("[member] telegram relink error:", updateError.message);
       throw new Error("не удалось привязать найденного клиента к Telegram");
     }
   }
 
-  // Для проверяющего типы: выше clientId уже либо был, либо мы вышли с
-  // no_client — эта ветка недостижима, но пусть будет явной, а не «!».
-  if (!clientId) return { state: "no_client", phone: link.phone as string };
-
-  if (!clientName) {
-    const { data: c, error: clientError } = await supabase
-      .from("clients")
-      .select("name")
-      .eq("id", clientId)
-      .maybeSingle();
-    failIfReadError(clientError, "не удалось прочитать имя клиента");
-    clientName = c?.name ?? "Гость";
-  }
-
-  return { clientId, clientName: clientName ?? "Гость" };
+  return { clientId: found.id, clientName: found.name ?? "Гость" };
 }
 
 // Всё, что показывает главный экран кабинета, одним запросом-пачкой.

@@ -115,6 +115,9 @@ export async function getCrmPayout(
       .lt("paid_at", range.toIso),
   ]);
 
+  failIfReadError(sessions.error, "не удалось прочитать занятия для расчёта CRM");
+  failIfReadError(subsRes.error, "не удалось прочитать абонементы для расчёта CRM");
+
   // Комиссию агента вычитаем ДО процента — как у Marina и у инструкторов.
   const revenue =
     netSessionsBase(sessions.rows) +
@@ -291,6 +294,11 @@ export async function getFinance(
       loadShiftCrew(supabase),
       loadDayShareBosses(supabase),
     ]);
+  failIfReadError(moneySessions.error, "не удалось прочитать оплаченные занятия");
+  failIfReadError(workSessions.error, "не удалось прочитать проведённые занятия");
+  failIfReadError(subsRes.error, "не удалось прочитать оплаченные абонементы");
+  failIfReadError(expensesRes.error, "не удалось прочитать расходы");
+
   // Полевой состав: инструкторы и СММщик, который тоже выходит на смену
   // (см. staff → SHIFT_CREW_ROLES). Механик и босс сюда не входят.
   const crewIds = staff.map((m) => m.id);

@@ -20,6 +20,7 @@ import {
 } from "@/lib/phone";
 import { subscriptionExpiry, vnIsoAt, vnToday } from "@/lib/dates";
 import { minutesLeft } from "@/lib/subscriptions";
+import { writeOffSubscription } from "@/lib/subscriptionWriteOff";
 import { parseRiders, writeOffNote } from "@/lib/riders";
 import { sendInstructorsBookingAlert } from "@/lib/telegram";
 import { pickChannel } from "@/lib/channels";
@@ -231,11 +232,9 @@ export async function createBookingAction(
   const serviceId = String(formData.get("serviceId") ?? "");
   const confirmed = formData.get("status") !== "new";
 
-  // У механика есть своя политика на вставку заявки (0029), у админа — полный
-  // доступ, а у СММщика политик на запись нет вовсе (0040) — он пишет
-  // служебным ключом, как и во всех остальных своих действиях.
-  const supabase =
-    author.role === "smm" ? createAdminClient() : await createClient();
+  // После проверки активной роли: механик и СММ пишут только заданные ниже
+  // поля через сервер; прямые INSERT в PostgREST закрыты миграцией 0055.
+  const supabase = await officeClient(author);
   const row = {
     client_name: clientName,
     phone,
@@ -1096,53 +1095,30 @@ export async function writeOffMinutesAction(
   formData: FormData,
 ): Promise<ActionState> {
   const user = await requireOffice();
-  const supabase = await officeClient(user);
 
   const subId = String(formData.get("subscriptionId") ?? "");
-  const duration = Math.trunc(Number(formData.get("minutes")));
+  const duration = Number(formData.get("minutes"));
   // Сколько человек каталось одновременно с ОДНОГО абонемента (см. parseRiders).
   const riders = parseRiders(formData.get("riders"));
   const date = String(formData.get("date") ?? "").trim();
   const instructorId = String(formData.get("instructorId") ?? "");
   // Пометка к прокату — необязательная, уходит в примечание сессии.
   const comment = String(formData.get("comment") ?? "").trim();
-  if (!subId || !Number.isFinite(duration) || duration <= 0) {
+  if (!subId || !Number.isSafeInteger(duration) || duration <= 0) {
     return { error: "Минуты — целое число больше нуля." };
   }
   const minutes = duration * riders;
   if (!DAY_RE.test(date)) return { error: "Укажите дату проката." };
 
-  const { data: sub } = await supabase
-    .from("subscriptions")
-    .select("id, client_id, total_minutes, status")
-    .eq("id", subId)
-    .maybeSingle();
-  if (!sub) return { error: "Абонемент не найден." };
-  if (sub.status === "cancelled") {
-    return { error: "Абонемент отменён — списывать с него нельзя." };
-  }
-
-  // В минус не уходим (то же правило, что у инструктора): превышение
-  // оформляется отдельной сессией по прайсу проката.
-  const left = await minutesLeft(supabase, sub);
-  if (minutes > left) {
-    const asked = riders > 1 ? `${minutes} (${duration} × ${riders})` : `${minutes}`;
-    return { error: `Остаток ${left} мин — списать ${asked} нельзя.` };
-  }
-
-  const { error } = await supabase.from("sessions").insert({
-    client_id: sub.client_id,
-    subscription_id: sub.id,
-    minutes_used: minutes,
-    amount: 0, // прокат по абонементу — деньги получены при его продаже
-    instructor_id: instructorId || null,
-    created_by: user.id,
+  const result = await writeOffSubscription(createAdminClient(), {
+    subscriptionId: subId,
+    minutes,
+    instructorId: instructorId || null,
+    actorId: user.id,
     note: writeOffNote(riders, comment),
     date,
   });
-  if (error) return { error: `Не удалось списать: ${error.message}` };
-
-  await recalcSubscriptionStatus(supabase, subId);
+  if (result.error !== null) return { error: result.error };
 
   revalidatePath("/", "layout");
   officeRedirect(user, "/subscriptions");

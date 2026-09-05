@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { vnPeriod } from "@/lib/dates";
+import { failIfReadError } from "@/lib/dbError";
 import { MONEY_DATE } from "@/lib/sessions";
 import type { StatsRange } from "@/lib/stats";
 
@@ -126,6 +127,8 @@ async function getPeriodPayments(
       .lt("paid_at", range.toIso),
   ]);
 
+  failIfReadError(sessionsRes.error, "не удалось прочитать оплаты занятий");
+  failIfReadError(subsRes.error, "не удалось прочитать оплаты абонементов");
   type Row = { payment_methods: { name: string } | null };
   const payments: PaymentInput[] = [];
   for (const r of (sessionsRes.data ?? []) as unknown as (Row & {
