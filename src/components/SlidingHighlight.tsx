@@ -43,6 +43,19 @@ import {
 // для главного потока, а ради неё портить главное движение незачем: в полёте
 // торцы едва заметно «упругие», и это движению только на пользу.
 
+// Есть ли у человека НАСТОЯЩАЯ мышь.
+//
+// Одной проверки pointerType === "mouse" мало. iOS Safari после тапа досылает
+// «как бы мышиные» события — и pointerType в них тоже "mouse". Плашка от такого
+// уезжала под палец и залипала там: mouseleave после касания не приходит.
+// Запрос к устройству отвечает честно: у телефона наведения нет вовсе.
+export function hasRealMouse(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(hover: hover) and (pointer: fine)").matches === true
+  );
+}
+
 interface Box {
   left: number;
   top: number;
@@ -60,8 +73,24 @@ interface Box {
 //
 // Перелёт именно ЛЁГКИЙ (1.2, а не 1.56 как было): через полменю плашка едет
 // далеко, и заметный отскок в конце читается не как упругость, а как дёрганье.
+//
+// ── Почему слой (will-change) живёт ЗДЕСЬ, а не в инлайн-стиле ──
+// will-change: transform выносит плашку на отдельный слой видеокарты. Пока ряд
+// вкладок стоит на месте, это чистая польза: слой готов заранее, и первый
+// переезд не начинается с рывка.
+//
+// Но ровно этот же слой ломает плашку внутри ленты, которую листают вбок. iOS
+// Safari прокручивает такие ленты отдельным потоком, а вынесенный на слой
+// потомок он двигает главным — плашка отстаёт от ряда и «отклеивается» от своей
+// вкладки, а под ней проезжают чужие (David, 04.09.2026: «пролистал вправо —
+// плашка перескакивает на другие услуги»). В Chromium этого не видно, там
+// прокрутка и слой едут вместе.
+//
+// Поэтому слой заказывает тот, кто знает про свою ленту: он приходит классом в
+// motionClassName и стоит рядом с самим переездом. Где переезда нет (телефонный
+// прайс — там плашка просто оказывается на нажатой вкладке), не нужен и слой.
 const DEFAULT_MOTION =
-  "transition-transform duration-[450ms] ease-[cubic-bezier(0.34,1.2,0.64,1)] motion-reduce:transition-none";
+  "transition-transform duration-[450ms] ease-[cubic-bezier(0.34,1.2,0.64,1)] will-change-transform motion-reduce:transition-none";
 
 export function SlidingHighlight({
   activeKey,
@@ -176,7 +205,7 @@ export function SlidingHighlight({
         // вкладку под пальцем и залипала там, потому что mouseleave после
         // касания не приходит. Наведение бывает только мышкой.
         onPointerOver: (e: React.PointerEvent) => {
-          if (e.pointerType !== "mouse") return;
+          if (e.pointerType !== "mouse" || !hasRealMouse()) return;
           const el = (e.target as HTMLElement).closest<HTMLElement>("[data-tab]");
           setHoverKey(el?.dataset.tab ?? null);
         },
@@ -197,11 +226,11 @@ export function SlidingHighlight({
       width: box.baseWidth,
       height: box.baseHeight,
       transformOrigin: "0 0",
-      transform: `translate3d(${box.left}px, ${box.top}px, 0) scale(${scaleX}, ${scaleY})`,
+      // Плоский translate, а НЕ translate3d: третья координата сама по себе
+      // выносит элемент на слой видеокарты, а слоем распоряжается
+      // motionClassName (см. комментарий у DEFAULT_MOTION).
+      transform: `translate(${box.left}px, ${box.top}px) scale(${scaleX}, ${scaleY})`,
       borderRadius: `${radius / scaleX}px / ${radius / scaleY}px`,
-      // Слой под плашку браузер готовит заранее, а не в момент первого движения
-      // — иначе первый переезд начинается с рывка.
-      willChange: "transform",
     };
   }
 

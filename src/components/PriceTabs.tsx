@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SlidingHighlight } from "./SlidingHighlight";
+import { SlidingHighlight, hasRealMouse } from "./SlidingHighlight";
 import { PriceCard } from "./PriceCard";
 import { Rail, RailItem } from "./Rail";
 import { DotsRail } from "./DotsRail";
@@ -86,6 +86,9 @@ export function PriceTabs({ groups }: { groups: PriceGroup[] }) {
     const el = barRef.current;
     if (!el) return;
     setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    // Ленту листают — значит человек не наводит, а прокручивает. Наведение,
+    // оставшееся от предыдущего касания, увело бы плашку с выбранной вкладки.
+    setHover(null);
   }, []);
 
   // Считаем при первой отрисовке и при смене ширины окна: с lg лента перестаёт
@@ -158,7 +161,10 @@ export function PriceTabs({ groups }: { groups: PriceGroup[] }) {
           // хотя выбор не менялся, и там залипала: mouseleave после касания не
           // приходит. Наведение бывает только мышкой, её и слушаем.
           onPointerOver={(e) => {
-            if (e.pointerType !== "mouse") return;
+            // Мало проверить pointerType: iOS Safari после тапа досылает
+            // «как бы мышиные» события с тем же типом. hasRealMouse
+            // спрашивает у самого устройства, бывает ли у него наведение.
+            if (e.pointerType !== "mouse" || !hasRealMouse()) return;
             const el = (e.target as HTMLElement).closest<HTMLElement>("[data-tab]");
             setHover((el?.dataset.tab as ServiceCategory) ?? null);
           }}
@@ -177,7 +183,12 @@ export function PriceTabs({ groups }: { groups: PriceGroup[] }) {
             // раздувает её ширину — лента подкручивается сама и дёргает весь
             // текст (замер: скачок 8 px). Без перелёта плашка всегда в границах
             // ряда, и лента этого не замечает.
-            motionClassName="transition-none lg:transition-transform lg:duration-[520ms] lg:ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:lg:transition-none"
+            //
+            // will-change тоже только с lg. На телефоне лента листается вбок, а
+            // вынесенная на слой видеокарты плашка отстаёт от такой ленты в iOS
+            // Safari — она «отклеивалась» от своей вкладки, и под ней проезжали
+            // чужие (см. комментарий у DEFAULT_MOTION в SlidingHighlight).
+            motionClassName="transition-none lg:transition-transform lg:duration-[520ms] lg:ease-[cubic-bezier(0.22,1,0.36,1)] lg:will-change-transform motion-reduce:lg:transition-none"
             // min-w-full, а не flex-1: лента должна быть ШИРИНОЙ ПО ВКЛАДКАМ,
             // иначе она ровно по экрану, вкладки вылезают за её край, и
             // прокручивать становится нечего — на телефоне последние вкладки
