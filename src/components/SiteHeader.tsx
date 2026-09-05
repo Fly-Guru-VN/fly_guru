@@ -8,6 +8,7 @@ import { useBooking } from "./BookingProvider";
 import { NAV_LINKS } from "./nav";
 import { IconClose, IconMenu } from "./icons";
 import { SlidingHighlight } from "./SlidingHighlight";
+import { useOptimisticPath } from "./useOptimisticPath";
 
 // Шапка сайта. Клиентский компонент ради мобильного меню и кнопки «Вход/Кабинет».
 //
@@ -24,6 +25,9 @@ export function SiteHeader() {
   // кружочек на кнопке «Кабинет» у инструктора и админа.
   const [activeCount, setActiveCount] = useState(0);
   const pathname = usePathname();
+  // Подсветка раздела едет за нажатием, а не за загрузкой страницы: иначе
+  // плашка успевает моргнуть старым разделом (см. useOptimisticPath).
+  const { path, goTo } = useOptimisticPath(pathname);
 
   // Пересчёт при каждой смене страницы и при возврате во вкладку — раньше
   // цифра считалась один раз при загрузке и «застревала».
@@ -91,8 +95,19 @@ export function SiteHeader() {
   // Текущий раздел. pathname приходит уже без префикса локали (useI18n-навигация),
   // поэтому сравниваем напрямую. Раньше активный пункт не выделялся вообще —
   // на цветной шапке это стало заметно сразу.
-  const isCurrent = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+  const isCurrent = (href: string) => path === href || path.startsWith(`${href}/`);
+
+  // Пункты меню проявляются каскадом вслед за раскрытием — так это читается как
+  // одно движение, а не как список, возникший разом. Задержка только на
+  // открытии: закрывается меню целиком и сразу, ждать там нечего.
+  // Каскад упирается в потолок на шестом пункте: иначе последние ждали бы
+  // дольше, чем длится само раскрытие.
+  const itemMotion = `transition-[opacity,transform,background-color,color] duration-200 motion-reduce:transition-none ${
+    open ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0"
+  }`;
+  const itemDelay = (i: number) => ({
+    transitionDelay: open ? `${Math.min(i, 6) * 25}ms` : "0ms",
+  });
 
   return (
     // Фирменный градиент «вода»: от бирюзы мелководья к глубине. Шапку просили
@@ -144,6 +159,7 @@ export function SiteHeader() {
               <Link
                 key={l.href}
                 href={l.href}
+                onClick={() => goTo(l.href)}
                 data-tab={l.href}
                 aria-current={isCurrent(l.href) ? "page" : undefined}
                 className={`relative flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold transition-colors ${
@@ -176,6 +192,7 @@ export function SiteHeader() {
           onClick={() => setOpen((v) => !v)}
           aria-label="Меню"
           aria-expanded={open}
+          aria-controls="mobile-menu"
           className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 active:scale-95 min-[960px]:hidden"
         >
           {/* Обе иконки лежат друг на друге в квадрате 24×24 по центру кнопки и
@@ -202,17 +219,53 @@ export function SiteHeader() {
           Пункты — крупные пилюли с отступами (линии-разделители убраны),
           текущий раздел залит белым. Фон — основной бирюзовый, тот же, что у
           светлой части шапки: тёмная заливка ниже осветлённой шапки читалась
-          как ступенька. */}
-      {open && (
-        <nav className="animate-menu-down border-t border-white/15 bg-primary min-[960px]:hidden">
+          как ступенька.
+
+          Меню РАСКАТЫВАЕТСЯ, а не возникает. Раньше оно появлялось сразу во всю
+          высоту и лишь подтягивалось на 8 px (animate-menu-down) — глаз читал
+          это как рывок, а закрытие не анимировалось вовсе (David, 04.09.2026:
+          «выпадает недостаточно плавно»).
+
+          Высоту тянем через grid-template-rows 0fr → 1fr: это единственный
+          способ доехать до НАСТОЯЩЕЙ высоты содержимого, не подставляя руками
+          max-height наугад (промахнёшься вниз — меню обрежется, вверх — конец
+          раскрытия идёт по пустоте). Обёртка при этом остаётся в потоке, и
+          шапка раздвигается вместе с ней, как и раньше.
+
+          inert на закрытом меню обязателен: оно никуда не делось из разметки, и
+          без него Tab заводил бы в невидимые ссылки.
+
+          Одной нулевой высоты мало: пункты внутри сохраняют свои коробки, их
+          просто обрезает overflow. Для всего, что судит по коробке (в том числе
+          для наших же e2e), свёрнутое меню оставалось кликабельным. Поэтому
+          закрытому меню отдельно ставится visibility: hidden — в переходе это
+          свойство ступенчатое, так что на закрытии оно дожидается конца
+          сворачивания, а на открытии срабатывает сразу. */}
+      <div
+        id="mobile-menu"
+        inert={!open}
+        className={`grid overflow-hidden transition-[grid-template-rows,visibility] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none min-[960px]:hidden ${
+          open ? "visible grid-rows-[1fr]" : "invisible grid-rows-[0fr]"
+        }`}
+      >
+        {/* Рамку рисуем только у раскрытого меню. У свёрнутого высота строки
+            нулевая, но собственная рамка нижним краем всё равно даёт
+            светлую ниточку под шапкой во всю ширину экрана (замерено: 1 px). */}
+        <nav
+          className={`min-h-0 bg-primary ${open ? "border-t border-white/15" : ""}`}
+        >
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-3 sm:px-6">
-            {NAV_LINKS.map((l) => (
+            {NAV_LINKS.map((l, i) => (
               <Link
                 key={l.href}
                 href={l.href}
-                onClick={() => setOpen(false)}
+                onClick={() => {
+                  setOpen(false);
+                  goTo(l.href);
+                }}
                 aria-current={isCurrent(l.href) ? "page" : undefined}
-                className={`flex items-center justify-between gap-2 rounded-xl px-4 py-3 font-semibold transition-colors ${
+                style={itemDelay(i)}
+                className={`${itemMotion} flex items-center justify-between gap-2 rounded-xl px-4 py-3 font-semibold ${
                   isCurrent(l.href)
                     ? "bg-white text-primary-strong"
                     : "text-white/85 hover:bg-white/10 hover:text-white"
@@ -224,7 +277,8 @@ export function SiteHeader() {
             <Link
               href={authHref}
               onClick={() => setOpen(false)}
-              className="mt-2 flex items-center justify-between rounded-xl border border-white/40 px-4 py-3 font-semibold text-white transition-colors hover:bg-white/15"
+              style={itemDelay(NAV_LINKS.length)}
+              className={`${itemMotion} mt-2 flex items-center justify-between rounded-xl border border-white/40 px-4 py-3 font-semibold text-white hover:bg-white/15`}
             >
               {cabinetHref ? "Мой кабинет" : "Вход в кабинет"}
               {activeCount > 0 && (
@@ -239,13 +293,14 @@ export function SiteHeader() {
                 setOpen(false);
                 openBooking({ place: "burger" });
               }}
-              className="mt-1 mb-1 rounded-full bg-accent px-5 py-3 text-center font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-95"
+              style={itemDelay(NAV_LINKS.length + 1)}
+              className={`${itemMotion} mt-1 mb-1 rounded-full bg-accent px-5 py-3 text-center font-semibold text-white hover:bg-accent-strong active:scale-95`}
             >
               Записаться
             </button>
           </div>
         </nav>
-      )}
+      </div>
     </header>
   );
 }

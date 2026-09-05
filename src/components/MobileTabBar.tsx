@@ -5,6 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { useBooking } from "./BookingProvider";
 import { MOBILE_TABS, NO_TAB_BAR_PREFIXES } from "./nav";
 import { SlidingHighlight } from "./SlidingHighlight";
+import { useOptimisticPath } from "./useOptimisticPath";
 import {
   IconCalendarPlus,
   IconClub,
@@ -46,6 +47,9 @@ const tabIdle = "text-ink";
 
 export function MobileTabBar() {
   const pathname = usePathname();
+  // Подсветка идёт за нажатием, а не за загрузкой страницы: иначе плашка треть
+  // секунды стоит на старой вкладке и только потом переезжает (см. хук).
+  const { path, goTo } = useOptimisticPath(pathname);
   const { open: openBooking } = useBooking();
 
   // В кабинетах и на экранах входа панели нет.
@@ -57,9 +61,8 @@ export function MobileTabBar() {
     return null;
 
   const active =
-    MOBILE_TABS.find(
-      (t) => pathname === t.href || pathname.startsWith(`${t.href}/`),
-    ) ?? null;
+    MOBILE_TABS.find((t) => path === t.href || path.startsWith(`${t.href}/`)) ??
+    null;
 
   return (
     <>
@@ -88,6 +91,7 @@ export function MobileTabBar() {
               <Link
                 key={tab.href}
                 href={tab.href}
+                onClick={() => goTo(tab.href)}
                 data-tab={tab.href}
                 aria-current={isActive ? "page" : undefined}
                 className={`${tabClass} ${isActive ? tabActive : tabIdle}`}

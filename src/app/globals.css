@@ -102,7 +102,9 @@ body {
   }
 }
 
-/* Мобильное меню шапки: раскрывается из-под неё, а не появляется рывком */
+/* Раскрытие блока из-под своего заголовка. Мобильное меню шапки этим больше не
+   пользуется (оно тянет высоту переходом, см. SiteHeader) — кадры остались ради
+   <details> ниже. */
 @keyframes menu-down {
   from {
     opacity: 0;
@@ -113,10 +115,6 @@ body {
     transform: translateY(0);
   }
 }
-.animate-menu-down {
-  animation: menu-down 200ms ease-out;
-}
-
 /* Переход между страницами (components/PageTransition): содержимое всплывает,
    шапка и подвал стоят на месте. Коротко и почти незаметно — это переход, а не
    представление: на 300 мс каждый тап по меню начал бы раздражать. */
@@ -246,7 +244,6 @@ details[open] > *:not(summary) {
   .animate-fade-in,
   .animate-sheet-up,
   .sm\:animate-pop-in,
-  .animate-menu-down,
   .animate-page-in,
   .animate-marquee,
   .animate-scroll-hint,
