@@ -118,6 +118,15 @@ export function IconArrowRight(props: IconProps) {
   );
 }
 
+// Уголок вниз — знак «здесь раскрывается список». Поворачивается в разметке.
+export function IconChevronDown(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
 export function IconCheck(props: IconProps) {
   return (
     <svg {...base} {...props}>

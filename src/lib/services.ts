@@ -37,6 +37,9 @@ export async function getActiveServices(
     id: s.id,
     name: s.name,
     code: (s.code as string | null) ?? null,
+    // Порядок уже задан сортировкой; категория нужна форме, чтобы расставить
+    // по этому порядку заголовки групп.
+    category: (s.category as ServiceCategory | null) ?? null,
     // Цену форма показывает на карточке услуги. NULL бывает у услуг, которые
     // считаются «по договорённости», — такая карточка просто без цены.
     price: s.price === null || s.price === undefined ? null : Number(s.price),

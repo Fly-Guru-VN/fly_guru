@@ -6,8 +6,9 @@ import { trackEvent } from "@/lib/analytics";
 import { forgetRefCode, getAttributionForBooking } from "@/lib/attribution";
 import { isValidPhone, PHONE_ERROR } from "@/lib/phone";
 import { agentDiscountFor } from "@/lib/agentTerms";
-import { formatVnd } from "@/content/services";
+import { type ServiceCategory } from "@/content/services";
 import { useAgentRef } from "./useAgentRef";
+import { ServicePicker } from "./ServicePicker";
 import { Spinner } from "./Spinner";
 
 // Услуга в том минимальном виде, что нужен форме: id (для базы) + название.
@@ -19,6 +20,9 @@ export interface ServiceOption {
   name: string;
   code?: string | null;
   price?: number | null;
+  // Группа услуги («Обучение», «Тандем», …). Нужна выпадающему списку: услуг
+  // больше десятка, и без заголовков групп это просто длинная простыня.
+  category?: ServiceCategory | null;
 }
 
 // Что подставляем гостю, если страница не попросила конкретную услугу. Список
@@ -89,7 +93,9 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
       contact: String(data.get("contact") ?? ""),
       telegram: String(data.get("telegram") ?? ""),
       messenger: String(data.get("messenger") ?? ""),
-      serviceId: String(data.get("serviceId") ?? ""),
+      // Из состояния, а не из FormData: выбор живёт в свёрнутом списке, и
+      // читать его надо там же, где им управляют.
+      serviceId,
       preferredDate: String(data.get("preferredDate") ?? ""),
       comment: String(data.get("comment") ?? ""),
       honeypot: String(data.get("company") ?? ""), // поле-ловушка (см. ниже)
@@ -203,69 +209,19 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
         </p>
       </div>
 
-      {/* Услуга — карточками, а не выпадающим списком: только так на выборе
-          видно цену и агентскую скидку. Внутри каждой карточки настоящий
-          radio — форма отправляет его значение, а клавиатура и скринридеры
-          получают обычный список переключателей.
-          Карточка в одну строку (название слева, цена справа): услуг больше
-          десятка, и в две строки каждая список не помещался бы на телефоне
-          даже с прокруткой. */}
-      <fieldset>
-        <legend className="mb-1 block text-sm font-medium">Услуга</legend>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {services.map((s) => {
-            const price = s.price ?? null;
-            const discount = agentPlan ? agentDiscountFor(s.code, price, agentPlan) : 0;
-            const chosen = s.id === serviceId;
-            return (
-              <label
-                key={s.id}
-                className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 transition-colors ${
-                  chosen
-                    ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                    : "border-line bg-surface hover:border-primary/50"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="serviceId"
-                  value={s.id}
-                  checked={chosen}
-                  onChange={() => setServiceId(s.id)}
-                  className="shrink-0 accent-primary"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium leading-snug">
-                    {s.name}
-                  </span>
-                  {discount > 0 && (
-                    <span className="block text-xs font-semibold text-accent-strong">
-                      −{formatVnd(discount)} по ссылке агента
-                    </span>
-                  )}
-                </span>
-                {price !== null && (
-                  <span className="shrink-0 text-right leading-tight">
-                    {discount > 0 ? (
-                      <>
-                        <span className="block text-xs text-muted line-through">
-                          {formatVnd(price)}
-                        </span>
-                        <span className="block text-sm font-bold text-accent-strong">
-                          {formatVnd(Math.max(0, price - discount))}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="block text-sm text-muted">
-                        {formatVnd(price)}
-                      </span>
-                    )}
-                  </span>
-                )}
-              </label>
-            );
-          })}
-        </div>
+      {/* Услуга — свёрнутым списком. Все услуги разом занимали пол-формы, и
+          на телефоне до даты и комментария приходилось долго крутить.
+          Цена и агентская скидка никуда не делись: они видны и в свёрнутой
+          строке, и в раскрытом списке. */}
+      <div>
+        <ServicePicker
+          services={services}
+          value={serviceId}
+          onChange={setServiceId}
+          discountFor={(s) =>
+            agentPlan ? agentDiscountFor(s.code, s.price ?? null, agentPlan) : 0
+          }
+        />
         {byAgent && (
           // Честная оговорка: скидка даётся за ПЕРВОЕ базовое обучение. Гость,
           // который у нас уже учился, заплатит полную цену — обещать её всем
@@ -274,7 +230,7 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
             Скидка по ссылке агента — на первое базовое обучение.
           </p>
         )}
-      </fieldset>
+      </div>
 
       <div>
         <label htmlFor="preferredDate" className="mb-1 block text-sm font-medium">
