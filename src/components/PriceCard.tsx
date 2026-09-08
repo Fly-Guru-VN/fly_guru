@@ -1,8 +1,10 @@
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { BookBtn } from "@/components/BookBtn";
 import { Badge } from "@/components/ui";
 import { IconClock, IconFlame } from "@/components/icons";
-import { formatDuration, type Service } from "@/content/services";
+import type { Service } from "@/content/services";
+import { formatServiceDuration } from "@/lib/serviceText";
 import { AgentPrice, AgentDiscountNote } from "@/components/AgentPrice";
 
 // Карточка услуги в прайсе: круглая иллюстрация, название, одна фраза о сути,
@@ -30,7 +32,8 @@ export function PriceCard({
   serviceId?: string;
   highlight?: boolean;
 }) {
-  const duration = formatDuration(service);
+  const t = useTranslations("Common");
+  const duration = formatServiceDuration(service, t);
 
   return (
     <div
@@ -41,7 +44,7 @@ export function PriceCard({
       {highlight && (
         <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-accent-strong">
           <IconFlame aria-hidden className="h-3.5 w-3.5" />
-          Популярное
+          {t("popular")}
         </span>
       )}
 
@@ -60,7 +63,7 @@ export function PriceCard({
       <h3 className="mt-3 text-lg font-bold leading-tight">{service.name}</h3>
 
       {service.membersOnly && (
-        <Badge className="mx-auto mt-2">По одобрению инструктора</Badge>
+        <Badge className="mx-auto mt-2">{t("instructorApproval")}</Badge>
       )}
 
       {/* flex-1 у описания: сколько бы строк оно ни заняло, цена и кнопка во
@@ -100,7 +103,7 @@ export function PriceCard({
           variant="secondary"
           className="w-full"
         >
-          Записаться
+          {t("book")}
         </BookBtn>
       </div>
     </div>

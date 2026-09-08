@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 
 // Соотношение сторон задаём строкой «ширина/высота» — под каждый кадр своё,
@@ -22,7 +23,7 @@ export function Media({
   sizes = "100vw",
   priority = false,
   rounded = "rounded-2xl",
-  alt = "FlyGuru — плейсхолдер фото",
+  alt,
 }: {
   src?: string;
   ratio?: Ratio;
@@ -32,11 +33,15 @@ export function Media({
   rounded?: string;
   alt?: string;
 }) {
+  // Подпись по умолчанию нужна только плейсхолдеру — но и она переводится:
+  // читалка экрана у незрячего гостя должна говорить на его языке.
+  const t = useTranslations("Common");
+
   return (
     <div {...box(ratio, rounded, className)}>
       <Image
         src={src}
-        alt={alt}
+        alt={alt ?? t("photoPlaceholderAlt")}
         fill
         sizes={sizes}
         priority={priority}

@@ -20,21 +20,36 @@ import {
   IconInfinity,
   IconArrowRight,
 } from "@/components/icons";
-import { clubFaq } from "@/content/faq";
-import { formatVnd, formatDuration } from "@/content/services";
+import { buildFaq, clubFaqKeys } from "@/content/faq";
+
 import { getActiveServices, getSiteServices, pickService } from "@/lib/services";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import {
+  formatPrice,
+  formatServiceDuration,
+  localizeServices,
+} from "@/lib/serviceText";
 import { socials } from "@/content/contacts";
 
-export const metadata: Metadata = {
-  title: "Клуб",
-  alternates: localeAlternates("/club"),
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Club" });
+
+  return {
+    title: t("metaTitle"),
+    alternates: localeAlternates("/club"),
+  };
+}
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
 // Клубный Telegram-канал — единственная клубная ссылка, которая реально живёт
 // (остальные соцсети школьные). Достаём из общего списка, чтобы адрес правился
 // в одном месте.
-const TELEGRAM = socials.find((s) => s.name === "Telegram-канал")!.href;
+const TELEGRAM = socials.find((s) => s.id === "telegram-channel")!.href;
 
 // Страница клуба собрана тем же языком, что обучение и тандем: кадр во весь
 // экран, бегущая строка фактов, дальше — только то, что человек спрашивает
@@ -45,43 +60,64 @@ const TELEGRAM = socials.find((s) => s.name === "Telegram-канал")!.href;
 // после обучения открываются выезды и компания, с которой в море не скучно.
 // Всё, чего в CRM ещё нет (уровни, передача минут, «приведи друга»), на
 // странице намеренно не обещано.
-export default async function ClubPage() {
+export default async function ClubPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const [t, tCommon, tServices, tFaq] = await Promise.all([
+    getTranslations("Club"),
+    getTranslations("Common"),
+    getTranslations("Services"),
+    getTranslations("Faq.club"),
+  ]);
+
   // Услуги из базы: цены — для карточек, настоящие id — для формы записи.
-  const [services, site] = await Promise.all([getActiveServices(), getSiteServices()]);
+  const [services, siteRaw] = await Promise.all([getActiveServices(), getSiteServices()]);
+  // Названия и приписки услуг — на языке гостя.
+  const site = localizeServices(siteRaw, tServices);
 
   const sub = pickService(site, "subscription");
   const rental = pickService(site, "rental");
   const tours = [pickService(site, "excursion"), pickService(site, "safari")];
 
   // id услуги в базе — с ним форма записи открывается уже с нужной строкой.
-  const dbId = (name: string) => services.find((x) => x.name === name)?.id;
-  const subId = dbId(sub.name);
+  // Ищем по коду: он совпадает с id услуги в справочнике, а названия теперь
+  // переводятся и совпадением строк больше не связаны.
+  const dbId = (code: string) => services.find((x) => x.code === code)?.id;
+  const subId = dbId(sub.id);
 
   // Выгода считается из цен базы, а не вписана руками: поправят прайс в
   // админке — цифра на странице поедет следом и не разойдётся с реальностью.
   const subPerMin = Math.round((sub.price as number) / (sub.durationMin as number));
   const rentalPerMin = Math.round((rental.price as number) / (rental.durationMin as number));
   const savings = Math.round((1 - subPerMin / rentalPerMin) * 100);
-  const fmtK = (v: number) => `${Math.round(v / 1000)}к ₫ / мин`;
+  const fmtK = (v: number) => t("perMinute", { price: Math.round(v / 1000) });
 
   // Условия абонемента — плашками на кадре: их ищут глазами первыми.
-  const heroFacts = [`${sub.durationMin} минут`, `минута дешевле на ${savings}%`, "минуты живут 3 месяца"];
+  const heroFacts = [
+    t("heroFacts.minutes", { minutes: sub.durationMin ?? 0 }),
+    t("heroFacts.cheaper", { percent: savings }),
+    t("heroFacts.life"),
+  ];
 
   const marquee = [
-    `Абонемент ${sub.durationMin} минут`,
-    `Минута дешевле на ${savings}%`,
-    "Катаетесь когда удобно",
-    "Экскурсии и сафари с командой",
-    "Свой Telegram-канал",
-    "Нячанг · Marina Beach",
+    t("marquee.subscription", { minutes: sub.durationMin ?? 0 }),
+    t("marquee.cheaper", { percent: savings }),
+    t("marquee.anytime"),
+    t("marquee.tours"),
+    t("marquee.channel"),
+    t("marquee.place"),
   ];
 
   // Что входит в абонемент — только то, что школа реально выполняет.
   const included = [
-    "Снаряжение, жилет и связь на воде — как на обучении",
-    "Минуты списываются по факту катания, а не по расписанию",
-    "Первый абонемент необученного гостя включает занятие с инструктором",
-    "После обучения — доступ к экскурсиям и сафари",
+    t("included.gear"),
+    t("included.byFact"),
+    t("included.firstLesson"),
+    t("included.tours"),
   ];
 
   // Путь в клуб. Третий шаг — тот, ради которого всё: помечен как в шагах
@@ -89,21 +125,21 @@ export default async function ClubPage() {
   const steps = [
     {
       icon: IconFoil,
-      meta: "60 минут",
-      title: "Базовое обучение",
-      text: "Входная точка: после занятия вы управляете фойлом сами. Если уже уверенно катаетесь — шаг пропускается.",
+      meta: t("steps.trainingMeta"),
+      title: t("steps.trainingTitle"),
+      text: t("steps.trainingText"),
     },
     {
       icon: IconWaves,
-      meta: `${sub.durationMin} минут`,
-      title: "Абонемент",
-      text: `Покупаете пакет минут и катаете, когда удобно: минута выходит на ${savings}% дешевле разового проката.`,
+      meta: t("steps.subscriptionMeta", { minutes: sub.durationMin ?? 0 }),
+      title: t("steps.subscriptionTitle"),
+      text: t("steps.subscriptionText", { percent: savings }),
     },
     {
       icon: IconClub,
-      meta: "статус бессрочный",
-      title: "Вы в клубе",
-      text: "Членство активируется первым абонементом и остаётся навсегда: клубный канал, совместные выезды, своя компания на воде.",
+      meta: t("steps.clubMeta"),
+      title: t("steps.clubTitle"),
+      text: t("steps.clubText"),
       highlight: true,
     },
   ];
@@ -112,22 +148,22 @@ export default async function ClubPage() {
   const tourPhoto: Record<string, { src: string; alt: string; text: string }> = {
     excursion: {
       src: "/media/photo/ekskursiya.webp",
-      alt: "Экскурсия на электрофойлах: инструктор с доской у берега острова",
-      text: "Чёткая программа на 2–2,5 часа: полёт к острову Черепахи с инструктором, чтобы набрать опыт в открытом море.",
+      alt: t("tourPhotos.excursionAlt"),
+      text: t("tourPhotos.excursionText"),
     },
     safari: {
       src: "/media/photo/safari-ostrov.webp",
-      alt: "Электрофойлы на белом песке дикого пляжа во время сафари",
-      text: "Задача повышенной сложности: остров Обезьян, крутой резорт и дикий пляж Баунти. Маршрут гибкий — куда ехать, решаете вы вместе с гидом.",
+      alt: t("tourPhotos.safariAlt"),
+      text: t("tourPhotos.safariText"),
     },
   };
 
   // Три коротких обещания клуба — полоской под шагами, как факты в карточках
   // на главной.
   const perks = [
-    { icon: IconChat, label: "Клубный канал", label2: "в Telegram" },
-    { icon: IconPeople, label: "Выезды", label2: "с командой" },
-    { icon: IconPalm, label: "Острова", label2: "и дикие пляжи" },
+    { icon: IconChat, label: t("perks.channel"), label2: t("perks.channel2") },
+    { icon: IconPeople, label: t("perks.tours"), label2: t("perks.tours2") },
+    { icon: IconPalm, label: t("perks.islands"), label2: t("perks.islands2") },
   ];
 
   return (
@@ -137,21 +173,20 @@ export default async function ClubPage() {
           катают не в одиночку у берега, а компанией и далеко. */}
       <HeroStage
         image="/media/photo/club-3-v-more.webp"
-        alt="Трое на электрофойлах идут вместе по открытому морю у гор Нячанга"
+        alt={t("heroAlt")}
         bleed
       >
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-white/80 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
-            Клуб FlyGuru
+            {t("eyebrow")}
           </p>
           <h1 className="mt-3 text-4xl font-bold leading-[1.05] drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)] sm:text-5xl md:text-6xl">
-            Катайтесь
+            {t("titleLine1")}
             <br />
-            сколько захотите
+            {t("titleLine2")}
           </h1>
           <p className="mt-4 max-w-md text-base text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-lg">
-            Пакет минут по выгодной цене, выезды на острова и своя компания на
-            воде.
+            {t("lead")}
           </p>
         </div>
         <div>
@@ -167,12 +202,12 @@ export default async function ClubPage() {
           </ul>
           <div className="mt-5 flex flex-col gap-3 sm:flex-row">
             <BookBtn serviceId={subId} place="club-hero" size="lg" className="w-full sm:w-auto">
-              Купить абонемент
+              {t("buy")}
             </BookBtn>
             {/* Обычный якорь, а не Button: ссылка ведёт на блок этой же
                 страницы, локали и роутинг тут ни при чём. */}
             <a href="#club-path" className={buttonClasses({ variant: "light", size: "lg" })}>
-              Как попасть в клуб
+              {t("howToJoin")}
             </a>
           </div>
         </div>
@@ -206,23 +241,21 @@ export default async function ClubPage() {
         <Container className="relative">
           <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-center lg:gap-12">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wide text-primary">Абонемент</p>
+              <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+                {t("subscriptionEyebrow")}
+              </p>
               <h2 className="mt-3 text-3xl font-bold leading-tight sm:text-4xl">
-                Минута дешевле на {savings}%
+                {t("subscriptionTitle", { percent: savings })}
               </h2>
               <Squiggle long className="mt-4" />
-              <p className="mt-5 max-w-xl text-muted">
-                Разовый прокат хорош, чтобы вспомнить ощущение. Но как только
-                катание становится привычкой, платить за каждый заезд отдельно
-                перестаёт иметь смысл: пакет минут окупается уже с пятой каталки.
-              </p>
+              <p className="mt-5 max-w-xl text-muted">{t("subscriptionText")}</p>
 
               {/* Две плашки цены рядом: сравнение работает только тогда, когда
                   обе цифры видно одновременно. Своя цена — выделена. */}
               <div className="mt-7 grid max-w-lg grid-cols-2 gap-3">
                 <div className="rounded-2xl border-2 border-primary bg-surface p-4 shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)]">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                    По абонементу
+                    {t("bySubscription")}
                   </p>
                   <p className="mt-1.5 text-xl font-bold text-primary sm:text-2xl">
                     {fmtK(subPerMin)}
@@ -230,7 +263,7 @@ export default async function ClubPage() {
                 </div>
                 <div className="rounded-2xl border border-line bg-surface p-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                    Разовый прокат
+                    {t("byRental")}
                   </p>
                   <p className="mt-1.5 text-xl font-bold sm:text-2xl">{fmtK(rentalPerMin)}</p>
                 </div>
@@ -259,31 +292,29 @@ export default async function ClubPage() {
                 <h3 className="text-lg font-bold leading-tight">{sub.name}</h3>
               </div>
               <div className="mt-5 flex items-baseline gap-2">
-                <span className="text-3xl font-bold text-primary">{formatVnd(sub.price)}</span>
-                <span className="text-sm text-muted">/ {formatDuration(sub)}</span>
+                <span className="text-3xl font-bold text-primary">{formatPrice(locale, sub.price, tCommon("onRequest"))}</span>
+                <span className="text-sm text-muted">/ {formatServiceDuration(sub, tCommon)}</span>
               </div>
               <ul className="mt-5 space-y-2.5 text-sm text-muted">
                 <li className="flex gap-2">
                   <IconClock aria-hidden className="h-5 w-5 shrink-0 text-primary" />
-                  Минуты действуют 3 месяца
+                  {t("cardMinutes")}
                 </li>
                 <li className="flex gap-2">
                   <IconInfinity aria-hidden className="h-5 w-5 shrink-0 text-primary" />
-                  Катаете когда удобно, без записи по расписанию
+                  {t("cardAnytime")}
                 </li>
                 <li className="flex gap-2">
                   <IconClub aria-hidden className="h-5 w-5 shrink-0 text-primary" />
-                  Первый абонемент открывает членство в клубе
+                  {t("cardMembership")}
                 </li>
               </ul>
               <div className="mt-6">
                 <BookBtn serviceId={subId} place="club-card" size="lg" className="w-full">
-                  Купить абонемент
+                  {t("buy")}
                 </BookBtn>
               </div>
-              <p className="mt-3 text-center text-xs text-muted">
-                Оставите заявку — свяжемся в мессенджере и всё расскажем.
-              </p>
+              <p className="mt-3 text-center text-xs text-muted">{t("cardNote")}</p>
             </div>
           </div>
         </Container>
@@ -296,7 +327,7 @@ export default async function ClubPage() {
         className="bg-gradient-to-b from-surface-2 to-white"
       >
         <Container>
-          <h2 className="text-3xl font-bold sm:text-4xl">Как попасть в клуб</h2>
+          <h2 className="text-3xl font-bold sm:text-4xl">{t("howToJoin")}</h2>
           <Squiggle long className="mt-4" />
 
           {/* Дорожка номеров — та же, что на обучении и тандеме: линия идёт
@@ -380,7 +411,7 @@ export default async function ClubPage() {
               rel="noopener noreferrer"
               className={buttonClasses({ variant: "sea" })}
             >
-              Клубный канал в Telegram <IconArrowRight className="h-4 w-4" />
+              {t("telegramButton")} <IconArrowRight className="h-4 w-4" />
             </a>
           </div>
         </Container>
@@ -389,13 +420,9 @@ export default async function ClubPage() {
       {/* ── Выезды ── */}
       <Section pad="tight" className="bg-white">
         <Container>
-          <h2 className="text-3xl font-bold sm:text-4xl">Выезды в море</h2>
+          <h2 className="text-3xl font-bold sm:text-4xl">{t("toursTitle")}</h2>
           <Squiggle long className="mt-4" />
-          <p className="mt-5 max-w-2xl text-muted">
-            Экскурсия и сафари — это уже не катание у берега, а несколько часов в
-            открытом море. Берём тех, кто уверенно держится на доске: решение за
-            инструктором, отдельный абонемент для этого не нужен.
-          </p>
+          <p className="mt-5 max-w-2xl text-muted">{t("toursText")}</p>
 
           <div className="mt-8 grid gap-6 md:grid-cols-2">
             {tours.map((s) => (
@@ -411,22 +438,22 @@ export default async function ClubPage() {
                   sizes="(min-width: 768px) 50vw, 100vw"
                 />
                 <div className="flex flex-1 flex-col p-5 sm:p-6">
-                  <Badge className="self-start">По одобрению инструктора</Badge>
+                  <Badge className="self-start">{tCommon("instructorApproval")}</Badge>
                   <h3 className="mt-3 text-xl font-bold">{s.name}</h3>
                   <div className="mt-2 flex items-baseline gap-2">
-                    <span className="text-2xl font-bold text-primary">{formatVnd(s.price)}</span>
-                    <span className="text-sm text-muted">/ {formatDuration(s)}</span>
+                    <span className="text-2xl font-bold text-primary">{formatPrice(locale, s.price, tCommon("onRequest"))}</span>
+                    <span className="text-sm text-muted">/ {formatServiceDuration(s, tCommon)}</span>
                   </div>
                   <p className="mt-3 flex-1 text-sm text-muted">{tourPhoto[s.id].text}</p>
                   {s.note && <p className="mt-2 text-xs text-muted">{s.note}.</p>}
                   <div className="mt-5">
                     <BookBtn
-                      serviceId={dbId(s.name)}
+                      serviceId={dbId(s.id)}
                       place="club-tour"
                       variant="secondary"
                       className="w-full"
                     >
-                      Записаться
+                      {tCommon("book")}
                     </BookBtn>
                   </div>
                 </div>
@@ -442,7 +469,7 @@ export default async function ClubPage() {
       <Section pad="tight" className="bg-gradient-to-b from-white to-surface-2">
         <Container>
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
-            <Faq items={clubFaq} heading="Вопросы про клуб" />
+            <Faq items={buildFaq(clubFaqKeys, tFaq)} heading={t("faqHeading")} />
             {/* Два кадра клубной жизни рядом с вопросами: длинный список ответов
                 на широком экране без них выглядит сухой простынёй. На телефоне
                 прячем — там они отодвигали бы подвал ещё на экран вниз.
@@ -453,7 +480,7 @@ export default async function ClubPage() {
               {[
                 {
                   src: "/media/photo/club-napitok.webp",
-                  alt: "Гость клуба летит на фойле с напитком в руке",
+                  alt: t("photoDrinkAlt"),
                   grow: "flex-[3]",
                   // Кадр вертикальный и в узкой колонке режется: держим окно
                   // выше середины, иначе человеку срезает голову.
@@ -461,7 +488,7 @@ export default async function ClubPage() {
                 },
                 {
                   src: "/media/photo/club-kokos.webp",
-                  alt: "Гость клуба сидит на доске посреди бухты с кокосом",
+                  alt: t("photoCoconutAlt"),
                   grow: "flex-[2]",
                   pos: "object-center",
                 },

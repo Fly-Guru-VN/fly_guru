@@ -1,6 +1,5 @@
 import { contacts, socials } from "@/content/contacts";
-import type { Service } from "@/content/services";
-import { CATEGORY_LABELS } from "@/content/services";
+import type { Service, ServiceCategory } from "@/content/services";
 import { SITE_URL } from "./site";
 
 // Разметка организации (JSON-LD, schema.org).
@@ -23,10 +22,6 @@ export const ORG_ID = `${SITE_URL}/#business`;
 // (maps.app.goo.gl/1rgSHUMUsvq3VUnT7 → 12.2931615, 109.2155281).
 const GEO = { lat: 12.2931615, lng: 109.2155281 };
 
-const DESCRIPTION =
-  "Школа электрофойлов в Нячанге: обучение с нуля, полёты в тандеме, прокат, " +
-  "экскурсии и продажа электрофойлов. 90% учеников встают на крыло уже на первом занятии.";
-
 // Тип SportsActivityLocation — это «место для занятий спортом» из справочника
 // schema.org, наследник обычного LocalBusiness. Он точнее описывает школу с
 // собственной точкой на пляже, чем безликая «организация».
@@ -44,7 +39,10 @@ export function priceRangeLabel(services: Service[]): string {
 
 // priceRange — необязательное поле, но Google на его отсутствие ругается
 // («незначительная проблема») и без него не показывает вилку цен в карточке.
-export function businessSchema(priceRange?: string) {
+//
+// description приходит снаружи: разметка обязана совпадать с тем, что человек
+// видит на странице, а страница говорит на его языке.
+export function businessSchema(description: string, priceRange?: string) {
   return {
     "@context": "https://schema.org",
     "@type": "SportsActivityLocation",
@@ -53,7 +51,7 @@ export function businessSchema(priceRange?: string) {
     // Название в карточке Google Maps отличается от вывески на сайте —
     // указываем оба, иначе Google может не связать сайт и точку на картах.
     alternateName: "FlyGuru Efoil",
-    description: DESCRIPTION,
+    description,
     url: SITE_URL,
     logo: `${SITE_URL}/icon.png`,
     image: `${SITE_URL}/og.jpg`,
@@ -109,13 +107,17 @@ export function businessSchema(priceRange?: string) {
 // Каталог услуг с настоящими ценами — для страницы прайса. Цены приходят из
 // базы (правятся в админке), поэтому разметка не разъезжается с таблицей на
 // странице: и то и другое из одного источника.
-export function priceListSchema(services: Service[]) {
+export function priceListSchema(
+  services: Service[],
+  catalogName: string,
+  categoryLabel: (cat: ServiceCategory) => string,
+) {
   const paid = services.filter((s) => s.price != null);
 
   return {
     "@context": "https://schema.org",
     "@type": "OfferCatalog",
-    name: "Услуги и цены FlyGuru",
+    name: catalogName,
     url: `${SITE_URL}/prices`,
     provider: { "@id": ORG_ID },
     itemListElement: paid.map((s, i) => ({
@@ -129,7 +131,7 @@ export function priceListSchema(services: Service[]) {
       itemOffered: {
         "@type": "Service",
         name: s.name,
-        serviceType: CATEGORY_LABELS[s.category],
+        serviceType: categoryLabel(s.category),
         provider: { "@id": ORG_ID },
       },
     })),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import {
   LOCALES,
@@ -22,6 +22,7 @@ import { IconCheck, IconChevronDown, IconGlobe } from "./icons";
 // китайский вообще не сводится к одному флагу. Название языка на самом языке
 // понятнее любой картинки.
 export function LocaleSwitcher() {
+  const t = useTranslations("Header");
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const locale = useLocale() as AppLocale;
@@ -67,7 +68,7 @@ export function LocaleSwitcher() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-label="Язык сайта"
+        aria-label={t("language")}
         aria-haspopup="menu"
         aria-expanded={open}
         disabled={pending}
@@ -89,7 +90,7 @@ export function LocaleSwitcher() {
           иначе Tab заводит в невидимые кнопки. */}
       <div
         role="menu"
-        aria-label="Язык сайта"
+        aria-label={t("language")}
         inert={!open}
         className={`absolute left-0 top-full z-50 mt-2 w-44 origin-top-left rounded-2xl bg-surface p-1.5 shadow-[0_12px_32px_rgba(11,110,127,0.22)] ring-1 ring-line transition-[opacity,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
           open

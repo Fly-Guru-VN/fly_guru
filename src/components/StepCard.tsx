@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import type { ComponentType, SVGProps } from "react";
 import Image from "next/image";
 
@@ -38,6 +39,7 @@ export type Step = {
 // RailItem — карточки лежат в ленте, которую на телефоне листают пальцем.
 // h-full — чтобы в ряду и в ленте все три держали одну высоту.
 export function StepCard({ step, index }: { step: Step; index: number }) {
+  const t = useTranslations("Common");
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-line bg-surface shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)]">
       <div className="relative flex-1">
@@ -84,7 +86,7 @@ export function StepCard({ step, index }: { step: Step; index: number }) {
               <step.icon className="h-6 w-6" />
             </span>
             <p className="text-sm font-extrabold uppercase tracking-wide text-accent-strong">
-              Шаг {index + 1} · {step.meta}
+              {t("step", { number: index + 1 })} · {step.meta}
             </p>
           </div>
           <div className="lg:pr-[42%]">

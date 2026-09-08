@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { usePathname } from "@/i18n/navigation";
 import { Link } from "@/i18n/navigation";
 import { useBooking } from "./BookingProvider";
@@ -46,6 +47,8 @@ const tabActive = "text-white delay-150";
 const tabIdle = "text-ink";
 
 export function MobileTabBar() {
+  const t = useTranslations("Nav");
+  const tHeader = useTranslations("Header");
   const pathname = usePathname();
   // Подсветка идёт за нажатием, а не за загрузкой страницы: иначе плашка треть
   // секунды стоит на старой вкладке и только потом переезжает (см. хук).
@@ -75,7 +78,7 @@ export function MobileTabBar() {
         className="h-[calc(3.75rem+env(safe-area-inset-bottom))] md:hidden"
       />
       <nav
-        aria-label="Разделы сайта"
+        aria-label={t("sections")}
         className="fixed inset-x-0 bottom-0 z-40 flex gap-1 border-t border-line bg-surface px-1 pt-1 pb-[calc(0.25rem+env(safe-area-inset-bottom))] shadow-[0_-2px_12px_rgba(15,34,51,0.10)] md:hidden"
       >
         <SlidingHighlight
@@ -97,7 +100,7 @@ export function MobileTabBar() {
                 className={`${tabClass} ${isActive ? tabActive : tabIdle}`}
               >
                 <Icon aria-hidden className="h-5 w-5" />
-                <span className="max-w-full truncate">{tab.label}</span>
+                <span className="max-w-full truncate">{t(tab.key)}</span>
               </Link>
             );
           })}
@@ -111,11 +114,11 @@ export function MobileTabBar() {
         <button
           type="button"
           onClick={() => openBooking({ place: "tabbar" })}
-          aria-label="Записаться"
+          aria-label={tHeader("book")}
           className="flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-accent px-1 py-1.5 text-[11px] font-bold leading-tight text-white transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-95"
         >
           <IconCalendarPlus aria-hidden className="h-5 w-5" />
-          Запись
+          {tHeader("bookShort")}
         </button>
       </nav>
     </>

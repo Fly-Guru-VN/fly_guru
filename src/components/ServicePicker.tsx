@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { CATEGORY_LABELS, formatVnd, type ServiceCategory } from "@/content/services";
+import { useLocale, useTranslations } from "next-intl";
+import type { ServiceCategory } from "@/content/services";
+import { formatPrice, localizeServiceName } from "@/lib/serviceText";
 import { IconChevronDown } from "./icons";
 import type { ServiceOption } from "./BookingForm";
 
@@ -38,10 +40,6 @@ function groupInOrder(services: ServiceOption[]): Group[] {
   return groups;
 }
 
-function groupLabel(cat: ServiceCategory | "other"): string {
-  return cat === "other" ? "Другое" : CATEGORY_LABELS[cat];
-}
-
 export function ServicePicker({
   services,
   value,
@@ -54,6 +52,16 @@ export function ServicePicker({
   /** Скидка по ссылке агента для этой услуги, в донгах. 0 — скидки нет. */
   discountFor?: (service: ServiceOption) => number;
 }) {
+  const t = useTranslations("Booking");
+  // Названия групп («Обучение», «Аренда», …) берём из переводов, а не из
+  // CATEGORY_LABELS: тот справочник остаётся русским — он обслуживает админку.
+  const tCategory = useTranslations("ServiceCategories");
+  // Список услуг приходит из БАЗЫ, а там названия русские: форме нужны
+  // настоящие id, и берёт она их только оттуда. Показываем перевод по code.
+  const tService = useTranslations("Services");
+  const tCommon = useTranslations("Common");
+  const locale = useLocale();
+  const nameOf = (s: ServiceOption) => localizeServiceName(s.name, s.code, tService);
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const rootRef = useRef<HTMLFieldSetElement>(null);
@@ -87,7 +95,7 @@ export function ServicePicker({
 
   return (
     <fieldset ref={rootRef}>
-      <legend className="mb-1 block text-sm font-medium">Услуга</legend>
+      <legend className="mb-1 block text-sm font-medium">{t("service")}</legend>
 
       {/* Свёрнутая строка. Это кнопка, а не поле: она только открывает список,
           а выбор хранят radio внутри. */}
@@ -102,7 +110,7 @@ export function ServicePicker({
       >
         <span className="min-w-0 flex-1">
           <span className="block truncate text-base">
-            {chosen?.name ?? "Выберите услугу"}
+            {chosen ? nameOf(chosen) : t("serviceChoose")}
           </span>
         </span>
         {chosen && <Price {...priceOf(chosen)} compact />}
@@ -129,7 +137,7 @@ export function ServicePicker({
             {groups.map((g) => (
               <div key={g.cat}>
                 <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
-                  {groupLabel(g.cat)}
+                  {tCategory(g.cat)}
                 </p>
                 <div className="space-y-1">
                   {g.items.map((s) => {
@@ -155,11 +163,13 @@ export function ServicePicker({
                         />
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-medium leading-snug">
-                            {s.name}
+                            {nameOf(s)}
                           </span>
                           {discount > 0 && (
                             <span className="block text-xs font-semibold text-accent-strong">
-                              −{formatVnd(discount)} по ссылке агента
+                              {t("agentDiscountRow", {
+                              amount: formatPrice(locale, discount, tCommon("onRequest")),
+                            })}
                             </span>
                           )}
                         </span>
@@ -188,13 +198,17 @@ function Price({
   discount: number;
   compact?: boolean;
 }) {
+  const locale = useLocale();
+  const t = useTranslations("Common");
+  const money = (v: number) => formatPrice(locale, v, t("onRequest"));
+
   if (price === null) return null;
   if (discount <= 0) {
     return (
-      <span className="shrink-0 text-sm text-muted">{formatVnd(price)}</span>
+      <span className="shrink-0 text-sm text-muted">{money(price)}</span>
     );
   }
-  const final = formatVnd(Math.max(0, price - discount));
+  const final = money(Math.max(0, price - discount));
   if (compact) {
     return (
       <span className="shrink-0 text-sm font-bold text-accent-strong">
@@ -205,7 +219,7 @@ function Price({
   return (
     <span className="shrink-0 text-right leading-tight">
       <span className="block text-xs text-muted line-through">
-        {formatVnd(price)}
+        {money(price)}
       </span>
       <span className="block text-sm font-bold text-accent-strong">{final}</span>
     </span>

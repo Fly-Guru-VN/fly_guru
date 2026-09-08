@@ -1,5 +1,9 @@
 // Единый источник контактов и соцсетей. Используется в футере (все страницы)
 // и на /contacts — чтобы номер правился в одном месте.
+//
+// Адрес и часы работы лежат НЕ здесь, а в messages (раздел Contacts): «Нячанг»
+// и «Ежедневно 8:30 – 18:00» — это текст на языке гостя. Здесь остаётся то,
+// что от языка не зависит: номер, ссылки, координаты карточки.
 
 // Телефон в международном формате без пробелов — для tel:/wa.me/t.me ссылок.
 const PHONE_RAW = "+84354964431";
@@ -16,7 +20,6 @@ export const contacts = {
   telegram: `https://t.me/${PHONE_RAW}`,
   zalo: `https://zalo.me/${PHONE_RAW.replace("+", "")}`,
   email: "flyguruvn@gmail.com",
-  address: "Maryna Beach Club, Нячанг, Вьетнам",
   // Метка ШКОЛЫ, а не пляжного клуба, на территории которого она стоит: раньше
   // тут была карточка Maryna Beach Club, и человек с сайта попадал на чужой
   // профиль — с чужими отзывами и без наших фото. Адрес рядом оставлен прежним:
@@ -47,15 +50,19 @@ export const contacts = {
   // Проверено 03.09.2026.
   mapEmbed:
     "https://www.google.com/maps?q=FlyGuru+Efoil+Nha+Trang&t=h&z=17&output=embed",
-  hours: "Ежедневно 8:30 – 18:00",
 } as const;
 
 // app — какой логотип рисовать (см. components/AppIcon.tsx). Лежит здесь, а не
 // на странице: тот же список рисует и подвал на каждой странице сайта.
+// id — устойчивый ключ ссылки. По нему её находит код (клубный канал на
+// /club) и по нему же берётся подпись из messages, если название сети не
+// самодостаточно: «Telegram-канал» — русские слова, а Instagram и YouTube
+// одинаковы на всех языках. name остаётся как есть: он уходит в аналитику
+// (channel), и его переименование разорвало бы историю отчётов.
 export const socials = [
-  { name: "Instagram", app: "instagram", href: "https://www.instagram.com/flyguru.club/" },
-  { name: "YouTube", app: "youtube", href: "https://www.youtube.com/@fly_guru" },
-  { name: "TikTok", app: "tiktok", href: "https://www.tiktok.com/@denisflyguru" },
-  { name: "Facebook", app: "facebook", href: "https://www.facebook.com/profile.php?id=61585234337399" },
-  { name: "Telegram-канал", app: "telegram", href: "https://t.me/flyguru_club" },
+  { id: "instagram", name: "Instagram", app: "instagram", href: "https://www.instagram.com/flyguru.club/" },
+  { id: "youtube", name: "YouTube", app: "youtube", href: "https://www.youtube.com/@fly_guru" },
+  { id: "tiktok", name: "TikTok", app: "tiktok", href: "https://www.tiktok.com/@denisflyguru" },
+  { id: "facebook", name: "Facebook", app: "facebook", href: "https://www.facebook.com/profile.php?id=61585234337399" },
+  { id: "telegram-channel", name: "Telegram-канал", app: "telegram", href: "https://t.me/flyguru_club" },
 ] as const;

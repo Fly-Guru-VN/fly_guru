@@ -1,7 +1,8 @@
+import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import { IconStar } from "./icons";
 import { GoogleMapsLink } from "./GoogleMapsLink";
-import type { Review } from "@/content/reviews";
+import { formatMonthsAgo, type Review } from "@/content/reviews";
 
 // Карточка отзыва без фото — для /reviews, где отзывов два десятка и кадра к
 // ним нет.
@@ -14,6 +15,9 @@ import type { Review } from "@/content/reviews";
 // clamp — обрезка текста девятью строками. По умолчанию выключена: на /reviews
 // за отзывами и приходят, читают целиком.
 export function ReviewCard({ review, clamp = false }: { review: Review; clamp?: boolean }) {
+  const t = useTranslations("Common");
+  // Давность отзыва склоняет Intl по языку страницы.
+  const locale = useLocale();
   return (
     // break-inside-avoid — карточки раскладываются кладкой (CSS columns), и без
     // этого длинный отзыв разрывался бы посередине между колонками.
@@ -28,7 +32,7 @@ export function ReviewCard({ review, clamp = false }: { review: Review; clamp?: 
         &ldquo;
       </span>
 
-      <div className="relative flex gap-1 text-accent" aria-label={`Оценка ${review.rating} из 5`}>
+      <div className="relative flex gap-1 text-accent" aria-label={t("rating", { rating: review.rating })}>
         {Array.from({ length: review.rating }).map((_, i) => (
           <IconStar key={i} className="h-4 w-4" />
         ))}
@@ -62,7 +66,9 @@ export function ReviewCard({ review, clamp = false }: { review: Review; clamp?: 
         )}
         <div className="min-w-0">
           <p className="font-semibold leading-tight">{review.name}</p>
-          {review.role && <p className="mt-0.5 text-sm text-muted">{review.role}</p>}
+          <p className="mt-0.5 text-sm text-muted">
+            {formatMonthsAgo(locale, review.monthsAgo)}
+          </p>
           {review.sourceUrl && <GoogleMapsLink href={review.sourceUrl} className="mt-1.5" />}
         </div>
       </figcaption>

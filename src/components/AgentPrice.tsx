@@ -1,6 +1,7 @@
 "use client";
 
-import { formatVnd } from "@/content/services";
+import { useLocale, useTranslations } from "next-intl";
+import { formatPrice } from "@/lib/serviceText";
 import { agentDiscountFor } from "@/lib/agentTerms";
 import { useAgentRef } from "./useAgentRef";
 
@@ -26,17 +27,20 @@ export function AgentPrice({
   className?: string; // оформление главной (итоговой) цены — задаёт карточка
   oldClassName?: string; // зачёркнутая старая цена
 }) {
+  const locale = useLocale();
+  const t = useTranslations("Common");
+  const money = (v: number | null) => formatPrice(locale, v, t("onRequest"));
   const plan = useAgentRef();
   const discount = plan ? agentDiscountFor(code, price, plan) : 0;
 
   if (price === null || discount <= 0) {
-    return <span className={className}>{formatVnd(price)}</span>;
+    return <span className={className}>{money(price)}</span>;
   }
 
   return (
     <>
-      <span className={oldClassName}>{formatVnd(price)}</span>
-      <span className={className}>{formatVnd(Math.max(0, price - discount))}</span>
+      <span className={oldClassName}>{money(price)}</span>
+      <span className={className}>{money(Math.max(0, price - discount))}</span>
     </>
   );
 }
@@ -53,10 +57,18 @@ export function AgentDiscountNote({
   price: number | null; // нужна процентному тарифу: «−5%» без цены не посчитать
   className?: string;
 }) {
+  // Формулировка та же, что в форме записи, — и лежит там же (раздел Booking).
+  const t = useTranslations("Booking");
+  const locale = useLocale();
+  const tCommon = useTranslations("Common");
   const plan = useAgentRef();
   const discount = plan ? agentDiscountFor(code, price, plan) : 0;
   if (discount <= 0) return null;
   return (
-    <span className={className}>−{formatVnd(discount)} по ссылке агента</span>
+    <span className={className}>
+      {t("agentDiscountRow", {
+        amount: formatPrice(locale, discount, tCommon("onRequest")),
+      })}
+    </span>
   );
 }

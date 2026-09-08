@@ -1,8 +1,9 @@
+import { useTranslations } from "next-intl";
 import type { ComponentType, SVGProps } from "react";
 import Image from "next/image";
 import { BookBtn } from "@/components/BookBtn";
 import { IconFlame } from "@/components/icons";
-import { formatDuration } from "@/content/services";
+import { formatServiceDuration } from "@/lib/serviceText";
 import type { Service } from "@/content/services";
 import { AgentPrice, AgentDiscountNote } from "@/components/AgentPrice";
 
@@ -35,6 +36,7 @@ export type Format = {
 // рядом (pt-10 у каждой карточки), поэтому все четыре одной высоты и с общей
 // верхней границей, а метка всё равно стоит ровно над базовым обучением.
 export function FormatCard({ format }: { format: Format }) {
+  const t = useTranslations("Common");
   const { service, serviceId, desc, image, unoptimized, facts, highlight } = format;
 
   return (
@@ -42,7 +44,7 @@ export function FormatCard({ format }: { format: Format }) {
       {highlight && (
         <div className="absolute inset-x-0 top-0 flex h-8 items-center justify-center gap-1.5 rounded-full bg-accent text-xs font-extrabold uppercase tracking-wide text-white">
           <IconFlame aria-hidden className="h-4 w-4" />
-          Популярное
+          {t("popular")}
         </div>
       )}
       <div
@@ -73,7 +75,7 @@ export function FormatCard({ format }: { format: Format }) {
               code={service.id}
               className="text-2xl font-bold text-primary"
             />
-            <span className="text-sm text-muted">/ {formatDuration(service)}</span>
+            <span className="text-sm text-muted">/ {formatServiceDuration(service, t)}</span>
           </div>
           <AgentDiscountNote
             code={service.id}
@@ -87,7 +89,7 @@ export function FormatCard({ format }: { format: Format }) {
               variant="secondary"
               className="w-full"
             >
-              Записаться
+              {t("book")}
             </BookBtn>
           </div>
         </div>

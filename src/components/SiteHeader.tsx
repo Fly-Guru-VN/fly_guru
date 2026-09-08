@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { Link, usePathname } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -18,6 +19,8 @@ import { useOptimisticPath } from "./useOptimisticPath";
 // куки локально, без похода в сеть. До проверки показываем «Вход» — у гостей
 // (99% посетителей) ничего не мигает.
 export function SiteHeader() {
+  const t = useTranslations("Header");
+  const tNav = useTranslations("Nav");
   const [open, setOpen] = useState(false);
   const { open: openBooking } = useBooking();
   // Куда ведёт кнопка кабинета: null = не залогинен (показываем «Вход»).
@@ -85,7 +88,7 @@ export function SiteHeader() {
   }, [pathname]);
 
   const authHref = cabinetHref ?? "/login";
-  const authLabel = cabinetHref ? "Кабинет" : "Вход";
+  const authLabel = cabinetHref ? t("cabinet") : t("login");
 
   const countBubble = activeCount > 0 && (
     <span className="absolute -right-1.5 -top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white ring-2 ring-primary-strong">
@@ -180,7 +183,7 @@ export function SiteHeader() {
                   isCurrent(l.href) ? "text-white" : "text-white/80 hover:text-white"
                 }`}
               >
-                {l.label}
+                {tNav(l.key)}
               </Link>
             ))}
           </SlidingHighlight>
@@ -196,7 +199,7 @@ export function SiteHeader() {
             onClick={() => openBooking({ place: "header" })}
             className="ml-1 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-[background-color,transform] duration-150 hover:bg-accent-strong active:scale-95"
           >
-            Записаться
+            {t("book")}
           </button>
         </nav>
 
@@ -204,7 +207,7 @@ export function SiteHeader() {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          aria-label="Меню"
+          aria-label={t("menu")}
           aria-expanded={open}
           aria-controls="mobile-menu"
           className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 active:scale-95 min-[1080px]:hidden"
@@ -285,7 +288,7 @@ export function SiteHeader() {
                     : "text-white/85 hover:bg-white/10 hover:text-white"
                 }`}
               >
-                {l.label}
+                {tNav(l.key)}
               </Link>
             ))}
             <Link
@@ -294,7 +297,7 @@ export function SiteHeader() {
               style={itemDelay(NAV_LINKS.length)}
               className={`${itemMotion} mt-2 flex items-center justify-between rounded-xl border border-white/40 px-4 py-3 font-semibold text-white hover:bg-white/15`}
             >
-              {cabinetHref ? "Мой кабинет" : "Вход в кабинет"}
+              {cabinetHref ? t("myCabinet") : t("loginToCabinet")}
               {activeCount > 0 && (
                 <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
                   {activeCount}
@@ -310,7 +313,7 @@ export function SiteHeader() {
               style={itemDelay(NAV_LINKS.length + 1)}
               className={`${itemMotion} mt-1 mb-1 rounded-full bg-accent px-5 py-3 text-center font-semibold text-white hover:bg-accent-strong active:scale-95`}
             >
-              Записаться
+              {t("book")}
             </button>
           </div>
         </nav>

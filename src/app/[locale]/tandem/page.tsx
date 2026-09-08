@@ -13,12 +13,22 @@ import {
   IconSmile,
   IconArrowRight,
 } from "@/components/icons";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getActiveServices } from "@/lib/services";
 
-export const metadata: Metadata = {
-  title: "Тандем",
-  alternates: localeAlternates("/tandem"),
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Tandem" });
+
+  return {
+    title: t("metaTitle"),
+    alternates: localeAlternates("/tandem"),
+  };
+}
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
 // Ролик «как это проходит» лежит в инстаграме — отдельной страницы под него нет.
@@ -28,7 +38,15 @@ const HOW_IT_GOES_URL = "https://www.instagram.com/p/DaQFF53P3Nb/";
 // экрана — кадр полёта с текстом и три шага «как это проходит». Больше на
 // странице ничего нет намеренно: тандем покупают глазами, а не сравнением
 // вариантов (цены и форматы живут на /prices и /training).
-export default async function TandemPage() {
+export default async function TandemPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("Tandem");
+
   // Услуги тандема из базы (с настоящими id) — для формы записи. Заранее
   // выбираем взрослый тандем: детский в форме выбирается из того же списка.
   const services = await getActiveServices("tandem");
@@ -37,9 +55,9 @@ export default async function TandemPage() {
 
   // Условия проката — плашками под текстом: их ищут глазами первыми.
   const facts = [
-    { icon: IconClock, value: "10 минут", label: "длительность" },
-    { icon: IconPeople, value: "от 8 лет", label: "доступ" },
-    { icon: IconCheck, value: "не требуется", label: "обучение" },
+    { icon: IconClock, value: t("facts.durationValue"), label: t("facts.durationLabel") },
+    { icon: IconPeople, value: t("facts.ageValue"), label: t("facts.ageLabel") },
+    { icon: IconCheck, value: t("facts.trainingValue"), label: t("facts.trainingLabel") },
   ];
 
   // Два обещания — снимают главные страхи: «а это безопасно?» и «а я вообще
@@ -48,30 +66,30 @@ export default async function TandemPage() {
   const promises = [
     {
       icon: IconShield,
-      title: "Безопасно",
-      text: "Инструктор с вами на протяжении всего полёта.",
+      title: t("promises.safeTitle"),
+      text: t("promises.safeText"),
     },
     {
       icon: IconSmile,
-      title: "Лёгкий старт",
-      text: "Не нужно уметь кататься — мы всё сделаем за вас.",
+      title: t("promises.easyTitle"),
+      text: t("promises.easyText"),
     },
   ];
 
   const steps: TandemStep[] = [
     {
-      title: "Одеваем экипировку",
-      text: "На берегу вам выдают всю необходимую экипировку и готовят к полёту.",
+      title: t("steps.gearTitle"),
+      text: t("steps.gearText"),
       image: "/media/photo/tandem-step-1.webp",
     },
     {
-      title: "Тандем",
-      text: "Инструктор управляет фойлом, вы наслаждаетесь. Ничего сложного, никаких ограничений.",
+      title: t("steps.tandemTitle"),
+      text: t("steps.tandemText"),
       image: "/media/photo/tandem-step-2.webp",
     },
     {
-      title: "Эмоции на высоте",
-      text: "Яркие впечатления обеспечены.",
+      title: t("steps.emotionsTitle"),
+      text: t("steps.emotionsText"),
       image: "/media/photo/tandem-step-3.webp",
       // Оранжевый пульсирующий номер, как у последнего шага обучения.
       highlight: true,
@@ -118,7 +136,7 @@ export default async function TandemPage() {
           <div className="relative -ml-[14.4%] w-[114.4%] lg:ml-0 lg:w-full">
             <Image
               src="/media/photo/tandem-hero-2.webp"
-              alt="Гостья и инструктор летят вдвоём на одном электрофойле над морем"
+              alt={t("heroAlt")}
               width={1669}
               height={942}
               priority
@@ -157,7 +175,7 @@ export default async function TandemPage() {
                 flex-wrap — страховка на узких телефонах: не влезут в строку,
                 встанут друг под другом. */}
             <p className="hidden text-sm font-semibold uppercase tracking-wide text-primary lg:block">
-              Тандем
+              {t("eyebrow")}
             </p>
             <ul className="flex flex-wrap gap-2 lg:hidden">
               {promises.map((p) => (
@@ -172,16 +190,12 @@ export default async function TandemPage() {
             </ul>
             <Squiggle className="mt-3" />
             <h1 className="mt-5 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
-              Полёт в тандеме
+              {t("title")}
             </h1>
             <p className="mt-3 text-lg text-muted sm:text-xl">
-              Лёгкий, весёлый и безопасный прокат
+              {t("lead")}
             </p>
-            <p className="mt-5 max-w-xl text-muted">
-              Тандем — это самый простой способ ощутить полёт на электрофойле. Инструктор
-              подбирает вас с пирса, и в следующее мгновение вы наслаждаетесь ощущением
-              свободы и полёта над водой. Обучение не требуется.
-            </p>
+            <p className="mt-5 max-w-xl text-muted">{t("text")}</p>
 
             <ul className="mt-8 flex flex-wrap gap-x-7 gap-y-4">
               {facts.map((f) => (
@@ -206,7 +220,7 @@ export default async function TandemPage() {
                 size="lg"
                 className="w-full sm:w-auto"
               >
-                Записаться на тандем
+                {t("book")}
               </BookBtn>
               {/* Ролик лежит в инстаграме, поэтому обычная ссылка, а не Link:
                   локали и внутренний роутинг тут не при чём. */}
@@ -216,7 +230,7 @@ export default async function TandemPage() {
                 rel="noopener noreferrer"
                 className={buttonClasses({ variant: "ghost", size: "lg" })}
               >
-                Как это проходит <IconArrowRight className="h-4 w-4" />
+                {t("howItGoes")} <IconArrowRight className="h-4 w-4" />
               </a>
             </div>
 
@@ -247,7 +261,7 @@ export default async function TandemPage() {
         </div>
 
         <Container className="relative">
-          <h2 className="text-3xl font-bold sm:text-4xl">Как проходит тандем</h2>
+          <h2 className="text-3xl font-bold sm:text-4xl">{t("stepsTitle")}</h2>
           <Squiggle long className="mt-4" />
           <div className="mt-6 md:mt-8">
             <TandemSteps steps={steps} />

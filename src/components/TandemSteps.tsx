@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { FoilVideo } from "./FoilVideo";
 
@@ -30,6 +31,7 @@ const CLIP_POSTER = "/media/video/tandem-ride-poster.jpg";
 // с номером сидит верхом на верхней границе своей карточки — тем же приёмом,
 // что и шаги обучения.
 export function TandemSteps({ steps }: { steps: TandemStep[] }) {
+  const t = useTranslations("Common");
   return (
     <div className="md:flex md:items-center md:gap-8 lg:gap-12">
       <ol className="relative md:flex-1">
@@ -104,7 +106,7 @@ export function TandemSteps({ steps }: { steps: TandemStep[] }) {
         <FoilVideo
           src={CLIP}
           poster={CLIP_POSTER}
-          alt="Полёт в тандеме с инструктором в Нячанге"
+          alt={t("tandemPhotoAlt")}
           shape="aspect-[9/16] rounded-[1.15rem]"
           // В карточке ролик крутится без звука (иначе браузер не даст ему
           // запуститься сам), звук включается, когда его разворачивают.

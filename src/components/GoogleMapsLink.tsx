@@ -1,3 +1,5 @@
+import { useTranslations } from "next-intl";
+
 // Ссылка «Отзыв в Google Maps» и фирменная капля рядом с ней.
 //
 // Лежит отдельным файлом, а не в общем icons.tsx: это единственное место, где
@@ -6,6 +8,7 @@
 // разъезжается между главной и /reviews.
 
 export function GoogleMapsLink({ href, className = "" }: { href: string; className?: string }) {
+  const t = useTranslations("Common");
   return (
     <a
       href={href}
@@ -13,7 +16,7 @@ export function GoogleMapsLink({ href, className = "" }: { href: string; classNa
       rel="noopener noreferrer"
       className={`inline-flex items-center gap-1.5 text-sm text-muted hover:text-ink ${className}`}
     >
-      Отзыв в <span className="text-[#4285f4]">Google Maps</span>
+      {t("googleReview")} <span className="text-[#4285f4]">Google Maps</span>
       <IconGoogleMapsPin className="h-4 w-4" />
     </a>
   );

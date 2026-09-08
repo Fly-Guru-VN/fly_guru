@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { IconExpand } from "./icons";
 
@@ -35,6 +36,7 @@ export function FoilVideo({
   // автозапуск запрещают, ролик просто стоял бы постером.
   sound?: boolean;
 }) {
+  const t = useTranslations("Common");
   const boxRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [full, setFull] = useState(false);
@@ -134,7 +136,7 @@ export function FoilVideo({
           onClick={expand}
           className="absolute inset-0 flex cursor-zoom-in items-start justify-end p-3"
         >
-          <span className="sr-only">Открыть видео на весь экран</span>
+          <span className="sr-only">{t("openFullscreen")}</span>
           <span
             aria-hidden
             className="flex h-10 w-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors group-hover:bg-black/65"

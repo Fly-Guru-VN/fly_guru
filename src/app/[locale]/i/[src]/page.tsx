@@ -38,7 +38,8 @@ export default async function TaggedHomePage({
   return (
     <>
       <LinkMark src={src} cleanTo="/" />
-      <HomePage />
+      {/* Главная целиком: ей нужен тот же язык, что и этой странице. */}
+      <HomePage params={Promise.resolve({ locale })} />
     </>
   );
 }

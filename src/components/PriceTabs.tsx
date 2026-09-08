@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SlidingHighlight, hasRealMouse } from "./SlidingHighlight";
 import { PriceCard } from "./PriceCard";
@@ -68,6 +69,7 @@ function layout(count: number): { cols: string; box: string } {
 // страница статическая (SSG), и в готовом HTML поисковик видит все цены разом,
 // а не только первую вкладку.
 export function PriceTabs({ groups }: { groups: PriceGroup[] }) {
+  const t = useTranslations("Common");
   const [active, setActive] = useState<ServiceCategory>(groups[0]?.cat ?? "training");
   const [hover, setHover] = useState<ServiceCategory | null>(null);
   // Группы, чьи карточки уже всплывали. Всплытие играет ОДИН раз — когда группу
@@ -153,7 +155,7 @@ export function PriceTabs({ groups }: { groups: PriceGroup[] }) {
           // упиралась в край и вылезала за него (та же грабля описана в Rail).
           className="rail flex snap-x snap-mandatory overflow-x-auto px-4 py-2 scroll-px-4 sm:px-6 sm:scroll-px-6 lg:snap-none lg:px-2"
           role="tablist"
-          aria-label="Группы услуг"
+          aria-label={t("serviceGroups")}
           onKeyDown={onKeyDown}
           // ⚠️ pointerover с проверкой мыши, а НЕ mouseover. Палец, легший на
           // ленту чтобы её протянуть, шлёт браузеру и pointerover, и

@@ -1,12 +1,16 @@
 // Пункты основной навигации. Используются и в шапке, и в футере.
+//
+// Подписи здесь не лежат: сайт говорит на семи языках, и текст пункта берётся
+// по ключу из messages (раздел Nav). Ключ совпадает с адресом без слэша —
+// отдельное поле было бы третьим местом, которое надо не забыть поправить.
 export const NAV_LINKS = [
-  { href: "/training", label: "Обучение" },
-  { href: "/tandem", label: "Тандем" },
-  { href: "/club", label: "Клуб" },
-  { href: "/shop", label: "Магазин" },
-  { href: "/prices", label: "Прайс" },
-  { href: "/reviews", label: "Отзывы" },
-  { href: "/contacts", label: "Контакты" },
+  { href: "/training", key: "training" },
+  { href: "/tandem", key: "tandem" },
+  { href: "/club", key: "club" },
+  { href: "/shop", key: "shop" },
+  { href: "/prices", key: "prices" },
+  { href: "/reviews", key: "reviews" },
+  { href: "/contacts", key: "contacts" },
 ] as const;
 
 // Вкладки нижней панели на телефоне (MobileTabBar). Четыре раздела, которые
@@ -18,10 +22,10 @@ export const NAV_LINKS = [
 // «Обучение» уже обрезается многоточием на 360px (те же грабли, что в
 // кабинетах). Магазин, Отзывы и Контакты остаются в бургере шапки.
 export const MOBILE_TABS = [
-  { href: "/training", label: "Обучение", icon: "foil" },
-  { href: "/tandem", label: "Тандем", icon: "tandem" },
-  { href: "/club", label: "Клуб", icon: "club" },
-  { href: "/prices", label: "Прайс", icon: "tag" },
+  { href: "/training", key: "training", icon: "foil" },
+  { href: "/tandem", key: "tandem", icon: "tandem" },
+  { href: "/club", key: "club", icon: "club" },
+  { href: "/prices", key: "prices", icon: "tag" },
 ] as const;
 
 // Разделы, где нижней панели быть не должно: у каждого кабинета своя такая же

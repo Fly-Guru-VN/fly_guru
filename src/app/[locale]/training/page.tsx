@@ -20,11 +20,22 @@ import {
 } from "@/components/icons";
 import { BookBtn } from "@/components/BookBtn";
 import { getActiveServices, getSiteServices, pickService } from "@/lib/services";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { localizeServices } from "@/lib/serviceText";
 
-export const metadata: Metadata = {
-  title: "Обучение",
-  alternates: localeAlternates("/training"),
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Training" });
+
+  return {
+    title: t("metaTitle"),
+    alternates: localeAlternates("/training"),
+  };
+}
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
 // Кнопка «Смотреть видео» у заголовка ищет ролик по этому id.
@@ -33,108 +44,119 @@ const VIDEO_ID = "lesson-video";
 // Страница обучения собрана под телефон, как и главная: сначала кадр во весь
 // экран, дальше — только то, что человек реально спрашивает перед записью:
 // что входит, сколько стоит и что со мной будет происходить на воде.
-export default async function TrainingPage() {
+export default async function TrainingPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const [t, tServices] = await Promise.all([
+    getTranslations("Training"),
+    getTranslations("Services"),
+  ]);
+
   // Услуги обучения из базы (с настоящими id) — для выпадающего списка в
   // форме; цены карточек — тоже из базы (правятся в админке, /admin/services).
-  const [services, site] = await Promise.all([
+  const [services, siteRaw] = await Promise.all([
     getActiveServices("training"),
     getSiteServices(),
   ]);
+  // Названия и описания услуг — на языке гостя (справочник хранит только цены).
+  const site = localizeServices(siteRaw, tServices);
   // Заранее выбираем «взрослый базовый» — самый популярный вариант.
-  const defaultServiceId = services.find(
-    (s) => s.name === pickService(site, "basic-adult").name,
-  )?.id;
+  const defaultServiceId = services.find((s) => s.code === "basic-adult")?.id;
 
   // Условия занятия — плашками прямо на кадре: их ищут глазами первыми.
-  const facts = ["60 минут", "от 8 лет", "вес до 130 кг"];
+  const facts = [t("facts.duration"), t("facts.age"), t("facts.weight")];
 
   // Бегущая строка под первым экраном — та же, что на главной, но факты свои.
   // Сюда же ушло то, что раньше висело отдельным блоком с галочками
   // («снаряжение включено», «инструктор на связи»): три строки текста занимали
   // целый экран ради того, что и так повторяется в карточках форматов.
   const marquee = [
-    "Всё снаряжение включено",
-    "Инструктор на связи",
-    "90% встают на крыло на первом занятии",
-    "Закрытая безопасная бухта",
-    "Дети с 8 лет",
+    t("marquee.gear"),
+    t("marquee.instructor"),
+    t("marquee.success"),
+    t("marquee.bay"),
+    t("marquee.kids"),
   ];
 
-  // Услугу в базе ищем по названию: в контенте и в базе они совпадают (связь
-  // услуг сайта с базой — по коду, см. getSiteServices).
-  const dbId = (name: string) => services.find((x) => x.name === name)?.id ?? defaultServiceId;
+  // Услугу в базе ищем ПО КОДУ: он же id услуги в справочнике сайта (связь
+  // задана в getSiteServices). По названию искать нельзя — они переводятся.
+  const dbId = (code: string) => services.find((x) => x.code === code)?.id ?? defaultServiceId;
 
   const formats: Format[] = [
     {
       service: pickService(site, "basic-adult"),
-      desc: "Первое знакомство с eFoil под руководством инструктора.",
+      desc: tServices("basic-adult.blurb"),
       image: "/media/photo/format-solo.webp",
       unoptimized: true,
       highlight: true,
       facts: [
-        { icon: IconVest, label: "Снаряжение включено" },
-        { icon: IconUser, label: "Инструктор на связи" },
-        { icon: IconShield, label: "Безопасно" },
+        { icon: IconVest, label: t("formatFacts.gear") },
+        { icon: IconUser, label: t("formatFacts.instructor") },
+        { icon: IconShield, label: t("formatFacts.safe") },
       ],
     },
     {
       service: pickService(site, "basic-kid"),
-      desc: "Отдельная программа для детей до 14 лет.",
+      desc: tServices("basic-kid.blurb"),
       image: "/media/photo/format-kid.webp",
       facts: [
-        { icon: IconVest, label: "Снаряжение включено" },
-        { icon: IconSmile, label: "Детская программа" },
-        { icon: IconShield, label: "Безопасно" },
+        { icon: IconVest, label: t("formatFacts.gear") },
+        { icon: IconSmile, label: t("formatFacts.kids") },
+        { icon: IconShield, label: t("formatFacts.safe") },
       ],
     },
     {
       service: pickService(site, "individual-training"),
-      desc: "Инструктор выезжает с вами на воду и точнее контролирует процесс обучения.",
+      desc: tServices("individual-training.blurb"),
       image: "/media/photo/format-solo.webp",
       unoptimized: true,
       facts: [
-        { icon: IconUser, label: "1 на 1 с инструктором" },
-        { icon: IconSliders, label: "Индивидуальный подход" },
-        { icon: IconTrend, label: "Быстрый прогресс" },
+        { icon: IconUser, label: t("formatFacts.oneOnOne") },
+        { icon: IconSliders, label: t("formatFacts.personal") },
+        { icon: IconTrend, label: t("formatFacts.progress") },
       ],
     },
     {
       service: pickService(site, "basic-duo"),
-      desc: "Совместное обучение для двух человек.",
+      desc: tServices("basic-duo.blurb"),
       image: "/media/photo/format-duo.webp",
       facts: [
-        { icon: IconPeople, label: "Для двоих учеников" },
-        { icon: IconUser, label: "Инструктор на связи" },
-        { icon: IconShield, label: "Безопасно" },
+        { icon: IconPeople, label: t("formatFacts.duo") },
+        { icon: IconUser, label: t("formatFacts.instructor") },
+        { icon: IconShield, label: t("formatFacts.safe") },
       ],
     },
-  ].map((f) => ({ ...f, serviceId: dbId(f.service.name) }));
+  ].map((f) => ({ ...f, serviceId: dbId(f.service.id) }));
 
   // Что происходит на занятии по шагам. Человеку страшно не «обучение», а
   // неизвестность: сразу ли ставят на доску, что будет, если упаду.
   const steps: TrainingStep[] = [
     {
-      meta: "15 минут",
-      title: "Инструктаж на берегу",
-      text: "Инструктор показывает все нужные положения. Инструктаж проходит на реальной доске. Далее вам подбирают снаряжение и выпускают на воду.",
+      meta: t("steps.briefingMeta"),
+      title: t("steps.briefingTitle"),
+      text: t("steps.briefingText"),
       image: "/media/photo/training-step-1.webp",
     },
     {
-      meta: "Знакомство с фойлом",
-      title: "Для начала едем лёжа",
-      text: "Для начала осваиваем работу с джойстиком и привыкаем к скорости фойла. Этот этап длится всего 5–7 минут.",
+      meta: t("steps.lyingMeta"),
+      title: t("steps.lyingTitle"),
+      text: t("steps.lyingText"),
       image: "/media/photo/training-step-2.webp",
     },
     {
-      meta: "Практикуем баланс",
-      title: "Едем на коленях и в полный рост",
-      text: "Та же скорость, но теперь практикуем баланс и ощущение доски. Инструктор держит с вами связь через наушник.",
+      meta: t("steps.balanceMeta"),
+      title: t("steps.balanceTitle"),
+      text: t("steps.balanceText"),
       image: "/media/photo/training-step-3.webp",
     },
     {
-      meta: "Взлетаем",
-      title: "Ощущаем полёт",
-      text: "Доска поднимается над водой, сопротивление пропадает и вы ощущаете настоящую свободу. Для начала взлетаем на коленях, а потом практикуем полёт стоя.",
+      meta: t("steps.flightMeta"),
+      title: t("steps.flightTitle"),
+      text: t("steps.flightText"),
       image: "/media/photo/training-step-4.webp",
       // Последний шаг — ради него всё занятие и затевалось: метка оранжевая и
       // со свечением, как в макете.
@@ -151,17 +173,17 @@ export default async function TrainingPage() {
           и горы, и разводить заголовок с кнопкой по краям тут нечего. */}
       <HeroStage
         image="/media/photo/training-hero-3.webp"
-        alt="Двое летят на электрофойлах над морем в Нячанге"
+        alt={t("heroAlt")}
         bleed
       >
         <div>
           <h1 className="text-4xl font-bold leading-[1.05] drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)] sm:text-5xl md:text-6xl">
-            Научитесь летать
+            {t("titleLine1")}
             <br />
-            на электрофойле
+            {t("titleLine2")}
           </h1>
           <p className="mt-4 max-w-md text-base text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-lg">
-            Опыт не требуется. Уже на первом занятии вы встанете на крыло.
+            {t("lead")}
           </p>
         </div>
         <div>
@@ -183,7 +205,7 @@ export default async function TrainingPage() {
               size="lg"
               className="w-full sm:w-auto"
             >
-              Записаться на обучение
+              {t("book")}
             </BookBtn>
           </div>
         </div>
@@ -221,14 +243,14 @@ export default async function TrainingPage() {
               <p className="flex items-start gap-2 sm:items-center">
                 <IconCheck aria-hidden className="mt-px h-4 w-4 shrink-0 text-primary sm:mt-0" />
                 <span>
-                  <span className="font-semibold">В стоимость входит:</span> eFoil, жилет, шлем,
-                  рация, спец-экипировка.
+                  <span className="font-semibold">{t("included")}</span>{" "}
+                  {t("includedList")}
                 </span>
               </p>
               <span aria-hidden className="hidden h-5 w-px shrink-0 bg-line sm:block" />
               <p className="flex items-start gap-2 sm:items-center">
                 <IconShield aria-hidden className="mt-px h-4 w-4 shrink-0 text-primary sm:mt-0" />
-                <span>Все занятия проходят в безопасной закрытой бухте.</span>
+                <span>{t("safeBay")}</span>
               </p>
             </div>
           </div>
@@ -278,7 +300,7 @@ export default async function TrainingPage() {
           <div className="md:[zoom:0.9]">
             <div className="flex flex-col items-center gap-3 text-center md:block md:text-left">
               <h2 className="whitespace-nowrap text-[1.6rem] font-bold sm:text-[2.05rem]">
-                Занятие по шагам
+                {t("stepsTitle")}
               </h2>
               <WatchVideoBtn target={VIDEO_ID} className="md:hidden" />
             </div>

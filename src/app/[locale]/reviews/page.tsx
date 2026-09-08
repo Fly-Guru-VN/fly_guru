@@ -13,13 +13,23 @@ import { GoogleMapsLink, IconGoogleMapsPin } from "@/components/GoogleMapsLink";
 import { BookBtn } from "@/components/BookBtn";
 import { TrackedLink } from "@/components/TrackedLink";
 import { IconStar, IconArrowRight } from "@/components/icons";
-import { reviews } from "@/content/reviews";
+import { localizeReviews, pickReview, reviews } from "@/content/reviews";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { contacts } from "@/content/contacts";
 
-export const metadata: Metadata = {
-  title: "Отзывы",
-  alternates: localeAlternates("/reviews"),
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Reviews" });
+
+  return {
+    title: t("metaTitle"),
+    alternates: localeAlternates("/reviews"),
+  };
+}
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
 // Страница отзывов собрана тем же языком, что обучение, тандем и клуб: кадр во
@@ -40,18 +50,20 @@ export const dynamic = "force-static"; // статичная страница, �
 //
 // Проверено 24.08.2026: 4,9 и 176 отзывов. Захотите освежить — правьте эти две
 // строки, больше нигде цифра не встречается.
-const GOOGLE_RATING = { value: "4,9", count: "более 170 отзывов" };
+// Само число «более 170» переводится вместе с остальным текстом (раздел
+// Reviews), здесь остаётся только оценка — она одинакова на всех языках.
+const GOOGLE_RATING = { value: "4,9" };
 
 // Короткие куски настоящих отзывов — для бегущей строки. Только то, что
 // человек действительно написал, без придуманных лозунгов.
-const QUOTES = [
-  "«Полетели с первого раза»",
-  "«Дочка была в полном восторге»",
-  "«Стоит каждого заплаченного донга»",
-  "«Куча впечатлений»",
-  "«Непередаваемые эмоции»",
-  "«Инструктор всё спокойно объяснял»",
-];
+const QUOTE_KEYS = [
+  "first",
+  "daughter",
+  "worth",
+  "emotions",
+  "indescribable",
+  "calm",
+] as const;
 
 // Пять коротких отзывов плашками на первом экране. Фразы вырезаны из настоящих
 // отзывов дословно (полные тексты — ниже на этой же странице).
@@ -70,12 +82,14 @@ const QUOTES = [
 // готовые cx/cy, останется перенести их сюда.
 //
 // Порядок — сверху вниз по кадру, как их читают глазами.
+// Текст плашки берётся из messages по id отзыва (Reviews.chips), имя — из
+// справочника: имена гостей не переводятся.
 const HERO_CHIPS = [
-  { name: "Polina Shchegoleva", text: "Полетели с первого раза", rating: 5, color: "#1a73e8", cx: 59.39, cy: 14.66 },
-  { name: "Евгений Курьянов", text: "Обязательно повторим!", rating: 5, color: "#1e8e3e", cx: 85.94, cy: 27.17 },
-  { name: "Илья Яковлев", text: "Непередаваемые эмоции!", rating: 5, color: "#9334e6", cx: 74.45, cy: 46.45 },
-  { name: "Юлия", text: "Дочка была в полном восторге", rating: 5, color: "#d93025", cx: 60.18, cy: 65.73 },
-  { name: "Artem S.", text: "Приду второй раз однозначно!", rating: 5, color: "#e8710a", cx: 85.94, cy: 78.13 },
+  { id: "polina-sch", rating: 5, color: "#1a73e8", cx: 59.39, cy: 14.66 },
+  { id: "evgeny-k", rating: 5, color: "#1e8e3e", cx: 85.94, cy: 27.17 },
+  { id: "ilya-ya", rating: 5, color: "#9334e6", cx: 74.45, cy: 46.45 },
+  { id: "yulia", rating: 5, color: "#d93025", cx: 60.18, cy: 65.73 },
+  { id: "artem-s", rating: 5, color: "#e8710a", cx: 85.94, cy: 78.13 },
 ];
 
 // Размер плашки — плейсхолдер 293×94 плюс 5%, как просил заказчик: так плашка
@@ -87,21 +101,32 @@ const CHIP_H = ((94 * 1.05) / 1262) * 100; // 7.82
 
 // Фраза для крупной врезки. Вырезана из отзыва Полины дословно — врезка не
 // пересказывает отзыв, а цитирует его.
-const PULL_QUOTE = {
-  name: "Полина Черненькая",
-  text: "Я уже вернулась в Россию, но до сих пор живу воспоминаниями об этом уроке. Это был один из самых ярких моментов поездки!",
-};
+const PULL_QUOTE_ID = "polina-ch";
 
 // Возле какого отзыва встаёт плашка «читать все» — см. комментарий у неё
 // самой в разметке.
-const MORE_CTA_AFTER = "Илья Яковлев";
+const MORE_CTA_AFTER = "ilya-ya";
 
-export default function ReviewsPage() {
+export default async function ReviewsPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const [t, tCommon, tReviews] = await Promise.all([
+    getTranslations("Reviews"),
+    getTranslations("Common"),
+    getTranslations("ReviewTexts"),
+  ]);
+
+  // Тексты отзывов — на языке страницы; имена и оценки берутся как есть.
+  const localized = localizeReviews(reviews, tReviews);
   // С фотографиями — истории целиком, остальные — кладкой ниже.
-  const withPhoto = reviews.filter((r) => r.photo);
-  const rest = reviews.filter((r) => !r.photo);
+  const withPhoto = localized.filter((r) => r.photo);
+  const rest = localized.filter((r) => !r.photo);
 
-  const pull = reviews.find((r) => r.name === PULL_QUOTE.name);
+  const pull = pickReview(localized, PULL_QUOTE_ID);
 
   return (
     <>
@@ -178,7 +203,7 @@ export default function ReviewsPage() {
           <div className="relative w-full [container-type:inline-size]">
             <Image
               src="/media/photo/reviews/hero.webp"
-              alt="Семья с электрофойлами на пляже в Нячанге после занятия с FlyGuru"
+              alt={t("heroAlt")}
               width={1262}
               height={887}
               priority
@@ -203,9 +228,11 @@ export default function ReviewsPage() {
                 при этом не теряется, ровно эти же фразы едут в бегущей строке
                 сразу под первым экраном. */}
             <ul className="absolute inset-0 hidden xl:block">
-              {HERO_CHIPS.map((c) => (
+              {HERO_CHIPS.map((chip) => {
+                const c = { ...chip, name: pickReview(reviews, chip.id).name };
+                return (
                 <li
-                  key={c.name}
+                  key={c.id}
                   className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center overflow-hidden bg-white/95 backdrop-blur-sm"
                   style={{
                     left: `${c.cx}%`,
@@ -242,12 +269,13 @@ export default function ReviewsPage() {
                       className="block font-semibold"
                       style={{ marginTop: "0.35cqw", fontSize: "1.5cqw", lineHeight: 1.15 }}
                     >
-                      {c.text}
+                      {t(`chips.${c.id}`)}
                     </span>
-                    <span className="sr-only">— {c.name}, отзыв в Google Maps</span>
+                    <span className="sr-only">{t("chipAria", { name: c.name })}</span>
                   </span>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </div>
         </div>
@@ -255,7 +283,7 @@ export default function ReviewsPage() {
         <Container className="relative">
           <div className="pb-10 pt-8 lg:max-w-[46%] lg:py-14">
             <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-              Отзывы
+              {t("eyebrow")}
             </p>
             <Squiggle className="mt-3" />
             {/* Размер подобран так, чтобы вторая строка («каждому гостю
@@ -263,13 +291,11 @@ export default function ReviewsPage() {
                 колонка — 46% контейнера. С text-5xl на 1440 её срывало на
                 третью строку (мерил 29.08.2026). */}
             <h1 className="mt-5 text-3xl font-bold leading-[1.1] sm:text-4xl lg:text-[2rem] xl:text-[2.5rem]">
-              Стараемся подарить
+              {t("titleLine1")}
               <br />
-              каждому гостю улыбку!
+              {t("titleLine2")}
             </h1>
-            <p className="mt-5 max-w-md text-muted">
-              Более 170 гостей уже поделились впечатлениями о FlyGuru.
-            </p>
+            <p className="mt-5 max-w-md text-muted">{t("lead")}</p>
 
             {/* Оценка плашкой. Плашка — ссылка, а не картинка: она выглядит как
                 кнопка, в неё и так тыкают пальцем, поэтому ведёт туда же, куда
@@ -282,7 +308,10 @@ export default function ReviewsPage() {
               newTab
               event="contact_click"
               data={{ channel: "maps", place: "reviews-rating" }}
-              ariaLabel={`Оценка ${GOOGLE_RATING.value} из 5, ${GOOGLE_RATING.count} — читать в Google Maps`}
+              ariaLabel={t("ratingAria", {
+                value: GOOGLE_RATING.value,
+                count: t("ratingCount"),
+              })}
               className="mt-8 flex max-w-md items-center gap-4 rounded-2xl bg-surface p-5 shadow-[0_20px_44px_-26px_rgba(15,34,51,0.55)] transition hover:shadow-[0_24px_50px_-24px_rgba(15,34,51,0.6)] active:scale-[0.99] sm:gap-5"
             >
               <span className="text-4xl font-bold leading-none sm:text-5xl">
@@ -295,7 +324,7 @@ export default function ReviewsPage() {
                   ))}
                 </span>
                 <span className="mt-1.5 block text-sm font-semibold text-muted">
-                  {GOOGLE_RATING.count} в Google Maps
+                  {t("ratingInMaps", { count: t("ratingCount") })}
                 </span>
               </span>
               <IconGoogleMapsPin className="h-9 w-9 shrink-0 sm:h-10 sm:w-10" />
@@ -311,14 +340,14 @@ export default function ReviewsPage() {
                 data={{ channel: "maps", place: "reviews-hero" }}
                 className={buttonClasses({ size: "lg", className: "w-full sm:w-auto" })}
               >
-                Читать отзывы в Google Maps
+                {t("readInMaps")}
               </TrackedLink>
             </div>
           </div>
         </Container>
       </section>
 
-      <Marquee items={QUOTES} />
+      <Marquee items={QUOTE_KEYS.map((key) => t(`quotes.${key}`))} />
 
       {/* ── Три истории с фото ── */}
       {/* Заголовка и подписи у блока нет намеренно: карточки идут сразу за
@@ -352,7 +381,7 @@ export default function ReviewsPage() {
               &ldquo;
             </span>
             <blockquote className="relative text-xl font-bold leading-snug sm:text-2xl md:text-3xl">
-              {PULL_QUOTE.text}
+              {t("pullQuote")}
             </blockquote>
             <figcaption className="relative mt-6 flex items-center justify-center gap-3">
               {pull?.avatar && (
@@ -366,7 +395,7 @@ export default function ReviewsPage() {
                 />
               )}
               <span className="text-left">
-                <span className="block font-semibold leading-tight">{PULL_QUOTE.name}</span>
+                <span className="block font-semibold leading-tight">{pull.name}</span>
                 {pull?.sourceUrl && <GoogleMapsLink href={pull.sourceUrl} />}
               </span>
             </figcaption>
@@ -377,7 +406,7 @@ export default function ReviewsPage() {
       {/* ── Остальные отзывы ── */}
       <Section pad="tight" className="bg-gradient-to-b from-surface-2 to-white">
         <Container>
-          <h2 className="text-3xl font-bold sm:text-4xl">Больше отзывов</h2>
+          <h2 className="text-3xl font-bold sm:text-4xl">{t("more")}</h2>
           <Squiggle long className="mt-4" />
 
           {/* Кладка (CSS columns), а не сетка: отзывы разной длины, и в сетке
@@ -386,9 +415,9 @@ export default function ReviewsPage() {
               для несвязанных между собой отзывов это нормально. */}
           <div className="mt-8 gap-5 sm:columns-2 lg:columns-3 [&>figure]:mb-5">
             {rest.map((r) => (
-              <Fragment key={r.name}>
+              <Fragment key={r.id}>
                 <ReviewCard review={r} />
-                {r.name === MORE_CTA_AFTER && (
+                {r.id === MORE_CTA_AFTER && (
                   // Плашка «читать все» — ровно в ту дыру, которую кладка
                   // оставляла внизу средней колонки: отзывы разной длины,
                   // колонки выравниваются по высоте, и средняя кончалась на
@@ -404,7 +433,7 @@ export default function ReviewsPage() {
                       ))}
                     </span>
                     <p className="mt-3 text-lg font-bold leading-tight">
-                      Читать все отзывы
+                      {t("readAll")}
                     </p>
                     <TrackedLink
                       href={contacts.mapReviewsLink}
@@ -414,7 +443,7 @@ export default function ReviewsPage() {
                       data={{ channel: "maps", place: "reviews-more" }}
                       className={buttonClasses({ variant: "light", className: "mt-4 w-full" })}
                     >
-                      Читать отзывы в Google Maps
+                      {t("readInMaps")}
                     </TrackedLink>
                   </div>
                 )}
@@ -432,17 +461,15 @@ export default function ReviewsPage() {
           (мерил 24.08.2026). Поэтому карта стоит целиком, как ей и положено. */}
       <Section pad="tight" className="bg-white">
         <Container>
-          <h2 className="text-3xl font-bold sm:text-4xl">Где мы находимся</h2>
+          <h2 className="text-3xl font-bold sm:text-4xl">{t("whereTitle")}</h2>
           <Squiggle long className="mt-4" />
           <p className="mt-5 max-w-2xl text-muted">
-            Наша база находится в тихой и спокойной бухте. Даже в дождливый
-            сезон у нас спокойное море, так что мы можем круглый год обучать вас
-            кататься на фойлах.
+            {t("whereText")}
           </p>
 
           <div className="mt-8 overflow-hidden rounded-3xl border border-line shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)]">
             <iframe
-              title="Карточка FlyGuru в Google Maps — оценка и отзывы"
+              title={t("mapTitle")}
               src={contacts.mapEmbed}
               className="h-[320px] w-full sm:h-[420px]"
               loading="lazy"
@@ -461,9 +488,9 @@ export default function ReviewsPage() {
                 <IconStar key={i} className="h-6 w-6" />
               ))}
             </span>
-            <h2 className="mt-4 text-2xl font-bold sm:text-3xl">Уже катались с нами?</h2>
+            <h2 className="mt-4 text-2xl font-bold sm:text-3xl">{t("ctaTitle")}</h2>
             <p className="mx-auto mt-3 max-w-xl text-white/90">
-              Будем рады вашему отзыву на Google Maps.
+              {t("ctaText")}
             </p>
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               {/* Ведём в карточку школы, а не на /contacts: человек дочитал
@@ -478,11 +505,11 @@ export default function ReviewsPage() {
                 data={{ channel: "maps", place: "reviews" }}
                 className={buttonClasses({ size: "lg", className: "w-full sm:w-auto" })}
               >
-                Оставить отзыв
+                {t("ctaButton")}
                 <IconArrowRight aria-hidden className="h-4 w-4" />
               </TrackedLink>
               <BookBtn place="reviews-cta" variant="light" size="lg" className="w-full sm:w-auto">
-                Записаться
+                {tCommon("book")}
               </BookBtn>
             </div>
           </div>

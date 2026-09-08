@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { useTranslations } from "next-intl";
 
 // Номер заявки из ?no=… — читаем в браузере, чтобы страница «спасибо»
 // осталась статической (SSG): сервер номера не знает, а клиенту он нужен,
@@ -18,13 +19,14 @@ function readBookingNo(): string | null {
 }
 
 export function BookingNo() {
+  const t = useTranslations("Thanks");
   const no = useSyncExternalStore(subscribe, readBookingNo, () => null);
 
   if (!no) return null;
 
   return (
     <p className="mt-4 inline-block rounded-full bg-primary/10 px-5 py-2 font-semibold text-primary">
-      Номер вашей заявки: #{no}
+      {t("bookingNo", { no })}
     </p>
   );
 }

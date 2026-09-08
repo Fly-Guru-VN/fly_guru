@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { buttonClasses } from "./ui";
 import { IconPlay } from "./icons";
 
@@ -18,6 +19,7 @@ export function WatchVideoBtn({
   target: string;
   className?: string;
 }) {
+  const t = useTranslations("Common");
   function go() {
     const video = document.getElementById(target) as HTMLVideoElement | null;
     if (!video) return;
@@ -35,7 +37,7 @@ export function WatchVideoBtn({
       })}
     >
       <IconPlay aria-hidden className="h-4 w-4" />
-      Смотреть видео
+      {t("watchVideo")}
     </button>
   );
 }

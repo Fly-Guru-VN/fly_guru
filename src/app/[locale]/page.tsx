@@ -29,8 +29,9 @@ import {
   IconWrench,
   IconBadgeCheck,
 } from "@/components/icons";
-import { homeFaq } from "@/content/faq";
-import { homeReviews } from "@/content/reviews";
+import { buildFaq, homeFaqKeys } from "@/content/faq";
+import { homeReviewIds, localizeReviews, pickReview, reviews } from "@/content/reviews";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 
 // Заголовок и описание у главной свои не нужны — их даёт layout. А вот
 // hreflang нужен именно здесь: в layout он достался бы по наследству всем
@@ -47,64 +48,82 @@ export const dynamic = "force-static";
 // Порядок блоков — как разговор с человеком на пляже: сначала показать полёт
 // (видео), потом коротко факты, потом чужой опыт (отзывы), потом путь «с чего
 // начать», потом ответы на страхи (вопросы) и только в конце — магазин.
-export default async function HomePage() {
+export default async function HomePage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const [t, tCommon, tSchema, tFaq, tReviewTexts] = await Promise.all([
+    getTranslations("Home"),
+    getTranslations("Common"),
+    getTranslations("Schema"),
+    getTranslations("Faq.home"),
+    getTranslations("ReviewTexts"),
+  ]);
+
   // Только ради вилки цен в разметке для поисковика. Страница статичная, так
   // что запрос уходит один раз при сборке, а не на каждого посетителя.
   const priceRange = priceRangeLabel(await getSiteServices());
 
+  // Тройка отзывов с фотографиями — на языке гостя.
+  const localizedReviews = localizeReviews(reviews, tReviewTexts);
+  const homeReviews = homeReviewIds.map((id) => pickReview(localizedReviews, id));
+
   const facts = [
-    "90% встают на крыло на первом занятии",
-    "Тандем — 10 минут",
-    "Нячанг · Marina Beach",
-    "Дети с 8 лет",
-    "Инструктор рядом на воде",
+    t("facts.success"),
+    t("facts.tandem"),
+    t("facts.place"),
+    t("facts.kids"),
+    t("facts.instructor"),
   ];
 
   // Три обещания под видео сборки — тем же строем, что факты в карточках шагов.
   const shopFacts = [
-    { icon: IconShield, label: "Надёжные бренды" },
-    { icon: IconWrench, label: "Поддержка и сервис" },
-    { icon: IconBadgeCheck, label: "Гарантия качества" },
+    { icon: IconShield, label: t("shopFacts.brands") },
+    { icon: IconWrench, label: t("shopFacts.service") },
+    { icon: IconBadgeCheck, label: t("shopFacts.warranty") },
   ];
 
   const steps: Step[] = [
     {
       icon: IconTandem,
-      title: "Тандем",
-      meta: "10 минут, без обучения",
-      text: "Пробный полёт вдвоём с инструктором, на одном фойле. Просто становитесь и взлетаете, без обучения.",
+      title: t("steps.tandemTitle"),
+      meta: t("steps.tandemMeta"),
+      text: t("steps.tandemText"),
       image: "/media/photo/step-1-tandem.webp",
       imageMobile: "/media/photo/step-1-tandem-phone.webp",
       facts: [
-        { icon: IconClock, label: "10 минут" },
-        { icon: IconStar, label: "Идеально", label2: "для старта" },
-        { icon: IconPeople, label: "Доступно детям", label2: "от 8 лет" },
+        { icon: IconClock, label: t("steps.tandemFact1") },
+        { icon: IconStar, label: t("steps.tandemFact2"), label2: t("steps.tandemFact2b") },
+        { icon: IconPeople, label: t("steps.tandemFact3"), label2: t("steps.tandemFact3b") },
       ],
     },
     {
       icon: IconFoil,
-      title: "Базовое обучение",
-      meta: "учимся летать",
-      text: "В течение часа мы с нуля обучаем вас, как управлять фойлом, держать баланс и чувствовать доску. В это время инструктор поддерживает с вами связь с берега.",
+      title: t("steps.trainingTitle"),
+      meta: t("steps.trainingMeta"),
+      text: t("steps.trainingText"),
       image: "/media/photo/step-2-training.webp",
       imageMobile: "/media/photo/step-2-training-phone.webp",
       facts: [
-        { icon: IconClock, label: "60 минут" },
-        { icon: IconPeople, label: "На связи", label2: "с инструктором" },
-        { icon: IconShield, label: "Безопасно", label2: "и просто" },
+        { icon: IconClock, label: t("steps.trainingFact1") },
+        { icon: IconPeople, label: t("steps.trainingFact2"), label2: t("steps.trainingFact2b") },
+        { icon: IconShield, label: t("steps.trainingFact3"), label2: t("steps.trainingFact3b") },
       ],
     },
     {
       icon: IconClub,
-      title: "Экскурсии и сафари",
-      meta: "свободное катание",
-      text: "После обучения вы можете отправляться в более длительные путешествия на острова, безлюдные пляжи и удалённые места.",
+      title: t("steps.clubTitle"),
+      meta: t("steps.clubMeta"),
+      text: t("steps.clubText"),
       image: "/media/photo/step-3-club.webp",
       imageMobile: "/media/photo/step-3-club-phone-2.webp",
       facts: [
-        { icon: IconInfinity, label: "Без", label2: "лимита" },
-        { icon: IconPeople, label: "Клуб", label2: "и комьюнити" },
-        { icon: IconPalm, label: "Приключения", label2: "и свобода" },
+        { icon: IconInfinity, label: t("steps.clubFact1"), label2: t("steps.clubFact1b") },
+        { icon: IconPeople, label: t("steps.clubFact2"), label2: t("steps.clubFact2b") },
+        { icon: IconPalm, label: t("steps.clubFact3"), label2: t("steps.clubFact3b") },
       ],
     },
   ];
@@ -113,7 +132,7 @@ export default async function HomePage() {
     <>
       {/* Карточка школы для поисковиков: адрес, телефон, часы, координаты.
           Стоит на главной — это страница, которая и представляет саму школу. */}
-      <JsonLd data={businessSchema(priceRange)} />
+      <JsonLd data={businessSchema(tSchema("description"), priceRange)} />
 
       {/* ── Первый экран: видео во весь экран ── */}
       {/* Ролик яркий и солнечный, поэтому dim="soft": сильная заливка убивала
@@ -132,21 +151,21 @@ export default async function HomePage() {
             идут подряд, вид тот же. */}
         <div>
           <h1 className="text-4xl font-bold leading-[1.05] drop-shadow-[0_2px_14px_rgba(0,0,0,0.5)] sm:text-5xl md:text-6xl">
-            Научим летать<br />
-            за 60 минут
+            {t("titleLine1")}
+            <br />
+            {t("titleLine2")}
           </h1>
           <p className="mt-4 max-w-md text-base text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-lg">
-            Это проще, чем выглядит. Доска уверенно ощущается под ногами, мачта
-            рассекает воду — и вы летите.
+            {t("lead")}
           </p>
         </div>
         <div>
           <div className="flex flex-col gap-3 sm:flex-row md:mt-7">
             <BookBtn place="hero" size="lg" className="w-full sm:w-auto">
-              Записаться
+              {tCommon("book")}
             </BookBtn>
             <Button href="/tandem" size="lg" variant="light" className="w-full sm:w-auto">
-              Сначала попробовать тандем
+              {t("tryTandem")}
             </Button>
           </div>
           {/* Подсказка листать: на полноэкранном кадре без неё не всем очевидно,
@@ -156,7 +175,7 @@ export default async function HomePage() {
             aria-hidden
             className="animate-scroll-hint mt-8 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-white/70 md:hidden"
           >
-            <span>Листайте</span>
+            <span>{t("swipe")}</span>
             <span className="text-base leading-none">↓</span>
           </div>
         </div>
@@ -192,13 +211,13 @@ export default async function HomePage() {
         </div>
         <Container className="relative">
           <div className="flex items-end justify-between gap-4">
-            <SectionHeading eyebrow="Отзывы" title="Что говорят ученики" />
+            <SectionHeading eyebrow={t("reviewsEyebrow")} title={t("reviewsTitle")} />
             {/* Прячем обёрткой, а не классом hidden на самой кнопке: у Button в
                 базовых классах уже есть inline-flex, и в собранном CSS он идёт
                 позже hidden — на телефоне ссылка вылезала рядом с заголовком. */}
             <div className="hidden shrink-0 sm:block">
               <Button href="/reviews" variant="ghost">
-                Все отзывы <IconArrowRight className="h-4 w-4" />
+                {t("allReviews")} <IconArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -206,14 +225,14 @@ export default async function HomePage() {
               Раньше три отзыва подряд занимали полтора экрана. */}
           <DotsRail count={homeReviews.length} className="md:grid-cols-3">
             {homeReviews.map((r) => (
-              <RailItem key={r.name}>
+              <RailItem key={r.id}>
                 <ReviewPhotoCard review={r} />
               </RailItem>
             ))}
           </DotsRail>
           <div className="mt-6 sm:hidden">
             <Button href="/reviews" variant="secondary">
-              Все отзывы <IconArrowRight className="h-4 w-4" />
+              {t("allReviews")} <IconArrowRight className="h-4 w-4" />
             </Button>
           </div>
         </Container>
@@ -251,8 +270,8 @@ export default async function HomePage() {
         </div>
         <Container className="relative">
           <SectionHeading
-            eyebrow="С чего начать"
-            title="Как встать на доску?"
+            eyebrow={t("stepsEyebrow")}
+            title={t("stepsTitle")}
           />
           {/* Волна-разделитель под подзаголовком — как в макете: маленький
               росчерк воды вместо жирной линии. */}
@@ -281,7 +300,7 @@ export default async function HomePage() {
           </DotsRail>
           <div className="mt-6 md:mt-8">
             <Button href="/training" variant="secondary">
-              Подробнее об обучении <IconArrowRight className="h-4 w-4" />
+              {t("moreTraining")} <IconArrowRight className="h-4 w-4" />
             </Button>
           </div>
         </Container>
@@ -327,7 +346,7 @@ export default async function HomePage() {
             <div className="relative h-48 sm:absolute sm:inset-0 sm:-z-10 sm:h-auto">
               <Image
                 src="/media/photo/shop-hero.webp"
-                alt="Электрофойл в полёте над морем"
+                alt={t("shopAlt")}
                 fill
                 sizes="(min-width: 1024px) 1024px, 100vw"
                 quality={90}
@@ -336,12 +355,11 @@ export default async function HomePage() {
             </div>
             <div className="p-6 sm:flex sm:h-full sm:max-w-[52%] sm:flex-col sm:justify-center sm:p-10">
               <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-                Магазин
+                {t("shopEyebrow")}
               </p>
-              <h2 className="mt-2 text-2xl font-bold sm:text-3xl">Продаём электрофойлы</h2>
+              <h2 className="mt-2 text-2xl font-bold sm:text-3xl">{t("shopTitle")}</h2>
               <p className="mt-3 text-muted">
-                Официально возим Hobbywing и Lift Foils. Поможем выбрать под ваш
-                вес и уровень, расскажем про обслуживание.
+                {t("shopText")}
               </p>
               <div className="mt-6">
                 {/* Через TrackedLink, а не обычный Button: переход в магазин
@@ -354,7 +372,7 @@ export default async function HomePage() {
                   data={{ place: "home" }}
                   className={buttonClasses({ variant: "sea" })}
                 >
-                  Смотреть магазин <IconArrowRight className="h-4 w-4" />
+                  {t("shopButton")} <IconArrowRight className="h-4 w-4" />
                 </TrackedLink>
               </div>
             </div>
@@ -368,21 +386,20 @@ export default async function HomePage() {
               задом наперёд. */}
           <div className="mt-6 grid items-start gap-6 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
             <div className="order-2 lg:order-none">
-              <Faq items={homeFaq} heading="Ответы на популярные вопросы" />
+              <Faq items={buildFaq(homeFaqKeys, tFaq)} heading={t("faqHeading")} />
             </div>
             <div className="order-1 overflow-hidden rounded-3xl border border-line bg-surface p-4 shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)] lg:order-none">
               <FoilVideo
                 src="/media/video/foil-build.mp4"
                 poster="/media/video/foil-build-poster.jpg"
-                alt="Сборка электрофойла: мачта, крылья и мотор"
+                alt={t("assemblyAlt")}
               />
               {/* Без подписи тёмный технический ролик висит в карточке без
                   объяснения — непонятно ни что это, ни что его можно открыть. */}
               <div className="px-2 pt-4">
-                <h3 className="text-lg font-bold">Как устроен фойл</h3>
+                <h3 className="text-lg font-bold">{t("assemblyTitle")}</h3>
                 <p className="mt-1.5 text-sm text-muted">
-                  Доска, мачта, крылья, мотор и батарея — всё собирается за
-                  несколько минут. Нажмите на видео, чтобы развернуть.
+                  {t("assemblyText")}
                 </p>
               </div>
               <div className="mt-4 grid grid-cols-3 border-t border-line pt-4">

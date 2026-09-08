@@ -20,11 +20,21 @@ import {
   IconMail,
 } from "@/components/icons";
 import { contacts, socials } from "@/content/contacts";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 
-export const metadata: Metadata = {
-  title: "Контакты",
-  alternates: localeAlternates("/contacts"),
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Contacts" });
+
+  return {
+    title: t("metaTitle"),
+    alternates: localeAlternates("/contacts"),
+  };
+}
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
 // Страница контактов собрана по макету ref_rewie_hero (01.09.2026): на первом
@@ -40,13 +50,13 @@ export const dynamic = "force-static"; // статичная страница, �
 // часы, адрес, каналы — оттуда, правятся в одном месте.
 
 // Адрес соцсети «как в приложении»: имя канала человек ищет глазами быстрее,
-// чем длинную ссылку. Ключ — имя из списка socials, логотип лежит там же.
+// чем длинную ссылку. Ключ — id из списка socials, логотип лежит там же.
 const SOCIAL_HANDLE: Record<string, string> = {
-  Instagram: "@flyguru.club",
-  YouTube: "@fly_guru",
-  TikTok: "@denisflyguru",
-  Facebook: "FlyGuru",
-  "Telegram-канал": "@flyguru_club",
+  instagram: "@flyguru.club",
+  youtube: "@fly_guru",
+  tiktok: "@denisflyguru",
+  facebook: "FlyGuru",
+  "telegram-channel": "@flyguru_club",
 };
 
 // Мессенджеры плашками на карте — ровно три, как в макете. Порядок по частоте:
@@ -57,15 +67,26 @@ const MESSENGERS = [
   { key: "zalo", app: "zalo", title: "Zalo", href: contacts.zalo },
 ] as const;
 
-export default async function ContactsPage() {
+export default async function ContactsPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const [t, tSocials, tSchema] = await Promise.all([
+    getTranslations("Contacts"),
+    getTranslations("Socials"),
+    getTranslations("Schema"),
+  ]);
   // Вилка цен для разметки — из базы, как и на главной (см. lib/schema.ts).
   const priceRange = priceRangeLabel(await getSiteServices());
 
   const marquee = [
-    contacts.hours,
-    "WhatsApp · Telegram · Zalo",
-    "Нячанг · Maryna Beach Club",
-    "Запись за пару сообщений",
+    t("hours"),
+    t("marqueeMessengers"),
+    t("place"),
+    t("marqueeFast"),
     contacts.phone.display,
   ];
 
@@ -73,7 +94,7 @@ export default async function ContactsPage() {
     <>
       {/* Та же карточка школы, что и на главной (общий @id внутри): именно эту
           страницу поисковик считает страницей контактов организации. */}
-      <JsonLd data={businessSchema(priceRange)} />
+      <JsonLd data={businessSchema(tSchema("description"), priceRange)} />
 
       {/* ── Первый экран ── */}
       {/* Светлая секция встык под шапку, как на отзывах: Section тут не
@@ -108,15 +129,14 @@ export default async function ContactsPage() {
             {/* ── Левая колонка: кто мы и как до нас достучаться ── */}
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-                Контакты
+                {t("eyebrow")}
               </p>
               <Squiggle className="mt-3" />
               <h1 className="mt-5 text-4xl font-bold leading-[1.05] sm:text-5xl">
-                Мы всегда на связи
+                {t("title")}
               </h1>
               <p className="mt-5 max-w-md text-muted">
-                Поможем вам выбрать подходящий формат обучения, подберём время и
-                подарим крутые эмоции!
+                {t("lead")}
               </p>
 
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -129,7 +149,7 @@ export default async function ContactsPage() {
                   className={buttonClasses({ size: "lg", className: "w-full sm:w-auto" })}
                 >
                   <IconWhatsApp aria-hidden className="h-5 w-5" />
-                  Написать в WhatsApp
+                  {t("writeWhatsApp")}
                 </TrackedLink>
                 <TrackedLink
                   href={contacts.phone.tel}
@@ -143,7 +163,7 @@ export default async function ContactsPage() {
                   })}
                 >
                   <IconPhone aria-hidden className="h-5 w-5" />
-                  Позвонить
+                  {t("call")}
                 </TrackedLink>
               </div>
 
@@ -176,11 +196,11 @@ export default async function ContactsPage() {
               <ul className="mt-3 flex flex-wrap gap-3">
                 <li className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-semibold">
                   <IconClock aria-hidden className="h-4 w-4 text-primary" />
-                  {contacts.hours}
+                  {t("hours")}
                 </li>
                 <li className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-semibold">
                   <IconPin aria-hidden className="h-4 w-4 text-primary" />
-                  Нячанг · Maryna Beach Club
+                  {t("place")}
                 </li>
               </ul>
 
@@ -205,7 +225,7 @@ export default async function ContactsPage() {
                       <span className="min-w-0">
                         <span className="block font-bold leading-tight">{m.title}</span>
                         <span className="mt-1.5 inline-flex items-center gap-1 text-sm font-semibold text-primary group-hover:text-primary-strong">
-                          Написать
+                          {t("write")}
                           <IconArrowRight aria-hidden className="h-4 w-4" />
                         </span>
                       </span>
@@ -222,7 +242,7 @@ export default async function ContactsPage() {
             <div className="relative lg:h-full">
               <div className="h-full overflow-hidden rounded-3xl border border-line shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)]">
                 <iframe
-                  title="FlyGuru на карте — Maryna Beach Club, Нячанг"
+                  title={t("mapTitle")}
                   src={contacts.mapEmbed}
                   className="block h-[300px] w-full sm:h-[380px] lg:h-full lg:min-h-[480px]"
                   loading="lazy"
@@ -248,7 +268,7 @@ export default async function ContactsPage() {
                 })}
               >
                 <IconPin aria-hidden className="h-5 w-5" />
-                Открыть маршрут
+                {t("route")}
               </TrackedLink>
             </div>
           </div>
@@ -260,17 +280,16 @@ export default async function ContactsPage() {
       {/* ── Соцсети ── */}
       <Section pad="tight" className="bg-white">
         <Container>
-          <h2 className="text-3xl font-bold sm:text-4xl">Мы в соцсетях</h2>
+          <h2 className="text-3xl font-bold sm:text-4xl">{t("socialTitle")}</h2>
           <Squiggle long className="mt-4" />
           <p className="mt-5 max-w-2xl text-muted">
-            Мы также стараемся вести соцсети, чтобы максимально передать
-            ощущения, которые испытываем сами.
+            {t("socialText")}
           </p>
 
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {socials.map((s) => (
                 <TrackedLink
-                  key={s.name}
+                  key={s.id}
                   href={s.href}
                   external
                   newTab
@@ -282,8 +301,10 @@ export default async function ContactsPage() {
                   className="flex flex-col items-center gap-2 rounded-3xl border border-line bg-surface px-3 py-5 text-center transition-colors hover:border-primary/40"
                 >
                   <AppIcon app={s.app} className="h-12 w-12" />
-                  <span className="text-sm font-bold leading-tight">{s.name}</span>
-                  <span className="break-all text-xs text-muted">{SOCIAL_HANDLE[s.name]}</span>
+                  <span className="text-sm font-bold leading-tight">
+                    {tSocials.has(s.id) ? tSocials(s.id) : s.name}
+                  </span>
+                  <span className="break-all text-xs text-muted">{SOCIAL_HANDLE[s.id]}</span>
                 </TrackedLink>
             ))}
           </div>
@@ -303,14 +324,13 @@ export default async function ContactsPage() {
             >
               <IconChat className="h-7 w-7" />
             </span>
-            <h2 className="mt-4 text-2xl font-bold sm:text-3xl">Хотите сразу записаться?</h2>
+            <h2 className="mt-4 text-2xl font-bold sm:text-3xl">{t("ctaTitle")}</h2>
             <p className="mx-auto mt-3 max-w-xl text-white/90">
-              Оставьте заявку — мы сами с вами свяжемся для подтверждения записи
-              и уточнения времени 😌
+              {t("ctaText")}
             </p>
             <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <BookBtn place="contacts-cta" size="lg" className="w-full sm:w-auto">
-                Оставить заявку
+                {t("ctaButton")}
               </BookBtn>
               <TrackedLink
                 href={contacts.phone.whatsapp}
@@ -320,7 +340,7 @@ export default async function ContactsPage() {
                 data={{ channel: "whatsapp", place: "contacts-cta" }}
                 className={buttonClasses({ variant: "light", size: "lg", className: "w-full sm:w-auto" })}
               >
-                Написать в WhatsApp
+                {t("writeWhatsApp")}
               </TrackedLink>
             </div>
           </div>

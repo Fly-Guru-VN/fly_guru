@@ -4,7 +4,7 @@ import Script from "next/script";
 import { Manrope } from "next/font/google";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
-import { setRequestLocale } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { DEFAULT_LOCALE, OG_LOCALE } from "@/i18n/locales";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -39,10 +39,6 @@ const GA_ENABLED =
   process.env.NODE_ENV === "production" &&
   process.env.NEXT_PUBLIC_VERCEL_ENV !== "preview";
 
-const TITLE = "FlyGuru — школа электрофойлов в Нячанге";
-const DESCRIPTION =
-  "Обучение полёту на электрофойле в Нячанге. 90% учеников едут уже на первом занятии.";
-
 // Метаданные собираются на каждый язык отдельно: страница обязана честно
 // сказать мессенджеру и поисковику, на каком она языке (og:locale). Тексты
 // заголовка и описания пока русские — они переедут в messages на этапе
@@ -59,6 +55,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const appLocale = hasLocale(routing.locales, locale) ? locale : DEFAULT_LOCALE;
+  const t = await getTranslations({ locale: appLocale, namespace: "Meta" });
+  const title = t("title");
+  const description = t("description");
 
   return {
   // metadataBase превращает относительные пути ниже (/og.jpg) в абсолютные.
@@ -66,10 +65,10 @@ export async function generateMetadata({
   // голым текстом — именно так flyguru.pro и уходила клиентам в WhatsApp.
   metadataBase: new URL(SITE_URL),
   title: {
-    default: TITLE,
+    default: title,
     template: "%s · FlyGuru",
   },
-  description: DESCRIPTION,
+  description,
   // Превью ссылки: картинка 1200×630 (собрана из фото на воде) + подпись.
   // Тот же набор читают WhatsApp, Telegram, Facebook и Instagram.
   openGraph: {
@@ -77,21 +76,21 @@ export async function generateMetadata({
     siteName: "FlyGuru",
     locale: OG_LOCALE[appLocale],
     url: SITE_URL,
-    title: TITLE,
-    description: DESCRIPTION,
+    title,
+    description,
     images: [
       {
         url: "/og.jpg",
         width: 1200,
         height: 630,
-        alt: "Гость FlyGuru едет на электрофойле в Нячанге",
+        alt: t("ogImageAlt"),
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: TITLE,
-    description: DESCRIPTION,
+    title,
+    description,
     images: ["/og.jpg"],
   },
   };

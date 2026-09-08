@@ -1,7 +1,8 @@
+import { useLocale, useTranslations } from "next-intl";
 import Image from "next/image";
 import { IconStar } from "./icons";
 import { GoogleMapsLink } from "./GoogleMapsLink";
-import type { Review } from "@/content/reviews";
+import { formatMonthsAgo, type Review } from "@/content/reviews";
 
 // Карточка отзыва с главной, собрана по макету: фото с занятия сверху, под ним
 // текст, а стык закрыт волной.
@@ -15,6 +16,9 @@ import type { Review } from "@/content/reviews";
 // на карточку. На /reviews карточка та же, но там за отзывами и приходят —
 // clamp={false} снимает обрезку и показывает текст целиком.
 export function ReviewPhotoCard({ review, clamp = true }: { review: Review; clamp?: boolean }) {
+  const t = useTranslations("Common");
+  // Давность отзыва склоняет Intl по языку страницы.
+  const locale = useLocale();
   return (
     <figure className="flex h-full flex-col overflow-hidden rounded-3xl bg-surface shadow-[0_20px_45px_-30px_rgba(15,34,51,0.55)]">
       <div className="relative aspect-[16/9] w-full">
@@ -57,7 +61,7 @@ export function ReviewPhotoCard({ review, clamp = true }: { review: Review; clam
       </div>
 
       <div className="flex flex-1 flex-col p-6">
-        <div className="flex gap-1.5 text-accent" aria-label={`Оценка ${review.rating} из 5`}>
+        <div className="flex gap-1.5 text-accent" aria-label={t("rating", { rating: review.rating })}>
           {Array.from({ length: review.rating }).map((_, i) => (
             <IconStar key={i} className="h-5 w-5" />
           ))}
@@ -78,7 +82,9 @@ export function ReviewPhotoCard({ review, clamp = true }: { review: Review; clam
           )}
           <div className="min-w-0">
             <p className="font-semibold leading-tight">{review.name}</p>
-            {review.role && <p className="mt-0.5 text-sm text-muted">{review.role}</p>}
+            <p className="mt-0.5 text-sm text-muted">
+            {formatMonthsAgo(locale, review.monthsAgo)}
+          </p>
             {review.sourceUrl && <GoogleMapsLink href={review.sourceUrl} className="mt-1.5" />}
           </div>
         </figcaption>

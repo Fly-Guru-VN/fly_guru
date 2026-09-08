@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { BookingForm, type ServiceOption } from "./BookingForm";
 
 // Модалка записи: затемнённый + размытый фон (внимание на форме), панель по
@@ -18,6 +19,7 @@ export function BookingModal({
   refCode?: string;
   onClose: () => void;
 }) {
+  const t = useTranslations("Booking");
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export function BookingModal({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Запись"
+      aria-label={t("title")}
       onClick={onClose}
       className="animate-fade-in fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4"
     >
@@ -57,11 +59,11 @@ export function BookingModal({
         className="animate-sheet-up sm:animate-pop-in relative flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-3xl border border-line bg-surface shadow-xl sm:max-h-[88dvh] sm:rounded-3xl"
       >
         <div className="flex items-center justify-between gap-3 px-6 pb-2 pt-6 sm:px-8 sm:pt-8">
-          <h2 className="text-2xl font-bold">Запись</h2>
+          <h2 className="text-2xl font-bold">{t("title")}</h2>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Закрыть"
+            aria-label={t("close")}
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line text-muted transition-colors hover:border-primary hover:text-primary"
           >
             ✕

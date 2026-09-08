@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { trackEvent } from "@/lib/analytics";
 import { forgetRefCode, getAttributionForBooking } from "@/lib/attribution";
-import { isValidPhone, PHONE_ERROR } from "@/lib/phone";
+import { isValidPhone } from "@/lib/phone";
 import { agentDiscountFor } from "@/lib/agentTerms";
 import { type ServiceCategory } from "@/content/services";
 import { useAgentRef } from "./useAgentRef";
@@ -55,16 +56,17 @@ type CertState =
   | { kind: "bad"; message: string };
 
 // Почему номер не подошёл — словами гостя. Ключи приходят с сервера
-// (api/certificates/check и ошибки самой заявки).
-const CERT_MESSAGES: Record<string, string> = {
-  not_found: "Такого номера нет. Проверьте, как он написан на сертификате.",
-  used: "Этот сертификат уже использован.",
-  expired: "Срок сертификата истёк — он действует 3 месяца со дня покупки.",
-  rate_limited: "Слишком много попыток. Подождите минуту.",
-  error: "Не удалось проверить номер. Попробуйте ещё раз.",
+// (api/certificates/check и ошибки самой заявки), а текст к ним подбираем на
+// языке гостя.
+const CERT_MESSAGE_KEYS: Record<string, string> = {
+  not_found: "certificateNotFound",
+  used: "certificateUsed",
+  expired: "certificateExpired",
+  rate_limited: "certificateRateLimited",
 };
 
 export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: BookingFormProps) {
+  const t = useTranslations("Booking");
   const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
   const [phone, setPhone] = useState("");
@@ -96,6 +98,11 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
   const [cert, setCert] = useState<CertState>({ kind: "idle" });
   const checkedCode = useRef("");
 
+  // Причина отказа → фраза на языке гостя. Неизвестная причина (или обрыв
+  // сети) сводится к общему «попробуйте ещё раз».
+  const certMessage = (reason?: string | null) =>
+    t(CERT_MESSAGE_KEYS[reason ?? ""] ?? "certificateError");
+
   async function checkCertificate() {
     const code = certCode.trim();
     if (!code) {
@@ -122,15 +129,15 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
       };
       if (data.ok && data.serviceId) {
         setServiceId(data.serviceId);
-        setCert({ kind: "ok", serviceName: data.serviceName ?? "занятие" });
+        setCert({
+          kind: "ok",
+          serviceName: data.serviceName ?? t("certificateFallbackService"),
+        });
         return;
       }
-      setCert({
-        kind: "bad",
-        message: CERT_MESSAGES[data.reason ?? ""] ?? CERT_MESSAGES.error,
-      });
+      setCert({ kind: "bad", message: certMessage(data.reason) });
     } catch {
-      setCert({ kind: "bad", message: CERT_MESSAGES.error });
+      setCert({ kind: "bad", message: certMessage(null) });
     }
   }
 
@@ -193,7 +200,7 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
           ? failed.error.slice("certificate_".length)
           : null;
         if (reason) {
-          setCert({ kind: "bad", message: CERT_MESSAGES[reason] ?? CERT_MESSAGES.error });
+          setCert({ kind: "bad", message: certMessage(reason) });
           setStatus("idle");
           return;
         }
@@ -233,14 +240,14 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
           скринридеров и клавиатуры. */}
       <div className="absolute left-[-9999px]" aria-hidden="true">
         <label>
-          Не заполняйте это поле
+          {t("honeypot")}
           <input type="text" name="company" tabIndex={-1} autoComplete="off" />
         </label>
       </div>
 
       <div>
         <label htmlFor="clientName" className="mb-1 block text-sm font-medium">
-          Имя <span className="text-red-600">*</span>
+          {t("name")} <span className="text-red-600">*</span>
         </label>
         <input id="clientName" name="clientName" type="text" required className={inputClass} />
       </div>
@@ -250,7 +257,7 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
           это удавалось только вручную. */}
       <div>
         <label htmlFor="contact" className="mb-1 block text-sm font-medium">
-          Телефон <span className="text-red-600">*</span>
+          {t("phone")} <span className="text-red-600">*</span>
         </label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
@@ -262,7 +269,7 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
             required
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="+84 90 123 45 67"
+            placeholder={t("phonePlaceholder")}
             aria-invalid={phoneBad || undefined}
             className={`${inputClass} sm:flex-1`}
           />
@@ -274,12 +281,12 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
             ))}
           </select>
         </div>
-        {phoneBad && <p className="mt-1 text-sm text-red-600">{PHONE_ERROR}</p>}
+        {phoneBad && <p className="mt-1 text-sm text-red-600">{t("phoneError")}</p>}
       </div>
 
       <div>
         <label htmlFor="telegram" className="mb-1 block text-sm font-medium">
-          Ник в Telegram
+          {t("telegram")}
         </label>
         <input
           id="telegram"
@@ -293,7 +300,7 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
         {/* Одной строкой даже на узком телефоне — отсюда короткий текст и
             whitespace-nowrap с чуть меньшим кеглем (пачка №5, п.2). */}
         <p className="mt-1 whitespace-nowrap text-xs text-muted sm:text-sm">
-          Необязательно — запасной способ связи
+          {t("telegramHint")}
         </p>
       </div>
 
@@ -301,7 +308,8 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
           показывать после этого список выбора незачем. */}
       <div>
         <label htmlFor="certificateCode" className="mb-1 block text-sm font-medium">
-          Номер сертификата <span className="font-normal text-muted">(дополнительно)</span>
+          {t("certificate")}{" "}
+          <span className="font-normal text-muted">{t("certificateOptional")}</span>
         </label>
         <div className="flex gap-2">
           <input
@@ -326,20 +334,20 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
               onClick={dropCertificate}
               className="shrink-0 rounded-xl border border-line px-4 text-sm font-semibold text-muted transition-colors hover:border-primary"
             >
-              Убрать
+              {t("certificateRemove")}
             </button>
           )}
         </div>
         {cert.kind === "checking" && (
           <p className="mt-1 flex items-center gap-2 text-sm text-muted">
             <Spinner className="h-4 w-4" />
-            Проверяем номер…
+            {t("certificateChecking")}
           </p>
         )}
         {cert.kind === "bad" && <p className="mt-1 text-sm text-red-600">{cert.message}</p>}
         {cert.kind === "idle" && (
           <p className="mt-1 text-xs text-muted sm:text-sm">
-            Есть подарочный сертификат — введите номер, услуга подставится сама
+            {t("certificateHint")}
           </p>
         )}
       </div>
@@ -352,9 +360,11 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
           может — сервер всё равно поставит ту, что записана в сертификате. */}
       {cert.kind === "ok" ? (
         <div className="rounded-xl border border-line bg-surface px-4 py-3">
-          <p className="text-sm font-medium">По сертификату: {cert.serviceName}</p>
+          <p className="text-sm font-medium">
+            {t("certificateChosen", { service: cert.serviceName })}
+          </p>
           <p className="mt-1 text-xs text-muted sm:text-sm">
-            Услуга уже выбрана. Нужна другая — нажмите «Убрать» рядом с номером.
+            {t("certificateChosenHint")}
           </p>
         </div>
       ) : (
@@ -372,7 +382,7 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
           // который у нас уже учился, заплатит полную цену — обещать её всем
           // подряд нельзя (то же правило проверяется при оформлении).
           <p className="mt-2 text-xs text-muted">
-            Скидка по ссылке агента — на первое базовое обучение.
+            {t("agentDiscountNote")}
           </p>
         )}
       </div>
@@ -380,7 +390,7 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
 
       <div>
         <label htmlFor="preferredDate" className="mb-1 block text-sm font-medium">
-          Желаемая дата
+          {t("date")}
         </label>
         {/* min-w-0 + appearance-none: нативный date-инпут на iOS/Android имеет
             собственную минимальную ширину и вылезал за края модалки на телефоне
@@ -395,7 +405,7 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
 
       <div>
         <label htmlFor="comment" className="mb-1 block text-sm font-medium">
-          Комментарий
+          {t("comment")}
         </label>
         <textarea id="comment" name="comment" rows={3} className={inputClass} />
       </div>
@@ -406,17 +416,15 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
         className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-7 py-4 text-base font-semibold text-white transition-colors hover:bg-accent-strong disabled:opacity-60 sm:w-auto"
       >
         {status === "submitting" && <Spinner className="h-4 w-4" />}
-        {status === "submitting" ? "Отправляем…" : "Записаться"}
+        {status === "submitting" ? t("submitting") : t("submit")}
       </button>
 
       {status === "badPhone" && (
-        <p className="text-sm text-red-600">{PHONE_ERROR}</p>
+        <p className="text-sm text-red-600">{t("phoneError")}</p>
       )}
 
       {status === "error" && (
-        <p className="text-sm text-red-600">
-          Не удалось отправить. Проверьте соединение и попробуйте ещё раз, либо напишите нам в мессенджер.
-        </p>
+        <p className="text-sm text-red-600">{t("sendError")}</p>
       )}
     </form>
   );

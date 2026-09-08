@@ -7,12 +7,10 @@ import { BookBtn } from "@/components/BookBtn";
 import { JsonLd } from "@/components/JsonLd";
 import { PriceTabs, type PriceGroup } from "@/components/PriceTabs";
 import { priceListSchema } from "@/lib/schema";
-import {
-  CATEGORY_LABELS,
-  formatVnd,
-  type ServiceCategory,
-} from "@/content/services";
+import type { ServiceCategory } from "@/content/services";
 import { getActiveServices, getSiteServices, pickService } from "@/lib/services";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { formatPrice, localizeServices } from "@/lib/serviceText";
 import {
   IconDrone,
   IconClock,
@@ -25,10 +23,19 @@ import {
   IconVest,
 } from "@/components/icons";
 
-export const metadata: Metadata = {
-  title: "Прайс",
-  alternates: localeAlternates("/prices"),
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Prices" });
+
+  return {
+    title: t("metaTitle"),
+    alternates: localeAlternates("/prices"),
+  };
+}
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
 // Порядок вкладок в прайсе: сначала то, с чего начинают, потом клубное и допы.
@@ -47,10 +54,26 @@ const POPULAR = "basic-adult";
 //
 // Карточки при этом лежат в HTML ВСЕ — спрятана только неактивная вкладка
 // (см. PriceTabs). Страница статическая, и поисковик получает все цены разом.
-export default async function PricesPage() {
-  // Цены и тексты — из базы поверх контента; настоящие id — для формы записи.
-  const [services, site] = await Promise.all([getActiveServices(), getSiteServices()]);
-  const dbId = (name: string) => services.find((x) => x.name === name)?.id;
+export default async function PricesPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const [t, tCommon, tCategory, tServices, tSchema] = await Promise.all([
+    getTranslations("Prices"),
+    getTranslations("Common"),
+    getTranslations("ServiceCategories"),
+    getTranslations("Services"),
+    getTranslations("Schema"),
+  ]);
+
+  // Цены — из базы поверх справочника, тексты — из messages; настоящие id —
+  // для формы записи. Услугу в базе ищем по коду: названия переводятся.
+  const [services, siteRaw] = await Promise.all([getActiveServices(), getSiteServices()]);
+  const site = localizeServices(siteRaw, tServices);
+  const dbId = (code: string) => services.find((x) => x.code === code)?.id;
 
   const drone = pickService(site, "drone");
 
@@ -58,12 +81,12 @@ export default async function PricesPage() {
   // в админке, и вкладка без карточек выглядела бы поломкой.
   const groups: PriceGroup[] = ORDER.map((cat) => ({
     cat,
-    label: CATEGORY_LABELS[cat],
+    label: tCategory(cat),
     items: site
       .filter((s) => s.category === cat)
       .map((service) => ({
         service,
-        serviceId: dbId(service.name),
+        serviceId: dbId(service.id),
         highlight: service.id === POPULAR,
       })),
   })).filter((g) => g.items.length > 0);
@@ -74,36 +97,38 @@ export default async function PricesPage() {
   const promises = [
     {
       icon: IconUser,
-      title: "Инструктор на связи",
-      text: "Всегда поддерживает связь через наушник",
+      title: t("promises.instructorTitle"),
+      text: t("promises.instructorText"),
     },
     {
       icon: IconTrend,
-      title: "90% встают на крыло",
-      text: "Большинство учеников осваивают доску на первом занятии",
+      title: t("promises.successTitle"),
+      text: t("promises.successText"),
     },
-    { icon: IconSmile, title: "Детям с 8 лет", text: "Отдельные детские программы" },
-    { icon: IconVest, title: "Всё включено", text: "Снаряжение, жилет, связь на воде" },
+    { icon: IconSmile, title: t("promises.kidsTitle"), text: t("promises.kidsText") },
+    { icon: IconVest, title: t("promises.allInTitle"), text: t("promises.allInText") },
     {
       icon: IconShield,
-      title: "Безопасная бухта",
-      text: "Закрытая бухта без волн и течений",
+      title: t("promises.bayTitle"),
+      text: t("promises.bayText"),
     },
   ];
 
   // Что входит в съёмку с дрона — тремя короткими фактами, как в карточках
   // форматов на обучении.
   const droneFacts = [
-    { icon: IconClock, label: `Сессия ${drone.durationMin} минут` },
-    { icon: IconCheck, label: "Исходники отдаём" },
-    { icon: IconDrone, label: "Съёмка с воздуха" },
+    { icon: IconClock, label: t("droneFacts.session", { minutes: drone.durationMin ?? 0 }) },
+    { icon: IconCheck, label: t("droneFacts.raw") },
+    { icon: IconDrone, label: t("droneFacts.aerial") },
   ];
 
   return (
     <>
       {/* Прайс для поисковиков: те же услуги и те же цены, что в карточках
           ниже — и то и другое берётся из базы, разъехаться не может. */}
-      <JsonLd data={priceListSchema(site)} />
+      <JsonLd
+        data={priceListSchema(site, tSchema("catalogName"), (cat) => tCategory(cat))}
+      />
 
       {/* ── Первый экран ── */}
       {/* Собран ровно как первый экран тандема, под макет hero_maket_3
@@ -163,7 +188,7 @@ export default async function PricesPage() {
           <div className="relative -ml-[4.2%] w-[104.2%] lg:ml-0 lg:w-full">
             <Image
               src="/media/photo/prices/hero.webp"
-              alt="Электрофойл на воде в бухте Нячанга, на фоне город и горы"
+              alt={t("heroAlt")}
               width={1669}
               height={942}
               priority
@@ -182,13 +207,10 @@ export default async function PricesPage() {
               шапкой, а под ним зияла пустая половина экрана. */}
           <div className="pb-10 pt-8 lg:max-w-[46%] lg:py-12">
             <h1 className="text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
-              Стоимость услуг
+              {t("title")}
             </h1>
             <Squiggle long className="mt-4" />
-            <p className="mt-5 max-w-xl text-muted">
-              Все цены в донгах (₫), оплата на месте. Снаряжение, жилет и связь на
-              воде входят в стоимость занятия — доплачивать за них не нужно.
-            </p>
+            <p className="mt-5 max-w-xl text-muted">{t("lead")}</p>
           </div>
         </Container>
       </section>
@@ -251,7 +273,7 @@ export default async function PricesPage() {
               <div className="mx-auto max-w-[16rem] shrink-0 sm:max-w-[19rem] lg:mx-0 lg:w-[23rem] lg:max-w-none">
                 <Image
                   src={drone.image ?? "/placeholders/media.svg"}
-                  alt="Дрон Hover Aqua Pro в полёте над морем"
+                  alt={t("droneAlt")}
                   width={900}
                   height={900}
                   quality={90}
@@ -261,13 +283,10 @@ export default async function PricesPage() {
               </div>
 
               <div className="mt-6 lg:mt-0 lg:flex-1">
-                <Badge>Новое</Badge>
+                <Badge>{t("droneBadge")}</Badge>
                 <h2 className="mt-4 text-2xl font-bold leading-tight sm:text-3xl">{drone.name}</h2>
                 <p className="mt-3 max-w-xl text-muted">
-                  Дрон Hover Aqua Pro идёт над водой следом за вами и снимает
-                  полёт со стороны. Одна сессия длится {drone.durationMin} минут,
-                  все исходники отдаём без обработки. Если потребуется
-                  обработка — у нас есть услуга монтажа.
+                  {t("droneText", { minutes: drone.durationMin ?? 0 })}
                 </p>
 
                 <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-3">
@@ -284,17 +303,17 @@ export default async function PricesPage() {
                     колонку, и абзац вставал в семь строк. */}
                 <div className="mt-6 border-t border-line pt-5 sm:flex sm:items-center sm:justify-between sm:gap-6">
                   <div>
-                    <p className="text-sm text-muted">Стоимость сессии</p>
-                    <p className="mt-1 text-3xl font-bold text-primary">{formatVnd(drone.price)}</p>
+                    <p className="text-sm text-muted">{t("dronePrice")}</p>
+                    <p className="mt-1 text-3xl font-bold text-primary">{formatPrice(locale, drone.price, tCommon("onRequest"))}</p>
                   </div>
                   <div className="mt-4 sm:mt-0 sm:shrink-0">
                     <BookBtn
-                      serviceId={dbId(drone.name)}
+                      serviceId={dbId(drone.id)}
                       place="prices-drone"
                       size="lg"
                       className="w-full sm:w-auto"
                     >
-                      Заказать съёмку
+                      {t("droneBook")}
                     </BookBtn>
                   </div>
                 </div>
@@ -310,14 +329,14 @@ export default async function PricesPage() {
           <div className="rounded-3xl border border-line bg-surface p-5 sm:p-6">
             <ul className="grid gap-2.5 sm:grid-cols-2">
               {[
-                "Экскурсия и сафари — по одобрению инструктора: вы должны хорошо чувствовать доску.",
-                "Абонемент выгоднее разового проката.",
-                "Минуты абонемента действуют 3 месяца и списываются по факту катания.",
-                "Первый абонемент включает обучающее занятие с инструктором.",
-              ].map((t) => (
-                <li key={t} className="flex gap-2 text-sm text-muted">
+                t("notes.tours"),
+                t("notes.subscription"),
+                t("notes.minutes"),
+                t("notes.firstLesson"),
+              ].map((note) => (
+                <li key={note} className="flex gap-2 text-sm text-muted">
                   <IconCheck aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                  {t}
+                  {note}
                 </li>
               ))}
             </ul>
@@ -325,10 +344,10 @@ export default async function PricesPage() {
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Button href="/training" variant="secondary">
-              Подробнее об обучении <IconArrowRight className="h-4 w-4" />
+              {t("moreTraining")} <IconArrowRight className="h-4 w-4" />
             </Button>
             <Button href="/club" variant="secondary">
-              Про клуб и абонемент <IconArrowRight className="h-4 w-4" />
+              {t("moreClub")} <IconArrowRight className="h-4 w-4" />
             </Button>
           </div>
         </Container>
