@@ -278,48 +278,39 @@ export default async function TrainingPage() {
               </h2>
               <WatchVideoBtn target={VIDEO_ID} className="md:hidden" />
             </div>
-            <div className="mt-8 md:grid md:grid-cols-12 md:gap-10">
+            {/* items-center: колонки разной высоты (шаги и ролик 9:16), и
+                ролик встаёт по центру дорожки шагов — так же, как на тандеме. */}
+            <div className="mt-8 md:flex md:items-center md:gap-10">
               {/* На телефоне дорожку шагов ужимаем до ширины ролика под ней:
                   карточки во всю ширину экрана над узким вертикальным видео
-                  выглядели обрубком. На ПК колонки живут своей шириной. */}
-              <div className="mx-auto w-full max-w-[330px] md:col-span-7 md:max-w-none">
+                  выглядели обрубком. На ПК шаги забирают всё, что осталось от
+                  колонки ролика. */}
+              <div className="mx-auto w-full max-w-[330px] md:max-w-none md:flex-1">
                 <TrainingSteps steps={steps} />
               </div>
-              {/* Ролик снят вертикально, показываем в бирюзовой рамке с
-                  воздухом вокруг кадра.
-                  На ПК рамка тянется на всю высоту колонки шагов — от первого
-                  до последнего, поэтому у видео там не своё соотношение сторон,
-                  а высота родителя, и лишнее по краям срезается (object-cover).
-                  На телефоне видео идёт под шагами в родных 9:16. */}
-              <div className="relative mx-auto mt-6 w-full max-w-[330px] rounded-[1.75rem] border-2 border-primary/30 bg-surface p-3 shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)] md:col-span-5 md:mt-0 md:max-w-none">
-                {/* На ПК из потока вынуто не само видео, а эта обёртка
-                    (absolute inset-3): иначе видео тянет высоту рамки под свои
-                    9:16 и рамка становится выше колонки шагов — то есть
-                    растягивается не она под шаги, а строка сетки под неё.
-                    Пустая рамка высоты не имеет и честно тянется до низа
-                    последнего шага.
-                    Обёртка обязательна: у самого видео, положенного в absolute
-                    с inset-3, ширина и высота auto считаются НЕ от краёв рамки,
-                    а от родного размера файла — оно вылезало за рамку на
-                    127 px. Внутри обёртки h-full считается от неё, и всё
-                    сходится. */}
-                <div className="md:absolute md:inset-3">
-                  <video
-                    id={VIDEO_ID}
-                    src="/media/video/obuchenie.mp4"
-                    poster="/media/video/obuchenie-poster.jpg"
-                    controls
-                    playsInline
-                    preload="none"
-                    // object-cover нужен только внутри рамки на странице. В
-                    // полноэкранном режиме класс никуда не девается, и браузер
-                    // режет вертикальный кадр под 16:9 монитора — поэтому там
-                    // переключаемся на contain (по бокам чёрные поля) и
-                    // отпускаем соотношение сторон. Дубль с -webkit- — для
-                    // старых Safari, где :fullscreen без префикса не понимается.
-                    className="aspect-[9/16] w-full rounded-[1.15rem] bg-surface-2 object-cover md:aspect-auto md:h-full [&:-webkit-full-screen]:aspect-auto [&:-webkit-full-screen]:object-contain [&:fullscreen]:aspect-auto [&:fullscreen]:object-contain"
-                  />
-                </div>
+              {/* Ролик снят вертикально (файл 720×1280), показываем в
+                  бирюзовой рамке с воздухом вокруг кадра и ВСЕГДА в родных
+                  9:16. Раньше на ПК рамка тянулась на всю высоту колонки шагов,
+                  видео брало высоту родителя и object-cover срезал ему бока —
+                  кадр приезжал примерно как 3:4. Теперь колонка фиксированной
+                  ширины, как на странице тандема, и кадр виден целиком. */}
+              <div className="mx-auto mt-6 w-full max-w-[330px] rounded-[1.75rem] border-2 border-primary/30 bg-surface p-3 shadow-[0_18px_40px_-30px_rgba(15,34,51,0.5)] md:mt-0 md:w-[300px] md:max-w-none md:shrink-0 lg:w-[340px]">
+                <video
+                  id={VIDEO_ID}
+                  src="/media/video/obuchenie.mp4"
+                  poster="/media/video/obuchenie-poster.jpg"
+                  controls
+                  playsInline
+                  preload="none"
+                  // Соотношение рамки совпадает с соотношением файла, так что
+                  // резать object-cover нечего. В полноэкранном режиме класс
+                  // никуда не девается, и браузер подгонял бы вертикальный кадр
+                  // под 16:9 монитора — поэтому там contain (по бокам чёрные
+                  // поля) и отпущенное соотношение сторон. Дубль с -webkit- —
+                  // для старых Safari, где :fullscreen без префикса не
+                  // понимается.
+                  className="aspect-[9/16] w-full rounded-[1.15rem] bg-surface-2 object-cover [&:-webkit-full-screen]:aspect-auto [&:-webkit-full-screen]:object-contain [&:fullscreen]:aspect-auto [&:fullscreen]:object-contain"
+                />
               </div>
             </div>
           </div>
