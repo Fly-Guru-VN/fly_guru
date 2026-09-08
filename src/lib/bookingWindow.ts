@@ -17,6 +17,11 @@ import { VN_OFFSET_MS } from "@/lib/dates";
 export const BOOKING_OPEN_HOUR = 8; // раньше 8 утра заявки не принимаем
 export const BOOKING_DEADLINE_HOUR = 20; // 20:00 предыдущего дня
 export const CANCEL_WINDOW_MIN = 60; // за час до начала
+// За сколько до начала уходит второе напоминание в бота (крон booking-reminder,
+// решение David от 08.09.2026). Два часа, а не час: напоминание должно застать
+// человека ДО того, как отмена закроется, иначе оно бесполезно — отменять уже
+// нечем, остаётся писать в поддержку.
+export const REMINDER_LEAD_MIN = 120;
 
 // Момент вьетнамских «стенных часов» в обычном времени (epoch ms).
 // day — 'YYYY-MM-DD', hhmm — 'HH:MM'.
@@ -96,4 +101,26 @@ export function canCancelBooking(
   const start = vnMomentMs(day, parseTimeText(timeText) ?? "00:00");
   if (start === null) return false;
   return nowMs <= start - CANCEL_WINDOW_MIN * 60 * 1000;
+}
+
+// Пора ли напоминать о записи «за два часа».
+//
+// Крон бегает раз в полчаса, поэтому нижней границы у окна нет: годится всё,
+// что начнётся в ближайшие два часа и ещё не началось. Повторов не будет —
+// отправленное отмечается в самой заявке (bookings.reminded_soon_at, 0058).
+//
+// Время не разобрали («созвонимся», «утром») — не напоминаем: прислать не
+// вовремя хуже, чем не прислать. Вечернее напоминание такому клиенту всё
+// равно уходит, там время не нужно.
+export function isSoonReminderDue(
+  day: string | null,
+  timeText: string | null,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!day) return false;
+  const time = parseTimeText(timeText);
+  if (!time) return false;
+  const start = vnMomentMs(day, time);
+  if (start === null) return false;
+  return start > nowMs && start - nowMs <= REMINDER_LEAD_MIN * 60 * 1000;
 }

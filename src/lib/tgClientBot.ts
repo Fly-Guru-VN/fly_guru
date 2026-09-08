@@ -37,6 +37,13 @@ export const CABINET_KEYBOARD = {
   is_persistent: true,
 };
 
+// Кнопка «открыть кабинет» под конкретным сообщением. В отличие от постоянной
+// клавиатуры выше, она живёт при своём сообщении — этим и удобна напоминалкам:
+// человек читает «завтра в 9:00» и тут же открывает кабинет, чтобы отменить.
+export const OPEN_CABINET_BUTTON = {
+  inline_keyboard: [[{ text: "🪁 Открыть кабинет", web_app: { url: MEMBER_APP_URL } }]],
+};
+
 type ReplyMarkup = Record<string, unknown>;
 
 // Обращение к Telegram от имени клиентского бота. Как и в lib/telegram, сбой не

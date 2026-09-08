@@ -6,6 +6,7 @@ import {
   canCancelBooking,
   firstBookableDay,
   isBookingOpenNow,
+  isSoonReminderDue,
   parseTimeText,
   vnMomentMs,
 } from "@/lib/bookingWindow";
@@ -89,4 +90,26 @@ test("время из свободного текста заявки", () => {
   assert.equal(parseTimeText("утром"), null);
   assert.equal(parseTimeText("99:99"), null);
   assert.equal(parseTimeText(null), null);
+});
+
+// ── напоминание «за два часа» (крон booking-reminder, этап 5 prompt 12) ──────
+test("напоминание уходит за два часа до начала и не раньше", () => {
+  const start = vn("2026-09-10", "09:00");
+  // За три часа — рано, крон ещё промолчит.
+  assert.equal(isSoonReminderDue("2026-09-10", "09:00", start - 3 * 3600_000), false);
+  // Ровно за два часа и внутри окна — пора.
+  assert.equal(isSoonReminderDue("2026-09-10", "09:00", start - 2 * 3600_000), true);
+  assert.equal(isSoonReminderDue("2026-09-10", "09:00", start - 30 * 60_000), true);
+});
+
+test("после начала занятия напоминание уже не уходит", () => {
+  const start = vn("2026-09-10", "09:00");
+  assert.equal(isSoonReminderDue("2026-09-10", "09:00", start), false);
+  assert.equal(isSoonReminderDue("2026-09-10", "09:00", start + 60_000), false);
+});
+
+test("без разобранного времени за два часа не напоминаем", () => {
+  const start = vn("2026-09-10", "09:00");
+  assert.equal(isSoonReminderDue("2026-09-10", "созвонимся", start - 3600_000), false);
+  assert.equal(isSoonReminderDue(null, "09:00", start - 3600_000), false);
 });
