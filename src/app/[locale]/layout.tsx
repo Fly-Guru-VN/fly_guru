@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
+import Script from "next/script";
 import { Manrope } from "next/font/google";
 import { notFound } from "next/navigation";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
@@ -22,6 +23,20 @@ const font = Manrope({
   subsets: ["latin", "cyrillic"],
   variable: "--font-app",
 });
+
+// Счётчик Google Analytics 4 (аккаунт flyguru.pro). ID публичный по своей
+// природе — он и так виден в исходнике страницы, поэтому держим его здесь, а не
+// в env: одно место, ничего не забудешь прописать на Vercel.
+const GA_ID = "G-QXK4DXPN3X";
+
+// Тег ставим только на бою. На localhost NODE_ENV === "development", и без этой
+// проверки каждая наша отладка попадала бы в отчёты как визит клиента.
+// Preview-деплои Vercel отсекаем отдельно: если системная переменная не
+// прокинута в сборку, условие остаётся истинным — лучше лишний preview в
+// статистике, чем молча потерянный счётчик на проде.
+const GA_ENABLED =
+  process.env.NODE_ENV === "production" &&
+  process.env.NEXT_PUBLIC_VERCEL_ENV !== "preview";
 
 const TITLE = "FlyGuru — школа электрофойлов в Нячанге";
 const DESCRIPTION =
@@ -126,6 +141,25 @@ export default async function LocaleLayout({
             cookie и без личных данных, поэтому баннер согласия не нужен.
             Данные — во вкладке Analytics проекта на Vercel. */}
         <Analytics />
+        {/* Тег Google по инструкции GA4: сначала загрузчик gtag.js, следом
+            инициализация. strategy="afterInteractive" — Next сам вставит их в
+            страницу после гидрации, чтобы счётчик не задерживал первый экран.
+            Переходы между страницами GA4 считает сам (в Enhanced measurement
+            включён пункт про историю браузера), отдельного кода не нужно. */}
+        {GA_ENABLED ? (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="ga4" strategy="afterInteractive">
+              {`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '${GA_ID}');`}
+            </Script>
+          </>
+        ) : null}
       </body>
     </html>
   );
