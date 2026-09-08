@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { localeAlternates } from "@/lib/alternates";
 import Image from "next/image";
 import { Container, Section, Badge, buttonClasses } from "@/components/ui";
 import { Squiggle } from "@/components/Squiggle";
@@ -24,7 +25,10 @@ import { formatVnd, formatDuration } from "@/content/services";
 import { getActiveServices, getSiteServices, pickService } from "@/lib/services";
 import { socials } from "@/content/contacts";
 
-export const metadata: Metadata = { title: "Клуб" };
+export const metadata: Metadata = {
+  title: "Клуб",
+  alternates: localeAlternates("/club"),
+};
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
 // Клубный Telegram-канал — единственная клубная ссылка, которая реально живёт

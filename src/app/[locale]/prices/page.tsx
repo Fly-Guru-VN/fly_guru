@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { localeAlternates } from "@/lib/alternates";
 import Image from "next/image";
 import { Container, Section, Badge, Button } from "@/components/ui";
 import { Squiggle } from "@/components/Squiggle";
@@ -24,7 +25,10 @@ import {
   IconVest,
 } from "@/components/icons";
 
-export const metadata: Metadata = { title: "Прайс" };
+export const metadata: Metadata = {
+  title: "Прайс",
+  alternates: localeAlternates("/prices"),
+};
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
 // Порядок вкладок в прайсе: сначала то, с чего начинают, потом клубное и допы.

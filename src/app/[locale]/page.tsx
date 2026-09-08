@@ -1,4 +1,6 @@
+import type { Metadata } from "next";
 import Image from "next/image";
+import { localeAlternates } from "@/lib/alternates";
 import { Container, Section, SectionHeading, Button, buttonClasses } from "@/components/ui";
 import { TrackedLink } from "@/components/TrackedLink";
 import { JsonLd } from "@/components/JsonLd";
@@ -29,6 +31,13 @@ import {
 } from "@/components/icons";
 import { homeFaq } from "@/content/faq";
 import { homeReviews } from "@/content/reviews";
+
+// Заголовок и описание у главной свои не нужны — их даёт layout. А вот
+// hreflang нужен именно здесь: в layout он достался бы по наследству всем
+// страницам сайта разом и увёл бы их переводы на главную.
+export const metadata: Metadata = {
+  alternates: localeAlternates("/"),
+};
 
 // Страница полностью статична — форсим SSG. В Next 16 классификация
 // static/dynamic для страниц с next-intl Link нестабильна; директива это фиксирует.

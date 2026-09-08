@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { localeAlternates } from "@/lib/alternates";
 import Image from "next/image";
 import { Container, Section, buttonClasses } from "@/components/ui";
 import { Squiggle } from "@/components/Squiggle";
@@ -14,7 +15,10 @@ import {
 } from "@/components/icons";
 import { getActiveServices } from "@/lib/services";
 
-export const metadata: Metadata = { title: "Тандем" };
+export const metadata: Metadata = {
+  title: "Тандем",
+  alternates: localeAlternates("/tandem"),
+};
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
 // Ролик «как это проходит» лежит в инстаграме — отдельной страницы под него нет.

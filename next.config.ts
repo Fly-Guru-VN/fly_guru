@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { LOCALES, PREFIXED_LOCALES } from "./src/i18n/locales";
 
 // Оборачиваем конфиг плагином next-intl: он подключает src/i18n/request.ts
 // и включает поддержку сообщений/локалей на уровне сборки.
@@ -44,7 +45,10 @@ const nextConfig: NextConfig = {
       "reset-password",
       "invite",
     ];
-    const localePrefixes = ["", "/en", "/vi"];
+    // Языковые префиксы адресов: "" — русский (он без префикса), остальные
+    // берём из общего списка. Раньше здесь стояли захардкоженные "/en" и
+    // "/vi": новый язык молча оставался бы без защитных заголовков.
+    const localePrefixes = ["", ...PREFIXED_LOCALES.map((l) => `/${l}`)];
 
     return [
       {
@@ -75,8 +79,9 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source:
-          "/:path((?!member(?:/.*)?$|ru/member(?:/.*)?$|en/member(?:/.*)?$|vi/member(?:/.*)?$).+)",
+        source: `/:path((?!${["", ...LOCALES.map((l) => `${l}/`)]
+          .map((prefix) => `${prefix}member(?:/.*)?$`)
+          .join("|")}).+)`,
         headers: [
           { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
         ],

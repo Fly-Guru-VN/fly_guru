@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
+import { DEFAULT_LOCALE, OG_LOCALE } from "@/i18n/locales";
 import { SiteHeader } from "@/components/SiteHeader";
 import { PageTransition } from "@/components/PageTransition";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -42,7 +43,24 @@ const TITLE = "FlyGuru — школа электрофойлов в Нячанг
 const DESCRIPTION =
   "Обучение полёту на электрофойле в Нячанге. 90% учеников едут уже на первом занятии.";
 
-export const metadata: Metadata = {
+// Метаданные собираются на каждый язык отдельно: страница обязана честно
+// сказать мессенджеру и поисковику, на каком она языке (og:locale). Тексты
+// заголовка и описания пока русские — они переедут в messages на этапе
+// переводов.
+//
+// Сами hreflang-ссылки здесь НЕ проставляем: alternates в layout
+// унаследовались бы всеми страницами разом, и у /training canonical стал бы
+// адресом главной. Их отдаёт next-intl — своим alternate-заголовком на каждый
+// ответ, — плюс sitemap.xml.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const appLocale = hasLocale(routing.locales, locale) ? locale : DEFAULT_LOCALE;
+
+  return {
   // metadataBase превращает относительные пути ниже (/og.jpg) в абсолютные.
   // Без него Next не может собрать og:image, а мессенджеры показывают ссылку
   // голым текстом — именно так flyguru.pro и уходила клиентам в WhatsApp.
@@ -57,7 +75,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "FlyGuru",
-    locale: "ru_RU",
+    locale: OG_LOCALE[appLocale],
     url: SITE_URL,
     title: TITLE,
     description: DESCRIPTION,
@@ -76,7 +94,8 @@ export const metadata: Metadata = {
     description: DESCRIPTION,
     images: ["/og.jpg"],
   },
-};
+  };
+}
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useBooking } from "./BookingProvider";
 import { NAV_LINKS } from "./nav";
 import { IconClose, IconMenu } from "./icons";
+import { LocaleSwitcher } from "./LocaleSwitcher";
 import { SlidingHighlight } from "./SlidingHighlight";
 import { useOptimisticPath } from "./useOptimisticPath";
 
@@ -121,34 +122,47 @@ export function SiteHeader() {
     // почти незаметен — за это его и любим). С 768 px берём обычный градиент.
     <header className="sticky top-0 z-50 bg-[linear-gradient(90deg_in_oklab,var(--color-primary)_0%,var(--color-primary-strong)_220%)] text-white shadow-[0_2px_14px_rgba(11,110,127,0.28)] md:bg-gradient-to-r md:from-primary md:to-primary-strong">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 font-bold" onClick={() => setOpen(false)}>
-          <Image
-            src="/brand/flyguru-logo.jpg"
-            alt="FlyGuru"
-            width={36}
-            height={36}
-            className="rounded-full ring-2 ring-white/70"
-            priority
-          />
-          <span className="text-lg">FlyGuru</span>
-        </Link>
+        {/* Логотип и планетка — одна группа: выбор языка человек ищет глазами
+            именно у названия сайта, а не в конце меню. Планетка вынесена ИЗ
+            ссылки на главную: кнопка внутри ссылки — невалидная разметка, и
+            нажатие уводило бы на главную вместо открытия списка. */}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-bold"
+            onClick={() => setOpen(false)}
+          >
+            <Image
+              src="/brand/flyguru-logo.jpg"
+              alt="FlyGuru"
+              width={36}
+              height={36}
+              className="rounded-full ring-2 ring-white/70"
+              priority
+            />
+            <span className="text-lg">FlyGuru</span>
+          </Link>
+          <LocaleSwitcher />
+        </div>
 
         {/* Десктоп-навигация. Подсветка раздела — не фон у ссылки, а отдельная
             плашка, которая переезжает между вкладками (SlidingHighlight) и
             подтягивается к той, на которую навели.
             Кружка загрузки у пунктов нет намеренно: он раздвигал ширину пункта,
             плашка под ним дёргалась, а страницы сайта и так открываются сразу. */}
-        {/* Порог у меню НЕ md (768), а 960 px — единственное место, где шапка
+        {/* Порог у меню НЕ md (768), а 1000 px — единственное место, где шапка
             расходится с общей сеткой сайта, и менять его на md нельзя.
             Логотип, семь пунктов, «Вход» и «Записаться» требуют 869 px: на 768
             они не помещались, вылезали за край, и вбок уезжала ВСЯ страница —
             шапка sticky и тянет документ за собой. Ужимать пункты пришлось бы
             на сотню пикселей, это уже нечитаемый кегль, поэтому до порога
             работает бургер, как на телефоне.
-            Именно 960, а не 870: на 900–920 меню встаёт вплотную к логотипу
-            (замерено — зазор 0, плашка активного пункта наезжает на «FlyGuru»),
-            а с 960 между ними появляется воздух. */}
-        <nav className="hidden items-center gap-1 min-[960px]:flex">
+            Было 960 (на 900–920 меню вставало вплотную к логотипу, зазор 0).
+            Планетка добавила у логотипа ещё 86 px вместе с отступом, и порог
+            переехал ровно на эту величину. Замерено заново: меню упирается в
+            планетку до 1042 px, зазор появляется дальше — на 1080 между ними
+            38 px воздуха, как было до планетки. */}
+        <nav className="hidden items-center gap-1 min-[1080px]:flex">
           <SlidingHighlight
             activeKey={NAV_LINKS.find((l) => isCurrent(l.href))?.href ?? null}
             pillClassName="bg-white/20"
@@ -193,7 +207,7 @@ export function SiteHeader() {
           aria-label="Меню"
           aria-expanded={open}
           aria-controls="mobile-menu"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 active:scale-95 min-[960px]:hidden"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white transition-colors hover:bg-white/25 active:scale-95 min-[1080px]:hidden"
         >
           {/* Обе иконки лежат друг на друге в квадрате 24×24 по центру кнопки и
               переключаются прозрачностью с доворотом: палец видит, что нажатие
@@ -244,7 +258,7 @@ export function SiteHeader() {
       <div
         id="mobile-menu"
         inert={!open}
-        className={`grid overflow-hidden transition-[grid-template-rows,visibility] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none min-[960px]:hidden ${
+        className={`grid overflow-hidden transition-[grid-template-rows,visibility] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none min-[1080px]:hidden ${
           open ? "visible grid-rows-[1fr]" : "invisible grid-rows-[0fr]"
         }`}
       >

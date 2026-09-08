@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { HREFLANG, LOCALES, DEFAULT_LOCALE, localePath } from "@/i18n/locales";
 import { SITE_URL } from "@/lib/site";
 
 // sitemap.xml — список страниц, которые мы САМИ предлагаем поисковику. Next
@@ -22,10 +23,28 @@ const PAGES: { path: string; priority: number; changeFrequency: "weekly" | "mont
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
-  return PAGES.map(({ path, priority, changeFrequency }) => ({
-    url: `${SITE_URL}${path}`,
-    lastModified,
-    changeFrequency,
-    priority,
-  }));
+
+  // Каждая страница попадает в карту семь раз — по разу на язык. Рядом с
+  // каждой перечисляем все её переводы (hreflang): так поисковик понимает, что
+  // /training и /de/training — это одна и та же страница на разных языках, а не
+  // двойники, и показывает немцу немецкую версию.
+  return PAGES.flatMap(({ path, priority, changeFrequency }) => {
+    const languages = Object.fromEntries([
+      ...LOCALES.map((locale) => [
+        HREFLANG[locale],
+        `${SITE_URL}${localePath(locale, path)}`,
+      ]),
+      // Для языков, которых у нас нет вовсе (японец, араб), поисковик должен
+      // предложить что-то одно — отдаём версию по умолчанию.
+      ["x-default", `${SITE_URL}${localePath(DEFAULT_LOCALE, path)}`],
+    ]);
+
+    return LOCALES.map((locale) => ({
+      url: `${SITE_URL}${localePath(locale, path)}`,
+      lastModified,
+      changeFrequency,
+      priority,
+      alternates: { languages },
+    }));
+  });
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { localeAlternates } from "@/lib/alternates";
 import Image from "next/image";
 import { Container, Section } from "@/components/ui";
 import { HeroStage } from "@/components/HeroStage";
@@ -20,7 +21,10 @@ import {
 import { BookBtn } from "@/components/BookBtn";
 import { getActiveServices, getSiteServices, pickService } from "@/lib/services";
 
-export const metadata: Metadata = { title: "Обучение" };
+export const metadata: Metadata = {
+  title: "Обучение",
+  alternates: localeAlternates("/training"),
+};
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
 // Кнопка «Смотреть видео» у заголовка ищет ролик по этому id.

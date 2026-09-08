@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { localeAlternates } from "@/lib/alternates";
 import Image from "next/image";
 import { Container, Section, buttonClasses } from "@/components/ui";
 import { Squiggle } from "@/components/Squiggle";
@@ -20,7 +21,10 @@ import {
 } from "@/components/icons";
 import { contacts, socials } from "@/content/contacts";
 
-export const metadata: Metadata = { title: "Контакты" };
+export const metadata: Metadata = {
+  title: "Контакты",
+  alternates: localeAlternates("/contacts"),
+};
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
 // Страница контактов собрана по макету ref_rewie_hero (01.09.2026): на первом

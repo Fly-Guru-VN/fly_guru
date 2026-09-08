@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import type { Metadata } from "next";
+import { localeAlternates } from "@/lib/alternates";
 import Image from "next/image";
 import { Container, Section, buttonClasses } from "@/components/ui";
 import { Squiggle } from "@/components/Squiggle";
@@ -15,7 +16,10 @@ import { IconStar, IconArrowRight } from "@/components/icons";
 import { reviews } from "@/content/reviews";
 import { contacts } from "@/content/contacts";
 
-export const metadata: Metadata = { title: "Отзывы" };
+export const metadata: Metadata = {
+  title: "Отзывы",
+  alternates: localeAlternates("/reviews"),
+};
 export const dynamic = "force-static"; // статичная страница, форсим SSG
 
 // Страница отзывов собрана тем же языком, что обучение, тандем и клуб: кадр во
