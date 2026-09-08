@@ -15,6 +15,7 @@ interface BookingPayload {
   serviceId?: string; // uuid услуги из таблицы services
   preferredDate?: string; // желаемая дата 'YYYY-MM-DD'
   comment?: string;
+  certificateCode?: string; // номер подарочного сертификата (0059), необязателен
   honeypot?: string; // поле-ловушка: у живого человека всегда пустое
   // Метки источника, собранные на клиенте (см. lib/attribution.ts):
   ref_code?: string | null;
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
     // Это текст, который ввёл сам гость: его можно вернуть тому же клиенту в
     // Mini App. Служебные комментарии агента этот флаг не получают.
     publicNote: body.comment ?? null,
+    certificateCode: body.certificateCode ?? null,
     refCode: body.ref_code ?? null,
     src: body.src ?? null,
     utm: cleanUtm(body.utm),

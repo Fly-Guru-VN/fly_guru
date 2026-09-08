@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { trackEvent } from "@/lib/analytics";
 import { forgetRefCode, getAttributionForBooking } from "@/lib/attribution";
@@ -46,6 +46,24 @@ const inputClass =
 
 type Status = "idle" | "submitting" | "error" | "badPhone";
 
+// Подарочный сертификат (0059). Гость вводит номер с бумажного бланка, и
+// услуга подставляется сама — она у сертификата своя и выбору не подлежит.
+type CertState =
+  | { kind: "idle" }
+  | { kind: "checking" }
+  | { kind: "ok"; serviceName: string }
+  | { kind: "bad"; message: string };
+
+// Почему номер не подошёл — словами гостя. Ключи приходят с сервера
+// (api/certificates/check и ошибки самой заявки).
+const CERT_MESSAGES: Record<string, string> = {
+  not_found: "Такого номера нет. Проверьте, как он написан на сертификате.",
+  used: "Этот сертификат уже использован.",
+  expired: "Срок сертификата истёк — он действует 3 месяца со дня покупки.",
+  rate_limited: "Слишком много попыток. Подождите минуту.",
+  error: "Не удалось проверить номер. Попробуйте ещё раз.",
+};
+
 export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: BookingFormProps) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
@@ -70,6 +88,59 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
   // Показываем ошибку только после того, как гость начал печатать: пустое
   // поле при загрузке страницы не должно краснеть.
   const phoneBad = phone.trim().length > 0 && !isValidPhone(phone);
+
+  // Номер сертификата и что про него сказал сервер. Проверяем по уходу из
+  // поля, а не на каждую букву: у проверки жёсткий лимит частоты (перебор
+  // номеров), и печатающий человек съел бы его за секунду.
+  const [certCode, setCertCode] = useState("");
+  const [cert, setCert] = useState<CertState>({ kind: "idle" });
+  const checkedCode = useRef("");
+
+  async function checkCertificate() {
+    const code = certCode.trim();
+    if (!code) {
+      setCert({ kind: "idle" });
+      checkedCode.current = "";
+      return;
+    }
+    // Тот же номер второй раз не спрашиваем: гость мог просто кликнуть мимо.
+    if (checkedCode.current === code && cert.kind !== "idle") return;
+
+    checkedCode.current = code;
+    setCert({ kind: "checking" });
+    try {
+      const res = await fetch("/api/certificates/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        reason?: string;
+        serviceId?: string;
+        serviceName?: string;
+      };
+      if (data.ok && data.serviceId) {
+        setServiceId(data.serviceId);
+        setCert({ kind: "ok", serviceName: data.serviceName ?? "занятие" });
+        return;
+      }
+      setCert({
+        kind: "bad",
+        message: CERT_MESSAGES[data.reason ?? ""] ?? CERT_MESSAGES.error,
+      });
+    } catch {
+      setCert({ kind: "bad", message: CERT_MESSAGES.error });
+    }
+  }
+
+  // Снять сертификат: гость ошибся номером или передумал — возвращаем ему
+  // обычный выбор услуги.
+  function dropCertificate() {
+    setCertCode("");
+    setCert({ kind: "idle" });
+    checkedCode.current = "";
+  }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -98,6 +169,9 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
       serviceId,
       preferredDate: String(data.get("preferredDate") ?? ""),
       comment: String(data.get("comment") ?? ""),
+      // Номер шлём как есть, даже непроверенный: последнее слово всё равно за
+      // сервером — он гасит сертификат и сам ставит его услугу.
+      certificateCode: certCode.trim(),
       honeypot: String(data.get("company") ?? ""), // поле-ловушка (см. ниже)
       ref_code: refCode || attribution.ref_code,
       src: attribution.src,
@@ -110,7 +184,21 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("request failed");
+      if (!res.ok) {
+        // Сертификат мог «сгореть» между проверкой и отправкой — например, его
+        // ввёл кто-то ещё. Это не поломка сети, и гостю надо сказать именно
+        // про номер, а не «попробуйте ещё раз».
+        const failed = (await res.json().catch(() => null)) as { error?: string } | null;
+        const reason = failed?.error?.startsWith("certificate_")
+          ? failed.error.slice("certificate_".length)
+          : null;
+        if (reason) {
+          setCert({ kind: "bad", message: CERT_MESSAGES[reason] ?? CERT_MESSAGES.error });
+          setStatus("idle");
+          return;
+        }
+        throw new Error("request failed");
+      }
       // Успех — уводим на страницу «спасибо» (с номером заявки, если сервер
       // его вернул: клиент сможет назвать номер при созвоне).
       const { bookingNo, refAccepted } = (await res.json()) as {
@@ -209,10 +297,67 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
         </p>
       </div>
 
+      {/* Сертификат. Стоит ПЕРЕД услугой: введённый номер её и задаёт, и
+          показывать после этого список выбора незачем. */}
+      <div>
+        <label htmlFor="certificateCode" className="mb-1 block text-sm font-medium">
+          Номер сертификата <span className="font-normal text-muted">(дополнительно)</span>
+        </label>
+        <div className="flex gap-2">
+          <input
+            id="certificateCode"
+            type="text"
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="FG-7K3M-92QD"
+            value={certCode}
+            onChange={(e) => {
+              setCertCode(e.target.value);
+              if (cert.kind !== "idle") setCert({ kind: "idle" });
+            }}
+            onBlur={checkCertificate}
+            aria-invalid={cert.kind === "bad" || undefined}
+            className={`${inputClass} min-w-0 flex-1 uppercase`}
+          />
+          {cert.kind === "ok" && (
+            <button
+              type="button"
+              onClick={dropCertificate}
+              className="shrink-0 rounded-xl border border-line px-4 text-sm font-semibold text-muted transition-colors hover:border-primary"
+            >
+              Убрать
+            </button>
+          )}
+        </div>
+        {cert.kind === "checking" && (
+          <p className="mt-1 flex items-center gap-2 text-sm text-muted">
+            <Spinner className="h-4 w-4" />
+            Проверяем номер…
+          </p>
+        )}
+        {cert.kind === "bad" && <p className="mt-1 text-sm text-red-600">{cert.message}</p>}
+        {cert.kind === "idle" && (
+          <p className="mt-1 text-xs text-muted sm:text-sm">
+            Есть подарочный сертификат — введите номер, услуга подставится сама
+          </p>
+        )}
+      </div>
+
       {/* Услуга — свёрнутым списком. Все услуги разом занимали пол-формы, и
           на телефоне до даты и комментария приходилось долго крутить.
           Цена и агентская скидка никуда не делись: они видны и в свёрнутой
-          строке, и в раскрытом списке. */}
+          строке, и в раскрытом списке.
+          По сертификату выбора нет: услуга у него своя, и менять её гость не
+          может — сервер всё равно поставит ту, что записана в сертификате. */}
+      {cert.kind === "ok" ? (
+        <div className="rounded-xl border border-line bg-surface px-4 py-3">
+          <p className="text-sm font-medium">По сертификату: {cert.serviceName}</p>
+          <p className="mt-1 text-xs text-muted sm:text-sm">
+            Услуга уже выбрана. Нужна другая — нажмите «Убрать» рядом с номером.
+          </p>
+        </div>
+      ) : (
       <div>
         <ServicePicker
           services={services}
@@ -231,6 +376,7 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
           </p>
         )}
       </div>
+      )}
 
       <div>
         <label htmlFor="preferredDate" className="mb-1 block text-sm font-medium">

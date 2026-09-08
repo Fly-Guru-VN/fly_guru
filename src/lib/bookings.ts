@@ -3,6 +3,13 @@ import { isValidPhone, normalizeTelegram, phoneDigits } from "@/lib/phone";
 import { resolveRefOwners, refOwnerLabel, type RefOwner } from "@/lib/refOwner";
 import { firstBasicTrainingByPhone } from "@/lib/agentReward";
 import { sendBookingNotification } from "@/lib/telegram";
+import { formatCertificateCode, normalizeCertificateCode } from "@/lib/certificateCode";
+import {
+  linkCertificateBooking,
+  redeemCertificate,
+  releaseCertificate,
+  type CertificateProblem,
+} from "@/lib/certificates";
 
 // Правила заявки — одни на все двери (25.08.2026).
 //
@@ -30,11 +37,34 @@ export interface NewBooking {
   refCode?: string | null;
   src?: string | null;
   utm?: Record<string, string>;
+  // Номер подарочного сертификата (0059). Услугу в этом случае задаёт сам
+  // сертификат: что прислала форма, значения не имеет.
+  certificateCode?: string | null;
 }
 
 export type BookingResult =
   | { ok: true; bookingNo: number | null; refAccepted: boolean }
-  | { ok: false; error: "missing_fields" | "bad_phone" | "db_error" };
+  | {
+      ok: false;
+      error:
+        | "missing_fields"
+        | "bad_phone"
+        | "db_error"
+        | "certificate_not_found"
+        | "certificate_used"
+        | "certificate_expired";
+    };
+
+// Отказ по сертификату — словами, понятными форме. db_error отдельно: это не
+// «плохой номер», а наша поломка, и гостю про сертификат врать нельзя.
+function certificateError(
+  reason: CertificateProblem,
+): "db_error" | "certificate_not_found" | "certificate_used" | "certificate_expired" {
+  if (reason === "used") return "certificate_used";
+  if (reason === "expired") return "certificate_expired";
+  if (reason === "db_error") return "db_error";
+  return "certificate_not_found";
+}
 
 // Похоже на uuid (id услуги)? Если нет — не рискуем нарушить связь с таблицей
 // услуг и просто не проставляем услугу.
@@ -97,7 +127,6 @@ export async function createBooking(input: NewBooking): Promise<BookingResult> {
   const noteParts: string[] = [];
   if (messenger) noteParts.push(`Связь: ${messenger}`);
   if (comment) noteParts.push(`Клиент: ${comment}`);
-  const internalNote = noteParts.join(" · ") || null;
 
   const supabase = createAdminClient();
 
@@ -119,6 +148,23 @@ export async function createBooking(input: NewBooking): Promise<BookingResult> {
   }
   const storedRefCode = refOwner ? refCode : null;
 
+  // Сертификат гасим ДО записи заявки. Наоборот нельзя: два одновременных
+  // нажатия успели бы завести две заявки на один номер, и школа провела бы
+  // одно занятие дважды. Заявка не сохранится — вернём номер в оборот ниже.
+  const certificateCode = normalizeCertificateCode(input.certificateCode ?? "");
+  let certificate: { id: string; serviceId: string } | null = null;
+  if (certificateCode) {
+    const redeemed = await redeemCertificate(supabase, certificateCode);
+    if (!redeemed.ok) return { ok: false, error: certificateError(redeemed.reason) };
+    certificate = { id: redeemed.id, serviceId: redeemed.serviceId };
+    noteParts.unshift(`Сертификат ${formatCertificateCode(certificateCode)}`);
+  }
+
+  // Услуга сертификата главнее выбранной в форме: номер выписан на конкретное
+  // занятие, и подменить его, отправив другой id мимо формы, нельзя.
+  const bookedServiceId = certificate?.serviceId ?? serviceId;
+  const internalNote = noteParts.join(" · ") || null;
+
   // Сразу забираем присвоенный номер — покажем его клиенту на /thanks.
   const { data: created, error } = await supabase
     .from("bookings")
@@ -128,7 +174,7 @@ export async function createBooking(input: NewBooking): Promise<BookingResult> {
       // (phonesMatch сравнивает хвост), как бы гость ни расставил пробелы.
       phone: phoneDigits(contact) || contact,
       telegram_username: normalizeTelegram(input.telegram ?? undefined),
-      service_id: serviceId,
+      service_id: bookedServiceId,
       preferred_date: preferredDate,
       ref_code: storedRefCode,
       src,
@@ -136,21 +182,28 @@ export async function createBooking(input: NewBooking): Promise<BookingResult> {
       internal_note: internalNote,
       public_note: publicNote,
     })
-    .select("booking_no")
+    .select("id, booking_no")
     .single();
 
   if (error) {
     console.error("[bookings] insert error:", error.message);
+    // Заявки нет — значит, и сертификат не потрачен. Возвращаем его в оборот,
+    // иначе гость остался бы и без записи, и без своего номера.
+    if (certificate) await releaseCertificate(supabase, certificate.id);
     return { ok: false, error: "db_error" };
+  }
+
+  if (certificate && created?.id) {
+    await linkCertificateBooking(supabase, certificate.id, created.id as string);
   }
 
   // Уведомление в Telegram. Для красивого текста подтянем название услуги.
   let serviceName: string | null = null;
-  if (serviceId) {
+  if (bookedServiceId) {
     const { data } = await supabase
       .from("services")
       .select("name")
-      .eq("id", serviceId)
+      .eq("id", bookedServiceId)
       .maybeSingle();
     serviceName = data?.name ?? null;
   }
@@ -177,7 +230,14 @@ export async function createBooking(input: NewBooking): Promise<BookingResult> {
     preferredDate,
     refLine,
     src,
-    comment,
+    // Про сертификат в чате говорим отдельной строкой: админ должен увидеть
+    // номер сразу, а не искать его в карточке заявки.
+    comment: [
+      certificate ? `Сертификат ${formatCertificateCode(certificateCode)}` : null,
+      comment,
+    ]
+      .filter(Boolean)
+      .join(" · ") || null,
   });
 
   return {

@@ -38,6 +38,8 @@ import {
   type AgentPlan,
 } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
+import { normalizeCertificateCode, randomCertificateCode } from "@/lib/certificateCode";
+import { releaseCertificate } from "@/lib/certificates";
 import { BOSS_DAY_SHARE_FROM } from "@/lib/salary";
 import {
   claimBooking,
@@ -2118,5 +2120,80 @@ export async function toggleEquipmentAction(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.from("equipment").update({ active }).eq("id", id);
   failIfError(error, "не удалось изменить инвентарь");
+  revalidatePath("/", "layout");
+}
+
+// ── Сертификаты (0059) ───────────────────────────────────────────────────────
+//
+// Бумажный подарочный сертификат: школа продаёт бланк, номер на нём пишут от
+// руки, а здесь тот же номер заводится в базу вместе с услугой. Дальше гость
+// вводит его в форме записи, и услуга подставляется сама.
+//
+// Таблица закрыта RLS наглухо, политик нет — поэтому служебный ключ, а не
+// createClient(): решение о том, кому сюда можно, принимает requireAdmin выше,
+// а не политика. Сертификат — предъявительский документ, и «прочитать все
+// номера» не должен уметь ни один клиентский ключ.
+
+export async function createCertificateAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const author = await requireAdmin();
+
+  const clientName = String(formData.get("clientName") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const serviceId = String(formData.get("serviceId") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim();
+  // Номер можно вписать свой (его уже напечатали на бланке) или оставить поле
+  // пустым — тогда придумываем сами.
+  const code = normalizeCertificateCode(formData.get("code")) || randomCertificateCode();
+
+  if (!clientName) return { error: "Укажите, на чьё имя сертификат." };
+  if (!isValidPhone(phone)) return { error: PHONE_ERROR };
+  if (!serviceId) return { error: "Выберите услугу." };
+
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("certificates").insert({
+    code,
+    client_name: clientName,
+    phone: phoneDigits(phone) || phone,
+    service_id: serviceId,
+    created_by: author.id,
+    note: note || null,
+  });
+  if (error) {
+    // Уникальный индекс по номеру: два одинаковых бланка развели бы школу на
+    // два занятия по одному сертификату.
+    if (error.code === "23505") {
+      return { error: "Такой номер уже есть — впишите другой или оставьте поле пустым." };
+    }
+    return { error: `Не удалось создать сертификат: ${error.message}` };
+  }
+
+  revalidatePath("/", "layout");
+  redirect("/admin/certificates");
+}
+
+// Вернуть погашенный сертификат в оборот. Гасится он в момент подачи заявки —
+// значит, отменённая заявка оставляет гостя без сертификата, пока админ не
+// нажмёт эту кнопку.
+export async function releaseCertificateAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const result = await releaseCertificate(createAdminClient(), id);
+  if (!result.ok) throw new Error(`не удалось вернуть сертификат: ${result.error}`);
+  revalidatePath("/", "layout");
+}
+
+// Удалить сертификат целиком — для опечаток в номере сразу после создания.
+export async function deleteCertificateAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const { error } = await createAdminClient().from("certificates").delete().eq("id", id);
+  failIfError(error, "не удалось удалить сертификат");
   revalidatePath("/", "layout");
 }
