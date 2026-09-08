@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getActiveServices } from "@/lib/services";
 import { MemberApp } from "./MemberApp";
 
 // Кабинет клиента. Вход не по паролю, а через Telegram: страницу открывает
@@ -16,6 +17,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function MemberPage() {
-  return <MemberApp />;
+export default async function MemberPage() {
+  // Список услуг — здесь, на сервере: сам кабинет рисуется в браузере и своих
+  // данных до проверки подписи не получает, а услуги никакой тайны не несут
+  // (тот же список отдаёт форма записи на сайте). Заодно не заводим ради них
+  // отдельное серверное действие.
+  const services = await getActiveServices();
+  return <MemberApp services={services} />;
 }

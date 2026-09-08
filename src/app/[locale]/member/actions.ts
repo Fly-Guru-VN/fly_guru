@@ -11,6 +11,7 @@ import {
 } from "@/lib/memberCabinet";
 import { canBookOn, canCancelBooking, isBookingOpenNow } from "@/lib/bookingWindow";
 import { isRealDay } from "@/lib/bookings";
+import { isUuid } from "@/lib/photos";
 import { minutesLeft } from "@/lib/subscriptions";
 import { parseRiders } from "@/lib/riders";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -48,9 +49,12 @@ export async function loadCabinetAction(
 export interface BookInput {
   date: string; // 'YYYY-MM-DD'
   time: string; // 'HH:MM'
-  duration: number; // минут на одного
-  riders: number; // сколько катаются одновременно
+  duration: number; // минут на одного — только для записи по абонементу
+  riders: number; // сколько катаются одновременно — тоже только для абонемента
   comment?: string;
+  // Выбранная услуга. null — «катание по абонементу»: услуги как таковой нет,
+  // есть минуты и число катающихся.
+  serviceId?: string | null;
 }
 
 // Записаться. Заявка, а не подтверждённая бронь: её принимает живой человек —
@@ -92,35 +96,75 @@ export async function bookAction(
   if (!/^\d{2}:\d{2}$/.test(input.time)) {
     return { ok: false, error: "Укажите время начала." };
   }
-  const duration = Math.trunc(Number(input.duration));
-  if (!Number.isFinite(duration) || duration < 15 || duration > 240) {
-    return { ok: false, error: "Длительность — от 15 до 240 минут." };
-  }
-  const riders = parseRiders(input.riders);
-  const totalMinutes = duration * riders;
-
-  // Хватит ли минут. Проверяем, только если абонемент есть: без абонемента это
-  // обычная платная запись, и минуты тут ни при чём.
-  const { data: sub, error: subError } = await supabase
-    .from("subscriptions")
-    .select("id, total_minutes")
-    .eq("client_id", who.clientId)
-    .eq("status", "active")
-    .order("sold_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (subError) {
-    console.error("[member] subscription lookup error:", subError.message);
-    return { ok: false, error: "Не удалось проверить абонемент. Попробуйте ещё раз." };
-  }
-
-  if (sub) {
-    const left = await minutesLeft(supabase, sub);
-    if (totalMinutes > left) {
+  // Выбранное занятие. Кабинет умеет два вида записи: катание по абонементу
+  // (минуты × катающиеся) и обычная услуга из общего списка. Услугу проверяем
+  // САМИ: с клиента приходит только id, а он обязан существовать и быть
+  // активным — иначе заявка уедет в чат с пустой услугой.
+  const wantedService = String(input.serviceId ?? "").trim();
+  let service: { id: string; name: string } | null = null;
+  if (wantedService) {
+    if (!isUuid(wantedService)) {
+      return { ok: false, error: "Выберите занятие из списка." };
+    }
+    const { data, error: serviceError } = await supabase
+      .from("services")
+      .select("id, name")
+      .eq("id", wantedService)
+      .eq("active", true)
+      .maybeSingle();
+    if (serviceError) {
+      console.error("[member] service lookup error:", serviceError.message);
+      return { ok: false, error: "Не удалось проверить занятие. Попробуйте ещё раз." };
+    }
+    if (!data) {
       return {
         ok: false,
-        error: `На абонементе ${left} мин — на эту запись нужно ${totalMinutes}. Возьмите короче или продлите абонемент.`,
+        error: "Такого занятия у нас уже нет. Обновите кабинет и выберите заново.",
       };
+    }
+    service = { id: data.id as string, name: data.name as string };
+  }
+
+  // Минуты и число катающихся — только для записи по абонементу. У обычной
+  // услуги длительность своя, она указана в прайсе, и клиент её не назначает.
+  let duration = 0;
+  let riders = 1;
+  let totalMinutes = 0;
+  if (!service) {
+    duration = Math.trunc(Number(input.duration));
+    if (!Number.isFinite(duration) || duration < 15 || duration > 240) {
+      return { ok: false, error: "Длительность — от 15 до 240 минут." };
+    }
+    riders = parseRiders(input.riders);
+    totalMinutes = duration * riders;
+  }
+
+  // Хватит ли минут. Вопрос только к записи по абонементу и только если сам
+  // абонемент есть: без него это обычная платная запись, и минуты ни при чём.
+  let sub: { id: string; total_minutes: number } | null = null;
+  if (!service) {
+    const { data, error: subError } = await supabase
+      .from("subscriptions")
+      .select("id, total_minutes")
+      .eq("client_id", who.clientId)
+      .eq("status", "active")
+      .order("sold_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (subError) {
+      console.error("[member] subscription lookup error:", subError.message);
+      return { ok: false, error: "Не удалось проверить абонемент. Попробуйте ещё раз." };
+    }
+    sub = data ? { id: data.id as string, total_minutes: Number(data.total_minutes) } : null;
+
+    if (sub) {
+      const left = await minutesLeft(supabase, sub);
+      if (totalMinutes > left) {
+        return {
+          ok: false,
+          error: `На абонементе ${left} мин — на эту запись нужно ${totalMinutes}. Возьмите короче или продлите абонемент.`,
+        };
+      }
     }
   }
 
@@ -144,11 +188,13 @@ export async function bookAction(
     };
   }
 
-  const noteParts = [
-    "Запись из кабинета",
-    `${duration} мин${riders > 1 ? ` × ${riders} райдера = ${totalMinutes} мин` : ""}`,
-    sub ? "по абонементу" : "без абонемента",
-  ];
+  const noteParts = service
+    ? ["Запись из кабинета", service.name]
+    : [
+        "Запись из кабинета",
+        `${duration} мин${riders > 1 ? ` × ${riders} райдера = ${totalMinutes} мин` : ""}`,
+        sub ? "по абонементу" : "без абонемента",
+      ];
   const comment = String(input.comment ?? "").trim().slice(0, 500);
   if (comment) noteParts.push(`Клиент: ${comment}`);
 
@@ -158,6 +204,9 @@ export async function bookAction(
     client_id: who.clientId,
     preferred_date: input.date,
     scheduled_time: input.time,
+    // Услуга есть только у записи на занятие: катание по абонементу — это
+    // минуты, отдельной строки в services под него нет.
+    service_id: service?.id ?? null,
     internal_note: noteParts.join(" · "),
     // В public_note лежит только исходное пожелание самого клиента. Служебная
     // раскладка минут остаётся в internal_note и назад в Mini App не уходит.
@@ -169,13 +218,17 @@ export async function bookAction(
     return { ok: false, error: "Не получилось записать. Попробуйте ещё раз." };
   }
 
+  const when = service
+    ? input.time
+    : `${input.time}, ${duration} мин${riders > 1 ? ` × ${riders}` : ""}`;
   await sendBookingNotification({
-    serviceName: sub ? "Катание по абонементу" : "Катание (без абонемента)",
+    serviceName:
+      service?.name ?? (sub ? "Катание по абонементу" : "Катание (без абонемента)"),
     clientName: client.name ?? who.clientName,
     contact: client.phone,
     messenger: "Telegram-кабинет",
     preferredDate: input.date,
-    comment: `${input.time}, ${duration} мин${riders > 1 ? ` × ${riders}` : ""}${comment ? ` · ${comment}` : ""}`,
+    comment: `${when}${comment ? ` · ${comment}` : ""}`,
     src: "cabinet",
   });
 

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Spinner } from "@/components/Spinner";
+import { ServicePicker } from "@/components/ServicePicker";
+import type { ServiceOption } from "@/components/BookingForm";
 import { CLIENT_BOT_URL, SITE_URL, SUPPORT_URL } from "@/lib/site";
 import { RIDERS_MAX } from "@/lib/riders";
 import {
@@ -106,7 +108,7 @@ function ruDate(day: string | null): string {
   return `${Number(d)} ${months[Number(m) - 1] ?? ""} ${y}`;
 }
 
-export function MemberApp() {
+export function MemberApp({ services }: { services: ServiceOption[] }) {
   const [initData, setInitData] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const [screen, setScreen] = useState<Screen>("home");
@@ -255,6 +257,8 @@ export function MemberApp() {
       {screen === "book" && initData && (
         <BookScreen
           initData={initData}
+          services={services}
+          hasSubscription={data.subscription !== null}
           onSupport={openSupport}
           onDone={async () => {
             await refresh(initData);
@@ -342,18 +346,46 @@ function Message({
 }
 
 // ── запись ───────────────────────────────────────────────────────────────────
+
+// Что подставить в выпадайку услуг по умолчанию. В кабинете сидят те, кто уже
+// катался, и чаще всего им нужно самостоятельное катание; нет такой услуги в
+// базе — берём первую из списка (он уже отсортирован, lib/serviceOrder).
+const DEFAULT_MEMBER_SERVICE_CODE = "rental";
+
+function defaultServiceId(services: ServiceOption[]): string {
+  return (
+    services.find((s) => s.code === DEFAULT_MEMBER_SERVICE_CODE)?.id ??
+    services[0]?.id ??
+    ""
+  );
+}
+
 function BookScreen({
   initData,
+  services,
+  hasSubscription,
   onSupport,
   onDone,
 }: {
   initData: string;
+  services: ServiceOption[];
+  hasSubscription: boolean;
   onSupport: () => void;
   onDone: () => void;
 }) {
   const minDay = firstBookableDay();
   const [date, setDate] = useState(minDay);
   const [time, setTime] = useState("09:00");
+  // На что записываемся. «По абонементу» — это минуты и число катающихся, как
+  // было раньше; иначе выбирается конкретная услуга и минуты ни при чём. Без
+  // абонемента развилки нет — сразу услуги. Пустой список услуг (база не
+  // ответила) тоже уводит в минуты: иначе человек упрётся в пустую выпайдайку
+  // и не запишется вовсе.
+  const canPickService = services.length > 0;
+  const [bySubscription, setBySubscription] = useState(
+    hasSubscription || !canPickService,
+  );
+  const [serviceId, setServiceId] = useState(() => defaultServiceId(services));
   const [duration, setDuration] = useState(60);
   const [riders, setRiders] = useState(1);
   const [comment, setComment] = useState("");
@@ -365,7 +397,15 @@ function BookScreen({
   const submit = async () => {
     setBusy(true);
     setError(null);
-    const res = await bookAction(initData, { date, time, duration, riders, comment });
+    const res = await bookAction(initData, {
+      date,
+      time,
+      duration,
+      riders,
+      comment,
+      // null — «катание по абонементу»: услуги как таковой нет, есть минуты.
+      serviceId: bySubscription ? null : serviceId,
+    });
     setBusy(false);
     if (res.ok) onDone();
     else setError(res.error);
@@ -420,48 +460,84 @@ function BookScreen({
         />
       </label>
 
-      <label className="block text-sm font-medium">
-        Сколько минут <span className="font-normal text-muted">— на одного</span>
-        <input
-          type="number"
-          inputMode="numeric"
-          min={15}
-          max={240}
-          step={15}
-          value={duration}
-          onChange={(e) => setDuration(Number(e.target.value))}
-          className={`mt-1 ${inputClass}`}
-        />
-      </label>
-
-      <div>
-        <span className="block text-sm font-medium">
-          Сколько катаются <span className="font-normal text-muted">— одновременно</span>
-        </span>
-        <div className="mt-1 flex gap-2">
-          {Array.from({ length: RIDERS_MAX }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setRiders(n)}
-              aria-pressed={riders === n}
-              className={`flex-1 rounded-xl border py-3 text-base font-semibold transition-colors ${
-                riders === n
-                  ? "border-accent bg-accent text-white"
-                  : "border-line bg-surface text-muted"
-              }`}
-            >
-              {n}
-            </button>
-          ))}
+      {/* Развилка нужна только тем, у кого есть что списывать: без абонемента
+          выбор между «минутами» и услугой человеку ничего не объясняет. */}
+      {hasSubscription && canPickService && (
+        <div>
+          <span className="block text-sm font-medium">На что записываемся</span>
+          <div className="mt-1 flex gap-2">
+            {[
+              { on: true, label: "По абонементу" },
+              { on: false, label: "Другое занятие" },
+            ].map((opt) => (
+              <button
+                key={opt.label}
+                type="button"
+                onClick={() => setBySubscription(opt.on)}
+                aria-pressed={bySubscription === opt.on}
+                className={`flex-1 rounded-xl border py-3 text-base font-semibold transition-colors ${
+                  bySubscription === opt.on
+                    ? "border-accent bg-accent text-white"
+                    : "border-line bg-surface text-muted"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
-        {riders > 1 && (
-          <p className="mt-2 text-sm text-muted">
-            С абонемента спишется <b>{total} мин</b> ({duration} × {riders}) — минуты идут на
-            каждого катающегося.
-          </p>
-        )}
-      </div>
+      )}
+
+      {!bySubscription && (
+        <ServicePicker services={services} value={serviceId} onChange={setServiceId} />
+      )}
+
+      {bySubscription && (
+        <>
+          <label className="block text-sm font-medium">
+            Сколько минут <span className="font-normal text-muted">— на одного</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={15}
+              max={240}
+              step={15}
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              className={`mt-1 ${inputClass}`}
+            />
+          </label>
+
+          <div>
+            <span className="block text-sm font-medium">
+              Сколько катаются <span className="font-normal text-muted">— одновременно</span>
+            </span>
+            <div className="mt-1 flex gap-2">
+              {Array.from({ length: RIDERS_MAX }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setRiders(n)}
+                  aria-pressed={riders === n}
+                  className={`flex-1 rounded-xl border py-3 text-base font-semibold transition-colors ${
+                    riders === n
+                      ? "border-accent bg-accent text-white"
+                      : "border-line bg-surface text-muted"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+            {riders > 1 && (
+              <p className="mt-2 text-sm text-muted">
+                С абонемента спишется <b>{total} мин</b> ({duration} × {riders}) — минуты идут на
+                каждого катающегося.
+              </p>
+            )}
+          </div>
+        </>
+      )}
 
       <label className="block text-sm font-medium">
         Пожелания <span className="font-normal text-muted">— необязательно</span>
