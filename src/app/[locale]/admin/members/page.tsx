@@ -2,16 +2,18 @@ import type { Metadata } from "next";
 import { momentDay } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 import { loadAllClients } from "@/lib/clients";
-import { addMemberAction, createInviteAction } from "../actions";
-import { CopyLink } from "../CopyLink";
+import { addMemberAction } from "../actions";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 
 export const metadata: Metadata = { title: "Админка · Члены клуба" };
 
-// Члены клуба: кто в клубе, у кого есть аккаунт (кабинет), кому отправить
-// инвайт-ссылку. Членство обычно создаёт продажа абонемента; здесь его можно
-// выдать и вручную. Инвайт живёт 7 дней и одноразовый.
+// Члены клуба: кто в клубе и с какого дня. Членство заводит сама продажа
+// абонемента (09.09.2026, см. lib/memberships) — форма ниже нужна только для
+// тех, кого впускают без покупки.
+//
+// Инвайт-ссылки на этой вкладке больше нет: кабинет клиента живёт в Telegram
+// и опознаёт человека по привязанному номеру, отдельный пароль ему не нужен.
 
 interface MemberRow {
   id: string;
@@ -28,17 +30,7 @@ const LEVEL_LABEL: Record<string, string> = {
   legend: "Legend",
 };
 
-function MemberCard({
-  m,
-  activeSub,
-  invitePath,
-  inviteExpires,
-}: {
-  m: MemberRow;
-  activeSub: boolean;
-  invitePath: string | null;
-  inviteExpires: string | null;
-}) {
+function MemberCard({ m, activeSub }: { m: MemberRow; activeSub: boolean }) {
   const name = m.client?.name ?? "клиент";
   return (
     <details className="group rounded-2xl border border-line bg-surface">
@@ -78,30 +70,14 @@ function MemberCard({
           </p>
         </div>
 
-        {/* Кабинет: аккаунт есть / ссылка ждёт отправки / ссылки ещё нет. */}
-        {m.user_id ? (
-          <p className="text-sm text-muted">
-            Кабинет подключён — член клуба входит по телефону или email.
-          </p>
-        ) : invitePath ? (
-          <div className="space-y-1.5">
-            <CopyLink path={invitePath} />
-            <p className="text-xs text-muted">
-              Отправьте ссылку в мессенджер. Действует до {momentDay(inviteExpires)},
-              одноразовая.
-            </p>
-          </div>
-        ) : (
-          <form action={createInviteAction}>
-            <input type="hidden" name="clientId" value={m.client_id} />
-            <button
-              type="submit"
-              className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
-            >
-              Создать инвайт-ссылку
-            </button>
-          </form>
-        )}
+        {/* Кабинет клиента открывается из Telegram-бота по номеру телефона —
+            ни ссылки, ни пароля выдавать не нужно. Старый парольный аккаунт
+            (user_id) остался у тех, кому его успели завести до 09.09.2026. */}
+        <p className="text-sm text-muted">
+          {m.client?.phone
+            ? "Кабинет открывается в Telegram-боте: клиент делится номером, и мы узнаём его по этому телефону."
+            : "В карточке нет телефона — по нему клиента узнаёт Telegram-бот. Без номера кабинет не откроется."}
+        </p>
       </div>
     </details>
   );
@@ -117,20 +93,12 @@ export default async function AdminMembersPage() {
   const members = (membersData ?? []) as unknown as MemberRow[];
   const clientIds = members.map((m) => m.client_id);
 
-  const [subsRes, invitesRes, clientsRes] = await Promise.all([
+  const [subsRes, clientsRes] = await Promise.all([
     clientIds.length
       ? supabase
           .from("subscriptions")
           .select("client_id")
           .eq("status", "active")
-          .in("client_id", clientIds)
-      : Promise.resolve({ data: [] }),
-    clientIds.length
-      ? supabase
-          .from("invite_tokens")
-          .select("client_id, token, expires_at")
-          .is("used_at", null)
-          .gt("expires_at", new Date().toISOString())
           .in("client_id", clientIds)
       : Promise.resolve({ data: [] }),
     // Кандидаты для ручной выдачи членства: клиенты, которых в клубе ещё нет.
@@ -145,12 +113,6 @@ export default async function AdminMembersPage() {
   const activeSubClients = new Set(
     (subsRes.data ?? []).map((s) => s.client_id as string),
   );
-  const inviteByClient = new Map(
-    (invitesRes.data ?? []).map((t) => [
-      t.client_id as string,
-      { token: t.token as string, expires: t.expires_at as string },
-    ]),
-  );
   const memberClientIds = new Set(clientIds);
   // Сортируем по имени здесь: загрузчик страниц идёт по id (стабильный порядок
   // для range), а человеку список нужен по алфавиту.
@@ -164,7 +126,7 @@ export default async function AdminMembersPage() {
         title="Члены клуба"
         hint="Клиенты с абонементом и доступом в кабинет"
       />
-      <PageNote>Членство появляется с первым абонементом. Инвайт-ссылка открывает клиенту личный кабинет.</PageNote>
+      <PageNote>Членство появляется само с первым абонементом. Вручную — только тех, кого впускаем без покупки.</PageNote>
 
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="mb-3 font-bold">Принять в клуб вручную</h2>
@@ -197,18 +159,9 @@ export default async function AdminMembersPage() {
         <p className="mt-2 text-sm text-muted">Пока никого — членство появится с первой продажей абонемента.</p>
       )}
       <div className="mt-3 space-y-3">
-        {members.map((m) => {
-          const invite = inviteByClient.get(m.client_id);
-          return (
-            <MemberCard
-              key={m.id}
-              m={m}
-              activeSub={activeSubClients.has(m.client_id)}
-              invitePath={invite ? `/invite/${invite.token}` : null}
-              inviteExpires={invite?.expires ?? null}
-            />
-          );
-        })}
+        {members.map((m) => (
+          <MemberCard key={m.id} m={m} activeSub={activeSubClients.has(m.client_id)} />
+        ))}
       </div>
     </div>
   );

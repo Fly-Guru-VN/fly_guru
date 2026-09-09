@@ -22,6 +22,7 @@ import { vnToday, subscriptionExpiry } from "@/lib/dates";
 import { checkRecordDate } from "@/lib/recordDate";
 import { isPaymentClaim } from "@/lib/paymentClaim";
 import { minutesLeft } from "@/lib/subscriptions";
+import { ensureMembership } from "@/lib/memberships";
 import { writeOffSubscription } from "@/lib/subscriptionWriteOff";
 import { parseRiders, writeOffNote } from "@/lib/riders";
 import { parseVnd } from "@/lib/money";
@@ -662,9 +663,10 @@ export async function sellSubscriptionAction(
     await linkBookingResult(admin, bookingId, { subscription_id: sub.id as string });
   }
 
-  // Клуб пока не запускаем: продажа абонемента НЕ делает клиента членом клуба.
-  // Членство добавляется вручную на вкладке «Члены клуба» (вернём авто-выдачу,
-  // когда клуб оформим целиком).
+  // Первый абонемент принимает клиента в клуб (09.09.2026) — то же правило,
+  // что у продажи админа. Дата вступления — день продажи, а не «сейчас»:
+  // инструктор оформляет и вчерашние продажи (±7 дней).
+  await ensureMembership(admin, clientId, soldAt);
 
   revalidatePath("/", "layout"); // см. комментарий в recordClientAction
 

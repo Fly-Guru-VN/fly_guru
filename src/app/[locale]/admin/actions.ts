@@ -20,6 +20,7 @@ import {
 } from "@/lib/phone";
 import { subscriptionExpiry, vnIsoAt, vnToday } from "@/lib/dates";
 import { minutesLeft } from "@/lib/subscriptions";
+import { ensureMembership } from "@/lib/memberships";
 import { writeOffSubscription } from "@/lib/subscriptionWriteOff";
 import { parseRiders, writeOffNote } from "@/lib/riders";
 import { sendInstructorsBookingAlert } from "@/lib/telegram";
@@ -1013,8 +1014,12 @@ export async function adminSellSubscriptionAction(
     await linkBookingResult(supabase, bookingId, { subscription_id: sub.id as string });
   }
 
-  // Клуб пока не запускаем: продажа абонемента НЕ делает клиента членом клуба
-  // (как и у инструктора). Членство добавляется руками на вкладке «Члены клуба».
+  // Первый абонемент принимает клиента в клуб (09.09.2026). Именно это и
+  // обещает страница /club; до сих пор обещание жило только в тексте.
+  // Дата вступления — день ПРОДАЖИ: абонемент, внесённый задним числом, не
+  // должен писать старожилу «в клубе с сегодня». Ошибку функция гасит сама —
+  // продажа из-за неё не срывается (см. lib/memberships).
+  await ensureMembership(createAdminClient(), clientId, soldAt);
 
   revalidatePath("/", "layout");
   officeRedirect(user, "/subscriptions");
@@ -1437,36 +1442,16 @@ export async function setAgentTermsAction(formData: FormData) {
 // в мессенджер → клиент ставит пароль и получает кабинет. Токен живёт 7 дней
 // (default в БД), одноразовый (used_at). Повторное нажатие не плодит ссылки:
 // живой неиспользованный токен переиспользуем.
-export async function createInviteAction(formData: FormData) {
-  const admin = await requireAdmin();
-  const clientId = String(formData.get("clientId") ?? "");
-  if (!clientId) return;
+// Инвайт-ссылка (createInviteAction) убрана 09.09.2026 вместе с маршрутом
+// /invite/[token]: она заводила члену клуба ВТОРОЙ способ входа — по паролю,
+// хотя канонический кабинет клиента живёт в Telegram Mini App и опознаёт
+// человека по привязанному номеру. Две модели входа одновременно означали два
+// набора прав, из которых поддерживали и проверяли только один. Таблица
+// invite_tokens в базе оставлена: удалять данные ради чистоты кода незачем.
 
-  const supabase = await createClient();
-  const { data: existing } = await supabase
-    .from("invite_tokens")
-    .select("id")
-    .eq("client_id", clientId)
-    .is("used_at", null)
-    .gt("expires_at", new Date().toISOString())
-    .limit(1)
-    .maybeSingle();
-  if (existing) return;
-
-  // randomUUID без дефисов = 32 hex-символа; подобрать нереально, а в
-  // мессенджере ссылка остаётся одной строкой.
-  const { error } = await supabase.from("invite_tokens").insert({
-    token: crypto.randomUUID().replace(/-/g, ""),
-    client_id: clientId,
-    created_by: admin.id,
-  });
-  failIfError(error, "не удалось создать инвайт-ссылку");
-  revalidatePath("/", "layout");
-}
-
-// Сделать клиента членом клуба вручную. Продажа абонемента membership сейчас
-// не создаёт: это отдельное решение администратора. Публичная страница клуба
-// пока описывает другое правило — конфликт зафиксирован в questions.md.
+// Принять в клуб вручную — теперь исключение, а не основной путь: с 09.09.2026
+// членство выдаёт сама продажа абонемента (см. lib/memberships). Кнопка нужна
+// для тех, кого надо впустить без покупки, и для старых карточек.
 export async function addMemberAction(formData: FormData) {
   await requireAdmin();
   const clientId = String(formData.get("clientId") ?? "");
