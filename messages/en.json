@@ -1,1 +1,568 @@
-{}
+{
+  "Nav": {
+    "training": "Training",
+    "tandem": "Tandem",
+    "club": "Club",
+    "shop": "Shop",
+    "prices": "Prices",
+    "reviews": "Reviews",
+    "contacts": "Contacts",
+    "sections": "Site sections"
+  },
+  "Header": {
+    "book": "Book now",
+    "bookShort": "Book",
+    "login": "Log in",
+    "cabinet": "Dashboard",
+    "loginToCabinet": "Log in to dashboard",
+    "myCabinet": "My dashboard",
+    "menu": "Menu",
+    "language": "Site language"
+  },
+  "Footer": {
+    "tagline": "An eFoil school in Nha Trang. Flying above the water from your very first lesson.",
+    "sections": "Sections",
+    "contacts": "Contacts",
+    "rights": "© {year} FlyGuru. All rights reserved."
+  },
+  "ServiceCategories": {
+    "training": "Training",
+    "tandem": "Tandem",
+    "rental": "Rental",
+    "tour": "Tours",
+    "subscription": "Packages",
+    "extra": "Extras",
+    "other": "Other"
+  },
+  "Booking": {
+    "title": "Booking",
+    "close": "Close",
+    "honeypot": "Do not fill in this field",
+    "name": "Name",
+    "phone": "Phone",
+    "phonePlaceholder": "+84 90 123 45 67",
+    "phoneError": "Phone — digits only, 8 to 15 of them (for example 0901234567).",
+    "telegram": "Telegram username",
+    "telegramHint": "Optional — a backup way to reach you",
+    "certificate": "Gift certificate number",
+    "certificateOptional": "(optional)",
+    "certificateHint": "Got a gift certificate? Enter its number and the service will be filled in for you",
+    "certificateRemove": "Remove",
+    "certificateChecking": "Checking the number…",
+    "certificateChosen": "Certificate: {service}",
+    "certificateChosenHint": "The service is already chosen. Need a different one — tap “Remove” next to the number.",
+    "certificateFallbackService": "a lesson",
+    "certificateNotFound": "No such number. Please check how it is written on the certificate.",
+    "certificateUsed": "This certificate has already been used.",
+    "certificateExpired": "The certificate has expired — it is valid for 3 months from the date of purchase.",
+    "certificateRateLimited": "Too many attempts. Please wait a minute.",
+    "certificateError": "We could not check the number. Please try again.",
+    "service": "Service",
+    "serviceChoose": "Choose a service",
+    "agentDiscountRow": "−{amount} with your agent link",
+    "agentDiscountNote": "The agent link discount applies to your first basic lesson.",
+    "date": "Preferred date",
+    "comment": "Comment",
+    "submit": "Book now",
+    "submitting": "Sending…",
+    "sendError": "We could not send your request. Check your connection and try again, or message us on a messenger."
+  },
+  "Common": {
+    "book": "Book now",
+    "popular": "Most popular",
+    "instructorApproval": "Instructor approval required",
+    "watchVideo": "Watch the video",
+    "openFullscreen": "Open the video full screen",
+    "step": "Step {number}",
+    "rating": "Rated {rating} out of 5",
+    "serviceGroups": "Service groups",
+    "googleReview": "Review on",
+    "photoPlaceholderAlt": "FlyGuru — photo placeholder",
+    "tandemPhotoAlt": "A tandem flight with an instructor in Nha Trang",
+    "minutes": "{count} min",
+    "onRequest": "on request"
+  },
+  "Services": {
+    "basic-adult": {
+      "name": "Basic lesson (adult)",
+      "blurb": "Your first taste of an eFoil, guided by an instructor."
+    },
+    "basic-kid": {
+      "name": "Basic lesson (under 14)",
+      "blurb": "A separate programme for children under 14."
+    },
+    "individual-training": {
+      "name": "Private lesson",
+      "blurb": "The instructor goes out on the water with you and follows your progress even closer."
+    },
+    "basic-duo": {
+      "name": "Basic lesson for two",
+      "blurb": "One lesson shared by two people."
+    },
+    "tandem-adult": {
+      "name": "Tandem flight (adult)",
+      "blurb": "The instructor flies the foil, you enjoy the ride. Nothing complicated, no requirements."
+    },
+    "tandem-kid": {
+      "name": "Tandem flight (under 14)",
+      "blurb": "The same thing for a child: they stand on the board, the instructor steers it."
+    },
+    "excursion": {
+      "name": "Guided excursion",
+      "note": "For two — 3,000,000 ₫ per person",
+      "blurb": "A flight to Turtle Island and your first taste of the open sea. A short trip to build up experience."
+    },
+    "safari": {
+      "name": "E-Foil Safari",
+      "durationLabel": "5 hours",
+      "blurb": "Monkey Island, a resort and the wild Bounty beach. You plan the route together with your instructor."
+    },
+    "rental": {
+      "name": "Solo riding",
+      "blurb": "You ride on your own — available after the basic lesson or with the instructor's approval."
+    },
+    "subscription": {
+      "name": "300-minute package",
+      "blurb": "A package of minutes: ride whenever it suits you, with a booking in advance."
+    },
+    "video": {
+      "name": "Photo/video, edited",
+      "durationLabel": "—",
+      "blurb": "We film your lesson and cut it into a finished clip."
+    },
+    "video-raw": {
+      "name": "Photo/video, unedited",
+      "durationLabel": "—",
+      "blurb": "We film your lesson and send you the raw footage."
+    },
+    "drone": {
+      "name": "Hover Aqua Pro drone filming",
+      "note": "One session, raw footage included",
+      "blurb": "The drone follows you above the water and films your flight from the outside."
+    }
+  },
+  "Thanks": {
+    "metaTitle": "Request received",
+    "title": "Request received!",
+    "text": "Thank you! We have got your request and will contact you within an hour to confirm the details and a time that suits you.",
+    "home": "Back to home",
+    "training": "See the training",
+    "bookingNo": "Your request number: #{no}"
+  },
+  "Shop": {
+    "metaTitle": "Shop",
+    "eyebrow": "Shop",
+    "title": "eFoils for sale",
+    "subtitle": "We import and sell Hobbywing and Lift Foils. A catalogue with prices is coming soon — for now, message us on the contacts page."
+  },
+  "BookingLanding": {
+    "metaTitle": "Book a flight",
+    "metaDescription": "Request an eFoil flight in Nha Trang — we will call you back and find a time that suits you.",
+    "title": "Book a flight",
+    "text": "Fill in two fields — we will call you back, find a time and answer your questions. Nothing to pay right now."
+  },
+  "Tandem": {
+    "metaTitle": "Tandem",
+    "eyebrow": "Tandem",
+    "title": "Tandem flight",
+    "lead": "Easy, fun and safe",
+    "text": "A tandem is the simplest way to feel what flying an eFoil is like. The instructor picks you up at the pier, and a moment later you are enjoying the freedom of flying above the water. No training needed.",
+    "heroAlt": "A guest and an instructor flying together on one eFoil above the sea",
+    "book": "Book a tandem",
+    "howItGoes": "See how it goes",
+    "stepsTitle": "How a tandem works",
+    "facts": {
+      "durationValue": "10 minutes",
+      "durationLabel": "duration",
+      "ageValue": "from age 8",
+      "ageLabel": "access",
+      "trainingValue": "not needed",
+      "trainingLabel": "training"
+    },
+    "promises": {
+      "safeTitle": "Safe",
+      "safeText": "The instructor is with you throughout the whole flight.",
+      "easyTitle": "Easy start",
+      "easyText": "You do not need to know how to ride — we do it all for you."
+    },
+    "steps": {
+      "gearTitle": "Getting geared up",
+      "gearText": "On the beach you are given all the gear you need and prepared for the flight.",
+      "tandemTitle": "The tandem",
+      "tandemText": "The instructor flies the foil, you enjoy the ride. Nothing complicated, no requirements.",
+      "emotionsTitle": "Feelings that stay",
+      "emotionsText": "Vivid memories guaranteed."
+    }
+  },
+  "Training": {
+    "metaTitle": "Training",
+    "heroAlt": "Two people flying eFoils above the sea in Nha Trang",
+    "titleLine1": "Learn to fly",
+    "titleLine2": "an eFoil",
+    "lead": "No experience needed. You will be up on the wing in your very first lesson.",
+    "book": "Book a lesson",
+    "facts": {
+      "duration": "60 minutes",
+      "age": "from age 8",
+      "weight": "up to 130 kg"
+    },
+    "marquee": {
+      "gear": "All gear included",
+      "instructor": "Instructor in your ear",
+      "success": "90% get up on the wing in their first lesson",
+      "bay": "Sheltered, safe bay",
+      "kids": "Children from age 8"
+    },
+    "included": "Included in the price:",
+    "includedList": "eFoil, life vest, helmet, radio, special gear.",
+    "safeBay": "Every lesson takes place in a safe, sheltered bay.",
+    "stepsTitle": "The lesson step by step",
+    "formatFacts": {
+      "gear": "Gear included",
+      "instructor": "Instructor in your ear",
+      "safe": "Safe",
+      "kids": "Kids programme",
+      "oneOnOne": "One on one",
+      "personal": "Tailored to you",
+      "progress": "Fast progress",
+      "duo": "For two students"
+    },
+    "steps": {
+      "briefingMeta": "15 minutes",
+      "briefingTitle": "Briefing on the beach",
+      "briefingText": "The instructor shows you every position you will need, on a real board. Then you are fitted with gear and sent out on the water.",
+      "lyingMeta": "Meeting the foil",
+      "lyingTitle": "First you ride lying down",
+      "lyingText": "You start by getting used to the throttle and to the speed of the foil. This stage takes only 5–7 minutes.",
+      "balanceMeta": "Finding your balance",
+      "balanceTitle": "On your knees, then on your feet",
+      "balanceText": "Same speed, but now you work on balance and on feeling the board. The instructor stays with you through an earpiece.",
+      "flightMeta": "Take-off",
+      "flightTitle": "The moment of flight",
+      "flightText": "The board lifts above the water, the drag disappears and you feel real freedom. You take off on your knees first, then practise flying standing up."
+    }
+  },
+  "Faq": {
+    "home": {
+      "experience": {
+        "q": "Do I need any experience?",
+        "a": "No. An eFoil is easier than it looks: 90% of our students are riding in their first lesson. No surfing, wakeboarding or SUP background required."
+      },
+      "safety": {
+        "q": "Is it safe?",
+        "a": "Yes. You wear a life vest for the whole lesson and the instructor is in touch with you the entire time. Speeds during training are low, the boards are stable, and falling into the water does not hurt."
+      },
+      "gear": {
+        "q": "What should I bring?",
+        "a": "Just your swimwear. We provide everything else: vest, helmet, radio contact on the water and special clothing."
+      },
+      "lessons": {
+        "q": "How many lessons until I can ride on my own?",
+        "a": "After the basic lesson you get access to solo rental and to the minutes package."
+      },
+      "age": {
+        "q": "What is the minimum age?",
+        "a": "The kids programme runs from 8 to 14. From 15 it is the adult programme, with no upper age limit. Weight limits: 40 to 130 kg."
+      },
+      "doubt": {
+        "q": "What if I cannot do it?",
+        "a": "You can. 90% of our students ride in their first lesson. The equipment is professional, which makes learning easy, and an experienced instructor stays in contact with you from the shore the whole time."
+      }
+    },
+    "club": {
+      "needTraining": {
+        "q": "Do I need a lesson before buying a package?",
+        "a": "You can buy the package straight away. If you have never ridden before, the first 60 minutes of it are a lesson with an instructor: we do not send anyone out alone without one."
+      },
+      "minutesLife": {
+        "q": "How long do the minutes last?",
+        "a": "3 months from the date of purchase. They are spent as you ride: 15 minutes a day, or hour-long sessions at the weekend — up to you."
+      },
+      "worth": {
+        "q": "How much cheaper is a package than paying per ride?",
+        "a": "A minute in a package costs about 40% less than in single rental. The package pays for itself by your fifth ride."
+      },
+      "tours": {
+        "q": "Who gets to join an excursion or a safari?",
+        "a": "Riders who are confident on the board. The instructor makes the call: these are trips of several hours into the open sea, and we do not take beginners. No separate package is needed for them."
+      },
+      "membership": {
+        "q": "What does club membership give me?",
+        "a": "Membership is activated by your first package and stays with you for good. It means access to the club Telegram channel, trips out with the team and riding alongside people who are already solid on the wing."
+      },
+      "where": {
+        "q": "Where do you ride?",
+        "a": "Our base is Maryna Beach Club in Nha Trang, in a sheltered bay. Trips start from there too: Turtle Island, Monkey Island and the wild beaches."
+      }
+    }
+  },
+  "Club": {
+    "metaTitle": "Club",
+    "heroAlt": "Three riders flying eFoils together across the open sea by the mountains of Nha Trang",
+    "eyebrow": "FlyGuru Club",
+    "titleLine1": "Ride as much",
+    "titleLine2": "as you want",
+    "lead": "A package of minutes at a better price, trips to the islands and your own crowd on the water.",
+    "buy": "Buy a package",
+    "howToJoin": "How to join the club",
+    "heroFacts": {
+      "minutes": "{minutes} minutes",
+      "cheaper": "{percent}% cheaper per minute",
+      "life": "minutes last 3 months"
+    },
+    "marquee": {
+      "subscription": "{minutes}-minute package",
+      "cheaper": "{percent}% cheaper per minute",
+      "anytime": "Ride whenever it suits you",
+      "tours": "Excursions and safaris with the team",
+      "channel": "Our own Telegram channel",
+      "place": "Nha Trang · Marina Beach"
+    },
+    "subscriptionEyebrow": "Package",
+    "subscriptionTitle": "{percent}% cheaper per minute",
+    "subscriptionText": "Single rental is great for reliving the feeling. But once riding becomes a habit, paying for every session separately stops making sense: a package of minutes pays for itself by the fifth ride.",
+    "perMinute": "{price}k ₫ / min",
+    "bySubscription": "With a package",
+    "byRental": "Single rental",
+    "included": {
+      "gear": "Gear, life vest and radio contact on the water — same as in a lesson",
+      "byFact": "Minutes are deducted as you ride, not on a schedule",
+      "firstLesson": "The first package of an untrained guest includes a lesson with an instructor",
+      "tours": "After the lesson — access to excursions and safaris"
+    },
+    "cardMinutes": "Minutes are valid for 3 months",
+    "cardAnytime": "Ride whenever it suits you, no fixed schedule",
+    "cardMembership": "Your first package opens club membership",
+    "cardNote": "Send a request — we will get in touch on a messenger and tell you everything.",
+    "steps": {
+      "trainingMeta": "60 minutes",
+      "trainingTitle": "Basic lesson",
+      "trainingText": "The way in: after the lesson you fly the foil yourself. Already ride confidently? Skip this step.",
+      "subscriptionMeta": "{minutes} minutes",
+      "subscriptionTitle": "The package",
+      "subscriptionText": "You buy a package of minutes and ride whenever it suits you: a minute works out {percent}% cheaper than single rental.",
+      "clubMeta": "membership for good",
+      "clubTitle": "You are in the club",
+      "clubText": "Membership is activated by your first package and stays for good: the club channel, trips out with the team and your own crowd on the water."
+    },
+    "perks": {
+      "channel": "Club channel",
+      "channel2": "on Telegram",
+      "tours": "Trips out",
+      "tours2": "with the team",
+      "islands": "Islands",
+      "islands2": "and wild beaches"
+    },
+    "telegramButton": "Club channel on Telegram",
+    "toursTitle": "Trips out to sea",
+    "toursText": "An excursion and a safari are no longer riding by the shore — they are several hours in the open sea. We take riders who are confident on the board: the instructor decides, and no separate package is needed.",
+    "tourPhotos": {
+      "excursionAlt": "An eFoil excursion: an instructor with a board by the shore of an island",
+      "excursionText": "A clear 2 to 2.5 hour programme: a flight to Turtle Island with an instructor, to build up experience in the open sea.",
+      "safariAlt": "eFoils on the white sand of a wild beach during a safari",
+      "safariText": "A step up in difficulty: Monkey Island, a stunning resort and the wild Bounty beach. The route is flexible — you decide where to go together with your guide."
+    },
+    "faqHeading": "Questions about the club",
+    "photoDrinkAlt": "A club guest flying on a foil with a drink in hand",
+    "photoCoconutAlt": "A club guest sitting on a board in the middle of the bay with a coconut"
+  },
+  "Socials": {
+    "telegram-channel": "Telegram channel"
+  },
+  "Prices": {
+    "metaTitle": "Prices",
+    "heroAlt": "An eFoil on the water in the bay of Nha Trang, with the city and the mountains behind",
+    "title": "Prices",
+    "lead": "All prices are in Vietnamese dong (₫), paid on site. Gear, life vest and radio contact on the water are included in the price of a lesson — there is nothing to pay on top.",
+    "promises": {
+      "instructorTitle": "Instructor in your ear",
+      "instructorText": "In contact with you through an earpiece at all times",
+      "successTitle": "90% get up on the wing",
+      "successText": "Most students master the board in their first lesson",
+      "kidsTitle": "Kids from age 8",
+      "kidsText": "Separate programmes for children",
+      "allInTitle": "Everything included",
+      "allInText": "Gear, life vest, radio contact on the water",
+      "bayTitle": "Sheltered bay",
+      "bayText": "A closed bay with no waves and no currents"
+    },
+    "droneAlt": "A Hover Aqua Pro drone in flight above the sea",
+    "droneBadge": "New",
+    "droneText": "The Hover Aqua Pro drone follows you above the water and films your flight from the outside. One session lasts {minutes} minutes and you get all the raw footage, unedited. If you want it edited — we offer that as a separate service.",
+    "droneFacts": {
+      "session": "{minutes}-minute session",
+      "raw": "Raw footage included",
+      "aerial": "Filmed from the air"
+    },
+    "dronePrice": "Price per session",
+    "droneBook": "Book the filming",
+    "notes": {
+      "tours": "Excursions and safaris need instructor approval: you have to be comfortable on the board.",
+      "subscription": "A package works out cheaper than single rental.",
+      "minutes": "Package minutes are valid for 3 months and are deducted as you ride.",
+      "firstLesson": "The first package includes a lesson with an instructor."
+    },
+    "moreTraining": "More about the training",
+    "moreClub": "About the club and packages"
+  },
+  "ReviewTexts": {
+    "polina-ch": {
+      "text": "I am incredibly grateful to this team for the chance to try an eFoil. These guys are true professionals! Those 60 minutes had everything: clear theory and plenty of practice on the water. I was scared at first, but the instructor kept encouraging me, explained everything calmly and gave me confidence. I am back in Russia now, but I still live off the memories of that lesson. It was one of the brightest moments of the whole trip!"
+    },
+    "artem-s": {
+      "text": "The whole family got a wonderful shot of adrenaline. The instructors are great, they explained and showed everything in detail! If it is your first time — definitely take an instructor. The instructor has a microphone and headphones, there is an earpiece built into your helmet too, and he guides you the whole way. The result: a pile of impressions, every member of the family managed to stand up and ride, and some of us even got to fly above the water. I will absolutely be back!"
+    },
+    "evgeny-k": {
+      "text": "Today our 7-year-old daughter tried riding a hydrofoil board for the first time. We were a little nervous, but our worries vanished straight away. The instructor explained everything in detail, fitted her out completely (life vest, helmet) and watched over every moment himself. She was a bit wary at first, and a minute later she was flying above the water. Her eyes were shining afterwards. We will definitely do it again!"
+    },
+    "anna-l": {
+      "text": "Guys, thank you for a brilliant experience! My husband loved it — he had wanted to try this for ages and did not regret a second. I want to mention the online booking too: it is great when everything is set up properly for the customer. I hope to come back and try it myself."
+    },
+    "polina-sch": {
+      "text": "This is the best thing that could have happened to us on the last day of our holiday! Do not repeat our mistake — start learning as soon as you land in Nha Trang! These guys are first-class instructors. My husband and I both flew on the first attempt, and our 9-year-old son flew too: on his knees the first time and standing up the second. Unforgettable, and worth every dong we paid!"
+    },
+    "ilya-ya": {
+      "text": "Great guys! Everything people write in the reviews is true. Everything is clear, well explained, no fuss. After that it is down to your own ability! I managed to feel what flying above the water is like. Indescribable! Definitely worth trying if you love extreme sports."
+    },
+    "yulia": {
+      "text": "We were staying at Marina Beach, our daughter saw an eFoil and wanted to ride. The instructor Denis found the right approach with her immediately, and she was absolutely delighted with the board — she asked to go again for the rest of the holiday. Thank you so much for the chance to give children unforgettable feelings, flying above the water!"
+    },
+    "eduard-r": {
+      "text": "Today I tried to stand up on an eFoil for the first time in my life, and I managed it thanks to the clear instructions from Nikolay. Thank you very much for a sea of emotions."
+    },
+    "xonder": {
+      "text": "My first time on an eFoil. Under the careful guidance of the instructor Evgeny, who explained everything calmly and gave clear instructions, I managed to stand up and ride. I came away with so many impressions. Really great, and worth the money."
+    },
+    "khuong-anh": {
+      "text": "Fantastic efoil spot with attentive and welcoming staff. The peaceful vibe of the beach and Gulf scenery really highlighted my time there."
+    }
+  },
+  "Reviews": {
+    "metaTitle": "Reviews",
+    "eyebrow": "Reviews",
+    "titleLine1": "We try to send every guest",
+    "titleLine2": "home smiling!",
+    "lead": "More than 170 guests have already shared their impressions of FlyGuru.",
+    "ratingCount": "more than 170 reviews",
+    "ratingAria": "Rated {value} out of 5, {count} — read them on Google Maps",
+    "ratingInMaps": "{count} on Google Maps",
+    "readInMaps": "Read the reviews on Google Maps",
+    "readAll": "Read all reviews",
+    "more": "More reviews",
+    "heroAlt": "A family with eFoils on a beach in Nha Trang after a lesson with FlyGuru",
+    "chipAria": "— {name}, review on Google Maps",
+    "quotes": {
+      "first": "“We flew on the first attempt”",
+      "daughter": "“Our daughter was absolutely delighted”",
+      "worth": "“Worth every dong”",
+      "emotions": "“A pile of impressions”",
+      "indescribable": "“Indescribable feelings”",
+      "calm": "“The instructor explained everything calmly”"
+    },
+    "chips": {
+      "polina-sch": "We flew on the first attempt",
+      "evgeny-k": "We will definitely do it again!",
+      "ilya-ya": "Indescribable feelings!",
+      "yulia": "Our daughter was delighted",
+      "artem-s": "I will absolutely be back!"
+    },
+    "pullQuote": "I am back in Russia now, but I still live off the memories of that lesson. It was one of the brightest moments of the whole trip!",
+    "whereTitle": "Where to find us",
+    "whereText": "Our base sits in a quiet, sheltered bay. Even in the rainy season the sea here stays calm, so we can teach you to ride a foil all year round.",
+    "mapTitle": "The FlyGuru listing on Google Maps — rating and reviews",
+    "ctaTitle": "Have you ridden with us?",
+    "ctaText": "We would love to read your review on Google Maps.",
+    "ctaButton": "Leave a review"
+  },
+  "Schema": {
+    "description": "An eFoil school in Nha Trang: lessons from scratch, tandem flights, rental, excursions and eFoil sales. 90% of our students get up on the wing in their first lesson.",
+    "catalogName": "FlyGuru services and prices"
+  },
+  "Contacts": {
+    "metaTitle": "Contacts",
+    "hours": "Daily 8:30 – 18:00",
+    "address": "Maryna Beach Club, Nha Trang, Vietnam",
+    "place": "Nha Trang · Maryna Beach Club",
+    "eyebrow": "Contacts",
+    "title": "We are always in touch",
+    "lead": "We will help you pick the right format, find a time and give you a great time on the water!",
+    "writeWhatsApp": "Message us on WhatsApp",
+    "call": "Call us",
+    "write": "Message",
+    "marqueeMessengers": "WhatsApp · Telegram · Zalo",
+    "marqueeFast": "Booked in a couple of messages",
+    "mapTitle": "FlyGuru on the map — Maryna Beach Club, Nha Trang",
+    "route": "Get directions",
+    "socialTitle": "Find us on social media",
+    "socialText": "We also do our best to run our social accounts, to pass on as much of the feeling as we can.",
+    "ctaTitle": "Ready to book?",
+    "ctaText": "Send a request — we will get in touch ourselves to confirm the booking and agree on a time 😌",
+    "ctaButton": "Send a request"
+  },
+  "Home": {
+    "titleLine1": "We will teach you to fly",
+    "titleLine2": "in 60 minutes",
+    "lead": "It is easier than it looks. The board sits firmly under your feet, the mast cuts through the water — and you are flying.",
+    "tryTandem": "Try a tandem first",
+    "swipe": "Swipe",
+    "reviewsEyebrow": "Reviews",
+    "reviewsTitle": "What our students say",
+    "allReviews": "All reviews",
+    "stepsEyebrow": "Where to start",
+    "stepsTitle": "How do you get up on the board?",
+    "moreTraining": "More about the training",
+    "shopAlt": "An eFoil in flight above the sea",
+    "faqHeading": "Answers to common questions",
+    "facts": {
+      "success": "90% get up on the wing in their first lesson",
+      "tandem": "Tandem — 10 minutes",
+      "place": "Nha Trang · Marina Beach",
+      "kids": "Children from age 8",
+      "instructor": "Instructor beside you on the water"
+    },
+    "shopFacts": {
+      "brands": "Trusted brands",
+      "service": "Support and servicing",
+      "warranty": "Quality guaranteed"
+    },
+    "steps": {
+      "tandemTitle": "Tandem",
+      "tandemMeta": "10 minutes, no training",
+      "tandemText": "A trial flight for two on one foil, with an instructor. You simply step on and take off, no training needed.",
+      "tandemFact1": "10 minutes",
+      "tandemFact2": "Perfect",
+      "tandemFact2b": "for a first try",
+      "tandemFact3": "Open to kids",
+      "tandemFact3b": "from age 8",
+      "trainingTitle": "Basic lesson",
+      "trainingMeta": "learning to fly",
+      "trainingText": "In one hour we teach you from scratch how to control the foil, hold your balance and feel the board. Your instructor stays in contact with you from the shore the whole time.",
+      "trainingFact1": "60 minutes",
+      "trainingFact2": "In contact",
+      "trainingFact2b": "with the instructor",
+      "trainingFact3": "Safe",
+      "trainingFact3b": "and simple",
+      "clubTitle": "Excursions and safaris",
+      "clubMeta": "riding free",
+      "clubText": "Once you have learned, you can set off on longer journeys to the islands, deserted beaches and remote spots.",
+      "clubFact1": "No",
+      "clubFact1b": "limits",
+      "clubFact2": "A club",
+      "clubFact2b": "and a community",
+      "clubFact3": "Adventure",
+      "clubFact3b": "and freedom"
+    },
+    "shopEyebrow": "Shop",
+    "shopTitle": "We sell eFoils",
+    "shopText": "We are official importers of Hobbywing and Lift Foils. We will help you choose for your weight and level, and explain the servicing.",
+    "shopButton": "Go to the shop",
+    "assemblyAlt": "An eFoil being assembled: mast, wings and motor",
+    "assemblyTitle": "How a foil is built",
+    "assemblyText": "Board, mast, wings, motor and battery — it all goes together in a few minutes. Tap the video to expand it."
+  },
+  "Meta": {
+    "title": "FlyGuru — eFoil school in Nha Trang",
+    "description": "Learn to fly an eFoil in Nha Trang. 90% of our students are riding in their first lesson.",
+    "ogImageAlt": "A FlyGuru guest riding an eFoil in Nha Trang"
+  }
+}

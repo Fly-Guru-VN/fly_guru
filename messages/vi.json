@@ -1,1 +1,568 @@
-{}
+{
+  "Nav": {
+    "training": "Học lái",
+    "tandem": "Bay đôi",
+    "club": "Câu lạc bộ",
+    "shop": "Cửa hàng",
+    "prices": "Bảng giá",
+    "reviews": "Đánh giá",
+    "contacts": "Liên hệ",
+    "sections": "Các mục của trang"
+  },
+  "Header": {
+    "book": "Đặt lịch",
+    "bookShort": "Đặt",
+    "login": "Đăng nhập",
+    "cabinet": "Trang cá nhân",
+    "loginToCabinet": "Đăng nhập trang cá nhân",
+    "myCabinet": "Trang của tôi",
+    "menu": "Menu",
+    "language": "Ngôn ngữ trang web"
+  },
+  "Footer": {
+    "tagline": "Trường dạy eFoil tại Nha Trang. Bay trên mặt nước ngay từ buổi học đầu tiên.",
+    "sections": "Các mục",
+    "contacts": "Liên hệ",
+    "rights": "© {year} FlyGuru. Bảo lưu mọi quyền."
+  },
+  "ServiceCategories": {
+    "training": "Học lái",
+    "tandem": "Bay đôi",
+    "rental": "Thuê ván",
+    "tour": "Tour biển",
+    "subscription": "Gói phút",
+    "extra": "Dịch vụ thêm",
+    "other": "Khác"
+  },
+  "Booking": {
+    "title": "Đặt lịch",
+    "close": "Đóng",
+    "honeypot": "Đừng điền vào ô này",
+    "name": "Tên",
+    "phone": "Số điện thoại",
+    "phonePlaceholder": "+84 90 123 45 67",
+    "phoneError": "Số điện thoại chỉ gồm chữ số, từ 8 đến 15 chữ số (ví dụ 0901234567).",
+    "telegram": "Tên Telegram",
+    "telegramHint": "Không bắt buộc — cách liên lạc dự phòng",
+    "certificate": "Mã phiếu quà tặng",
+    "certificateOptional": "(không bắt buộc)",
+    "certificateHint": "Có phiếu quà tặng? Nhập mã và dịch vụ sẽ được chọn sẵn cho bạn",
+    "certificateRemove": "Bỏ",
+    "certificateChecking": "Đang kiểm tra mã…",
+    "certificateChosen": "Theo phiếu: {service}",
+    "certificateChosenHint": "Dịch vụ đã được chọn sẵn. Muốn đổi — bấm «Bỏ» bên cạnh mã.",
+    "certificateFallbackService": "buổi học",
+    "certificateNotFound": "Không có mã này. Vui lòng kiểm tra lại cách viết trên phiếu.",
+    "certificateUsed": "Phiếu này đã được sử dụng.",
+    "certificateExpired": "Phiếu đã hết hạn — phiếu có giá trị 3 tháng kể từ ngày mua.",
+    "certificateRateLimited": "Bạn thử quá nhiều lần. Vui lòng đợi một phút.",
+    "certificateError": "Không kiểm tra được mã. Vui lòng thử lại.",
+    "service": "Dịch vụ",
+    "serviceChoose": "Chọn dịch vụ",
+    "agentDiscountRow": "−{amount} theo liên kết đại lý",
+    "agentDiscountNote": "Ưu đãi theo liên kết đại lý áp dụng cho buổi học cơ bản đầu tiên.",
+    "date": "Ngày mong muốn",
+    "comment": "Ghi chú",
+    "submit": "Đặt lịch",
+    "submitting": "Đang gửi…",
+    "sendError": "Không gửi được yêu cầu. Vui lòng kiểm tra kết nối và thử lại, hoặc nhắn cho chúng tôi qua messenger."
+  },
+  "Common": {
+    "book": "Đặt lịch",
+    "popular": "Phổ biến nhất",
+    "instructorApproval": "Cần huấn luyện viên duyệt",
+    "watchVideo": "Xem video",
+    "openFullscreen": "Mở video toàn màn hình",
+    "step": "Bước {number}",
+    "rating": "Đánh giá {rating} trên 5",
+    "serviceGroups": "Nhóm dịch vụ",
+    "googleReview": "Đánh giá trên",
+    "photoPlaceholderAlt": "FlyGuru — ảnh tạm",
+    "tandemPhotoAlt": "Bay đôi cùng huấn luyện viên tại Nha Trang",
+    "minutes": "{count} phút",
+    "onRequest": "theo yêu cầu"
+  },
+  "Services": {
+    "basic-adult": {
+      "name": "Buổi học cơ bản (người lớn)",
+      "blurb": "Lần đầu làm quen với eFoil dưới sự hướng dẫn của huấn luyện viên."
+    },
+    "basic-kid": {
+      "name": "Buổi học cơ bản (dưới 14 tuổi)",
+      "blurb": "Chương trình riêng dành cho trẻ dưới 14 tuổi."
+    },
+    "individual-training": {
+      "name": "Buổi học riêng",
+      "blurb": "Huấn luyện viên ra nước cùng bạn và theo sát từng động tác."
+    },
+    "basic-duo": {
+      "name": "Buổi học cơ bản cho hai người",
+      "blurb": "Một buổi học cho hai người cùng tham gia."
+    },
+    "tandem-adult": {
+      "name": "Bay đôi (người lớn)",
+      "blurb": "Huấn luyện viên điều khiển ván, bạn chỉ việc tận hưởng. Không có gì phức tạp, không yêu cầu gì cả."
+    },
+    "tandem-kid": {
+      "name": "Bay đôi (dưới 14 tuổi)",
+      "blurb": "Cũng như vậy nhưng dành cho trẻ: bé đứng trên ván, huấn luyện viên điều khiển."
+    },
+    "excursion": {
+      "name": "Tour cùng huấn luyện viên",
+      "note": "Đi hai người — 3.000.000 ₫ mỗi người",
+      "blurb": "Bay tới đảo Rùa, lần đầu ra biển khơi. Một chuyến ngắn để tích lũy kinh nghiệm."
+    },
+    "safari": {
+      "name": "E-Foil Safari",
+      "durationLabel": "5 giờ",
+      "blurb": "Đảo Khỉ, khu resort và bãi biển hoang Bounty. Lộ trình do bạn cùng huấn luyện viên quyết định."
+    },
+    "rental": {
+      "name": "Tự lái",
+      "blurb": "Bạn tự lái — mở sau khi học xong buổi cơ bản hoặc khi huấn luyện viên đồng ý."
+    },
+    "subscription": {
+      "name": "Gói 300 phút",
+      "blurb": "Gói phút: bạn lái vào lúc thuận tiện, chỉ cần đặt trước."
+    },
+    "video": {
+      "name": "Ảnh/video có dựng",
+      "durationLabel": "—",
+      "blurb": "Chúng tôi quay buổi học của bạn và dựng thành clip hoàn chỉnh."
+    },
+    "video-raw": {
+      "name": "Ảnh/video không dựng",
+      "durationLabel": "—",
+      "blurb": "Chúng tôi quay buổi học và gửi bạn file gốc, không qua dựng."
+    },
+    "drone": {
+      "name": "Quay bằng drone Hover Aqua Pro",
+      "note": "Một lượt quay, có kèm file gốc",
+      "blurb": "Drone bay theo bạn trên mặt nước và quay chuyến bay từ bên ngoài."
+    }
+  },
+  "Thanks": {
+    "metaTitle": "Đã nhận yêu cầu",
+    "title": "Đã nhận yêu cầu!",
+    "text": "Cảm ơn bạn! Chúng tôi đã nhận được yêu cầu và sẽ liên hệ trong vòng một giờ để xác nhận chi tiết và giờ phù hợp.",
+    "home": "Về trang chủ",
+    "training": "Xem phần học lái",
+    "bookingNo": "Mã yêu cầu của bạn: #{no}"
+  },
+  "Shop": {
+    "metaTitle": "Cửa hàng",
+    "eyebrow": "Cửa hàng",
+    "title": "eFoil đang bán",
+    "subtitle": "Chúng tôi nhập và bán Hobbywing và Lift Foils. Danh mục kèm giá sẽ sớm có — hiện tại vui lòng nhắn cho chúng tôi ở mục liên hệ."
+  },
+  "BookingLanding": {
+    "metaTitle": "Đặt lịch bay",
+    "metaDescription": "Gửi yêu cầu bay eFoil tại Nha Trang — chúng tôi sẽ gọi lại và sắp xếp giờ phù hợp.",
+    "title": "Đặt lịch bay",
+    "text": "Điền hai ô — chúng tôi sẽ gọi lại, sắp xếp giờ và giải đáp thắc mắc. Bây giờ bạn chưa phải trả gì cả."
+  },
+  "Tandem": {
+    "metaTitle": "Bay đôi",
+    "eyebrow": "Bay đôi",
+    "title": "Bay đôi trên eFoil",
+    "lead": "Nhẹ nhàng, vui và an toàn",
+    "text": "Bay đôi là cách đơn giản nhất để cảm nhận chuyến bay trên eFoil. Huấn luyện viên đón bạn từ cầu tàu, và khoảnh khắc sau đó bạn đã tận hưởng cảm giác tự do bay trên mặt nước. Không cần học trước.",
+    "heroAlt": "Một vị khách và huấn luyện viên cùng bay trên một chiếc eFoil trên biển",
+    "book": "Đặt bay đôi",
+    "howItGoes": "Xem diễn ra thế nào",
+    "stepsTitle": "Buổi bay đôi diễn ra thế nào",
+    "facts": {
+      "durationValue": "10 phút",
+      "durationLabel": "thời lượng",
+      "ageValue": "từ 8 tuổi",
+      "ageLabel": "độ tuổi",
+      "trainingValue": "không cần",
+      "trainingLabel": "học trước"
+    },
+    "promises": {
+      "safeTitle": "An toàn",
+      "safeText": "Huấn luyện viên ở bên bạn suốt chuyến bay.",
+      "easyTitle": "Khởi đầu dễ dàng",
+      "easyText": "Bạn không cần biết lái — chúng tôi lo hết cho bạn."
+    },
+    "steps": {
+      "gearTitle": "Mặc đồ bảo hộ",
+      "gearText": "Trên bờ, bạn được phát đầy đủ trang bị và chuẩn bị cho chuyến bay.",
+      "tandemTitle": "Bay đôi",
+      "tandemText": "Huấn luyện viên điều khiển ván, bạn chỉ việc tận hưởng. Không có gì phức tạp, không yêu cầu gì cả.",
+      "emotionsTitle": "Cảm xúc vỡ òa",
+      "emotionsText": "Kỷ niệm khó quên là điều chắc chắn."
+    }
+  },
+  "Training": {
+    "metaTitle": "Học lái",
+    "heroAlt": "Hai người bay trên eFoil trên biển Nha Trang",
+    "titleLine1": "Học bay",
+    "titleLine2": "trên eFoil",
+    "lead": "Không cần kinh nghiệm. Ngay buổi đầu tiên bạn đã đứng lên trên cánh ngầm.",
+    "book": "Đặt buổi học",
+    "facts": {
+      "duration": "60 phút",
+      "age": "từ 8 tuổi",
+      "weight": "cân nặng đến 130 kg"
+    },
+    "marquee": {
+      "gear": "Bao trọn trang bị",
+      "instructor": "Huấn luyện viên luôn kết nối",
+      "success": "90% đứng lên được ngay buổi đầu",
+      "bay": "Vịnh kín, an toàn",
+      "kids": "Trẻ em từ 8 tuổi"
+    },
+    "included": "Giá đã bao gồm:",
+    "includedList": "eFoil, áo phao, mũ bảo hiểm, bộ đàm, đồ chuyên dụng.",
+    "safeBay": "Mọi buổi học đều diễn ra trong vịnh kín an toàn.",
+    "stepsTitle": "Buổi học theo từng bước",
+    "formatFacts": {
+      "gear": "Bao trọn trang bị",
+      "instructor": "Huấn luyện viên luôn kết nối",
+      "safe": "An toàn",
+      "kids": "Chương trình cho trẻ",
+      "oneOnOne": "Một kèm một",
+      "personal": "Theo riêng bạn",
+      "progress": "Tiến bộ nhanh",
+      "duo": "Cho hai học viên"
+    },
+    "steps": {
+      "briefingMeta": "15 phút",
+      "briefingTitle": "Hướng dẫn trên bờ",
+      "briefingText": "Huấn luyện viên chỉ cho bạn mọi tư thế cần thiết ngay trên ván thật. Sau đó bạn được chọn trang bị và ra nước.",
+      "lyingMeta": "Làm quen với ván",
+      "lyingTitle": "Đầu tiên là nằm lái",
+      "lyingText": "Bạn bắt đầu bằng việc làm quen với tay ga và tốc độ của ván. Giai đoạn này chỉ mất 5–7 phút.",
+      "balanceMeta": "Tập giữ thăng bằng",
+      "balanceTitle": "Quỳ gối rồi đứng lên",
+      "balanceText": "Vẫn tốc độ đó, nhưng giờ bạn tập giữ thăng bằng và cảm nhận ván. Huấn luyện viên nói với bạn qua tai nghe.",
+      "flightMeta": "Cất cánh",
+      "flightTitle": "Cảm nhận chuyến bay",
+      "flightText": "Ván nâng lên khỏi mặt nước, lực cản biến mất và bạn cảm nhận sự tự do thật sự. Đầu tiên cất cánh khi đang quỳ, sau đó tập bay khi đứng."
+    }
+  },
+  "Faq": {
+    "home": {
+      "experience": {
+        "q": "Có cần kinh nghiệm không?",
+        "a": "Không. eFoil dễ hơn vẻ ngoài của nó: 90% học viên lái được ngay buổi đầu tiên. Không cần biết lướt sóng, wakeboard hay SUP."
+      },
+      "safety": {
+        "q": "Có an toàn không?",
+        "a": "Có. Suốt buổi học bạn mặc áo phao và huấn luyện viên luôn giữ liên lạc với bạn. Tốc độ khi học không cao, ván rất vững, và ngã xuống nước cũng không đau."
+      },
+      "gear": {
+        "q": "Cần mang theo gì?",
+        "a": "Chỉ cần đồ bơi. Mọi thứ còn lại chúng tôi lo: áo phao, mũ bảo hiểm, liên lạc trên nước và đồ chuyên dụng."
+      },
+      "lessons": {
+        "q": "Học bao nhiêu buổi thì tự lái được?",
+        "a": "Sau buổi học cơ bản, bạn được mở quyền tự thuê ván và mua gói phút."
+      },
+      "age": {
+        "q": "Từ mấy tuổi thì tham gia được?",
+        "a": "Chương trình cho trẻ từ 8 đến 14 tuổi. Từ 15 tuổi là chương trình người lớn, không giới hạn tuổi tối đa. Giới hạn cân nặng: 40 đến 130 kg."
+      },
+      "doubt": {
+        "q": "Nếu tôi không lái được thì sao?",
+        "a": "Bạn sẽ làm được. 90% học viên lái được ngay buổi đầu. Thiết bị chuyên nghiệp giúp việc học rất nhẹ nhàng, còn huấn luyện viên giàu kinh nghiệm luôn giữ liên lạc với bạn từ bờ."
+      }
+    },
+    "club": {
+      "needTraining": {
+        "q": "Có cần học trước khi mua gói phút không?",
+        "a": "Bạn có thể mua gói ngay. Nếu chưa từng lái, 60 phút đầu tiên của gói sẽ là buổi học cùng huấn luyện viên: chúng tôi không để ai ra nước một mình khi chưa học."
+      },
+      "minutesLife": {
+        "q": "Số phút có hạn dùng bao lâu?",
+        "a": "3 tháng kể từ ngày mua. Phút được trừ theo thực tế bạn lái: mỗi ngày 15 phút hay cả tiếng vào cuối tuần đều được."
+      },
+      "worth": {
+        "q": "Gói phút rẻ hơn thuê lẻ bao nhiêu?",
+        "a": "Một phút trong gói rẻ hơn khoảng 40% so với thuê lẻ. Gói hoàn vốn ngay từ lần lái thứ năm."
+      },
+      "tours": {
+        "q": "Ai được tham gia tour và safari?",
+        "a": "Những người đã vững trên ván. Huấn luyện viên là người quyết định: đây là những chuyến ra biển khơi kéo dài vài giờ, và chúng tôi không nhận người mới. Không cần mua gói riêng cho việc này."
+      },
+      "membership": {
+        "q": "Thành viên câu lạc bộ được gì?",
+        "a": "Tư cách thành viên được kích hoạt bằng gói phút đầu tiên và theo bạn mãi mãi. Bạn được vào kênh Telegram của câu lạc bộ, đi tour cùng đội và lái chung với những người đã vững trên cánh ngầm."
+      },
+      "where": {
+        "q": "Các bạn lái ở đâu?",
+        "a": "Cơ sở của chúng tôi là Maryna Beach Club ở Nha Trang, trong một vịnh kín. Các chuyến tour cũng khởi hành từ đó: đảo Rùa, đảo Khỉ và các bãi biển hoang."
+      }
+    }
+  },
+  "Club": {
+    "metaTitle": "Câu lạc bộ",
+    "heroAlt": "Ba người cùng bay trên eFoil giữa biển khơi bên những ngọn núi Nha Trang",
+    "eyebrow": "Câu lạc bộ FlyGuru",
+    "titleLine1": "Lái thoả thích",
+    "titleLine2": "bao nhiêu tuỳ bạn",
+    "lead": "Gói phút với giá tốt, những chuyến ra đảo và một cộng đồng của riêng bạn trên mặt nước.",
+    "buy": "Mua gói phút",
+    "howToJoin": "Làm sao để vào câu lạc bộ",
+    "heroFacts": {
+      "minutes": "{minutes} phút",
+      "cheaper": "mỗi phút rẻ hơn {percent}%",
+      "life": "phút dùng trong 3 tháng"
+    },
+    "marquee": {
+      "subscription": "Gói {minutes} phút",
+      "cheaper": "Mỗi phút rẻ hơn {percent}%",
+      "anytime": "Lái vào lúc bạn thấy tiện",
+      "tours": "Tour và safari cùng cả đội",
+      "channel": "Kênh Telegram riêng",
+      "place": "Nha Trang · Marina Beach"
+    },
+    "subscriptionEyebrow": "Gói phút",
+    "subscriptionTitle": "Mỗi phút rẻ hơn {percent}%",
+    "subscriptionText": "Thuê lẻ rất hợp để nhớ lại cảm giác. Nhưng khi việc lái đã thành thói quen, trả tiền cho từng lượt riêng lẻ không còn hợp lý nữa: gói phút hoàn vốn ngay từ lần lái thứ năm.",
+    "perMinute": "{price}k ₫ / phút",
+    "bySubscription": "Theo gói phút",
+    "byRental": "Thuê lẻ",
+    "included": {
+      "gear": "Trang bị, áo phao và liên lạc trên nước — như trong buổi học",
+      "byFact": "Phút được trừ theo thực tế bạn lái, không theo lịch cố định",
+      "firstLesson": "Gói đầu tiên của khách chưa học đã bao gồm buổi học cùng huấn luyện viên",
+      "tours": "Sau khi học — mở quyền tham gia tour và safari"
+    },
+    "cardMinutes": "Số phút có giá trị 3 tháng",
+    "cardAnytime": "Lái lúc nào tiện, không theo lịch cố định",
+    "cardMembership": "Gói đầu tiên mở tư cách thành viên câu lạc bộ",
+    "cardNote": "Gửi yêu cầu — chúng tôi sẽ nhắn cho bạn qua messenger và kể hết mọi thứ.",
+    "steps": {
+      "trainingMeta": "60 phút",
+      "trainingTitle": "Buổi học cơ bản",
+      "trainingText": "Cửa vào: sau buổi học bạn tự điều khiển được ván. Nếu đã lái vững — bỏ qua bước này.",
+      "subscriptionMeta": "{minutes} phút",
+      "subscriptionTitle": "Gói phút",
+      "subscriptionText": "Bạn mua gói phút và lái vào lúc thuận tiện: mỗi phút rẻ hơn {percent}% so với thuê lẻ.",
+      "clubMeta": "tư cách vĩnh viễn",
+      "clubTitle": "Bạn đã ở trong câu lạc bộ",
+      "clubText": "Tư cách thành viên được kích hoạt bằng gói đầu tiên và theo bạn mãi mãi: kênh riêng, những chuyến đi cùng đội và cộng đồng của bạn trên mặt nước."
+    },
+    "perks": {
+      "channel": "Kênh câu lạc bộ",
+      "channel2": "trên Telegram",
+      "tours": "Những chuyến đi",
+      "tours2": "cùng cả đội",
+      "islands": "Đảo",
+      "islands2": "và bãi hoang"
+    },
+    "telegramButton": "Kênh câu lạc bộ trên Telegram",
+    "toursTitle": "Những chuyến ra biển",
+    "toursText": "Tour và safari không còn là lái gần bờ nữa, mà là vài giờ ngoài biển khơi. Chúng tôi nhận những người đã vững trên ván: huấn luyện viên quyết định, và không cần mua gói riêng.",
+    "tourPhotos": {
+      "excursionAlt": "Tour eFoil: huấn luyện viên cùng chiếc ván bên bờ đảo",
+      "excursionText": "Chương trình rõ ràng trong 2–2,5 giờ: bay tới đảo Rùa cùng huấn luyện viên để tích lũy kinh nghiệm ngoài biển khơi.",
+      "safariAlt": "Những chiếc eFoil trên bãi cát trắng hoang sơ trong chuyến safari",
+      "safariText": "Thử thách ở mức cao hơn: đảo Khỉ, khu resort đẹp và bãi biển hoang Bounty. Lộ trình linh hoạt — bạn cùng người dẫn quyết định sẽ đi đâu."
+    },
+    "faqHeading": "Câu hỏi về câu lạc bộ",
+    "photoDrinkAlt": "Một thành viên câu lạc bộ bay trên ván với ly nước trên tay",
+    "photoCoconutAlt": "Một thành viên câu lạc bộ ngồi trên ván giữa vịnh với quả dừa"
+  },
+  "Socials": {
+    "telegram-channel": "Kênh Telegram"
+  },
+  "Prices": {
+    "metaTitle": "Bảng giá",
+    "heroAlt": "Chiếc eFoil trên mặt nước vịnh Nha Trang, phía sau là thành phố và núi",
+    "title": "Bảng giá dịch vụ",
+    "lead": "Mọi giá đều tính bằng đồng (₫), thanh toán tại chỗ. Trang bị, áo phao và liên lạc trên nước đã nằm trong giá buổi học — bạn không phải trả thêm.",
+    "promises": {
+      "instructorTitle": "Huấn luyện viên luôn kết nối",
+      "instructorText": "Luôn nói chuyện với bạn qua tai nghe",
+      "successTitle": "90% đứng lên được",
+      "successText": "Phần lớn học viên làm chủ ván ngay buổi đầu",
+      "kidsTitle": "Trẻ em từ 8 tuổi",
+      "kidsText": "Có chương trình riêng cho trẻ",
+      "allInTitle": "Bao trọn gói",
+      "allInText": "Trang bị, áo phao, liên lạc trên nước",
+      "bayTitle": "Vịnh an toàn",
+      "bayText": "Vịnh kín, không sóng lớn và không dòng chảy"
+    },
+    "droneAlt": "Drone Hover Aqua Pro đang bay trên biển",
+    "droneBadge": "Mới",
+    "droneText": "Drone Hover Aqua Pro bay theo bạn trên mặt nước và quay chuyến bay từ bên ngoài. Mỗi lượt kéo dài {minutes} phút, chúng tôi gửi toàn bộ file gốc chưa qua dựng. Nếu bạn cần dựng — chúng tôi có dịch vụ riêng.",
+    "droneFacts": {
+      "session": "Lượt quay {minutes} phút",
+      "raw": "Có kèm file gốc",
+      "aerial": "Quay từ trên cao"
+    },
+    "dronePrice": "Giá mỗi lượt quay",
+    "droneBook": "Đặt quay phim",
+    "notes": {
+      "tours": "Tour và safari cần huấn luyện viên duyệt: bạn phải cảm nhận ván thật vững.",
+      "subscription": "Gói phút có lợi hơn thuê lẻ.",
+      "minutes": "Phút trong gói có giá trị 3 tháng và được trừ theo thực tế bạn lái.",
+      "firstLesson": "Gói đầu tiên đã bao gồm buổi học cùng huấn luyện viên."
+    },
+    "moreTraining": "Tìm hiểu về buổi học",
+    "moreClub": "Về câu lạc bộ và gói phút"
+  },
+  "ReviewTexts": {
+    "polina-ch": {
+      "text": "Tôi vô cùng biết ơn cả đội vì đã cho tôi cơ hội thử eFoil. Các bạn ấy thật sự chuyên nghiệp! 60 phút có đủ mọi thứ: lý thuyết dễ hiểu và thời gian thực hành khá dài trên nước. Ban đầu tôi sợ, nhưng huấn luyện viên luôn động viên, giải thích bình tĩnh và truyền cho tôi sự tự tin. Giờ tôi đã về Nga, nhưng vẫn sống với ký ức về buổi học đó. Đây là một trong những khoảnh khắc rực rỡ nhất chuyến đi!"
+    },
+    "artem-s": {
+      "text": "Cả nhà tôi đã có một liều adrenaline tuyệt vời. Các huấn luyện viên rất giỏi, giải thích và làm mẫu rất kỹ! Ai lần đầu thì nhất định nên đi cùng huấn luyện viên. Huấn luyện viên có micro và tai nghe, trong mũ bảo hiểm của bạn cũng gắn tai nghe, và anh ấy hướng dẫn bạn liên tục. Kết quả: cả núi cảm xúc, mọi thành viên trong nhà đều đứng lên và lái được, có người còn bay hẳn trên mặt nước. Chắc chắn tôi sẽ quay lại!"
+    },
+    "evgeny-k": {
+      "text": "Hôm nay con gái 7 tuổi của chúng tôi lần đầu thử lái ván có cánh ngầm. Chúng tôi hơi lo, nhưng mọi lo lắng tan biến ngay lập tức. Huấn luyện viên giải thích rất kỹ, trang bị đầy đủ cho cháu (áo phao, mũ bảo hiểm) và tự mình kiểm soát từng khoảnh khắc. Lúc đầu cháu hơi dè dặt, một phút sau đã bay trên mặt nước. Sau buổi lái, mắt cháu sáng rực. Nhất định chúng tôi sẽ quay lại!"
+    },
+    "anna-l": {
+      "text": "Các bạn ơi, cảm ơn vì một trải nghiệm tuyệt vời! Chồng tôi rất thích, anh ấy đã muốn thử từ lâu và không hối tiếc một giây nào. Tôi cũng muốn khen phần đặt lịch trực tuyến — rất hay khi mọi thứ được làm tử tế vì sự tiện lợi của khách. Hy vọng sẽ quay lại và tự mình thử."
+    },
+    "polina-sch": {
+      "text": "Đây là điều tuyệt vời nhất có thể xảy ra với chúng tôi vào ngày cuối kỳ nghỉ! Đừng lặp lại sai lầm của chúng tôi — hãy học ngay khi vừa đến Nha Trang! Các bạn ấy là những huấn luyện viên hạng nhất. Tôi và chồng bay được ngay lần đầu, con trai 9 tuổi cũng bay: lần đầu bằng đầu gối, lần hai thì đứng hẳn. Cảm xúc khó quên, xứng đáng từng đồng bỏ ra!"
+    },
+    "ilya-ya": {
+      "text": "Các bạn ấy tuyệt vời! Mọi điều người ta viết trong đánh giá đều đúng. Mọi thứ rõ ràng, dễ hiểu, không vội vàng. Còn lại là tuỳ khả năng của bạn thôi! Tôi đã cảm nhận được cảm giác bay trên mặt nước. Không lời nào tả nổi! Nhất định nên thử nếu bạn thích các môn mạo hiểm."
+    },
+    "yulia": {
+      "text": "Chúng tôi nghỉ ở Marina Beach, con gái nhìn thấy chiếc eFoil và đòi lái. Huấn luyện viên Denis lập tức tìm được cách tiếp cận với bé, con bé mê chiếc ván đến mức cả kỳ nghỉ còn lại chỉ đòi đi lái tiếp. Cảm ơn rất nhiều vì đã mang lại cho các bé những cảm xúc khó quên khi bay trên mặt nước!"
+    },
+    "eduard-r": {
+      "text": "Hôm nay lần đầu tiên trong đời tôi thử đứng lên chiếc ván eFoil, và tôi đã làm được nhờ những chỉ dẫn chuẩn xác của huấn luyện viên Nikolay. Cảm ơn rất nhiều vì cả biển cảm xúc."
+    },
+    "xonder": {
+      "text": "Lần đầu tôi lái eFoil. Dưới sự hướng dẫn tận tình của huấn luyện viên Evgeny, người giải thích bình tĩnh và ra chỉ dẫn rõ ràng, tôi đã đứng lên và lái được. Tôi nhận về rất nhiều cảm xúc. Rất tuyệt và xứng đáng với số tiền bỏ ra."
+    },
+    "khuong-anh": {
+      "text": "Địa điểm chơi efoil tuyệt vời với đội ngũ chu đáo và thân thiện. Không khí yên bình của bãi biển và khung cảnh vịnh khiến chuyến đi của tôi càng đáng nhớ."
+    }
+  },
+  "Reviews": {
+    "metaTitle": "Đánh giá",
+    "eyebrow": "Đánh giá",
+    "titleLine1": "Chúng tôi cố gắng để mỗi vị khách",
+    "titleLine2": "ra về với nụ cười!",
+    "lead": "Hơn 170 vị khách đã chia sẻ cảm nhận về FlyGuru.",
+    "ratingCount": "hơn 170 đánh giá",
+    "ratingAria": "Đánh giá {value} trên 5, {count} — đọc trên Google Maps",
+    "ratingInMaps": "{count} trên Google Maps",
+    "readInMaps": "Đọc đánh giá trên Google Maps",
+    "readAll": "Đọc tất cả đánh giá",
+    "more": "Thêm đánh giá",
+    "heroAlt": "Một gia đình cùng những chiếc eFoil trên bãi biển Nha Trang sau buổi học với FlyGuru",
+    "chipAria": "— {name}, đánh giá trên Google Maps",
+    "quotes": {
+      "first": "«Bay được ngay lần đầu»",
+      "daughter": "«Con gái tôi mê tít»",
+      "worth": "«Xứng đáng từng đồng»",
+      "emotions": "«Cả núi cảm xúc»",
+      "indescribable": "«Không lời nào tả nổi»",
+      "calm": "«Huấn luyện viên giải thích rất bình tĩnh»"
+    },
+    "chips": {
+      "polina-sch": "Bay được ngay lần đầu",
+      "evgeny-k": "Nhất định sẽ quay lại!",
+      "ilya-ya": "Không lời nào tả nổi!",
+      "yulia": "Con gái tôi mê tít",
+      "artem-s": "Chắc chắn tôi sẽ quay lại!"
+    },
+    "pullQuote": "Giờ tôi đã về Nga, nhưng vẫn sống với ký ức về buổi học đó. Đây là một trong những khoảnh khắc rực rỡ nhất chuyến đi!",
+    "whereTitle": "Chúng tôi ở đâu",
+    "whereText": "Cơ sở của chúng tôi nằm trong một vịnh yên tĩnh. Ngay cả mùa mưa biển ở đây vẫn lặng, nên chúng tôi có thể dạy bạn lái ván quanh năm.",
+    "mapTitle": "FlyGuru trên Google Maps — điểm đánh giá và nhận xét",
+    "ctaTitle": "Bạn đã lái cùng chúng tôi?",
+    "ctaText": "Chúng tôi rất mong nhận được đánh giá của bạn trên Google Maps.",
+    "ctaButton": "Viết đánh giá"
+  },
+  "Schema": {
+    "description": "Trường dạy eFoil tại Nha Trang: học từ đầu, bay đôi, thuê ván, tour biển và bán eFoil. 90% học viên đứng lên được trên cánh ngầm ngay buổi đầu tiên.",
+    "catalogName": "Dịch vụ và bảng giá FlyGuru"
+  },
+  "Contacts": {
+    "metaTitle": "Liên hệ",
+    "hours": "Hằng ngày 8:30 – 18:00",
+    "address": "Maryna Beach Club, Nha Trang, Việt Nam",
+    "place": "Nha Trang · Maryna Beach Club",
+    "eyebrow": "Liên hệ",
+    "title": "Chúng tôi luôn sẵn sàng",
+    "lead": "Chúng tôi sẽ giúp bạn chọn hình thức phù hợp, sắp xếp thời gian và mang lại những cảm xúc tuyệt vời!",
+    "writeWhatsApp": "Nhắn qua WhatsApp",
+    "call": "Gọi điện",
+    "write": "Nhắn tin",
+    "marqueeMessengers": "WhatsApp · Telegram · Zalo",
+    "marqueeFast": "Đặt lịch chỉ trong vài tin nhắn",
+    "mapTitle": "FlyGuru trên bản đồ — Maryna Beach Club, Nha Trang",
+    "route": "Mở chỉ đường",
+    "socialTitle": "Chúng tôi trên mạng xã hội",
+    "socialText": "Chúng tôi cũng cố gắng duy trì mạng xã hội để truyền tải trọn vẹn nhất những cảm xúc mà chính chúng tôi trải qua.",
+    "ctaTitle": "Muốn đặt lịch ngay?",
+    "ctaText": "Gửi yêu cầu — chúng tôi sẽ tự liên hệ để xác nhận lịch và thống nhất giờ 😌",
+    "ctaButton": "Gửi yêu cầu"
+  },
+  "Home": {
+    "titleLine1": "Dạy bạn bay",
+    "titleLine2": "trong 60 phút",
+    "lead": "Dễ hơn vẻ ngoài của nó. Ván đứng vững dưới chân, cột trụ rẽ nước — và bạn đang bay.",
+    "tryTandem": "Thử bay đôi trước",
+    "swipe": "Vuốt để xem",
+    "reviewsEyebrow": "Đánh giá",
+    "reviewsTitle": "Học viên nói gì",
+    "allReviews": "Tất cả đánh giá",
+    "stepsEyebrow": "Bắt đầu từ đâu",
+    "stepsTitle": "Làm sao để đứng lên ván?",
+    "moreTraining": "Tìm hiểu về buổi học",
+    "shopAlt": "Chiếc eFoil đang bay trên biển",
+    "faqHeading": "Giải đáp những câu hỏi thường gặp",
+    "facts": {
+      "success": "90% đứng lên được ngay buổi đầu",
+      "tandem": "Bay đôi — 10 phút",
+      "place": "Nha Trang · Marina Beach",
+      "kids": "Trẻ em từ 8 tuổi",
+      "instructor": "Huấn luyện viên bên bạn trên nước"
+    },
+    "shopFacts": {
+      "brands": "Thương hiệu uy tín",
+      "service": "Hỗ trợ và bảo dưỡng",
+      "warranty": "Bảo đảm chất lượng"
+    },
+    "steps": {
+      "tandemTitle": "Bay đôi",
+      "tandemMeta": "10 phút, không cần học",
+      "tandemText": "Chuyến bay thử hai người trên một chiếc ván, cùng huấn luyện viên. Bạn chỉ việc bước lên và cất cánh, không cần học trước.",
+      "tandemFact1": "10 phút",
+      "tandemFact2": "Lý tưởng",
+      "tandemFact2b": "để bắt đầu",
+      "tandemFact3": "Trẻ em tham gia",
+      "tandemFact3b": "từ 8 tuổi",
+      "trainingTitle": "Buổi học cơ bản",
+      "trainingMeta": "học cách bay",
+      "trainingText": "Trong một giờ, chúng tôi dạy bạn từ đầu cách điều khiển ván, giữ thăng bằng và cảm nhận ván. Suốt thời gian đó huấn luyện viên giữ liên lạc với bạn từ bờ.",
+      "trainingFact1": "60 phút",
+      "trainingFact2": "Luôn kết nối",
+      "trainingFact2b": "với huấn luyện viên",
+      "trainingFact3": "An toàn",
+      "trainingFact3b": "và đơn giản",
+      "clubTitle": "Tour và safari",
+      "clubMeta": "lái tự do",
+      "clubText": "Sau khi học xong, bạn có thể đi những hành trình dài hơn tới các đảo, bãi biển vắng và những nơi xa xôi.",
+      "clubFact1": "Không",
+      "clubFact1b": "giới hạn",
+      "clubFact2": "Câu lạc bộ",
+      "clubFact2b": "và cộng đồng",
+      "clubFact3": "Phiêu lưu",
+      "clubFact3b": "và tự do"
+    },
+    "shopEyebrow": "Cửa hàng",
+    "shopTitle": "Chúng tôi bán eFoil",
+    "shopText": "Chúng tôi nhập chính hãng Hobbywing và Lift Foils. Sẽ giúp bạn chọn theo cân nặng và trình độ, và giải thích về bảo dưỡng.",
+    "shopButton": "Xem cửa hàng",
+    "assemblyAlt": "Lắp ráp eFoil: cột trụ, cánh ngầm và động cơ",
+    "assemblyTitle": "Chiếc ván được cấu tạo thế nào",
+    "assemblyText": "Ván, cột trụ, cánh ngầm, động cơ và pin — tất cả lắp xong trong vài phút. Bấm vào video để xem lớn."
+  },
+  "Meta": {
+    "title": "FlyGuru — trường dạy eFoil tại Nha Trang",
+    "description": "Học bay trên eFoil tại Nha Trang. 90% học viên lái được ngay buổi đầu tiên.",
+    "ogImageAlt": "Khách của FlyGuru đang lái eFoil tại Nha Trang"
+  }
+}

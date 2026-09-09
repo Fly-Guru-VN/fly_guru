@@ -1,1 +1,568 @@
-{}
+{
+  "Nav": {
+    "training": "教学",
+    "tandem": "双人飞行",
+    "club": "俱乐部",
+    "shop": "商店",
+    "prices": "价格",
+    "reviews": "评价",
+    "contacts": "联系我们",
+    "sections": "网站栏目"
+  },
+  "Header": {
+    "book": "立即预约",
+    "bookShort": "预约",
+    "login": "登录",
+    "cabinet": "我的后台",
+    "loginToCabinet": "登录后台",
+    "myCabinet": "我的后台",
+    "menu": "菜单",
+    "language": "网站语言"
+  },
+  "Footer": {
+    "tagline": "芽庄电动水翼板学校。第一节课就能飞在水面上。",
+    "sections": "栏目",
+    "contacts": "联系方式",
+    "rights": "© {year} FlyGuru. 保留所有权利。"
+  },
+  "ServiceCategories": {
+    "training": "教学",
+    "tandem": "双人飞行",
+    "rental": "租板",
+    "tour": "出海",
+    "subscription": "套餐",
+    "extra": "增值服务",
+    "other": "其他"
+  },
+  "Booking": {
+    "title": "预约",
+    "close": "关闭",
+    "honeypot": "请勿填写此栏",
+    "name": "姓名",
+    "phone": "电话",
+    "phonePlaceholder": "+84 90 123 45 67",
+    "phoneError": "电话只能填数字，8 到 15 位（例如 0901234567）。",
+    "telegram": "Telegram 用户名",
+    "telegramHint": "选填 —— 备用联系方式",
+    "certificate": "礼品券编号",
+    "certificateOptional": "（选填）",
+    "certificateHint": "有礼品券？填入编号，服务会自动选好",
+    "certificateRemove": "移除",
+    "certificateChecking": "正在核对编号…",
+    "certificateChosen": "礼品券项目：{service}",
+    "certificateChosenHint": "服务已经选好。想换别的，请点编号旁边的“移除”。",
+    "certificateFallbackService": "课程",
+    "certificateNotFound": "查无此编号。请核对礼品券上的写法。",
+    "certificateUsed": "此礼品券已被使用。",
+    "certificateExpired": "礼品券已过期 —— 有效期为购买之日起 3 个月。",
+    "certificateRateLimited": "尝试次数过多，请等一分钟。",
+    "certificateError": "无法核对编号，请再试一次。",
+    "service": "服务项目",
+    "serviceChoose": "请选择服务",
+    "agentDiscountRow": "代理链接优惠 −{amount}",
+    "agentDiscountNote": "代理链接优惠适用于首次基础课程。",
+    "date": "希望的日期",
+    "comment": "备注",
+    "submit": "立即预约",
+    "submitting": "正在发送…",
+    "sendError": "预约发送失败。请检查网络后重试，或者直接用即时通讯软件联系我们。"
+  },
+  "Common": {
+    "book": "立即预约",
+    "popular": "最受欢迎",
+    "instructorApproval": "需教练同意",
+    "watchVideo": "观看视频",
+    "openFullscreen": "全屏播放视频",
+    "step": "第 {number} 步",
+    "rating": "评分 {rating} 分（满分 5 分）",
+    "serviceGroups": "服务分类",
+    "googleReview": "评价来自",
+    "photoPlaceholderAlt": "FlyGuru —— 图片占位",
+    "tandemPhotoAlt": "在芽庄与教练一起双人飞行",
+    "minutes": "{count} 分钟",
+    "onRequest": "面议"
+  },
+  "Services": {
+    "basic-adult": {
+      "name": "基础课程（成人）",
+      "blurb": "在教练指导下第一次认识电动水翼板。"
+    },
+    "basic-kid": {
+      "name": "基础课程（14 岁以下）",
+      "blurb": "为 14 岁以下儿童单独设计的课程。"
+    },
+    "individual-training": {
+      "name": "一对一私教课",
+      "blurb": "教练与您一同下水，更细致地把控每一个动作。"
+    },
+    "basic-duo": {
+      "name": "双人基础课程",
+      "blurb": "两个人一起上的课程。"
+    },
+    "tandem-adult": {
+      "name": "双人飞行（成人）",
+      "blurb": "教练操控水翼板，您只管享受。不难，也没有任何门槛。"
+    },
+    "tandem-kid": {
+      "name": "双人飞行（14 岁以下）",
+      "blurb": "儿童版本相同：孩子站在板上，由教练操控。"
+    },
+    "excursion": {
+      "name": "教练陪同出海",
+      "note": "两人同行 —— 每人 3,000,000 ₫",
+      "blurb": "飞往海龟岛，第一次体验开阔海域。行程不长，正好积累经验。"
+    },
+    "safari": {
+      "name": "E-Foil 深度探索",
+      "durationLabel": "5 小时",
+      "blurb": "猴岛、度假村和无人的 Bounty 海滩。路线由您和教练一起决定。"
+    },
+    "rental": {
+      "name": "自主骑行",
+      "blurb": "自己下水骑行 —— 完成基础课程或经教练同意后开放。"
+    },
+    "subscription": {
+      "name": "300 分钟套餐",
+      "blurb": "分钟套餐：提前预约，随时来骑。"
+    },
+    "video": {
+      "name": "照片/视频（含剪辑）",
+      "durationLabel": "—",
+      "blurb": "我们拍下您的课程，并剪成一条成片。"
+    },
+    "video-raw": {
+      "name": "照片/视频（不剪辑）",
+      "durationLabel": "—",
+      "blurb": "我们拍下您的课程，不做剪辑，直接把原始素材发给您。"
+    },
+    "drone": {
+      "name": "Hover Aqua Pro 无人机跟拍",
+      "note": "一次拍摄，附赠原始素材",
+      "blurb": "无人机贴着水面跟随您，从外部拍下整段飞行。"
+    }
+  },
+  "Thanks": {
+    "metaTitle": "已收到预约",
+    "title": "预约已收到！",
+    "text": "谢谢！我们已经收到您的预约，会在一小时内与您联系，确认细节和合适的时间。",
+    "home": "回到首页",
+    "training": "查看教学",
+    "bookingNo": "您的预约编号：#{no}"
+  },
+  "Shop": {
+    "metaTitle": "商店",
+    "eyebrow": "商店",
+    "title": "在售的电动水翼板",
+    "subtitle": "我们正规进口并销售 Hobbywing 和 Lift Foils。带价格的目录即将上线 —— 目前请通过联系页面咨询购买。"
+  },
+  "BookingLanding": {
+    "metaTitle": "预约飞行",
+    "metaDescription": "在芽庄预约电动水翼板飞行 —— 我们会回电并安排时间。",
+    "title": "预约飞行",
+    "text": "填两栏就好 —— 我们会回电、安排时间并解答疑问。现在无需支付任何费用。"
+  },
+  "Tandem": {
+    "metaTitle": "双人飞行",
+    "eyebrow": "双人飞行",
+    "title": "双人飞行",
+    "lead": "轻松、好玩又安全",
+    "text": "双人飞行是体验电动水翼板最简单的方式。教练在码头接上您，下一刻您就在享受飞越水面的自由。无需事先学习。",
+    "heroAlt": "客人与教练同乘一块电动水翼板飞越海面",
+    "book": "预约双人飞行",
+    "howItGoes": "看看怎么进行",
+    "stepsTitle": "双人飞行怎么进行",
+    "facts": {
+      "durationValue": "10 分钟",
+      "durationLabel": "时长",
+      "ageValue": "8 岁起",
+      "ageLabel": "年龄",
+      "trainingValue": "无需",
+      "trainingLabel": "学习"
+    },
+    "promises": {
+      "safeTitle": "安全",
+      "safeText": "整段飞行教练都在您身边。",
+      "easyTitle": "轻松上手",
+      "easyText": "不用会骑 —— 一切我们来做。"
+    },
+    "steps": {
+      "gearTitle": "穿戴装备",
+      "gearText": "在岸上会发给您全部必要装备，并做好飞行准备。",
+      "tandemTitle": "双人飞行",
+      "tandemText": "教练操控水翼板，您只管享受。不难，也没有任何门槛。",
+      "emotionsTitle": "情绪的高点",
+      "emotionsText": "难忘的回忆一定少不了。"
+    }
+  },
+  "Training": {
+    "metaTitle": "教学",
+    "heroAlt": "两人在芽庄海面上骑行电动水翼板",
+    "titleLine1": "学会驾驭",
+    "titleLine2": "电动水翼板",
+    "lead": "无需经验。第一节课您就能站上水翼。",
+    "book": "预约课程",
+    "facts": {
+      "duration": "60 分钟",
+      "age": "8 岁起",
+      "weight": "体重不超过 130 公斤"
+    },
+    "marquee": {
+      "gear": "全套装备包含在内",
+      "instructor": "教练全程通话",
+      "success": "90% 的学员第一节课就能站起来",
+      "bay": "封闭安全的海湾",
+      "kids": "8 岁以上儿童可参加"
+    },
+    "included": "价格已包含：",
+    "includedList": "电动水翼板、救生衣、头盔、对讲设备、专用装备。",
+    "safeBay": "所有课程都在安全的封闭海湾进行。",
+    "stepsTitle": "课程分几步",
+    "formatFacts": {
+      "gear": "装备包含在内",
+      "instructor": "教练全程通话",
+      "safe": "安全",
+      "kids": "儿童课程",
+      "oneOnOne": "一对一教学",
+      "personal": "因人施教",
+      "progress": "进步很快",
+      "duo": "两名学员"
+    },
+    "steps": {
+      "briefingMeta": "15 分钟",
+      "briefingTitle": "岸上讲解",
+      "briefingText": "教练会在真板上示范所有需要的姿势。随后为您配好装备，送您下水。",
+      "lyingMeta": "熟悉水翼板",
+      "lyingTitle": "先趴着骑",
+      "lyingText": "先熟悉手柄油门，适应板子的速度。这一步只要 5–7 分钟。",
+      "balanceMeta": "练习平衡",
+      "balanceTitle": "先跪着，再站起来",
+      "balanceText": "速度不变，但现在开始练平衡、找板感。教练通过耳机一直和您沟通。",
+      "flightMeta": "起飞",
+      "flightTitle": "感受飞行",
+      "flightText": "板子升出水面，阻力消失，您会体会到真正的自由。先跪着起飞，再练习站着飞。"
+    }
+  },
+  "Faq": {
+    "home": {
+      "experience": {
+        "q": "需要经验吗？",
+        "a": "不需要。电动水翼板比看起来简单：90% 的学员第一节课就能骑起来。冲浪、尾波或桨板经验都不需要。"
+      },
+      "safety": {
+        "q": "安全吗？",
+        "a": "安全。全程穿救生衣，教练始终与您保持联系。教学时速度不快，板子很稳，摔进水里也不疼。"
+      },
+      "gear": {
+        "q": "需要带什么？",
+        "a": "只带泳衣就行。其余全部由我们提供：救生衣、头盔、水上通讯和专用服装。"
+      },
+      "lessons": {
+        "q": "上几节课才能自己骑？",
+        "a": "完成基础课程后，就可以自主租板并购买分钟套餐。"
+      },
+      "age": {
+        "q": "几岁可以参加？",
+        "a": "儿童课程为 8 至 14 岁。15 岁起为成人课程，年龄上不设上限。体重限制为 40 至 130 公斤。"
+      },
+      "doubt": {
+        "q": "如果我骑不起来怎么办？",
+        "a": "您可以的。90% 的学员第一节课就能骑起来。专业设备让学习变得轻松，经验丰富的教练会一直从岸上与您保持联系。"
+      }
+    },
+    "club": {
+      "needTraining": {
+        "q": "买套餐前一定要上课吗？",
+        "a": "套餐可以直接购买。如果您从未骑过，套餐的前 60 分钟就是教练课：没上过课，我们不会让人单独下水。"
+      },
+      "minutesLife": {
+        "q": "分钟的有效期多久？",
+        "a": "自购买之日起 3 个月。按实际骑行扣除：每天骑 15 分钟，或者周末骑一小时，都可以。"
+      },
+      "worth": {
+        "q": "套餐比单次租板便宜多少？",
+        "a": "套餐里每分钟的价格比单次租板便宜约 40%。骑到第五次，套餐就回本了。"
+      },
+      "tours": {
+        "q": "什么人可以参加出海和深度探索？",
+        "a": "板上已经骑得稳的人。由教练判断：这是往开阔海域出发、持续数小时的行程，我们不带新手。这不需要另外买套餐。"
+      },
+      "membership": {
+        "q": "俱乐部会员有什么？",
+        "a": "会员资格由第一份套餐激活，并终身保留。您可以进入俱乐部 Telegram 频道、和团队一起出海，并与已经骑得很稳的人一起玩。"
+      },
+      "where": {
+        "q": "你们在哪里骑？",
+        "a": "基地在芽庄的 Maryna Beach Club，一处封闭海湾。出海行程也从这里出发：海龟岛、猴岛和几处无人海滩。"
+      }
+    }
+  },
+  "Club": {
+    "metaTitle": "俱乐部",
+    "heroAlt": "三人骑着电动水翼板并行穿过芽庄群山下的开阔海面",
+    "eyebrow": "FlyGuru 俱乐部",
+    "titleLine1": "想骑多久",
+    "titleLine2": "就骑多久",
+    "lead": "价格更划算的分钟套餐、前往海岛的行程，还有水上属于自己的伙伴。",
+    "buy": "购买套餐",
+    "howToJoin": "怎样加入俱乐部",
+    "heroFacts": {
+      "minutes": "{minutes} 分钟",
+      "cheaper": "每分钟便宜 {percent}%",
+      "life": "分钟有效期 3 个月"
+    },
+    "marquee": {
+      "subscription": "{minutes} 分钟套餐",
+      "cheaper": "每分钟便宜 {percent}%",
+      "anytime": "什么时候方便就什么时候骑",
+      "tours": "和团队一起出海与探索",
+      "channel": "专属 Telegram 频道",
+      "place": "芽庄 · Marina Beach"
+    },
+    "subscriptionEyebrow": "套餐",
+    "subscriptionTitle": "每分钟便宜 {percent}%",
+    "subscriptionText": "单次租板适合重温那种感觉。但当骑行变成习惯，一次次单独付费就不划算了：分钟套餐骑到第五次就已回本。",
+    "perMinute": "{price}千 ₫ / 分钟",
+    "bySubscription": "套餐价",
+    "byRental": "单次租板",
+    "included": {
+      "gear": "装备、救生衣和水上通讯 —— 与上课时相同",
+      "byFact": "分钟按实际骑行扣除，而不是按排期",
+      "firstLesson": "未受训客人的第一份套餐含一节教练课",
+      "tours": "完成课程后 —— 开放出海与深度探索"
+    },
+    "cardMinutes": "分钟有效期 3 个月",
+    "cardAnytime": "什么时候方便就什么时候骑，无需按排期",
+    "cardMembership": "第一份套餐即开通俱乐部会员",
+    "cardNote": "留下预约 —— 我们会用即时通讯联系您，把细节讲清楚。",
+    "steps": {
+      "trainingMeta": "60 分钟",
+      "trainingTitle": "基础课程",
+      "trainingText": "入门的第一步：上完课您就能自己操控水翼板。已经骑得很稳的话，这一步可以跳过。",
+      "subscriptionMeta": "{minutes} 分钟",
+      "subscriptionTitle": "分钟套餐",
+      "subscriptionText": "买下分钟套餐，什么时候方便就什么时候骑：每分钟比单次租板便宜 {percent}%。",
+      "clubMeta": "会员终身有效",
+      "clubTitle": "您已加入俱乐部",
+      "clubText": "会员资格由第一份套餐激活并终身保留：俱乐部频道、和团队一起出海，还有水上属于自己的伙伴。"
+    },
+    "perks": {
+      "channel": "俱乐部频道",
+      "channel2": "在 Telegram",
+      "tours": "出海",
+      "tours2": "与团队同行",
+      "islands": "海岛",
+      "islands2": "与无人海滩"
+    },
+    "telegramButton": "Telegram 俱乐部频道",
+    "toursTitle": "出海行程",
+    "toursText": "出海和深度探索已经不是在岸边骑行，而是在开阔海域待上数小时。我们只带板上骑得稳的人：由教练判断，也不需要另外买套餐。",
+    "tourPhotos": {
+      "excursionAlt": "电动水翼板出海：教练带着板站在海岛岸边",
+      "excursionText": "2 至 2.5 小时的明确行程：与教练一起飞往海龟岛，在开阔海域积累经验。",
+      "safariAlt": "深度探索途中，电动水翼板停在无人海滩的白沙上",
+      "safariText": "难度更高的一程：猴岛、漂亮的度假村和无人的 Bounty 海滩。路线灵活 —— 去哪里由您和向导一起决定。"
+    },
+    "faqHeading": "关于俱乐部的问题",
+    "photoDrinkAlt": "俱乐部客人手持饮品骑在水翼板上",
+    "photoCoconutAlt": "俱乐部客人坐在海湾中央的板上，手里拿着椰子"
+  },
+  "Socials": {
+    "telegram-channel": "Telegram 频道"
+  },
+  "Prices": {
+    "metaTitle": "价格",
+    "heroAlt": "芽庄海湾水面上的电动水翼板，背景是城市与群山",
+    "title": "服务价格",
+    "lead": "所有价格均以越南盾（₫）计，现场支付。装备、救生衣和水上通讯已含在课程价格内，无需另付。",
+    "promises": {
+      "instructorTitle": "教练全程通话",
+      "instructorText": "始终通过耳机与您保持沟通",
+      "successTitle": "90% 能站上水翼",
+      "successText": "大多数学员第一节课就掌握了板子",
+      "kidsTitle": "8 岁以上儿童",
+      "kidsText": "设有单独的儿童课程",
+      "allInTitle": "全部包含",
+      "allInText": "装备、救生衣、水上通讯",
+      "bayTitle": "安全海湾",
+      "bayText": "封闭海湾，无大浪也无暗流"
+    },
+    "droneAlt": "Hover Aqua Pro 无人机在海面上飞行",
+    "droneBadge": "新增",
+    "droneText": "Hover Aqua Pro 无人机贴着水面跟随您，从外部拍下整段飞行。一次拍摄 {minutes} 分钟，全部原始素材不加处理直接给您。如果需要剪辑，我们另有剪辑服务。",
+    "droneFacts": {
+      "session": "单次 {minutes} 分钟",
+      "raw": "附赠原始素材",
+      "aerial": "空中拍摄"
+    },
+    "dronePrice": "单次拍摄价格",
+    "droneBook": "预约拍摄",
+    "notes": {
+      "tours": "出海和深度探索需教练同意：您得对板子有足够的掌控。",
+      "subscription": "套餐比单次租板更划算。",
+      "minutes": "套餐分钟有效期 3 个月，按实际骑行扣除。",
+      "firstLesson": "第一份套餐含一节教练课。"
+    },
+    "moreTraining": "了解课程详情",
+    "moreClub": "关于俱乐部与套餐"
+  },
+  "ReviewTexts": {
+    "polina-ch": {
+      "text": "非常感谢这支团队让我有机会体验电动水翼板。他们是真正的专业人士！60 分钟里什么都有：讲得明白的理论，还有足够长的水上练习。一开始我很害怕，但教练一直鼓励我，平静地讲解，让我建立起信心。我已经回到俄罗斯，却仍然靠着那节课的回忆过日子。那是整趟旅行最闪光的时刻之一！"
+    },
+    "artem-s": {
+      "text": "全家人都收获了一场美妙的肾上腺素。教练很棒，每一处都讲得很细、演示得很清楚！第一次玩的话，一定要带教练。教练有麦克风和耳机，您的头盔里也装了耳机，他会全程引导您。结果就是：满满的感受，家里每个人都能站起来骑，还有人真的飞了起来。我一定会再来！"
+    },
+    "evgeny-k": {
+      "text": "今天我们 7 岁的女儿第一次尝试骑水翼板。我们本来有点担心，但顾虑马上就消失了。教练讲得非常细，给孩子配齐了装备（救生衣、头盔），每一刻都亲自看着。她起初有些谨慎，一分钟后就已经飞在水面上了。骑完下来，孩子眼睛都在发光。我们一定会再来！"
+    },
+    "anna-l": {
+      "text": "各位，谢谢你们带来这么棒的体验！我先生非常满意，他惦记很久了，一秒钟也没后悔。还要夸一句在线预约 —— 一切都为客人考虑得很周到，真的很棒。希望能再来，自己也试一次。"
+    },
+    "polina-sch": {
+      "text": "这是假期最后一天能发生的最好的事！别重蹈我们的覆辙 —— 一到芽庄就该开始学！这几位是一流的教练。我和先生第一次就飞起来了，9 岁的儿子也飞了：第一次跪着，第二次站着。难忘的感受，值回每一分钱！"
+    },
+    "ilya-ya": {
+      "text": "很棒的团队！评价里写的都是真的。讲得清楚、明白，不慌不忙。再往后就看各人天赋了！我真的体会到了飞在水面上的感觉。无法用言语形容！如果您喜欢极限运动，一定值得一试。"
+    },
+    "yulia": {
+      "text": "我们在 Marina Beach 度假，女儿看到电动水翼板就想玩。教练 Denis 一下就找到了和孩子相处的方式，女儿完全迷上了这块板 —— 剩下的假期天天嚷着还要去骑。非常感谢你们让孩子体会到飞在水面上的难忘感受！"
+    },
+    "eduard-r": {
+      "text": "今天我这辈子第一次尝试站上电动水翼板，靠着教练 Nikolay 准确的指导，我做到了。非常感谢这满满一片的感动。"
+    },
+    "xonder": {
+      "text": "第一次骑电动水翼板。在教练 Evgeny 的细心指导下 —— 他讲得平和，指令清楚 —— 我成功站了起来并骑了起来。收获了满满的感受。非常棒，物有所值。"
+    },
+    "khuong-anh": {
+      "text": "非常棒的电动水翼板场地，工作人员细心又热情。海滩宁静的氛围和海湾的景色，让这段时光格外难忘。"
+    }
+  },
+  "Reviews": {
+    "metaTitle": "评价",
+    "eyebrow": "评价",
+    "titleLine1": "我们努力让每位客人",
+    "titleLine2": "都笑着离开！",
+    "lead": "已有 170 多位客人分享了对 FlyGuru 的感受。",
+    "ratingCount": "170 多条评价",
+    "ratingAria": "评分 {value} 分（满分 5 分），{count} —— 在 Google 地图上阅读",
+    "ratingInMaps": "Google 地图上 {count}",
+    "readInMaps": "在 Google 地图上看评价",
+    "readAll": "查看全部评价",
+    "more": "更多评价",
+    "heroAlt": "一家人上完 FlyGuru 的课后，带着电动水翼板站在芽庄海滩上",
+    "chipAria": "—— {name}，Google 地图评价",
+    "quotes": {
+      "first": "“第一次就飞起来了”",
+      "daughter": "“女儿完全迷上了”",
+      "worth": "“值回每一分钱”",
+      "emotions": "“满满的感受”",
+      "indescribable": "“无法用言语形容”",
+      "calm": "“教练讲得很平和”"
+    },
+    "chips": {
+      "polina-sch": "第一次就飞起来了",
+      "evgeny-k": "我们一定会再来！",
+      "ilya-ya": "无法用言语形容！",
+      "yulia": "女儿完全迷上了",
+      "artem-s": "我一定会再来！"
+    },
+    "pullQuote": "我已经回到俄罗斯，却仍然靠着那节课的回忆过日子。那是整趟旅行最闪光的时刻之一！",
+    "whereTitle": "我们在哪里",
+    "whereText": "我们的基地位于一处安静平缓的海湾。即使在雨季，这里的海面也很平静，所以我们能一年四季教您骑水翼板。",
+    "mapTitle": "Google 地图上的 FlyGuru —— 评分与评价",
+    "ctaTitle": "已经和我们一起骑过了？",
+    "ctaText": "欢迎在 Google 地图上留下您的评价。",
+    "ctaButton": "写评价"
+  },
+  "Schema": {
+    "description": "芽庄电动水翼板学校：零基础教学、双人飞行、租板、出海行程与整机销售。90% 的学员第一节课就能站上水翼。",
+    "catalogName": "FlyGuru 服务与价格"
+  },
+  "Contacts": {
+    "metaTitle": "联系我们",
+    "hours": "每天 8:30 – 18:00",
+    "address": "Maryna Beach Club，芽庄，越南",
+    "place": "芽庄 · Maryna Beach Club",
+    "eyebrow": "联系方式",
+    "title": "随时联系我们",
+    "lead": "我们会帮您挑选合适的课程形式、安排时间，并带给您难忘的感受！",
+    "writeWhatsApp": "用 WhatsApp 联系",
+    "call": "打电话",
+    "write": "发消息",
+    "marqueeMessengers": "WhatsApp · Telegram · Zalo",
+    "marqueeFast": "几条消息就能约好",
+    "mapTitle": "地图上的 FlyGuru —— Maryna Beach Club，芽庄",
+    "route": "打开导航",
+    "socialTitle": "关注我们的社交账号",
+    "socialText": "我们也努力经营社交账号，尽可能把自己感受到的一切传达给您。",
+    "ctaTitle": "想直接预约？",
+    "ctaText": "留下预约 —— 我们会主动联系您，确认预约和时间 😌",
+    "ctaButton": "提交预约"
+  },
+  "Home": {
+    "titleLine1": "60 分钟",
+    "titleLine2": "教您飞起来",
+    "lead": "比看上去容易。板子稳稳踩在脚下，桅杆划开水面 —— 您就飞起来了。",
+    "tryTandem": "先试试双人飞行",
+    "swipe": "左右滑动",
+    "reviewsEyebrow": "评价",
+    "reviewsTitle": "学员怎么说",
+    "allReviews": "全部评价",
+    "stepsEyebrow": "从哪里开始",
+    "stepsTitle": "怎样才能站上板？",
+    "moreTraining": "了解课程详情",
+    "shopAlt": "飞在海面上的电动水翼板",
+    "faqHeading": "常见问题解答",
+    "facts": {
+      "success": "90% 的学员第一节课就能站起来",
+      "tandem": "双人飞行 —— 10 分钟",
+      "place": "芽庄 · Marina Beach",
+      "kids": "8 岁以上儿童可参加",
+      "instructor": "教练就在水上陪着您"
+    },
+    "shopFacts": {
+      "brands": "可靠品牌",
+      "service": "支持与维护",
+      "warranty": "品质保证"
+    },
+    "steps": {
+      "tandemTitle": "双人飞行",
+      "tandemMeta": "10 分钟，无需学习",
+      "tandemText": "和教练同乘一块板的体验飞行。您只要站上去，就能起飞，不用先学。",
+      "tandemFact1": "10 分钟",
+      "tandemFact2": "作为开始",
+      "tandemFact2b": "最合适",
+      "tandemFact3": "儿童可玩",
+      "tandemFact3b": "8 岁起",
+      "trainingTitle": "基础课程",
+      "trainingMeta": "学着飞起来",
+      "trainingText": "一小时内，我们从零教您如何操控水翼板、保持平衡、找到板感。整个过程中教练都从岸上与您保持联系。",
+      "trainingFact1": "60 分钟",
+      "trainingFact2": "与教练",
+      "trainingFact2b": "全程通话",
+      "trainingFact3": "安全",
+      "trainingFact3b": "又简单",
+      "clubTitle": "出海与深度探索",
+      "clubMeta": "自由骑行",
+      "clubText": "学会之后，您可以出发去更长的行程：海岛、无人海滩和更远的地方。",
+      "clubFact1": "没有",
+      "clubFact1b": "限制",
+      "clubFact2": "俱乐部",
+      "clubFact2b": "与同好",
+      "clubFact3": "冒险",
+      "clubFact3b": "与自由"
+    },
+    "shopEyebrow": "商店",
+    "shopTitle": "我们销售电动水翼板",
+    "shopText": "我们正规进口 Hobbywing 和 Lift Foils。会按您的体重和水平帮您挑选，并讲清楚后续保养。",
+    "shopButton": "去看商店",
+    "assemblyAlt": "电动水翼板的组装：桅杆、水翼与马达",
+    "assemblyTitle": "水翼板由什么组成",
+    "assemblyText": "板身、桅杆、水翼、马达和电池 —— 几分钟就能装好。点一下视频可放大观看。"
+  },
+  "Meta": {
+    "title": "FlyGuru —— 芽庄电动水翼板学校",
+    "description": "在芽庄学习驾驭电动水翼板。90% 的学员第一节课就能骑起来。",
+    "ogImageAlt": "FlyGuru 的客人在芽庄骑电动水翼板"
+  }
+}

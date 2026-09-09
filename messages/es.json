@@ -1,1 +1,568 @@
-{}
+{
+  "Nav": {
+    "training": "Clases",
+    "tandem": "Tándem",
+    "club": "Club",
+    "shop": "Tienda",
+    "prices": "Precios",
+    "reviews": "Opiniones",
+    "contacts": "Contacto",
+    "sections": "Secciones del sitio"
+  },
+  "Header": {
+    "book": "Reservar",
+    "bookShort": "Reservar",
+    "login": "Entrar",
+    "cabinet": "Mi panel",
+    "loginToCabinet": "Entrar al panel",
+    "myCabinet": "Mi panel",
+    "menu": "Menú",
+    "language": "Idioma del sitio"
+  },
+  "Footer": {
+    "tagline": "Escuela de eFoil en Nha Trang. Volar sobre el agua desde la primera clase.",
+    "sections": "Secciones",
+    "contacts": "Contacto",
+    "rights": "© {year} FlyGuru. Todos los derechos reservados."
+  },
+  "ServiceCategories": {
+    "training": "Clases",
+    "tandem": "Tándem",
+    "rental": "Alquiler",
+    "tour": "Excursiones",
+    "subscription": "Bonos",
+    "extra": "Extras",
+    "other": "Otros"
+  },
+  "Booking": {
+    "title": "Reserva",
+    "close": "Cerrar",
+    "honeypot": "No rellenes este campo",
+    "name": "Nombre",
+    "phone": "Teléfono",
+    "phonePlaceholder": "+84 90 123 45 67",
+    "phoneError": "El teléfono solo admite dígitos, entre 8 y 15 (por ejemplo 0901234567).",
+    "telegram": "Usuario de Telegram",
+    "telegramHint": "Opcional — una vía de contacto de reserva",
+    "certificate": "Número del vale regalo",
+    "certificateOptional": "(opcional)",
+    "certificateHint": "¿Tienes un vale regalo? Introduce el número y el servicio se seleccionará solo",
+    "certificateRemove": "Quitar",
+    "certificateChecking": "Comprobando el número…",
+    "certificateChosen": "Con el vale: {service}",
+    "certificateChosenHint": "El servicio ya está elegido. Si quieres otro, pulsa «Quitar» junto al número.",
+    "certificateFallbackService": "una clase",
+    "certificateNotFound": "Ese número no existe. Comprueba cómo está escrito en el vale.",
+    "certificateUsed": "Este vale ya se ha utilizado.",
+    "certificateExpired": "El vale ha caducado: es válido durante 3 meses desde la compra.",
+    "certificateRateLimited": "Demasiados intentos. Espera un minuto.",
+    "certificateError": "No hemos podido comprobar el número. Inténtalo de nuevo.",
+    "service": "Servicio",
+    "serviceChoose": "Elige un servicio",
+    "agentDiscountRow": "−{amount} con el enlace del agente",
+    "agentDiscountNote": "El descuento del enlace del agente se aplica a la primera clase básica.",
+    "date": "Fecha preferida",
+    "comment": "Comentario",
+    "submit": "Reservar",
+    "submitting": "Enviando…",
+    "sendError": "No hemos podido enviar la solicitud. Comprueba tu conexión e inténtalo otra vez, o escríbenos por mensajería."
+  },
+  "Common": {
+    "book": "Reservar",
+    "popular": "Lo más elegido",
+    "instructorApproval": "Requiere aprobación del instructor",
+    "watchVideo": "Ver el vídeo",
+    "openFullscreen": "Abrir el vídeo a pantalla completa",
+    "step": "Paso {number}",
+    "rating": "Valoración {rating} sobre 5",
+    "serviceGroups": "Grupos de servicios",
+    "googleReview": "Opinión en",
+    "photoPlaceholderAlt": "FlyGuru — imagen de marcador",
+    "tandemPhotoAlt": "Vuelo en tándem con un instructor en Nha Trang",
+    "minutes": "{count} min",
+    "onRequest": "a consultar"
+  },
+  "Services": {
+    "basic-adult": {
+      "name": "Clase básica (adultos)",
+      "blurb": "Tu primer contacto con el eFoil, guiado por un instructor."
+    },
+    "basic-kid": {
+      "name": "Clase básica (menores de 14)",
+      "blurb": "Un programa aparte para niños de hasta 14 años."
+    },
+    "individual-training": {
+      "name": "Clase particular",
+      "blurb": "El instructor sale al agua contigo y controla de cerca cada movimiento."
+    },
+    "basic-duo": {
+      "name": "Clase básica para dos",
+      "blurb": "Una misma clase compartida por dos personas."
+    },
+    "tandem-adult": {
+      "name": "Vuelo en tándem (adultos)",
+      "blurb": "El instructor pilota la tabla y tú solo disfrutas. Nada complicado y sin requisitos."
+    },
+    "tandem-kid": {
+      "name": "Vuelo en tándem (menores de 14)",
+      "blurb": "Lo mismo para los niños: el peque va sobre la tabla y el instructor la pilota."
+    },
+    "excursion": {
+      "name": "Excursión con instructor",
+      "note": "En pareja — 3.000.000 ₫ por persona",
+      "blurb": "Un vuelo hasta la isla de las Tortugas y tu primera experiencia en mar abierto. Una salida corta para coger soltura."
+    },
+    "safari": {
+      "name": "E-Foil Safari",
+      "durationLabel": "5 horas",
+      "blurb": "La isla de los Monos, un resort y la playa salvaje de Bounty. La ruta la decides junto al instructor."
+    },
+    "rental": {
+      "name": "Navegación libre",
+      "blurb": "Vuelas por tu cuenta: se abre tras la clase básica o con la aprobación del instructor."
+    },
+    "subscription": {
+      "name": "Bono de 300 minutos",
+      "blurb": "Un bono de minutos: vuelas cuando te venga bien, reservando con antelación."
+    },
+    "video": {
+      "name": "Foto/vídeo con edición",
+      "durationLabel": "—",
+      "blurb": "Grabamos tu clase y montamos un vídeo terminado."
+    },
+    "video-raw": {
+      "name": "Foto/vídeo sin editar",
+      "durationLabel": "—",
+      "blurb": "Grabamos tu clase y te enviamos el material en bruto, sin montaje."
+    },
+    "drone": {
+      "name": "Grabación con dron Hover Aqua Pro",
+      "note": "Una sesión, material en bruto incluido",
+      "blurb": "El dron te sigue sobre el agua y graba tu vuelo desde fuera."
+    }
+  },
+  "Thanks": {
+    "metaTitle": "Solicitud recibida",
+    "title": "¡Solicitud recibida!",
+    "text": "¡Gracias! Hemos recibido tu solicitud y te contactaremos en menos de una hora para confirmar los detalles y una hora que te venga bien.",
+    "home": "Ir al inicio",
+    "training": "Ver las clases",
+    "bookingNo": "Tu número de solicitud: #{no}"
+  },
+  "Shop": {
+    "metaTitle": "Tienda",
+    "eyebrow": "Tienda",
+    "title": "eFoils a la venta",
+    "subtitle": "Importamos y vendemos Hobbywing y Lift Foils. El catálogo con precios llegará pronto; mientras tanto, escríbenos desde la página de contacto."
+  },
+  "BookingLanding": {
+    "metaTitle": "Reserva tu vuelo",
+    "metaDescription": "Solicita un vuelo en eFoil en Nha Trang: te llamamos y buscamos la hora que mejor te venga.",
+    "title": "Reserva tu vuelo",
+    "text": "Rellena dos campos: te llamamos, buscamos una hora y resolvemos tus dudas. Ahora mismo no hay que pagar nada."
+  },
+  "Tandem": {
+    "metaTitle": "Tándem",
+    "eyebrow": "Tándem",
+    "title": "Vuelo en tándem",
+    "lead": "Fácil, divertido y seguro",
+    "text": "El tándem es la forma más sencilla de sentir el vuelo sobre un eFoil. El instructor te recoge en el pantalán y, un instante después, ya estás disfrutando de la libertad de volar sobre el agua. No hace falta ninguna clase previa.",
+    "heroAlt": "Una invitada y un instructor volando juntos sobre un mismo eFoil en el mar",
+    "book": "Reservar un tándem",
+    "howItGoes": "Ver cómo es",
+    "stepsTitle": "Cómo es un tándem",
+    "facts": {
+      "durationValue": "10 minutos",
+      "durationLabel": "duración",
+      "ageValue": "desde 8 años",
+      "ageLabel": "acceso",
+      "trainingValue": "no hace falta",
+      "trainingLabel": "clase previa"
+    },
+    "promises": {
+      "safeTitle": "Seguro",
+      "safeText": "El instructor va contigo durante todo el vuelo.",
+      "easyTitle": "Empezar es fácil",
+      "easyText": "No necesitas saber volar: lo hacemos todo por ti."
+    },
+    "steps": {
+      "gearTitle": "Nos equipamos",
+      "gearText": "En la orilla te damos todo el equipo necesario y te preparamos para el vuelo.",
+      "tandemTitle": "El tándem",
+      "tandemText": "El instructor pilota la tabla y tú solo disfrutas. Nada complicado y sin requisitos.",
+      "emotionsTitle": "Emociones a tope",
+      "emotionsText": "Los recuerdos están garantizados."
+    }
+  },
+  "Training": {
+    "metaTitle": "Clases",
+    "heroAlt": "Dos personas volando en eFoil sobre el mar de Nha Trang",
+    "titleLine1": "Aprende a volar",
+    "titleLine2": "en un eFoil",
+    "lead": "No hace falta experiencia. Ya en la primera clase te pondrás sobre el ala.",
+    "book": "Reservar una clase",
+    "facts": {
+      "duration": "60 minutos",
+      "age": "desde 8 años",
+      "weight": "hasta 130 kg"
+    },
+    "marquee": {
+      "gear": "Todo el equipo incluido",
+      "instructor": "Instructor en tu oído",
+      "success": "El 90% se pone sobre el ala en la primera clase",
+      "bay": "Bahía cerrada y segura",
+      "kids": "Niños desde 8 años"
+    },
+    "included": "El precio incluye:",
+    "includedList": "eFoil, chaleco, casco, radio y equipo especial.",
+    "safeBay": "Todas las clases se hacen en una bahía cerrada y segura.",
+    "stepsTitle": "La clase, paso a paso",
+    "formatFacts": {
+      "gear": "Equipo incluido",
+      "instructor": "Instructor en tu oído",
+      "safe": "Seguro",
+      "kids": "Programa infantil",
+      "oneOnOne": "Uno a uno",
+      "personal": "A tu medida",
+      "progress": "Progreso rápido",
+      "duo": "Para dos alumnos"
+    },
+    "steps": {
+      "briefingMeta": "15 minutos",
+      "briefingTitle": "Briefing en la orilla",
+      "briefingText": "El instructor te enseña todas las posiciones necesarias sobre una tabla real. Después te ajustan el equipo y sales al agua.",
+      "lyingMeta": "Conocer la tabla",
+      "lyingTitle": "Primero, tumbado",
+      "lyingText": "Empiezas familiarizándote con el mando y con la velocidad de la tabla. Esta fase dura solo 5–7 minutos.",
+      "balanceMeta": "Trabajar el equilibrio",
+      "balanceTitle": "De rodillas y luego de pie",
+      "balanceText": "La misma velocidad, pero ahora trabajas el equilibrio y las sensaciones de la tabla. El instructor sigue contigo por el auricular.",
+      "flightMeta": "Despegue",
+      "flightTitle": "Sentir el vuelo",
+      "flightText": "La tabla se eleva sobre el agua, la resistencia desaparece y sientes libertad de verdad. Primero despegas de rodillas y después practicas el vuelo de pie."
+    }
+  },
+  "Faq": {
+    "home": {
+      "experience": {
+        "q": "¿Hace falta experiencia?",
+        "a": "No. El eFoil es más fácil de lo que parece: el 90% de nuestros alumnos vuela ya en la primera clase. No necesitas surf, wake ni paddle."
+      },
+      "safety": {
+        "q": "¿Es seguro?",
+        "a": "Sí. Llevas chaleco salvavidas durante toda la clase y el instructor está en contacto contigo en todo momento. Las velocidades de aprendizaje son bajas, las tablas son estables y caerse al agua no duele."
+      },
+      "gear": {
+        "q": "¿Qué tengo que llevar?",
+        "a": "Solo el bañador. Todo lo demás lo ponemos nosotros: chaleco, casco, comunicación en el agua y ropa especial."
+      },
+      "lessons": {
+        "q": "¿Cuántas clases hacen falta para volar solo?",
+        "a": "Tras la clase básica se abre el acceso al alquiler libre y al bono de minutos."
+      },
+      "age": {
+        "q": "¿Desde qué edad se puede?",
+        "a": "El programa infantil va de los 8 a los 14 años. A partir de los 15 es el programa de adultos, sin límite de edad por arriba. Límites de peso: de 40 a 130 kg."
+      },
+      "doubt": {
+        "q": "¿Y si no me sale?",
+        "a": "Te saldrá. El 90% de nuestros alumnos vuela en la primera clase. El material es profesional, lo que hace el aprendizaje muy llevadero, y un instructor con experiencia está en contacto contigo desde la orilla todo el rato."
+      }
+    },
+    "club": {
+      "needTraining": {
+        "q": "¿Necesito clase antes de comprar un bono?",
+        "a": "Puedes comprar el bono directamente. Si nunca has volado, los primeros 60 minutos del bono serán una clase con instructor: sin ella no dejamos a nadie salir solo al agua."
+      },
+      "minutesLife": {
+        "q": "¿Cuánto duran los minutos?",
+        "a": "3 meses desde la compra. Se descuentan según vueles: 15 minutos al día o sesiones de una hora los fines de semana, como prefieras."
+      },
+      "worth": {
+        "q": "¿Cuánto sale más barato el bono que el alquiler suelto?",
+        "a": "El minuto con bono cuesta alrededor de un 40% menos que en alquiler suelto. El bono se amortiza a partir del quinto vuelo."
+      },
+      "tours": {
+        "q": "¿Quién puede ir a una excursión o a un safari?",
+        "a": "Quien se maneje con soltura sobre la tabla. La decisión la toma el instructor: son salidas de varias horas a mar abierto y no llevamos principiantes. No hace falta ningún bono aparte."
+      },
+      "membership": {
+        "q": "¿Qué da ser miembro del club?",
+        "a": "La membresía se activa con tu primer bono y se queda contigo para siempre. Significa acceso al canal de Telegram del club, salidas con el equipo y volar con gente que ya se maneja bien sobre el ala."
+      },
+      "where": {
+        "q": "¿Dónde voláis?",
+        "a": "Nuestra base es el Maryna Beach Club de Nha Trang, en una bahía cerrada. Las salidas parten de allí mismo: la isla de las Tortugas, la isla de los Monos y las playas salvajes."
+      }
+    }
+  },
+  "Club": {
+    "metaTitle": "Club",
+    "heroAlt": "Tres personas volando juntas en eFoil por mar abierto, con las montañas de Nha Trang al fondo",
+    "eyebrow": "Club FlyGuru",
+    "titleLine1": "Vuela todo",
+    "titleLine2": "lo que quieras",
+    "lead": "Un bono de minutos a mejor precio, salidas a las islas y tu propia gente en el agua.",
+    "buy": "Comprar el bono",
+    "howToJoin": "Cómo entrar en el club",
+    "heroFacts": {
+      "minutes": "{minutes} minutos",
+      "cheaper": "el minuto, un {percent}% más barato",
+      "life": "los minutos duran 3 meses"
+    },
+    "marquee": {
+      "subscription": "Bono de {minutes} minutos",
+      "cheaper": "El minuto, un {percent}% más barato",
+      "anytime": "Vuelas cuando te venga bien",
+      "tours": "Excursiones y safaris con el equipo",
+      "channel": "Canal de Telegram propio",
+      "place": "Nha Trang · Marina Beach"
+    },
+    "subscriptionEyebrow": "Bono",
+    "subscriptionTitle": "El minuto, un {percent}% más barato",
+    "subscriptionText": "El alquiler suelto está muy bien para recuperar la sensación. Pero en cuanto volar se convierte en costumbre, pagar cada sesión por separado deja de tener sentido: el bono de minutos se amortiza ya en el quinto vuelo.",
+    "perMinute": "{price} mil ₫ / min",
+    "bySubscription": "Con bono",
+    "byRental": "Alquiler suelto",
+    "included": {
+      "gear": "Equipo, chaleco y comunicación en el agua, igual que en clase",
+      "byFact": "Los minutos se descuentan según vuelas, no por calendario",
+      "firstLesson": "El primer bono de quien no ha volado nunca incluye una clase con instructor",
+      "tours": "Después de la clase, acceso a excursiones y safaris"
+    },
+    "cardMinutes": "Los minutos valen 3 meses",
+    "cardAnytime": "Vuelas cuando te viene bien, sin horarios fijos",
+    "cardMembership": "El primer bono abre la membresía del club",
+    "cardNote": "Déjanos tu solicitud y te escribimos por mensajería para contártelo todo.",
+    "steps": {
+      "trainingMeta": "60 minutos",
+      "trainingTitle": "Clase básica",
+      "trainingText": "La puerta de entrada: después de la clase pilotas la tabla tú solo. Si ya vuelas con soltura, este paso se salta.",
+      "subscriptionMeta": "{minutes} minutos",
+      "subscriptionTitle": "El bono",
+      "subscriptionText": "Compras un bono de minutos y vuelas cuando te viene bien: el minuto sale un {percent}% más barato que en alquiler suelto.",
+      "clubMeta": "estatus para siempre",
+      "clubTitle": "Ya estás en el club",
+      "clubText": "La membresía se activa con el primer bono y se queda para siempre: el canal del club, salidas con el equipo y tu propia gente en el agua."
+    },
+    "perks": {
+      "channel": "Canal del club",
+      "channel2": "en Telegram",
+      "tours": "Salidas",
+      "tours2": "con el equipo",
+      "islands": "Islas",
+      "islands2": "y playas salvajes"
+    },
+    "telegramButton": "Canal del club en Telegram",
+    "toursTitle": "Salidas al mar",
+    "toursText": "La excursión y el safari ya no son volar junto a la orilla, sino varias horas en mar abierto. Llevamos a quien se maneja con soltura sobre la tabla: lo decide el instructor y no hace falta ningún bono aparte.",
+    "tourPhotos": {
+      "excursionAlt": "Excursión en eFoil: un instructor con la tabla junto a la orilla de una isla",
+      "excursionText": "Un programa claro de 2 a 2,5 horas: vuelo hasta la isla de las Tortugas con instructor para coger experiencia en mar abierto.",
+      "safariAlt": "eFoils sobre la arena blanca de una playa salvaje durante un safari",
+      "safariText": "Un nivel más de dificultad: la isla de los Monos, un resort espectacular y la playa salvaje de Bounty. La ruta es flexible: dónde ir lo decides junto a tu guía."
+    },
+    "faqHeading": "Preguntas sobre el club",
+    "photoDrinkAlt": "Un miembro del club volando sobre la tabla con una bebida en la mano",
+    "photoCoconutAlt": "Un miembro del club sentado sobre la tabla en medio de la bahía con un coco"
+  },
+  "Socials": {
+    "telegram-channel": "Canal de Telegram"
+  },
+  "Prices": {
+    "metaTitle": "Precios",
+    "heroAlt": "Un eFoil sobre el agua en la bahía de Nha Trang, con la ciudad y las montañas al fondo",
+    "title": "Precios de los servicios",
+    "lead": "Todos los precios están en dong vietnamitas (₫) y se pagan en el sitio. El equipo, el chaleco y la comunicación en el agua van incluidos en el precio de la clase: no hay que pagar nada aparte.",
+    "promises": {
+      "instructorTitle": "Instructor en tu oído",
+      "instructorText": "En contacto contigo por el auricular en todo momento",
+      "successTitle": "El 90% se pone sobre el ala",
+      "successText": "La mayoría domina la tabla en la primera clase",
+      "kidsTitle": "Niños desde 8 años",
+      "kidsText": "Programas infantiles aparte",
+      "allInTitle": "Todo incluido",
+      "allInText": "Equipo, chaleco y comunicación en el agua",
+      "bayTitle": "Bahía segura",
+      "bayText": "Una bahía cerrada, sin olas ni corrientes"
+    },
+    "droneAlt": "Un dron Hover Aqua Pro volando sobre el mar",
+    "droneBadge": "Nuevo",
+    "droneText": "El dron Hover Aqua Pro te sigue sobre el agua y graba tu vuelo desde fuera. Una sesión dura {minutes} minutos y te entregamos todo el material en bruto, sin editar. Si quieres montaje, lo ofrecemos como servicio aparte.",
+    "droneFacts": {
+      "session": "Sesión de {minutes} minutos",
+      "raw": "Material en bruto incluido",
+      "aerial": "Grabación aérea"
+    },
+    "dronePrice": "Precio por sesión",
+    "droneBook": "Reservar la grabación",
+    "notes": {
+      "tours": "Las excursiones y los safaris requieren aprobación del instructor: tienes que sentir bien la tabla.",
+      "subscription": "El bono sale más a cuenta que el alquiler suelto.",
+      "minutes": "Los minutos del bono valen 3 meses y se descuentan según vuelas.",
+      "firstLesson": "El primer bono incluye una clase con instructor."
+    },
+    "moreTraining": "Más sobre las clases",
+    "moreClub": "Sobre el club y el bono"
+  },
+  "ReviewTexts": {
+    "polina-ch": {
+      "text": "Estoy inmensamente agradecida a este equipo por la oportunidad de probar el eFoil. ¡Son verdaderos profesionales! En esos 60 minutos hubo de todo: teoría clara y bastante práctica en el agua. Al principio daba miedo, pero el instructor me animaba, me lo explicaba todo con calma y me daba confianza. Ya he vuelto a Rusia, pero sigo viviendo del recuerdo de aquella clase. ¡Fue uno de los momentos más brillantes del viaje!"
+    },
+    "artem-s": {
+      "text": "Toda la familia se llevó una dosis estupenda de adrenalina. Los instructores son geniales, nos lo explicaron y nos lo enseñaron todo con detalle. Si es tu primera vez, ve con instructor sin dudarlo. El instructor lleva micrófono y auriculares, y tu casco también tiene un auricular integrado, así que te va guiando todo el rato. Resultado: un montón de sensaciones, todos en la familia consiguieron ponerse de pie y volar, y alguno hasta llegó a planear sobre el agua. ¡Repetiré seguro!"
+    },
+    "evgeny-k": {
+      "text": "Hoy nuestra hija de 7 años probó por primera vez una tabla con hidroala. Estábamos un poco nerviosos, pero las dudas se disiparon enseguida. El instructor lo explicó todo con detalle, la equipó por completo (chaleco, casco) y controló cada momento personalmente. Al principio iba con cuidado y, un minuto después, ya volaba sobre el agua. Al salir le brillaban los ojos. ¡Lo repetiremos sin falta!"
+    },
+    "anna-l": {
+      "text": "¡Chicos, gracias por una experiencia genial! Mi marido encantado; llevaba tiempo queriendo probarlo y no se arrepintió ni un segundo. Destaco también la reserva online: se agradece cuando todo está pensado para la comodidad del cliente. Espero volver y probarlo yo misma."
+    },
+    "polina-sch": {
+      "text": "¡Es lo mejor que nos podía pasar el último día de vacaciones! No repitáis nuestro error: ¡empezad a aprender nada más llegar a Nha Trang! Son instructores de primera. Mi marido y yo volamos a la primera, y nuestro hijo de 9 años también: de rodillas la primera vez y de pie la segunda. ¡Sensaciones inolvidables que valen cada dong pagado!"
+    },
+    "ilya-ya": {
+      "text": "¡Grandes profesionales! Todo lo que cuentan las opiniones es cierto. Todo claro, bien explicado y sin agobios. A partir de ahí, ya depende de tus capacidades. Yo conseguí sentir lo que es volar sobre el agua. ¡Indescriptible! Merece muchísimo la pena si te gustan los deportes extremos."
+    },
+    "yulia": {
+      "text": "Estábamos en Marina Beach, mi hija vio un eFoil y quiso probarlo. El instructor Denis conectó con la niña al instante, y ella quedó encantada con la tabla: el resto de las vacaciones solo pedía volver a volar. Muchísimas gracias por darles a los niños la oportunidad de vivir algo inolvidable, volando sobre el agua."
+    },
+    "eduard-r": {
+      "text": "Hoy he intentado ponerme de pie sobre un eFoil por primera vez en mi vida, y lo he conseguido gracias a las indicaciones precisas del instructor Nikolay. Muchísimas gracias por un mar de emociones."
+    },
+    "xonder": {
+      "text": "Era mi primera vez sobre un eFoil. Con la guía atenta del instructor Evgeny, que lo explicaba todo con calma y daba instrucciones claras, conseguí ponerme de pie y volar. Me llevé un montón de sensaciones. Genial y merece cada euro."
+    },
+    "khuong-anh": {
+      "text": "Un sitio fantástico para el efoil, con un personal atento y acogedor. El ambiente tranquilo de la playa y las vistas de la bahía hicieron aún mejor el tiempo que pasé allí."
+    }
+  },
+  "Reviews": {
+    "metaTitle": "Opiniones",
+    "eyebrow": "Opiniones",
+    "titleLine1": "Queremos que cada invitado",
+    "titleLine2": "se vaya sonriendo",
+    "lead": "Más de 170 invitados ya han compartido su experiencia con FlyGuru.",
+    "ratingCount": "más de 170 opiniones",
+    "ratingAria": "Valoración {value} sobre 5, {count} — leerlas en Google Maps",
+    "ratingInMaps": "{count} en Google Maps",
+    "readInMaps": "Leer las opiniones en Google Maps",
+    "readAll": "Leer todas las opiniones",
+    "more": "Más opiniones",
+    "heroAlt": "Una familia con eFoils en una playa de Nha Trang después de su clase con FlyGuru",
+    "chipAria": "— {name}, opinión en Google Maps",
+    "quotes": {
+      "first": "«Volamos a la primera»",
+      "daughter": "«Mi hija quedó encantada»",
+      "worth": "«Vale cada dong»",
+      "emotions": "«Un montón de sensaciones»",
+      "indescribable": "«Sensaciones indescriptibles»",
+      "calm": "«El instructor lo explicaba todo con calma»"
+    },
+    "chips": {
+      "polina-sch": "Volamos a la primera",
+      "evgeny-k": "¡Lo repetiremos sin falta!",
+      "ilya-ya": "¡Indescriptible!",
+      "yulia": "Mi hija quedó encantada",
+      "artem-s": "¡Repetiré seguro!"
+    },
+    "pullQuote": "Ya he vuelto a Rusia, pero sigo viviendo del recuerdo de aquella clase. ¡Fue uno de los momentos más brillantes del viaje!",
+    "whereTitle": "Dónde estamos",
+    "whereText": "Nuestra base está en una bahía tranquila y resguardada. Incluso en época de lluvias el mar se mantiene en calma, así que podemos enseñarte a volar durante todo el año.",
+    "mapTitle": "La ficha de FlyGuru en Google Maps: valoración y opiniones",
+    "ctaTitle": "¿Ya has volado con nosotros?",
+    "ctaText": "Nos encantará leer tu opinión en Google Maps.",
+    "ctaButton": "Dejar una opinión"
+  },
+  "Schema": {
+    "description": "Escuela de eFoil en Nha Trang: clases desde cero, vuelos en tándem, alquiler, excursiones y venta de eFoils. El 90% de nuestros alumnos se pone sobre el ala en la primera clase.",
+    "catalogName": "Servicios y precios de FlyGuru"
+  },
+  "Contacts": {
+    "metaTitle": "Contacto",
+    "hours": "Todos los días de 8:30 a 18:00",
+    "address": "Maryna Beach Club, Nha Trang, Vietnam",
+    "place": "Nha Trang · Maryna Beach Club",
+    "eyebrow": "Contacto",
+    "title": "Siempre estamos disponibles",
+    "lead": "Te ayudamos a elegir el formato que mejor te encaje, buscamos una hora y te regalamos sensaciones increíbles.",
+    "writeWhatsApp": "Escríbenos por WhatsApp",
+    "call": "Llamar",
+    "write": "Escribir",
+    "marqueeMessengers": "WhatsApp · Telegram · Zalo",
+    "marqueeFast": "Reservado en un par de mensajes",
+    "mapTitle": "FlyGuru en el mapa — Maryna Beach Club, Nha Trang",
+    "route": "Abrir la ruta",
+    "socialTitle": "Estamos en redes",
+    "socialText": "También cuidamos nuestras redes para transmitir al máximo lo que nosotros mismos sentimos.",
+    "ctaTitle": "¿Quieres reservar ya?",
+    "ctaText": "Déjanos tu solicitud: te contactamos nosotros para confirmar la reserva y acordar la hora 😌",
+    "ctaButton": "Enviar la solicitud"
+  },
+  "Home": {
+    "titleLine1": "Te enseñamos a volar",
+    "titleLine2": "en 60 minutos",
+    "lead": "Es más fácil de lo que parece. La tabla se asienta bajo tus pies, el mástil corta el agua y ya estás volando.",
+    "tryTandem": "Probar primero un tándem",
+    "swipe": "Desliza",
+    "reviewsEyebrow": "Opiniones",
+    "reviewsTitle": "Qué dicen nuestros alumnos",
+    "allReviews": "Todas las opiniones",
+    "stepsEyebrow": "Por dónde empezar",
+    "stepsTitle": "¿Cómo se llega a volar?",
+    "moreTraining": "Más sobre las clases",
+    "shopAlt": "Un eFoil volando sobre el mar",
+    "faqHeading": "Respuestas a las preguntas más frecuentes",
+    "facts": {
+      "success": "El 90% se pone sobre el ala en la primera clase",
+      "tandem": "Tándem — 10 minutos",
+      "place": "Nha Trang · Marina Beach",
+      "kids": "Niños desde 8 años",
+      "instructor": "El instructor, contigo en el agua"
+    },
+    "shopFacts": {
+      "brands": "Marcas de confianza",
+      "service": "Soporte y mantenimiento",
+      "warranty": "Calidad garantizada"
+    },
+    "steps": {
+      "tandemTitle": "Tándem",
+      "tandemMeta": "10 minutos, sin clase previa",
+      "tandemText": "Un vuelo de prueba para dos sobre una misma tabla, con instructor. Solo te subes y despegas, sin aprender nada antes.",
+      "tandemFact1": "10 minutos",
+      "tandemFact2": "Ideal",
+      "tandemFact2b": "para empezar",
+      "tandemFact3": "Abierto a niños",
+      "tandemFact3b": "desde 8 años",
+      "trainingTitle": "Clase básica",
+      "trainingMeta": "aprendemos a volar",
+      "trainingText": "En una hora te enseñamos desde cero a controlar la tabla, mantener el equilibrio y sentir el ala. Durante todo ese tiempo el instructor sigue en contacto contigo desde la orilla.",
+      "trainingFact1": "60 minutos",
+      "trainingFact2": "En contacto",
+      "trainingFact2b": "con el instructor",
+      "trainingFact3": "Seguro",
+      "trainingFact3b": "y sencillo",
+      "clubTitle": "Excursiones y safaris",
+      "clubMeta": "vuelo libre",
+      "clubText": "Una vez aprendes, puedes lanzarte a travesías más largas: islas, playas desiertas y rincones apartados.",
+      "clubFact1": "Sin",
+      "clubFact1b": "límites",
+      "clubFact2": "Club",
+      "clubFact2b": "y comunidad",
+      "clubFact3": "Aventura",
+      "clubFact3b": "y libertad"
+    },
+    "shopEyebrow": "Tienda",
+    "shopTitle": "Vendemos eFoils",
+    "shopText": "Somos importadores oficiales de Hobbywing y Lift Foils. Te ayudamos a elegir según tu peso y tu nivel, y te explicamos el mantenimiento.",
+    "shopButton": "Ir a la tienda",
+    "assemblyAlt": "Montaje de un eFoil: mástil, alas y motor",
+    "assemblyTitle": "Cómo es un eFoil por dentro",
+    "assemblyText": "Tabla, mástil, alas, motor y batería: todo se monta en unos minutos. Pulsa el vídeo para ampliarlo."
+  },
+  "Meta": {
+    "title": "FlyGuru — escuela de eFoil en Nha Trang",
+    "description": "Aprende a volar en eFoil en Nha Trang. El 90% de nuestros alumnos vuela ya en la primera clase.",
+    "ogImageAlt": "Un invitado de FlyGuru volando en eFoil en Nha Trang"
+  }
+}

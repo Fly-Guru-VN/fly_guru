@@ -114,7 +114,13 @@ test("защитные заголовки стоят и на языковых а
   );
 });
 
-test("планетка переключает язык и сохраняет раздел", async ({ page }) => {
+// Язык браузера пришпилен к русскому: подпись самой планетки тоже переводится,
+// и с английским браузером тест искал бы кнопку «Язык сайта» на странице, где
+// она уже называется «Site language».
+test.describe("планетка переключает язык", () => {
+  test.use({ locale: "ru-RU" });
+
+  test("планетка переключает язык и сохраняет раздел", async ({ page }) => {
   await page.goto("/training", { waitUntil: "domcontentloaded" });
 
   const german = page
@@ -134,6 +140,11 @@ test("планетка переключает язык и сохраняет р�
 
   await expect(page).toHaveURL(/\/de\/training$/);
   await expect(page.locator("html")).toHaveAttribute("lang", "de");
+  // Страница действительно заговорила по-немецки, а не просто сменила адрес.
+  await expect(
+    page.getByRole("button", { name: "Sprache der Website" }).first(),
+  ).toBeVisible();
+  });
 });
 
 test("страница называет поисковику все свои переводы (hreflang)", async ({
