@@ -1,3 +1,9 @@
+import {
+  DEFAULT_LOCALE,
+  isAppLocale,
+  LOCALE_NAMES,
+  LOCALE_NAMES_RU,
+} from "@/i18n/locales";
 import { SITE_URL } from "@/lib/site";
 
 // Уведомление о новой заявке в Telegram.
@@ -24,6 +30,7 @@ interface BookingNotification {
   refLine?: string | null;
   src?: string | null; // источник (instagram, qr…)
   comment?: string | null;
+  locale?: string | null; // язык сайта, на котором гость записался (0060)
 }
 
 export async function sendBookingNotification(
@@ -49,6 +56,14 @@ export async function sendBookingNotification(
   if (b.comment) lines.push(`💬 Комментарий: ${b.comment}`);
   if (b.refLine) lines.push(`🎟️ ${b.refLine}`);
   if (b.src) lines.push(`🧭 Источник: ${b.src}`);
+  // Язык гостя показываем, только если он НЕ русский: у русскоязычной заявки
+  // эта строка ничего не добавляет, а в чате их большинство. Пишем и по-русски
+  // (для админа), и на самом языке — чтобы было видно, что увидит клиент.
+  if (b.locale && b.locale !== DEFAULT_LOCALE && isAppLocale(b.locale)) {
+    lines.push(
+      `🌐 Язык клиента: ${LOCALE_NAMES_RU[b.locale]} (${LOCALE_NAMES[b.locale]})`,
+    );
+  }
   // Ссылка на ленту заявок — как «Принять» у инструкторов: из чата сразу
   // попадаешь туда, где заявку обрабатывают, а не ищешь адрес по закладкам.
   lines.push("", `Открыть: ${SITE_URL}/admin/bookings`);

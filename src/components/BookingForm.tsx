@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { trackEvent } from "@/lib/analytics";
 import { forgetRefCode, getAttributionForBooking } from "@/lib/attribution";
@@ -67,6 +67,9 @@ const CERT_MESSAGE_KEYS: Record<string, string> = {
 
 export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: BookingFormProps) {
   const t = useTranslations("Booking");
+  // Язык страницы уезжает в заявку (0060): админ и инструктор должны знать, на
+  // каком языке звонить гостю, а не выяснять это в первую минуту разговора.
+  const locale = useLocale();
   const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
   const [phone, setPhone] = useState("");
@@ -179,6 +182,7 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
       // Номер шлём как есть, даже непроверенный: последнее слово всё равно за
       // сервером — он гасит сертификат и сам ставит его услугу.
       certificateCode: certCode.trim(),
+      locale,
       honeypot: String(data.get("company") ?? ""), // поле-ловушка (см. ниже)
       ref_code: refCode || attribution.ref_code,
       src: attribution.src,

@@ -1,4 +1,5 @@
 import { Link } from "@/i18n/navigation";
+import { ClientLocale } from "@/components/cabinet/ClientLocale";
 import { createClient } from "@/lib/supabase/server";
 import { getAppUser } from "@/lib/auth";
 import { vnToday } from "@/lib/dates";
@@ -16,6 +17,7 @@ import { vnd } from "@/lib/stats";
 interface BookingRow {
   id: string;
   client_name: string;
+  locale: string | null;
   phone: string;
   preferred_date: string | null;
   scheduled_time: string | null;
@@ -50,7 +52,7 @@ export default async function InstructorBookingsPage() {
   // Профиль и список записей не зависят друг от друга — грузим параллельно,
   // а не по очереди (каждый поход к базе в другом регионе стоит ~200 мс).
   const cols =
-    "id, client_name, phone, preferred_date, scheduled_time, age, weight, pinned, internal_note, city, accepted_by, services(name, category), accepted:users!accepted_by(name)";
+    "id, client_name, locale, phone, preferred_date, scheduled_time, age, weight, pinned, internal_note, city, accepted_by, services(name, category), accepted:users!accepted_by(name)";
   const bookingsQuery = (columns: string) =>
     supabase
       .from("bookings")
@@ -176,6 +178,10 @@ export default async function InstructorBookingsPage() {
               {b.services?.name && (
                 <p className="mt-2 text-base font-semibold text-ink">{b.services.name}</p>
               )}
+
+              {/* Язык гостя (0060). Инструктору он нужнее всех: он встречает
+                  человека на пляже и проводит с ним занятие. */}
+              <ClientLocale locale={b.locale} className="mt-2" />
 
               <div className="mt-1 space-y-0.5 text-sm text-muted">
                 <p>

@@ -16,6 +16,7 @@ interface BookingPayload {
   preferredDate?: string; // желаемая дата 'YYYY-MM-DD'
   comment?: string;
   certificateCode?: string; // номер подарочного сертификата (0059), необязателен
+  locale?: string; // язык сайта, на котором гость заполнял форму (0060)
   honeypot?: string; // поле-ловушка: у живого человека всегда пустое
   // Метки источника, собранные на клиенте (см. lib/attribution.ts):
   ref_code?: string | null;
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
     // Mini App. Служебные комментарии агента этот флаг не получают.
     publicNote: body.comment ?? null,
     certificateCode: body.certificateCode ?? null,
+    locale: body.locale ?? null,
     refCode: body.ref_code ?? null,
     src: body.src ?? null,
     utm: cleanUtm(body.utm),

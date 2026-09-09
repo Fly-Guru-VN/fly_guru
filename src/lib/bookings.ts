@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isAppLocale } from "@/i18n/locales";
 import { isValidPhone, normalizeTelegram, phoneDigits } from "@/lib/phone";
 import { resolveRefOwners, refOwnerLabel, type RefOwner } from "@/lib/refOwner";
 import { firstBasicTrainingByPhone } from "@/lib/agentReward";
@@ -40,6 +41,9 @@ export interface NewBooking {
   // Номер подарочного сертификата (0059). Услугу в этом случае задаёт сам
   // сертификат: что прислала форма, значения не имеет.
   certificateCode?: string | null;
+  // Язык сайта, на котором гость заполнял форму (0060). Кабинет агента его не
+  // передаёт — там заявку заводит сотрудник, и язык гостя он знает и так.
+  locale?: string | null;
 }
 
 export type BookingResult =
@@ -120,6 +124,9 @@ export async function createBooking(input: NewBooking): Promise<BookingResult> {
     preferredDateRaw && isRealDay(preferredDateRaw) ? preferredDateRaw : null;
   const refCode = trimField(input.refCode, 32);
   const src = trimField(input.src, 64);
+  // В базу пускаем только наш код языка (0060). Всё остальное — NULL: «язык
+  // неизвестен» честнее, чем мусор из подделанного запроса.
+  const locale = isAppLocale(input.locale) ? input.locale : null;
 
   // Канал связи и комментарий кладём также в internal_note: это стартовая
   // заметка для админа, которую сотрудники дальше могут менять. publicNote
@@ -181,6 +188,7 @@ export async function createBooking(input: NewBooking): Promise<BookingResult> {
       utm: input.utm ?? {},
       internal_note: internalNote,
       public_note: publicNote,
+      locale,
     })
     .select("id, booking_no")
     .single();
@@ -224,6 +232,9 @@ export async function createBooking(input: NewBooking): Promise<BookingResult> {
 
   await sendBookingNotification({
     serviceName,
+    // Язык гостя (0060). В чат уходит только не-русский: заявка от
+    // русскоязычного — это норма, и строка про язык была бы шумом.
+    locale,
     clientName,
     contact,
     messenger,

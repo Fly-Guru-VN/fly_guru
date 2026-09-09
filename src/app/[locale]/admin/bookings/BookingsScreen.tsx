@@ -1,6 +1,7 @@
 // Экран «Актуальные заявки» — общий для админа и СММщика (кабинет /smm):
 // поток заявок они ведут вдвоём. Базовый путь для ссылок приходит параметром.
 import Link from "next/link";
+import { ClientLocale } from "@/components/cabinet/ClientLocale";
 import { createClient } from "@/lib/supabase/server";
 import { dayLabel, vnToday } from "@/lib/dates";
 import {
@@ -49,6 +50,7 @@ interface BookingRow {
   ref_code: string | null;
   src: string | null;
   city: string | null;
+  locale: string | null;
   utm: Record<string, string> | null;
   internal_note: string | null;
   client_id: string | null;
@@ -324,6 +326,11 @@ function BookingCard({
             через «Записать клиента» или укажите занятие, в котором он учтён.
           </p>
         )}
+
+        {/* Язык гостя (0060): на каком языке он читал сайт, когда записывался.
+            Стоит НАД атрибуцией и плашкой, а не строчкой в сером блоке: это не
+            статистика, а то, что нужно знать до звонка. */}
+        <ClientLocale locale={b.locale} className="mt-2" />
 
         {/* Атрибуция: откуда пришёл клиент */}
         {(b.src || b.city || b.ref_code || utmEntries.length > 0) && (
@@ -696,7 +703,7 @@ export async function BookingsScreen({
   const res = await supabase
     .from("bookings")
     .select(
-      "id, booking_no, client_name, phone, telegram_username, preferred_date, scheduled_time, age, weight, status, pinned, ref_code, src, city, utm, internal_note, client_id, rescheduled_at, created_at, payment_method_id, paid, paid_on, subscription_id, services(name, category), accepted:users!accepted_by(name), payment:payment_methods(name), session:sessions!session_id(id, date, amount, services(name), instructor:users!instructor_id(name))",
+      "id, booking_no, client_name, phone, telegram_username, preferred_date, scheduled_time, age, weight, status, pinned, ref_code, src, city, locale, utm, internal_note, client_id, rescheduled_at, created_at, payment_method_id, paid, paid_on, subscription_id, services(name, category), accepted:users!accepted_by(name), payment:payment_methods(name), session:sessions!session_id(id, date, amount, services(name), instructor:users!instructor_id(name))",
     )
     .order("created_at", { ascending: false })
     .limit(200);
