@@ -8,7 +8,12 @@ import { Squiggle } from "@/components/Squiggle";
 import { IconFoil, IconPeople, IconTag } from "@/components/icons";
 import { AccessoryCard, EfoilCard } from "@/components/shop/ShopCards";
 import { ShopBuyButton } from "@/components/shop/ShopBuyButton";
-import { shopAccessories, shopEfoils, type ShopProduct } from "@/content/shop";
+import {
+  SHOP_IN_DEVELOPMENT,
+  shopAccessories,
+  shopEfoils,
+  type ShopProduct,
+} from "@/content/shop";
 import { localeAlternates } from "@/lib/alternates";
 import { formatUsd, priceFrom, pricesVary } from "@/lib/shop";
 
@@ -25,6 +30,8 @@ export async function generateMetadata({
     title: t("metaTitle"),
     description: t("metaDescription"),
     alternates: localeAlternates("/shop"),
+    // Под замком «в разработке» — не индексировать размытую страницу.
+    robots: SHOP_IN_DEVELOPMENT ? { index: false, follow: false } : undefined,
   };
 }
 

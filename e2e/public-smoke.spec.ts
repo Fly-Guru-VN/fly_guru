@@ -60,6 +60,18 @@ test("клиентский переход сохраняет чистый URL и
   expect(browserErrors, "Ошибки браузера при SPA-переходе").toEqual([]);
 });
 
+// Магазин в разработке (SHOP_IN_DEVELOPMENT): гость видит замок поверх
+// размытой страницы, а поисковику сказано её не индексировать. Когда магазин
+// откроют всем, этот тест надо убрать вместе с флагом.
+test("магазин в разработке: гость видит замок, поисковик — noindex", async ({ page }) => {
+  for (const path of ["/shop", "/shop/lift5"]) {
+    await page.goto(path, { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "Страница в разработке" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Купить" })).toHaveCount(0);
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+  }
+});
+
 test("публичные страницы получают защитные заголовки", async ({ request }) => {
   const response = await request.get("/training");
 

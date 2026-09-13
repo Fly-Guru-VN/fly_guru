@@ -404,6 +404,12 @@
       }
     }
   },
+  "ShopLock": {
+    "title": "Page under construction",
+    "text": "Our Lift eFoil shop is opening here soon. In the meantime, come and fly with us — book a lesson.",
+    "book": "Book a flight",
+    "home": "Back to home"
+  },
   "BookingLanding": {
     "metaTitle": "Book a flight",
     "metaDescription": "Request an eFoil flight in Nha Trang — we will call you back and find a time that suits you.",

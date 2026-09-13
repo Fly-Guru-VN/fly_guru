@@ -404,6 +404,12 @@
       }
     }
   },
+  "ShopLock": {
+    "title": "페이지 준비 중",
+    "text": "Lift eFoil 스토어가 곧 이곳에 문을 엽니다. 그전까지는 강습을 예약하고 함께 날아 보세요.",
+    "book": "비행 예약",
+    "home": "홈으로"
+  },
   "BookingLanding": {
     "metaTitle": "비행 예약",
     "metaDescription": "나트랑에서 eFoil 비행을 예약하세요 — 연락드려 시간을 잡아 드립니다.",

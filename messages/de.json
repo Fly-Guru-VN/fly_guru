@@ -404,6 +404,12 @@
       }
     }
   },
+  "ShopLock": {
+    "title": "Seite im Aufbau",
+    "text": "Hier eröffnet bald unser Lift eFoil Shop. Bis dahin: Kommen Sie fliegen — buchen Sie eine Stunde.",
+    "book": "Flug buchen",
+    "home": "Zur Startseite"
+  },
   "BookingLanding": {
     "metaTitle": "Flug buchen",
     "metaDescription": "Fragen Sie einen eFoil-Flug in Nha Trang an — wir rufen zurück und finden einen passenden Termin.",

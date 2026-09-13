@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { HREFLANG, LOCALES, DEFAULT_LOCALE, localePath } from "@/i18n/locales";
 import { SITE_URL } from "@/lib/site";
-import { shopProducts } from "@/content/shop";
+import { SHOP_IN_DEVELOPMENT, shopProducts } from "@/content/shop";
 
 // sitemap.xml — список страниц, которые мы САМИ предлагаем поисковику. Next
 // отдаёт его по /sitemap.xml, ссылка на него стоит в robots.ts.
@@ -21,12 +21,17 @@ const PAGES: { path: string; priority: number; changeFrequency: "weekly" | "mont
   { path: "/club", priority: 0.6, changeFrequency: "monthly" },
   { path: "/reviews", priority: 0.6, changeFrequency: "weekly" },
   { path: "/contacts", priority: 0.5, changeFrequency: "monthly" },
-  { path: "/shop", priority: 0.7, changeFrequency: "weekly" },
-  ...shopProducts.map((p) => ({
-    path: `/shop/${p.id}`,
-    priority: 0.5,
-    changeFrequency: "monthly" as const,
-  })),
+  // Пока магазин под замком «в разработке», поисковику его не предлагаем.
+  ...(SHOP_IN_DEVELOPMENT
+    ? []
+    : [
+        { path: "/shop", priority: 0.7, changeFrequency: "weekly" as const },
+        ...shopProducts.map((p) => ({
+          path: `/shop/${p.id}`,
+          priority: 0.5,
+          changeFrequency: "monthly" as const,
+        })),
+      ]),
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

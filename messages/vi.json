@@ -404,6 +404,12 @@
       }
     }
   },
+  "ShopLock": {
+    "title": "Trang đang được xây dựng",
+    "text": "Cửa hàng eFoil Lift sẽ sớm mở tại đây. Trong lúc chờ, hãy đến bay cùng chúng tôi — đặt một buổi học.",
+    "book": "Đặt lịch bay",
+    "home": "Về trang chủ"
+  },
   "BookingLanding": {
     "metaTitle": "Đặt lịch bay",
     "metaDescription": "Gửi yêu cầu bay eFoil tại Nha Trang — chúng tôi sẽ gọi lại và sắp xếp giờ phù hợp.",

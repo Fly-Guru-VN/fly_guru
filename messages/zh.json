@@ -404,6 +404,12 @@
       }
     }
   },
+  "ShopLock": {
+    "title": "页面建设中",
+    "text": "Lift 电动水翼板商店即将在这里开业。在此之前，欢迎预约课程，和我们一起飞。",
+    "book": "预约飞行",
+    "home": "返回首页"
+  },
   "BookingLanding": {
     "metaTitle": "预约飞行",
     "metaDescription": "在芽庄预约电动水翼板飞行 —— 我们会回电并安排时间。",
