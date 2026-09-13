@@ -150,10 +150,259 @@
     "bookingNo": "Mã yêu cầu của bạn: #{no}"
   },
   "Shop": {
-    "metaTitle": "Cửa hàng",
+    "metaTitle": "Cửa hàng eFoil Lift",
+    "metaDescription": "eFoil Lift Foils tại Nha Trang: LIFT5, LIFT5 F, LIFTX và phụ kiện. Chúng tôi giúp chọn kích cỡ theo cân nặng, và bạn có thể thử trước trong buổi học tại trường.",
     "eyebrow": "Cửa hàng",
-    "title": "eFoil đang bán",
-    "subtitle": "Chúng tôi nhập và bán Hobbywing và Lift Foils. Danh mục kèm giá sẽ sớm có — hiện tại vui lòng nhắn cho chúng tôi ở mục liên hệ."
+    "title": "eFoil Lift tại Nha Trang",
+    "lead": "Chúng tôi nhập chính hãng Lift Foils. Sẽ giúp bạn chọn ván theo cân nặng và trình độ — và bạn có thể thử eFoil trước trong một buổi học tại trường của chúng tôi.",
+    "heroAlt": "eFoil đang bay trên mặt biển",
+    "toCatalog": "Xem các mẫu",
+    "consult": "Tư vấn chọn ván",
+    "facts": {
+      "linesLabel": "Mẫu năm 2026",
+      "linesValue": "LIFT5 F · LIFT5 · LIFTX",
+      "priceLabel": "Giá",
+      "sizingLabel": "Kích cỡ ván",
+      "sizingValue": "Chọn theo cân nặng của bạn"
+    },
+    "from": "từ {price}",
+    "efoilsTitle": "eFoil",
+    "efoilsSubtitle": "Trọn bộ: ván, cột có động cơ, cánh, pin và tay điều khiển. Kích cỡ và màu chọn trên trang của từng mẫu.",
+    "sizesCount": "{count, plural, other {# kích cỡ}}",
+    "more": "Chi tiết",
+    "compareTitle": "Nên chọn mẫu nào",
+    "compareSubtitle": "Ba dòng chính của Lift và điểm khác nhau, nói ngắn gọn.",
+    "compare": {
+      "audience": "Dành cho ai",
+      "ride": "Thời gian chạy động cơ",
+      "sizes": "Kích cỡ",
+      "rider": "Cân nặng người lướt",
+      "controller": "Tay điều khiển",
+      "price": "Giá"
+    },
+    "howTitle": "Cách mua",
+    "how": {
+      "chooseTitle": "Chọn mẫu",
+      "chooseText": "Kích cỡ và màu chọn trên trang của ván. Chưa chắc? Chúng tôi sẽ chọn theo cân nặng và kinh nghiệm của bạn.",
+      "contactTitle": "Liên hệ với chúng tôi",
+      "contactText": "Nhắn tin hoặc để lại số điện thoại. Chúng tôi sẽ báo hàng có sẵn, giá cuối cùng tại Việt Nam và thời gian giao.",
+      "getTitle": "Thống nhất việc mua",
+      "getText": "Chúng tôi sẽ trao đổi về thanh toán và giao hàng. Trước khi mua, bạn có thể thử eFoil trong một buổi học tại trường."
+    },
+    "accessoriesTitle": "Phụ kiện",
+    "accessoriesSubtitle": "Pin, tay điều khiển, động cơ và những thứ giúp ngày ra biển nhẹ nhàng hơn.",
+    "faqHeading": "Câu hỏi về việc mua",
+    "faq": {
+      "tryQ": "Tôi có thể thử trước khi mua không?",
+      "tryA": "Có. Hãy đặt một buổi học tại trường của chúng tôi ở Nha Trang: huấn luyện viên sẽ giúp bạn đứng lên eFoil, và bạn sẽ hiểu rõ hơn ván nào hợp với mình.",
+      "priceQ": "Vì sao giá tính bằng đô la?",
+      "priceA": "Trên trang web là giá bán lẻ chính thức của Lift tại Mỹ. Giá cuối cùng tại Việt Nam, đã gồm vận chuyển, chúng tôi sẽ báo khi liên hệ với bạn.",
+      "sizeQ": "Nên chọn kích cỡ nào?",
+      "sizeA": "Quan trọng nhất là cân nặng và kinh nghiệm. Ván lớn vững hơn, dễ đứng lên hơn; ván nhỏ nhanh và linh hoạt hơn. Trên trang mẫu, mỗi kích cỡ đều ghi cân nặng người lướt phù hợp. Chưa chắc? Nhắn cho chúng tôi, chúng tôi sẽ giúp."
+    },
+    "ctaTitle": "Chưa biết nên chọn ván nào?",
+    "ctaText": "Cho chúng tôi biết cân nặng và kinh nghiệm — chúng tôi sẽ chọn mẫu và kích cỡ.",
+    "ctaButton": "Nhắn cho chúng tôi",
+    "ctaBook": "Đặt buổi học"
+  },
+  "ShopProduct": {
+    "back": "Cửa hàng",
+    "limited": "Phiên bản giới hạn",
+    "priceNote": "Giá bán lẻ của Lift tại Mỹ. Giá cuối cùng tại Việt Nam chúng tôi sẽ báo khi liên hệ.",
+    "size": "Kích cỡ",
+    "color": "Màu",
+    "variant": "Phiên bản",
+    "riderUpTo": "người lướt đến {kg} kg",
+    "upToKg": "đến {kg} kg",
+    "riderBlowfish": "Với phao bơm Blowfish — đến {kg} kg.",
+    "facts": {
+      "ride": "Thời gian chạy động cơ",
+      "volume": "Thể tích ván",
+      "board": "Kích thước ván",
+      "setup": "Trọng lượng cả bộ",
+      "minutes": "{minutes} phút",
+      "minutesOnMotor": "{minutes} phút chạy động cơ",
+      "liters": "{liters} lít",
+      "cm": "{cm} cm",
+      "kg": "{kg, number} kg"
+    },
+    "buy": "Mua",
+    "tryFirst": "Thử trong buổi học",
+    "includedTitle": "Trong bộ gồm có",
+    "setup": {
+      "mast": "Cột có động cơ",
+      "propeller": "Chân vịt",
+      "frontWing": "Cánh trước",
+      "backWing": "Cánh sau",
+      "battery": "Pin",
+      "controller": "Tay điều khiển"
+    },
+    "alsoIncluded": "Kèm bộ sạc và túi đựng khi vận chuyển.",
+    "setupNote": "Cấu hình bộ năm 2026 có thể thay đổi đôi chút — chính nhà sản xuất đã lưu ý điều này.",
+    "aboutTitle": "Điểm chính",
+    "fits": "Dùng cho",
+    "relatedTitle": "Phụ kiện cho ván này",
+    "allAccessories": "Tất cả phụ kiện"
+  },
+  "ShopInquiry": {
+    "title": "Chúng tôi liên hệ với bạn thế nào?",
+    "close": "Đóng",
+    "consultItem": "Tư vấn chọn eFoil",
+    "messengersTitle": "Nhắn cho chúng tôi — sẽ trả lời qua ứng dụng nhắn tin",
+    "messageText": "Xin chào! Tôi quan tâm đến {item} trên trang FlyGuru.",
+    "consultText": "Xin chào! Tôi muốn mua eFoil, nhờ tư vấn giúp tôi chọn.",
+    "or": "hoặc để lại số — chúng tôi sẽ gọi lại",
+    "honeypot": "Đừng điền vào ô này",
+    "name": "Tên",
+    "phone": "Số điện thoại",
+    "phonePlaceholder": "+84 90 123 45 67",
+    "phoneError": "Số điện thoại chỉ gồm chữ số, từ 8 đến 15 chữ số (ví dụ 0901234567).",
+    "messenger": "Ứng dụng nhắn tin",
+    "comment": "Ghi chú",
+    "commentPlaceholder": "Ví dụ: tôi nặng 80 kg, đã lướt vài lần",
+    "submit": "Gọi lại cho tôi",
+    "submitting": "Đang gửi…",
+    "sendError": "Gửi không thành công. Hãy nhắn cho chúng tôi — các nút ở phía trên.",
+    "successTitle": "Đã gửi yêu cầu",
+    "successText": "Cảm ơn bạn! Chúng tôi sẽ liên hệ và báo về hàng có sẵn, giá cuối cùng và thời gian giao.",
+    "done": "Đồng ý"
+  },
+  "ShopCatalog": {
+    "lift5-f": {
+      "tagline": "Chiếc Lift đầu tiên hoàn hảo — cách dễ tiếp cận nhất vào dòng Lift",
+      "audience": "Người mới, gia đình và trường dạy",
+      "description": "Cùng hệ thống LCS và cảm giác bay như LIFT5, nhưng ván sợi thủy tinh và cột nhôm: bền hơn trước va đập và rẻ hơn đáng kể. Với phao bơm Blowfish, ngay cả người thử lần đầu cũng đứng lên được.",
+      "features": {
+        "f1": "Ván sợi thủy tinh chịu được những cú chạm nước mạnh và va đập nhỏ",
+        "f2": "Cột nhôm 28″ — bay êm và dễ đoán",
+        "f3": "Pin Gen5 — tới 90 phút chạy động cơ",
+        "f4": "Nâng cấp dần: sau này có thể thay cột và cánh bằng carbon"
+      }
+    },
+    "lift5": {
+      "tagline": "Mẫu chủ lực — cho lần bay đầu tiên lẫn người lướt giàu kinh nghiệm",
+      "audience": "Mọi người, từ người mới đến người lướt giỏi",
+      "description": "Chiếc eFoil hoàn thiện nhất của Lift. Pin và cột lắp vào chỉ trong vài giây, không cần dụng cụ; động cơ truyền động trực tiếp mạnh mẽ và gần như không tiếng ồn. Có Blowfish thì người mới tập và cả gia đình cùng chơi, không có thì đây là chiếc ván nhanh với nhiều chỗ để tiến bộ.",
+      "features": {
+        "f1": "Pin Gen5 2,2 kWh — khoảng 90 phút chạy động cơ",
+        "f2": "Cột carbon và cánh Camber Pro",
+        "f3": "Tay điều khiển Elite màn hình màu: tốc độ GPS, pin, quãng đường",
+        "f4": "Dùng được với Blowfish — để tập và chơi cùng trẻ em"
+      }
+    },
+    "liftx": {
+      "tagline": "Dòng lai: lướt như foil, đẩy như eFoil",
+      "audience": "Người đã đứng vững trên foil",
+      "description": "LIFTX được làm cho sóng. Ván nhẹ, hẹp và chân vịt gập: chạy động cơ ra, thả cò — rồi tiếp tục lướt trên sóng không lực cản như surf foil thông thường. Động cơ có thể lắp cao hoặc thấp — cho sóng, downwind hay mặt nước phẳng.",
+      "features": {
+        "f1": "Chân vịt gập: khi tắt động cơ, cánh quạt khép lại và không cản",
+        "f2": "Cả bộ nặng dưới 22 kg",
+        "f3": "Pin LIFTX — khoảng 45 phút chạy động cơ",
+        "f4": "Cho trình độ trung bình và nâng cao"
+      }
+    },
+    "lift5-laird": {
+      "tagline": "Phiên bản hợp tác với huyền thoại lướt sóng Laird Hamilton",
+      "audience": "Người lướt giàu kinh nghiệm",
+      "description": "Phiên bản đặc biệt của LIFT5: ván 5'2 bằng carbon lục giác, hẹp hơn thường lệ với cùng thể tích — chính xác hơn khi ôm cua, tự tin hơn ở tốc độ cao và trên sóng. Sản xuất giới hạn năm 2026.",
+      "features": {
+        "f1": "Dáng ván phát triển cùng Laird Hamilton",
+        "f2": "64 lít trong thân hẹp — cất cánh dễ dàng",
+        "f3": "Pin Gen5 — khoảng 90 phút chạy động cơ",
+        "f4": "Số lượng giới hạn năm 2026"
+      }
+    },
+    "liftx-florence": {
+      "tagline": "Phiên bản của anh em Florence cho downwind và sóng",
+      "audience": "Người lướt giàu kinh nghiệm",
+      "description": "LIFTX 4'7 phát triển cùng các nhà vô địch thế giới John và Nathan Florence, do thợ tạo dáng Jon Pyzel thực hiện. Dành cho downwind, sóng và những chặng dài trên biển khơi. Số lượng giới hạn.",
+      "features": {
+        "f1": "Dáng ván của Jon Pyzel theo yêu cầu của anh em Florence",
+        "f2": "Nằm giữa 4'3 và 4'8 — cỡ ưa thích của người lướt giỏi",
+        "f3": "Chân vịt gập và động cơ gắn thấp",
+        "f4": "Số lượng giới hạn năm 2026"
+      }
+    },
+    "gen5-battery": {
+      "tagline": "Trái tim của LIFT5 và LIFT5 F — tới 90 phút chạy động cơ",
+      "description": "Pin không dây, lắp vào ván chỉ bằng một thao tác và điều khiển bằng một nút. Dung lượng 2,2 kWh trong vỏ hai lớp chuẩn IP68. Phiên bản 2026 nhẹ hơn trước 3 kg.",
+      "features": {
+        "f1": "Khoảng 90 phút chạy động cơ",
+        "f2": "Chống nước IP68 và tự ngắt nếu nước lọt vào",
+        "f3": "Thêm một pin — thời gian lướt mỗi ngày tăng gấp đôi"
+      }
+    },
+    "liftx-battery": {
+      "tagline": "Pin LIFTX nhỏ gọn — khoảng 45 phút chạy động cơ",
+      "description": "Pin nhẹ khoảng 1 kWh: đủ để ra qua vùng sóng vỡ và quay về. Phiên bản 2026 nhẹ thêm 0,8 kg. Dùng cho LIFT5 và LIFT5 F qua bộ chuyển đổi.",
+      "features": {
+        "f1": "Khoảng 45 phút chạy động cơ",
+        "f2": "Chống nước IP68 và tự ngắt nếu nước lọt vào",
+        "f3": "Có bộ chuyển đổi thì dùng được cho LIFT5 và LIFT5 F"
+      }
+    },
+    "liftx-battery-adapter": {
+      "tagline": "Pin LIFTX nhẹ cho chiếc LIFT5 của bạn",
+      "description": "Bộ chuyển đổi cho phép lắp pin LIFTX nhẹ lên LIFT5 hoặc LIFT5 F — tính cả bộ chuyển đổi vẫn nhẹ hơn pin tiêu chuẩn khoảng 8 kg. Ván phản hồi nhạy hơn, và lắp chỉ mất vài giây.",
+      "features": {
+        "f1": "Bớt khoảng 8 kg trên ván",
+        "f2": "Lắp không cần dụng cụ",
+        "f3": "Cần pin LIFTX — bán riêng"
+      }
+    },
+    "elite-hand-controller": {
+      "tagline": "Tay điều khiển cao cấp với màn hình màu",
+      "description": "Vỏ carbon, phụ kiện titan và cò bóp chỉnh được theo phong cách lướt của bạn. Màn hình hiển thị tốc độ GPS và quãng đường. Kèm hộp bảo vệ.",
+      "features": {
+        "f1": "Màn hình màu: tốc độ, pin, quãng đường",
+        "f2": "Carbon và titan",
+        "f3": "Kèm hộp bảo vệ"
+      }
+    },
+    "lift-hand-controller": {
+      "tagline": "Tay điều khiển tin cậy — đơn giản và chính xác",
+      "description": "Tay điều khiển bền với màn hình tiết kiệm điện: tốc độ, pin và công suất trong tầm mắt. Kết nối ván qua Bluetooth, sạc lại được, chống nước hoàn toàn và nổi trên nước. Kèm hộp bảo vệ.",
+      "features": {
+        "f1": "Chống nước và nổi trên nước",
+        "f2": "Bluetooth và pin sạc tích hợp",
+        "f3": "Kèm hộp bảo vệ"
+      }
+    },
+    "propulsion-55": {
+      "tagline": "Cột động cơ 55 mm — ba độ cao lắp đặt",
+      "description": "Cột carbon với động cơ truyền động trực tiếp: ít lực cản hơn, cảm giác giống lướt sóng hơn. Lắp bằng hệ thống LCS không cần dụng cụ, dùng được với cả cánh LCS lẫn cánh bắt vít.",
+      "features": {
+        "f1": "Low Mount — vững nhất, cho mọi điều kiện; lắp sẵn trên LIFTX",
+        "f2": "High Mount — cân bằng giữa kiểm soát và độ nhạy",
+        "f3": "Ultra-High Mount — ít lực cản nhất cho sóng và pumping"
+      }
+    },
+    "blowfish": {
+      "tagline": "Phao bơm: tập dễ hơn, chơi cùng nhau vui hơn",
+      "description": "Blowfish lắp bao quanh ván và biến nó thành một bệ phao vững chãi — giữa SUP và xuồng nhỏ. Nhờ đó đứng lên lần đầu dễ hơn, chở trẻ em hay ra biển cùng bạn bè. Kích cỡ chọn theo ván.",
+      "features": {
+        "f1": "Cho LIFT5 và LIFT5 F cỡ 4'4, 4'9 và 5'4",
+        "f2": "Vững hơn cho người mới",
+        "f3": "Ván chở được người nặng hơn"
+      }
+    },
+    "beach-wheels": {
+      "tagline": "Bánh xe cho túi ván LIFT5 — đi trên cát không tốn sức",
+      "description": "Bánh xe rộng áp suất thấp gắn vào túi ván, để eFoil lăn trên cát và nền gồ ghề thay vì phải vác trên vai. Giao sẵn đã lắp ráp.",
+      "features": {
+        "f1": "Bánh mềm áp suất thấp — êm và nhẹ trên cát",
+        "f2": "Gắn vào túi ván",
+        "f3": "Giao sẵn đã lắp ráp"
+      }
+    },
+    "battery-backpack": {
+      "tagline": "Ba lô mang pin",
+      "description": "Pin nặng từ 7,6 đến 13,8 kg, xách tay ra biển rất bất tiện. Ba lô chuyển sức nặng lên vai. Có bản cho Gen5 và cho LIFTX.",
+      "features": {
+        "f1": "Có bản cho Gen5 và LIFTX",
+        "f2": "Sức nặng trên vai, không phải trên tay"
+      }
+    }
   },
   "BookingLanding": {
     "metaTitle": "Đặt lịch bay",

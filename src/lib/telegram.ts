@@ -139,6 +139,19 @@ export async function sendStaffMessage(text: string): Promise<void> {
   await sendTelegram(chatId, text);
 }
 
+// Запрос из магазина (форма «Перезвоните мне» на /shop). В отличие от заявок на
+// полёт, в базу он НЕ пишется (этап 1 магазина), поэтому сообщение в чат — это
+// единственный след заявки. Отсюда true/false: при сбое гость должен увидеть
+// «не получилось» и написать в мессенджер сам, а не думать, что его услышали.
+export async function sendShopInquiry(text: string): Promise<boolean> {
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!chatId) {
+    console.error("[telegram] TELEGRAM_CHAT_ID не задан — запрос из магазина не отправлен");
+    return false;
+  }
+  return sendTelegram(chatId, `${text}\n\nСайт: ${SITE_URL}/shop`);
+}
+
 // Общая отправка простым текстом (без Markdown — надёжнее, ничего не надо
 // экранировать). Операцию не роняем из-за уведомления, но и не глотаем сбой
 // молча — пишем в лог, иначе «уведомление не пришло» невозможно расследовать.

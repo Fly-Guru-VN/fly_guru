@@ -150,10 +150,259 @@
     "bookingNo": "您的预约编号：#{no}"
   },
   "Shop": {
-    "metaTitle": "商店",
+    "metaTitle": "Lift 电动水翼板商店",
+    "metaDescription": "芽庄的 Lift Foils 电动水翼板：LIFT5、LIFT5 F、LIFTX 及配件。我们按您的体重帮您选尺寸，购买前还可以在我们学校的课程中先体验。",
     "eyebrow": "商店",
-    "title": "在售的电动水翼板",
-    "subtitle": "我们正规进口并销售 Hobbywing 和 Lift Foils。带价格的目录即将上线 —— 目前请通过联系页面咨询购买。"
+    "title": "芽庄的 Lift 电动水翼板",
+    "lead": "我们正规进口 Lift Foils。会按您的体重和水平帮您挑选水翼板，购买前还可以在我们学校的课程中先体验电动水翼板。",
+    "heroAlt": "在海面上飞行的电动水翼板",
+    "toCatalog": "查看型号",
+    "consult": "帮我挑选",
+    "facts": {
+      "linesLabel": "2026 年型号",
+      "linesValue": "LIFT5 F · LIFT5 · LIFTX",
+      "priceLabel": "价格",
+      "sizingLabel": "板子尺寸",
+      "sizingValue": "按您的体重推荐"
+    },
+    "from": "{price} 起",
+    "efoilsTitle": "电动水翼板",
+    "efoilsSubtitle": "整套装备：板子、带电机的桅杆、水翼、电池和手柄遥控器。尺寸和颜色在型号页面选择。",
+    "sizesCount": "{count, plural, other {# 种尺寸}}",
+    "more": "详情",
+    "compareTitle": "选哪一款",
+    "compareSubtitle": "Lift 三个主要系列及其区别，简单说明。",
+    "compare": {
+      "audience": "适合人群",
+      "ride": "电机续航",
+      "sizes": "尺寸",
+      "rider": "骑手体重",
+      "controller": "手柄遥控器",
+      "price": "价格"
+    },
+    "howTitle": "如何购买",
+    "how": {
+      "chooseTitle": "选择型号",
+      "chooseText": "尺寸和颜色在板子页面选择。拿不定主意？我们按体重和经验帮您挑。",
+      "contactTitle": "联系我们",
+      "contactText": "通过聊天软件留言或留下电话号码。我们会告诉您库存、在越南的最终价格和到货时间。",
+      "getTitle": "确认购买",
+      "getText": "我们一起商定付款和交付方式。购买前，您还可以在我们学校的课程中先体验电动水翼板。"
+    },
+    "accessoriesTitle": "配件",
+    "accessoriesSubtitle": "电池、遥控器、电机，以及让海滩一天更轻松的装备。",
+    "faqHeading": "购买常见问题",
+    "faq": {
+      "tryQ": "购买前可以先试试吗？",
+      "tryA": "可以。在我们芽庄的学校预约一节课：教练会带您站上电动水翼板，您会更清楚哪款板子适合自己。",
+      "priceQ": "为什么价格用美元标示？",
+      "priceA": "网站上是 Lift 在美国的官方零售价。含运费在内的越南最终价格，我们会在联系您时告知。",
+      "sizeQ": "该选哪个尺寸？",
+      "sizeA": "关键看体重和经验。大板更稳、更容易站起来；小板更快、更灵活。型号页面上每个尺寸都标有适合的骑手体重。拿不定主意？给我们留言，我们帮您挑。"
+    },
+    "ctaTitle": "不知道选哪块板？",
+    "ctaText": "告诉我们您的体重和经验，我们帮您挑型号和尺寸。",
+    "ctaButton": "给我们留言",
+    "ctaBook": "预约课程"
+  },
+  "ShopProduct": {
+    "back": "商店",
+    "limited": "限量版",
+    "priceNote": "Lift 美国零售价。越南的最终价格我们会在联系您时告知。",
+    "size": "尺寸",
+    "color": "颜色",
+    "variant": "款式",
+    "riderUpTo": "骑手不超过 {kg} 公斤",
+    "upToKg": "不超过 {kg} 公斤",
+    "riderBlowfish": "配充气 Blowfish 时，不超过 {kg} 公斤。",
+    "facts": {
+      "ride": "电机续航",
+      "volume": "板子体积",
+      "board": "板子尺寸",
+      "setup": "整套重量",
+      "minutes": "{minutes} 分钟",
+      "minutesOnMotor": "电机续航 {minutes} 分钟",
+      "liters": "{liters} 升",
+      "cm": "{cm} 厘米",
+      "kg": "{kg, number} 公斤"
+    },
+    "buy": "购买",
+    "tryFirst": "上课体验",
+    "includedTitle": "套装内容",
+    "setup": {
+      "mast": "电机桅杆",
+      "propeller": "螺旋桨",
+      "frontWing": "前翼",
+      "backWing": "尾翼",
+      "battery": "电池",
+      "controller": "手柄遥控器"
+    },
+    "alsoIncluded": "另附充电器和运输包。",
+    "setupNote": "2026 年套装配置可能略有不同——这是厂家自己的提示。",
+    "aboutTitle": "要点",
+    "fits": "适用于",
+    "relatedTitle": "适配这款板的配件",
+    "allAccessories": "全部配件"
+  },
+  "ShopInquiry": {
+    "title": "我们如何联系您？",
+    "close": "关闭",
+    "consultItem": "电动水翼板选购咨询",
+    "messengersTitle": "给我们留言——我们会在聊天软件里回复",
+    "messageText": "您好！我对 FlyGuru 网站上的 {item} 感兴趣。",
+    "consultText": "您好！我想买一块电动水翼板，请帮我挑选。",
+    "or": "或留下电话——我们给您回电",
+    "honeypot": "请勿填写此栏",
+    "name": "姓名",
+    "phone": "电话",
+    "phonePlaceholder": "+84 90 123 45 67",
+    "phoneError": "电话只能填数字，8 到 15 位（例如 0901234567）。",
+    "messenger": "聊天软件",
+    "comment": "备注",
+    "commentPlaceholder": "例如：体重 80 公斤，玩过几次",
+    "submit": "请给我回电",
+    "submitting": "正在发送…",
+    "sendError": "发送失败。请通过上面的按钮在聊天软件里给我们留言。",
+    "successTitle": "请求已发送",
+    "successText": "谢谢！我们会联系您，告知库存、最终价格和到货时间。",
+    "done": "好的"
+  },
+  "ShopCatalog": {
+    "lift5-f": {
+      "tagline": "理想的第一块 Lift——进入 Lift 系列最实惠的方式",
+      "audience": "初学者、家庭和学校",
+      "description": "与 LIFT5 相同的 LCS 系统和相同的飞行感，但采用玻璃纤维板和铝合金桅杆：更耐磕碰，价格也明显更低。配上充气 Blowfish，第一次尝试的人也能站起来。",
+      "features": {
+        "f1": "玻璃纤维板不怕重重落水和日常磕碰",
+        "f2": "28″ 铝合金桅杆，飞行平稳可控",
+        "f3": "Gen5 电池——电机续航最长 90 分钟",
+        "f4": "随您进步：以后可升级为碳纤维桅杆和水翼"
+      }
+    },
+    "lift5": {
+      "tagline": "旗舰款——适合第一次飞行，也适合资深骑手",
+      "audience": "所有人，从初学者到资深骑手",
+      "description": "Lift 最精良的电动水翼板。电池和桅杆无需工具，几秒即可卡装到位；直驱电机动力强劲，几乎无声。装上 Blowfish，初学者可以练习、全家可以一起玩；拆下它，就是一块有充分进阶空间的快板。",
+      "features": {
+        "f1": "2.2 千瓦时 Gen5 电池——平均续航 90 分钟",
+        "f2": "碳纤维桅杆和 Camber Pro 水翼",
+        "f3": "Elite 彩屏遥控器：GPS 速度、电量、距离",
+        "f4": "兼容 Blowfish——适合练习和带孩子一起玩"
+      }
+    },
+    "liftx": {
+      "tagline": "混合型：像水翼一样滑行，像电动水翼一样推进",
+      "audience": "已能稳稳站在水翼上的骑手",
+      "description": "LIFTX 为冲浪而生。轻而窄的板子加折叠螺旋桨：用电机出发，松开扳机，就能像普通冲浪水翼一样无阻力地继续乘浪。电机可以装高或装低——适应浪、顺风或平静水面。",
+      "features": {
+        "f1": "折叠螺旋桨：关闭电机后桨叶收拢，不产生阻力",
+        "f2": "整套重量不到 22 公斤",
+        "f3": "LIFTX 电池——电机续航约 45 分钟",
+        "f4": "适合中级和高级骑手"
+      }
+    },
+    "lift5-laird": {
+      "tagline": "与冲浪传奇 Laird Hamilton 合作打造的签名系列",
+      "audience": "资深骑手",
+      "description": "特别版 LIFT5：六边形碳纤维 5'2 板，同样体积下比常规更窄——转弯更精准，高速和浪中更稳。2026 年限量生产。",
+      "features": {
+        "f1": "板型与 Laird Hamilton 共同开发",
+        "f2": "窄板身内含 64 升体积——起飞轻松",
+        "f3": "Gen5 电池——电机续航约 90 分钟",
+        "f4": "2026 年限量生产"
+      }
+    },
+    "liftx-florence": {
+      "tagline": "Florence 兄弟的顺风与冲浪系列",
+      "audience": "资深骑手",
+      "description": "与世界冲浪冠军 John 和 Nathan Florence 共同开发、由板型师 Jon Pyzel 打造的 LIFTX 4'7。适合顺风、冲浪和开阔水域的长距离滑行。限量生产。",
+      "features": {
+        "f1": "Jon Pyzel 按 Florence 兄弟的要求设计板型",
+        "f2": "介于 4'3 和 4'8 之间——资深骑手最爱的尺寸",
+        "f3": "折叠螺旋桨和低位电机",
+        "f4": "2026 年限量生产"
+      }
+    },
+    "gen5-battery": {
+      "tagline": "LIFT5 和 LIFT5 F 的心脏——电机续航最长 90 分钟",
+      "description": "无线电池，一个动作即可装入板中，一键操作。2.2 千瓦时容量，IP68 双层外壳。2026 款比之前轻 3 公斤。",
+      "features": {
+        "f1": "平均续航约 90 分钟",
+        "f2": "IP68 防护，进水时自动断电",
+        "f3": "多备一块电池，每天的玩水时间翻倍"
+      }
+    },
+    "liftx-battery": {
+      "tagline": "小巧的 LIFTX 电池——电机续航约 45 分钟",
+      "description": "约 1 千瓦时的轻量电池：足够冲出碎浪区再回来。2026 款又轻了 0.8 公斤。通过转接座可用于 LIFT5 和 LIFT5 F。",
+      "features": {
+        "f1": "电机续航约 45 分钟",
+        "f2": "IP68 防护，进水时自动断电",
+        "f3": "配转接座可用于 LIFT5 和 LIFT5 F"
+      }
+    },
+    "liftx-battery-adapter": {
+      "tagline": "让您的 LIFT5 用上轻量 LIFTX 电池",
+      "description": "借助转接座，可在 LIFT5 或 LIFT5 F 上使用轻量 LIFTX 电池——连同转接座也比标准电池轻约 8 公斤。板子反应更灵敏，安装只需几秒。",
+      "features": {
+        "f1": "板上减重约 8 公斤",
+        "f2": "无需工具即可安装",
+        "f3": "需搭配 LIFTX 电池——另售"
+      }
+    },
+    "elite-hand-controller": {
+      "tagline": "带彩色屏幕的高端手柄遥控器",
+      "description": "碳纤维外壳、钛合金配件，扳机可按您的骑行风格调节。屏幕显示 GPS 速度和行驶距离。附保护盒。",
+      "features": {
+        "f1": "彩色屏幕：速度、电量、距离",
+        "f2": "碳纤维与钛合金",
+        "f3": "附保护盒"
+      }
+    },
+    "lift-hand-controller": {
+      "tagline": "可靠的手柄遥控器——简单而精准",
+      "description": "坚固的遥控器，配省电屏幕：速度、电量和功率一目了然。通过蓝牙连接板子，可充电，完全防水且能漂浮。附保护盒。",
+      "features": {
+        "f1": "防水且能漂浮",
+        "f2": "蓝牙连接，内置充电电池",
+        "f3": "附保护盒"
+      }
+    },
+    "propulsion-55": {
+      "tagline": "55 毫米电机桅杆——三种安装高度",
+      "description": "配直驱电机的碳纤维桅杆：阻力更小，更有冲浪感。通过 LCS 系统免工具安装，兼容 LCS 水翼和螺栓固定水翼。",
+      "features": {
+        "f1": "Low Mount——最稳定，适合各种水况；LIFTX 标配",
+        "f2": "High Mount——兼顾操控与灵敏",
+        "f3": "Ultra-High Mount——阻力最小，适合冲浪和 pumping"
+      }
+    },
+    "blowfish": {
+      "tagline": "充气模块：学起来更容易，一起玩更开心",
+      "description": "Blowfish 套在板子上，把它变成稳定的充气平台——介于桨板和小艇之间。第一次站起来更容易，还能载孩子或和朋友一起出海。尺寸按板子选择。",
+      "features": {
+        "f1": "适用于 LIFT5 和 LIFT5 F 的 4'4、4'9、5'4",
+        "f2": "给初学者更多稳定性",
+        "f3": "板子可承载更重的骑手"
+      }
+    },
+    "beach-wheels": {
+      "tagline": "LIFT5 板包专用轮子——轻松穿过沙滩",
+      "description": "宽大的低压轮子装在板包上，电动水翼板就能在沙地和不平路面上推着走，而不用扛在肩上。到货即已组装好。",
+      "features": {
+        "f1": "柔软的低压轮子——在沙地上安静省力",
+        "f2": "装在板包上",
+        "f3": "到货已组装"
+      }
+    },
+    "battery-backpack": {
+      "tagline": "电池背包",
+      "description": "电池重 7.6 到 13.8 公斤，用手提到水边很不方便。背包把重量转移到肩上。有 Gen5 款和 LIFTX 款。",
+      "features": {
+        "f1": "有 Gen5 款和 LIFTX 款",
+        "f2": "重量在肩上，而不是手上"
+      }
+    }
   },
   "BookingLanding": {
     "metaTitle": "预约飞行",

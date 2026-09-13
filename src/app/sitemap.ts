@@ -1,13 +1,15 @@
 import type { MetadataRoute } from "next";
 import { HREFLANG, LOCALES, DEFAULT_LOCALE, localePath } from "@/i18n/locales";
 import { SITE_URL } from "@/lib/site";
+import { shopProducts } from "@/content/shop";
 
 // sitemap.xml — список страниц, которые мы САМИ предлагаем поисковику. Next
 // отдаёт его по /sitemap.xml, ссылка на него стоит в robots.ts.
 //
-// Перечисляем только живые публичные страницы. Заглушки (/shop и карточки
-// товаров — наполнение на Этапе 6) сюда не берём: пустая страница в выдаче
-// хуже, чем её отсутствие. Кабинеты и /thanks закрыты в robots.ts.
+// Перечисляем только живые публичные страницы: пустая заглушка в выдаче хуже,
+// чем её отсутствие. Кабинеты и /thanks закрыты в robots.ts. Магазин попал сюда
+// в сентябре 2026, когда в нём появился каталог; карточки товаров берутся из
+// справочника, чтобы новый товар не пришлось дописывать сюда руками.
 //
 // priority — относительная важность внутри нашего же сайта (подсказка, не
 // приказ). changeFrequency — как часто содержимое реально меняется.
@@ -19,6 +21,12 @@ const PAGES: { path: string; priority: number; changeFrequency: "weekly" | "mont
   { path: "/club", priority: 0.6, changeFrequency: "monthly" },
   { path: "/reviews", priority: 0.6, changeFrequency: "weekly" },
   { path: "/contacts", priority: 0.5, changeFrequency: "monthly" },
+  { path: "/shop", priority: 0.7, changeFrequency: "weekly" },
+  ...shopProducts.map((p) => ({
+    path: `/shop/${p.id}`,
+    priority: 0.5,
+    changeFrequency: "monthly" as const,
+  })),
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

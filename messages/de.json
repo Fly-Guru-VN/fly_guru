@@ -150,10 +150,259 @@
     "bookingNo": "Ihre Anfragenummer: #{no}"
   },
   "Shop": {
-    "metaTitle": "Shop",
+    "metaTitle": "Lift eFoil Shop",
+    "metaDescription": "Lift Foils eFoils in Nha Trang: LIFT5, LIFT5 F, LIFTX und Zubehör. Wir helfen bei der passenden Größe für Ihr Gewicht — ausprobieren können Sie vorher in einer Stunde an unserer Schule.",
     "eyebrow": "Shop",
-    "title": "eFoils im Verkauf",
-    "subtitle": "Wir importieren und verkaufen Hobbywing und Lift Foils. Ein Katalog mit Preisen folgt in Kürze — schreiben Sie uns bis dahin über die Kontaktseite."
+    "title": "Lift eFoils in Nha Trang",
+    "lead": "Wir importieren Lift Foils offiziell. Wir helfen Ihnen, das Board passend zu Gewicht und Können zu wählen — und ausprobieren können Sie ein eFoil vorher in einer Stunde an unserer Schule.",
+    "heroAlt": "Ein eFoil im Flug über dem Meer",
+    "toCatalog": "Modelle ansehen",
+    "consult": "Beratung",
+    "facts": {
+      "linesLabel": "Modelle 2026",
+      "linesValue": "LIFT5 F · LIFT5 · LIFTX",
+      "priceLabel": "Preise",
+      "sizingLabel": "Boardgröße",
+      "sizingValue": "Passend zu Ihrem Gewicht"
+    },
+    "from": "ab {price}",
+    "efoilsTitle": "eFoils",
+    "efoilsSubtitle": "Komplettpakete: Board, Motormast, Flügel, Akku und Fernbedienung. Größe und Farbe wählen Sie auf der Modellseite.",
+    "sizesCount": "{count, plural, one {# Größe} other {# Größen}}",
+    "more": "Details",
+    "compareTitle": "Welches passt zu mir",
+    "compareSubtitle": "Die drei Hauptlinien von Lift und ihre Unterschiede — kurz gefasst.",
+    "compare": {
+      "audience": "Für wen",
+      "ride": "Fahrzeit mit Motor",
+      "sizes": "Größen",
+      "rider": "Fahrergewicht",
+      "controller": "Fernbedienung",
+      "price": "Preis"
+    },
+    "howTitle": "So kaufen Sie",
+    "how": {
+      "chooseTitle": "Modell wählen",
+      "chooseText": "Größe und Farbe auf der Seite des Boards. Unsicher? Wir beraten Sie nach Gewicht und Erfahrung.",
+      "contactTitle": "Kontakt aufnehmen",
+      "contactText": "Schreiben Sie uns oder hinterlassen Sie Ihre Nummer. Wir informieren Sie über Verfügbarkeit, Endpreis in Vietnam und Lieferzeit.",
+      "getTitle": "Kauf vereinbaren",
+      "getText": "Wir klären Zahlung und Lieferung. Und vor dem Kauf können Sie ein eFoil in einer Stunde an unserer Schule ausprobieren."
+    },
+    "accessoriesTitle": "Zubehör",
+    "accessoriesSubtitle": "Akkus, Fernbedienungen, Motoren und alles, was den Strandtag leichter macht.",
+    "faqHeading": "Fragen zum Kauf",
+    "faq": {
+      "tryQ": "Kann ich vor dem Kauf ausprobieren?",
+      "tryA": "Ja. Buchen Sie eine Stunde an unserer Schule in Nha Trang: Ein Lehrer bringt Sie aufs eFoil, und danach ist viel klarer, welches Board zu Ihnen passt.",
+      "priceQ": "Warum sind die Preise in Dollar?",
+      "priceA": "Auf der Website steht der offizielle US-Verkaufspreis von Lift. Den Endpreis in Vietnam inklusive Lieferung nennen wir Ihnen, wenn wir Sie kontaktieren.",
+      "sizeQ": "Welche Größe soll ich wählen?",
+      "sizeA": "Entscheidend sind Gewicht und Erfahrung. Ein größeres Board ist stabiler und leichter zum Aufstehen, ein kleineres schneller und wendiger. Bei jeder Größe steht auf der Modellseite, für welches Fahrergewicht sie ausgelegt ist. Unsicher? Schreiben Sie uns, wir helfen."
+    },
+    "ctaTitle": "Nicht sicher, welches Board?",
+    "ctaText": "Nennen Sie uns Gewicht und Erfahrung — wir wählen Modell und Größe.",
+    "ctaButton": "Schreiben Sie uns",
+    "ctaBook": "Stunde buchen"
+  },
+  "ShopProduct": {
+    "back": "Shop",
+    "limited": "Limitierte Edition",
+    "priceNote": "US-Verkaufspreis von Lift. Den Endpreis in Vietnam nennen wir Ihnen bei der Kontaktaufnahme.",
+    "size": "Größe",
+    "color": "Farbe",
+    "variant": "Variante",
+    "riderUpTo": "Fahrer bis {kg} kg",
+    "upToKg": "bis {kg} kg",
+    "riderBlowfish": "Mit dem aufblasbaren Blowfish — bis {kg} kg.",
+    "facts": {
+      "ride": "Fahrzeit mit Motor",
+      "volume": "Boardvolumen",
+      "board": "Boardmaße",
+      "setup": "Gewicht komplett",
+      "minutes": "{minutes} Min.",
+      "minutesOnMotor": "{minutes} Min. mit Motor",
+      "liters": "{liters} l",
+      "cm": "{cm} cm",
+      "kg": "{kg, number} kg"
+    },
+    "buy": "Kaufen",
+    "tryFirst": "In einer Stunde testen",
+    "includedTitle": "Lieferumfang",
+    "setup": {
+      "mast": "Motormast",
+      "propeller": "Propeller",
+      "frontWing": "Frontflügel",
+      "backWing": "Heckflügel",
+      "battery": "Akku",
+      "controller": "Fernbedienung"
+    },
+    "alsoIncluded": "Dazu Ladegerät und Transporttaschen.",
+    "setupNote": "Die Pakete 2026 können leicht abweichen — darauf weist der Hersteller selbst hin.",
+    "aboutTitle": "Das Wichtigste",
+    "fits": "Passt zu",
+    "relatedTitle": "Zubehör für dieses Board",
+    "allAccessories": "Alles Zubehör"
+  },
+  "ShopInquiry": {
+    "title": "Wie erreichen wir Sie?",
+    "close": "Schließen",
+    "consultItem": "Beratung zur eFoil-Wahl",
+    "messengersTitle": "Schreiben Sie uns — wir antworten im Messenger",
+    "messageText": "Hallo! Ich interessiere mich für {item} von der FlyGuru-Website.",
+    "consultText": "Hallo! Ich möchte ein eFoil kaufen — können Sie mir bei der Wahl helfen?",
+    "or": "oder Nummer hinterlassen — wir rufen zurück",
+    "honeypot": "Dieses Feld bitte nicht ausfüllen",
+    "name": "Name",
+    "phone": "Telefon",
+    "phonePlaceholder": "+84 90 123 45 67",
+    "phoneError": "Telefonnummer nur mit Ziffern, 8 bis 15 Stellen (zum Beispiel 0901234567).",
+    "messenger": "Messenger",
+    "comment": "Anmerkung",
+    "commentPlaceholder": "Zum Beispiel: Ich wiege 80 kg und bin ein paar Mal gefahren",
+    "submit": "Rückruf anfordern",
+    "submitting": "Wird gesendet…",
+    "sendError": "Senden hat nicht geklappt. Schreiben Sie uns bitte im Messenger — die Buttons sind oben.",
+    "successTitle": "Anfrage gesendet",
+    "successText": "Danke! Wir melden uns und informieren Sie über Verfügbarkeit, Endpreis und Lieferzeit.",
+    "done": "OK"
+  },
+  "ShopCatalog": {
+    "lift5-f": {
+      "tagline": "Das perfekte erste Lift — der günstigste Einstieg in die Linie",
+      "audience": "Einsteiger, Familien und Schulen",
+      "description": "Dasselbe LCS-System und dasselbe Fluggefühl wie beim LIFT5, aber mit Glasfaserboard und Aluminiummast: robuster bei Stößen und deutlich günstiger. Mit dem aufblasbaren Blowfish steht darauf sogar, wer es zum ersten Mal probiert.",
+      "features": {
+        "f1": "Das Glasfaserboard verzeiht harte Landungen und kleine Stöße",
+        "f2": "28″-Aluminiummast für ruhigen, berechenbaren Flug",
+        "f3": "Gen5-Akku — bis zu 90 Minuten mit Motor",
+        "f4": "Wächst mit: Mast und Flügel lassen sich später gegen Carbon tauschen"
+      }
+    },
+    "lift5": {
+      "tagline": "Das Flaggschiff — für den ersten Flug und für erfahrene Fahrer",
+      "audience": "Alle, vom Einsteiger bis zum Profi",
+      "description": "Das ausgereifteste eFoil von Lift. Akku und Mast rasten ohne Werkzeug in Sekunden ein, der Direktantrieb zieht kräftig und fast lautlos. Mit Blowfish lernen Einsteiger und fährt die ganze Familie, ohne ist es ein schnelles Board mit viel Luft nach oben.",
+      "features": {
+        "f1": "Gen5-Akku mit 2,2 kWh — rund 90 Minuten mit Motor",
+        "f2": "Carbonmast und Camber-Pro-Flügel",
+        "f3": "Elite-Fernbedienung mit Farbdisplay: GPS-Tempo, Ladestand, Strecke",
+        "f4": "Blowfish-kompatibel — zum Lernen und Fahren mit Kindern"
+      }
+    },
+    "liftx": {
+      "tagline": "Der Hybrid: fährt wie ein Foil, zieht wie ein eFoil",
+      "audience": "Wer schon sicher auf dem Foil steht",
+      "description": "Das LIFTX ist für Wellen gemacht. Leichtes, schmales Board und Klapppropeller: mit Motor raus, Abzug loslassen und die Welle ohne Widerstand weiterreiten wie auf einem normalen Surf-Foil. Der Motor lässt sich höher oder tiefer montieren — für Wellen, Downwinder oder Flachwasser.",
+      "features": {
+        "f1": "Klapppropeller: Ohne Motor legen sich die Blätter an und bremsen nicht",
+        "f2": "Das ganze Set wiegt unter 22 kg",
+        "f3": "LIFTX-Akku — rund 45 Minuten mit Motor",
+        "f4": "Für Fortgeschrittene und Könner"
+      }
+    },
+    "lift5-laird": {
+      "tagline": "Signature-Serie mit Surflegende Laird Hamilton",
+      "audience": "Erfahrene Fahrer",
+      "description": "Ein besonderes LIFT5: 5'2-Board aus Hexagon-Carbon, bei gleichem Volumen schmaler als üblich — präziser in Kurven, sicherer bei Tempo und in der Welle. Limitierte Auflage 2026.",
+      "features": {
+        "f1": "Boardform gemeinsam mit Laird Hamilton entwickelt",
+        "f2": "64 Liter in schmaler Form — startet leicht",
+        "f3": "Gen5-Akku — rund 90 Minuten mit Motor",
+        "f4": "Limitierte Auflage 2026"
+      }
+    },
+    "liftx-florence": {
+      "tagline": "Die Serie der Florence-Brüder für Downwinder und Wellen",
+      "audience": "Erfahrene Fahrer",
+      "description": "Ein LIFTX 4'7, entwickelt mit den Surf-Weltmeistern John und Nathan Florence und geshapt von Jon Pyzel. Für Downwinder, Wellen und lange Strecken auf offenem Wasser. Limitierte Auflage.",
+      "features": {
+        "f1": "Shape von Jon Pyzel nach Vorgaben der Florence-Brüder",
+        "f2": "Zwischen 4'3 und 4'8 — die Lieblingsgröße erfahrener Fahrer",
+        "f3": "Klapppropeller und tief montierter Motor",
+        "f4": "Limitierte Auflage 2026"
+      }
+    },
+    "gen5-battery": {
+      "tagline": "Das Herz von LIFT5 und LIFT5 F — bis zu 90 Minuten mit Motor",
+      "description": "Kabelloser Akku, der mit einem Handgriff ins Board kommt und mit einer Taste bedient wird. 2,2 kWh Kapazität im doppelwandigen IP68-Gehäuse. Die Version 2026 ist 3 kg leichter als bisher.",
+      "features": {
+        "f1": "Rund 90 Minuten mit Motor",
+        "f2": "IP68-Schutz und automatische Abschaltung bei Wassereintritt",
+        "f3": "Ein zweiter Akku verdoppelt die Fahrzeit pro Tag"
+      }
+    },
+    "liftx-battery": {
+      "tagline": "Der kompakte LIFTX-Akku — rund 45 Minuten mit Motor",
+      "description": "Leichter Akku mit rund 1 kWh: raus hinter die Brandung und zurück. Die Version 2026 ist nochmals 0,8 kg leichter. Passt mit Adapter auf LIFT5 und LIFT5 F.",
+      "features": {
+        "f1": "Rund 45 Minuten mit Motor",
+        "f2": "IP68-Schutz und automatische Abschaltung bei Wassereintritt",
+        "f3": "Mit Adapter auf LIFT5 und LIFT5 F"
+      }
+    },
+    "liftx-battery-adapter": {
+      "tagline": "Der leichte LIFTX-Akku auf Ihrem LIFT5",
+      "description": "Mit dem Adapter fahren Sie den leichten LIFTX-Akku auf LIFT5 oder LIFT5 F — samt Adapter rund 8 kg leichter als der Standardakku. Das Board reagiert direkter, und der Adapter ist in Sekunden montiert.",
+      "features": {
+        "f1": "Rund 8 kg weniger auf dem Board",
+        "f2": "Montage ohne Werkzeug",
+        "f3": "Benötigt einen LIFTX-Akku — separat erhältlich"
+      }
+    },
+    "elite-hand-controller": {
+      "tagline": "Premium-Fernbedienung mit Farbdisplay",
+      "description": "Carbongehäuse, Titanbeschläge und ein Abzug, der sich an Ihren Fahrstil anpassen lässt. Das Display zeigt GPS-Tempo und Strecke. Mit Schutzcase.",
+      "features": {
+        "f1": "Farbdisplay: Tempo, Ladestand, Strecke",
+        "f2": "Carbon und Titan",
+        "f3": "Schutzcase inklusive"
+      }
+    },
+    "lift-hand-controller": {
+      "tagline": "Zuverlässige Fernbedienung — einfach und präzise",
+      "description": "Robuste Fernbedienung mit sparsamem Display: Tempo, Ladestand und Leistung auf einen Blick. Koppelt per Bluetooth, ist aufladbar, komplett wasserdicht und schwimmt. Mit Schutzcase.",
+      "features": {
+        "f1": "Wasserdicht und schwimmfähig",
+        "f2": "Bluetooth und eingebauter Akku",
+        "f3": "Schutzcase inklusive"
+      }
+    },
+    "propulsion-55": {
+      "tagline": "55-mm-Motormast — drei Montagehöhen",
+      "description": "Carbonmast mit Direktantrieb: weniger Widerstand und ein surfigeres Gefühl. Montage per LCS ohne Werkzeug, funktioniert mit LCS- und verschraubten Flügeln.",
+      "features": {
+        "f1": "Low Mount — am stabilsten, für alle Bedingungen; Serie beim LIFTX",
+        "f2": "High Mount — Balance aus Kontrolle und Agilität",
+        "f3": "Ultra-High Mount — minimaler Widerstand für Wellen und Pumpen"
+      }
+    },
+    "blowfish": {
+      "tagline": "Aufblasbares Zubehör: leichter lernen, gemeinsam fahren",
+      "description": "Der Blowfish wird über das Board gezogen und macht es zur stabilen aufblasbaren Plattform — irgendwo zwischen SUP und Schlauchboot. Damit gelingt das erste Aufstehen leichter, man nimmt ein Kind mit oder fährt mit Freunden raus. Größe passend zum Board.",
+      "features": {
+        "f1": "Für LIFT5 und LIFT5 F in 4'4, 4'9 und 5'4",
+        "f2": "Mehr Stabilität für Einsteiger",
+        "f3": "Das Board trägt einen schwereren Fahrer"
+      }
+    },
+    "beach-wheels": {
+      "tagline": "Räder für die LIFT5-Boardtasche — mühelos über den Sand",
+      "description": "Breite Niederdruckräder werden an der Boardtasche befestigt, und das eFoil rollt über Sand und unebenen Boden statt auf Ihrer Schulter zu liegen. Wird fertig montiert geliefert.",
+      "features": {
+        "f1": "Weiche Niederdruckräder — leise und leicht auf Sand",
+        "f2": "Werden an der Boardtasche befestigt",
+        "f3": "Fertig montiert"
+      }
+    },
+    "battery-backpack": {
+      "tagline": "Rucksack zum Tragen des Akkus",
+      "description": "Der Akku wiegt 7,6 bis 13,8 kg — ihn in der Hand zum Wasser zu tragen, ist unbequem. Der Rucksack legt das Gewicht auf die Schultern. Für Gen5 und LIFTX erhältlich.",
+      "features": {
+        "f1": "Versionen für Gen5 und LIFTX",
+        "f2": "Gewicht auf den Schultern statt in den Händen"
+      }
+    }
   },
   "BookingLanding": {
     "metaTitle": "Flug buchen",

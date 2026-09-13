@@ -14,6 +14,9 @@ const publicPages = [
   { path: "/prices", name: "цены" },
   { path: "/reviews", name: "отзывы" },
   { path: "/contacts", name: "контакты" },
+  { path: "/shop", name: "магазин" },
+  { path: "/shop/lift5", name: "карточка доски" },
+  { path: "/shop/blowfish", name: "карточка аксессуара" },
 ];
 
 for (const pageInfo of publicPages) {
