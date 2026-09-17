@@ -33,7 +33,7 @@ export async function generateMetadata({
 
   return {
     title: t("metaTitle"),
-    alternates: localeAlternates("/prices"),
+    alternates: localeAlternates(locale, "/prices"),
   };
 }
 export const dynamic = "force-static"; // статичная страница, форсим SSG

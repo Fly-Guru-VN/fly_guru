@@ -34,11 +34,16 @@ import { homeReviewIds, localizeReviews, pickReview, reviews } from "@/content/r
 import { getTranslations, setRequestLocale } from "next-intl/server";
 
 // Заголовок и описание у главной свои не нужны — их даёт layout. А вот
-// hreflang нужен именно здесь: в layout он достался бы по наследству всем
-// страницам сайта разом и увёл бы их переводы на главную.
-export const metadata: Metadata = {
-  alternates: localeAlternates("/"),
-};
+// canonical и hreflang нужны именно здесь: в layout они достались бы по
+// наследству всем страницам сайта разом и увели бы их на главную.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return { alternates: localeAlternates(locale, "/") };
+}
 
 // Страница полностью статична — форсим SSG. В Next 16 классификация
 // static/dynamic для страниц с next-intl Link нестабильна; директива это фиксирует.

@@ -44,10 +44,10 @@ const GA_ENABLED =
 // заголовка и описания пока русские — они переедут в messages на этапе
 // переводов.
 //
-// Сами hreflang-ссылки здесь НЕ проставляем: alternates в layout
+// Сами canonical и hreflang здесь НЕ проставляем: alternates в layout
 // унаследовались бы всеми страницами разом, и у /training canonical стал бы
-// адресом главной. Их отдаёт next-intl — своим alternate-заголовком на каждый
-// ответ, — плюс sitemap.xml.
+// адресом главной. Их ставит каждая страница через localeAlternates, плюс
+// sitemap.xml.
 export async function generateMetadata({
   params,
 }: {
@@ -75,7 +75,9 @@ export async function generateMetadata({
     type: "website",
     siteName: "FlyGuru",
     locale: OG_LOCALE[appLocale],
-    url: SITE_URL,
+    // og:url здесь НЕ ставим: из layout он достался бы всем страницам, и
+    // превью /training вело бы на главную. Без него мессенджеры берут адрес,
+    // который им прислали, а поисковик смотрит на canonical страницы.
     title,
     description,
     images: [

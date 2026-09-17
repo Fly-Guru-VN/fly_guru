@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return {
     title: product.name,
     description: t(`${product.id}.tagline`),
-    alternates: localeAlternates(`/shop/${product.id}`),
+    alternates: localeAlternates(locale, `/shop/${product.id}`),
   };
 }
 

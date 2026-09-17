@@ -18,12 +18,18 @@ import { DEFAULT_LOCALE, LOCALES } from "./locales";
 // уезжает на /de. Иначе китаец видит кириллицу и закрывает вкладку, не
 // долистав до планетки. Определяем только по заголовку Accept-Language;
 // поисковые роботы его не шлют и получают русскую версию, а остальные языки
-// находят по alternate-ссылкам, которые next-intl проставляет сам.
+// находят по hreflang-ссылкам в самой странице (lib/alternates.ts) и в sitemap.
+//
+// alternateLinks: false — next-intl умеет дублировать те же ссылки HTTP-
+// заголовком Link, но пишет китайский как «zh», а страница и sitemap говорят
+// «zh-Hans». Два разных ответа на один вопрос Google считает ошибкой разметки и
+// может проигнорировать оба, поэтому источник оставляем один.
 export const routing = defineRouting({
   locales: LOCALES,
   defaultLocale: DEFAULT_LOCALE,
   localePrefix: "as-needed",
   localeDetection: true,
+  alternateLinks: false,
   // Ручной выбор планеткой должен бить автоопределение — и не на один визит,
   // а насовсем. Куку next-intl ставит сам при переходе на другой язык.
   localeCookie: {

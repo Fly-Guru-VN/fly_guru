@@ -29,9 +29,11 @@ const PAGES: { path: string; priority: number; changeFrequency: "weekly" | "mont
   })),
 ];
 
+// lastModified НЕ указываем намеренно. Раньше там стояло время сборки, и при
+// каждом деплое все страницы «менялись» разом — Google такое быстро замечает и
+// перестаёт верить этой дате на сайте совсем. Честной даты правки страницы у
+// нас нет, а без поля робот ходит по своему расписанию.
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date();
-
   // Каждая страница попадает в карту семь раз — по разу на язык. Рядом с
   // каждой перечисляем все её переводы (hreflang): так поисковик понимает, что
   // /training и /de/training — это одна и та же страница на разных языках, а не
@@ -49,7 +51,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
     return LOCALES.map((locale) => ({
       url: `${SITE_URL}${localePath(locale, path)}`,
-      lastModified,
       changeFrequency,
       priority,
       alternates: { languages },
