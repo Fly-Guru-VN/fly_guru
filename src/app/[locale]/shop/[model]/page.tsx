@@ -7,7 +7,7 @@ import { IconArrowRight, IconCheck } from "@/components/icons";
 import { AccessoryConfigurator } from "@/components/shop/AccessoryConfigurator";
 import { AccessoryCard } from "@/components/shop/ShopCards";
 import { EfoilConfigurator } from "@/components/shop/EfoilConfigurator";
-import { SHOP_IN_DEVELOPMENT, shopAccessories, shopProducts } from "@/content/shop";
+import { shopAccessories, shopProducts } from "@/content/shop";
 import { localeAlternates } from "@/lib/alternates";
 import { findShopProduct, formatUsd, priceFrom, pricesVary } from "@/lib/shop";
 
@@ -31,7 +31,6 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     title: product.name,
     description: t(`${product.id}.tagline`),
     alternates: localeAlternates(`/shop/${product.id}`),
-    robots: SHOP_IN_DEVELOPMENT ? { index: false, follow: false } : undefined,
   };
 }
 

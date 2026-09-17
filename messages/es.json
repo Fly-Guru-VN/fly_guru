@@ -404,12 +404,6 @@
       }
     }
   },
-  "ShopLock": {
-    "title": "Página en construcción",
-    "text": "Pronto abriremos aquí la tienda de eFoils Lift. Mientras tanto, ven a volar con nosotros: reserva una clase.",
-    "book": "Reservar un vuelo",
-    "home": "Ir al inicio"
-  },
   "BookingLanding": {
     "metaTitle": "Reserva tu vuelo",
     "metaDescription": "Solicita un vuelo en eFoil en Nha Trang: te llamamos y buscamos la hora que mejor te venga.",
