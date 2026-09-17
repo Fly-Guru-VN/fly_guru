@@ -2,6 +2,7 @@ import createIntlMiddleware from "next-intl/middleware";
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { routing } from "./i18n/routing";
+import { legacyRedirect } from "./lib/legacyRedirects";
 
 // Proxy делает две вещи:
 // 1. next-intl: разбирает язык из URL и переписывает путь на сегмент [locale];
@@ -37,6 +38,13 @@ function stripLocale(pathname: string): string {
 }
 
 export async function proxy(request: NextRequest) {
+  // Адреса старого сайта (статьи, услуги по локациям, доски Hobbywing) —
+  // постоянным редиректом на ближайшую живую страницу, ДО next-intl: иначе он
+  // успел бы переписать /ru/articles/… в /articles/… и адрес потерял бы язык.
+  // Живые адреса нового сайта сюда не попадают (см. legacyRedirects.test.ts).
+  const legacy = legacyRedirect(request.nextUrl.pathname);
+  if (legacy) return NextResponse.redirect(new URL(legacy, request.url), 308);
+
   // Next 16.3 повторно вызывает proxy после внутреннего rewrite next-intl
   // (/training → /ru/training). Повторно запускать intlMiddleware нельзя: он
   // канонизирует /ru/training обратно в /training, и получается вечный 307.

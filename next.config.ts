@@ -99,6 +99,10 @@ const nextConfig: NextConfig = {
 
   async redirects() {
     return [
+      // Главная старого сайта. Адрес с точкой не доходит до proxy (matcher
+      // пропускает файлы), поэтому его редирект живёт здесь, а остальные
+      // старые адреса — в src/lib/legacyRedirects.ts.
+      { source: "/index.html", destination: "/", permanent: true },
       {
         source: "/:path*",
         has: [{ type: "host", value: "fly-guru-ten.vercel.app" }],
