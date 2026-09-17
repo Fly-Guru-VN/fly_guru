@@ -411,7 +411,8 @@
     "text": "填两栏就好 —— 我们会回电、安排时间并解答疑问。现在无需支付任何费用。"
   },
   "Tandem": {
-    "metaTitle": "双人飞行",
+    "metaTitle": "芽庄电动水翼板双人飞行",
+    "metaDescription": "与教练一起驾驭：轻松、有趣又安全。无需经验。",
     "eyebrow": "双人飞行",
     "title": "双人飞行",
     "lead": "轻松、好玩又安全",
@@ -444,7 +445,8 @@
     }
   },
   "Training": {
-    "metaTitle": "教学",
+    "metaTitle": "芽庄电动水翼板教学",
+    "metaDescription": "无需经验：第一节课就能站上水翼。装备、救生衣和水上通讯均已包含在价格中。",
     "heroAlt": "两人在芽庄海面上骑行电动水翼板",
     "titleLine1": "学会驾驭",
     "titleLine2": "电动水翼板",
@@ -546,7 +548,8 @@
     }
   },
   "Club": {
-    "metaTitle": "俱乐部",
+    "metaTitle": "电动水翼板俱乐部与套餐",
+    "metaDescription": "价格更划算的分钟套餐、海岛行程，还有芽庄水上属于自己的伙伴。",
     "heroAlt": "三人骑着电动水翼板并行穿过芽庄群山下的开阔海面",
     "eyebrow": "FlyGuru 俱乐部",
     "titleLine1": "想骑多久",
@@ -619,7 +622,8 @@
     "telegram-channel": "Telegram 频道"
   },
   "Prices": {
-    "metaTitle": "价格",
+    "metaTitle": "芽庄电动水翼板价格",
+    "metaDescription": "教学、双人飞行和租赁价格（越南盾）。现场付款，含装备。",
     "heroAlt": "芽庄海湾水面上的电动水翼板，背景是城市与群山",
     "title": "服务价格",
     "lead": "所有价格均以越南盾（₫）计，现场支付。装备、救生衣和水上通讯已含在课程价格内，无需另付。",
@@ -687,7 +691,8 @@
     }
   },
   "Reviews": {
-    "metaTitle": "评价",
+    "metaTitle": "FlyGuru 评价 —— 芽庄电动水翼板",
+    "metaDescription": "已有 170 多位客人分享了驾驭电动水翼板的感受。",
     "eyebrow": "评价",
     "titleLine1": "我们努力让每位客人",
     "titleLine2": "都笑着离开！",
@@ -728,7 +733,8 @@
     "catalogName": "FlyGuru 服务与价格"
   },
   "Contacts": {
-    "metaTitle": "联系我们",
+    "metaTitle": "联系方式与交通 —— FlyGuru 芽庄",
+    "metaDescription": "Maryna Beach Club，芽庄。我们帮您选择合适的项目和时间。",
     "hours": "每天 8:30 – 18:00",
     "address": "Maryna Beach Club，芽庄，越南",
     "place": "芽庄 · Maryna Beach Club",
@@ -810,8 +816,8 @@
     "assemblyText": "板身、桅杆、水翼、马达和电池 —— 几分钟就能装好。点一下视频可放大观看。"
   },
   "Meta": {
-    "title": "FlyGuru —— 芽庄电动水翼板学校",
-    "description": "在芽庄学习驾驭电动水翼板。90% 的学员第一节课就能骑起来。",
+    "title": "芽庄电动水翼板教学 —— FlyGuru 学校",
+    "description": "在芽庄 Maryna Beach Club 学习电动水翼板、体验双人飞行。90% 的学员第一节课就能骑起来。",
     "ogImageAlt": "FlyGuru 的客人在芽庄骑电动水翼板"
   }
 }

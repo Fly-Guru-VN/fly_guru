@@ -31,7 +31,10 @@ export async function generateMetadata({
   const t = await getTranslations({ locale, namespace: "Contacts" });
 
   return {
-    title: t("metaTitle"),
+    // В заголовке уже есть «FlyGuru» — без absolute шаблон layout дописал бы
+    // его второй раз: «… — FlyGuru Нячанг · FlyGuru».
+    title: { absolute: t("metaTitle") },
+    description: t("metaDescription"),
     alternates: localeAlternates(locale, "/contacts"),
   };
 }

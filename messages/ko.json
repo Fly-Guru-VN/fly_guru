@@ -411,7 +411,8 @@
     "text": "두 칸만 채워 주세요 — 연락드려 시간을 잡고 궁금한 점을 답해 드립니다. 지금 결제하실 것은 없습니다."
   },
   "Tandem": {
-    "metaTitle": "탠덤",
+    "metaTitle": "나트랑 eFoil 탠덤",
+    "metaDescription": "강사와 함께 타는 eFoil. 쉽고, 즐겁고, 안전합니다. 경험이 없어도 됩니다.",
     "eyebrow": "탠덤",
     "title": "탠덤 비행",
     "lead": "쉽고, 즐겁고, 안전한 체험",
@@ -444,7 +445,8 @@
     }
   },
   "Training": {
-    "metaTitle": "강습",
+    "metaTitle": "나트랑 eFoil 강습",
+    "metaDescription": "경험이 없어도 됩니다. 첫 수업에서 바로 날개 위에 섭니다. 장비, 구명조끼, 수상 무전 연락이 요금에 포함됩니다.",
     "heroAlt": "나트랑 바다 위를 eFoil로 나는 두 사람",
     "titleLine1": "eFoil로 나는 법을",
     "titleLine2": "배워 보세요",
@@ -546,7 +548,8 @@
     }
   },
   "Club": {
-    "metaTitle": "클럽",
+    "metaTitle": "eFoil 클럽과 이용권",
+    "metaDescription": "합리적인 가격의 시간 패키지, 섬 투어, 그리고 나트랑 바다 위에서 함께할 동료들.",
     "heroAlt": "나트랑의 산을 배경으로 세 명이 eFoil을 타고 먼바다를 함께 달리는 모습",
     "eyebrow": "FlyGuru 클럽",
     "titleLine1": "원하는 만큼",
@@ -619,7 +622,8 @@
     "telegram-channel": "텔레그램 채널"
   },
   "Prices": {
-    "metaTitle": "요금",
+    "metaTitle": "나트랑 eFoil 요금",
+    "metaDescription": "강습, 탠덤, 대여 요금(베트남 동). 현장 결제, 장비 포함.",
     "heroAlt": "도시와 산을 배경으로 나트랑 만의 물 위에 떠 있는 eFoil",
     "title": "서비스 요금",
     "lead": "모든 요금은 베트남 동(₫) 기준이며 현장에서 결제합니다. 장비, 구명조끼, 수상 통신은 수업 요금에 포함되어 있어 따로 내실 것이 없습니다.",
@@ -687,7 +691,8 @@
     }
   },
   "Reviews": {
-    "metaTitle": "후기",
+    "metaTitle": "FlyGuru 후기 — 나트랑 eFoil",
+    "metaDescription": "170명이 넘는 손님이 eFoil 체험 후기를 남겨 주셨습니다.",
     "eyebrow": "후기",
     "titleLine1": "모든 손님이 웃으며",
     "titleLine2": "돌아가시도록!",
@@ -728,7 +733,8 @@
     "catalogName": "FlyGuru 서비스 및 요금"
   },
   "Contacts": {
-    "metaTitle": "오시는 길",
+    "metaTitle": "연락처 및 오시는 길 — FlyGuru 나트랑",
+    "metaDescription": "Maryna Beach Club, 나트랑. 알맞은 프로그램과 시간을 함께 골라 드립니다.",
     "hours": "매일 8:30 – 18:00",
     "address": "Maryna Beach Club, 나트랑, 베트남",
     "place": "나트랑 · Maryna Beach Club",
@@ -810,8 +816,8 @@
     "assemblyText": "보드, 마스트, 윙, 모터, 배터리 — 몇 분이면 전부 조립됩니다. 영상을 눌러 크게 보세요."
   },
   "Meta": {
-    "title": "FlyGuru — 나트랑 eFoil 스쿨",
-    "description": "나트랑에서 배우는 eFoil 비행. 수강생의 90%가 첫 수업에서 탑니다.",
+    "title": "나트랑 eFoil 강습 — FlyGuru 스쿨",
+    "description": "나트랑 Maryna Beach Club에서 즐기는 eFoil 강습과 탠덤. 수강생의 90%가 첫 수업에서 탑니다.",
     "ogImageAlt": "나트랑에서 eFoil을 타는 FlyGuru 손님"
   }
 }

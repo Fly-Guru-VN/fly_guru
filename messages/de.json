@@ -411,7 +411,8 @@
     "text": "Zwei Felder ausfüllen — wir rufen zurück, finden einen Termin und beantworten Ihre Fragen. Jetzt ist nichts zu bezahlen."
   },
   "Tandem": {
-    "metaTitle": "Tandem",
+    "metaTitle": "Tandem-eFoil in Nha Trang",
+    "metaDescription": "Gemeinsam mit einem Instruktor fahren: einfach, lustig und sicher. Keine Erfahrung nötig.",
     "eyebrow": "Tandem",
     "title": "Tandemflug",
     "lead": "Leicht, lustig und sicher",
@@ -444,7 +445,8 @@
     }
   },
   "Training": {
-    "metaTitle": "Kurse",
+    "metaTitle": "eFoil-Kurse in Nha Trang",
+    "metaDescription": "Keine Erfahrung nötig: Schon in der ersten Stunde stehen Sie auf dem Foil. Ausrüstung, Weste und Funk inklusive.",
     "heroAlt": "Zwei Personen fliegen auf eFoils über dem Meer bei Nha Trang",
     "titleLine1": "Lernen Sie zu fliegen",
     "titleLine2": "auf dem eFoil",
@@ -546,7 +548,8 @@
     }
   },
   "Club": {
-    "metaTitle": "Club",
+    "metaTitle": "eFoil-Club und Minutenpaket",
+    "metaDescription": "Ein Minutenpaket zum besseren Preis, Ausfahrten zu den Inseln und Ihre eigene Runde auf dem Wasser in Nha Trang.",
     "heroAlt": "Drei Personen fliegen gemeinsam auf eFoils über die offene See vor den Bergen von Nha Trang",
     "eyebrow": "FlyGuru Club",
     "titleLine1": "Fahren Sie,",
@@ -619,7 +622,8 @@
     "telegram-channel": "Telegram-Kanal"
   },
   "Prices": {
-    "metaTitle": "Preise",
+    "metaTitle": "eFoil-Preise in Nha Trang",
+    "metaDescription": "Preise für Kurse, Tandem und Verleih in Dong. Bezahlung vor Ort, Ausrüstung inklusive.",
     "heroAlt": "Ein eFoil auf dem Wasser in der Bucht von Nha Trang, dahinter Stadt und Berge",
     "title": "Preise",
     "lead": "Alle Preise in vietnamesischen Dong (₫), Zahlung vor Ort. Ausrüstung, Schwimmweste und Funkverbindung auf dem Wasser sind im Preis der Stunde enthalten — dafür fällt nichts extra an.",
@@ -687,7 +691,8 @@
     }
   },
   "Reviews": {
-    "metaTitle": "Bewertungen",
+    "metaTitle": "FlyGuru Bewertungen — eFoil in Nha Trang",
+    "metaDescription": "Mehr als 170 Gäste haben ihre Eindrücke vom eFoil-Fahren geteilt.",
     "eyebrow": "Bewertungen",
     "titleLine1": "Wir möchten, dass jeder Gast",
     "titleLine2": "lächelnd nach Hause geht!",
@@ -728,7 +733,8 @@
     "catalogName": "Leistungen und Preise von FlyGuru"
   },
   "Contacts": {
-    "metaTitle": "Kontakt",
+    "metaTitle": "Kontakt und Anfahrt — FlyGuru Nha Trang",
+    "metaDescription": "Maryna Beach Club, Nha Trang. Wir helfen Ihnen, Format und Termin zu wählen.",
     "hours": "Täglich 8:30 – 18:00 Uhr",
     "address": "Maryna Beach Club, Nha Trang, Vietnam",
     "place": "Nha Trang · Maryna Beach Club",
@@ -810,8 +816,8 @@
     "assemblyText": "Board, Mast, Flügel, Motor und Akku — alles ist in wenigen Minuten zusammengebaut. Tippen Sie auf das Video, um es zu vergrößern."
   },
   "Meta": {
-    "title": "FlyGuru — eFoil-Schule in Nha Trang",
-    "description": "eFoil fliegen lernen in Nha Trang. 90 % unserer Teilnehmer fahren schon in der ersten Stunde.",
+    "title": "eFoil-Kurse in Nha Trang — FlyGuru Schule",
+    "description": "eFoil-Kurse und Tandemfahrten in Nha Trang, Maryna Beach Club. 90 % der Teilnehmer fahren schon in der ersten Stunde.",
     "ogImageAlt": "Ein FlyGuru-Gast fährt eFoil in Nha Trang"
   }
 }

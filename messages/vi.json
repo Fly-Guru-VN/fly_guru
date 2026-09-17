@@ -411,7 +411,8 @@
     "text": "Điền hai ô — chúng tôi sẽ gọi lại, sắp xếp giờ và giải đáp thắc mắc. Bây giờ bạn chưa phải trả gì cả."
   },
   "Tandem": {
-    "metaTitle": "Bay đôi",
+    "metaTitle": "Bay đôi eFoil tại Nha Trang",
+    "metaDescription": "Lướt cùng huấn luyện viên: dễ dàng, vui vẻ và an toàn. Không cần kinh nghiệm.",
     "eyebrow": "Bay đôi",
     "title": "Bay đôi trên eFoil",
     "lead": "Nhẹ nhàng, vui và an toàn",
@@ -444,7 +445,8 @@
     }
   },
   "Training": {
-    "metaTitle": "Học lái",
+    "metaTitle": "Học lái eFoil tại Nha Trang",
+    "metaDescription": "Không cần kinh nghiệm: bạn sẽ đứng lên cánh ngay buổi học đầu tiên. Đã bao gồm thiết bị, áo phao và liên lạc trên mặt nước.",
     "heroAlt": "Hai người bay trên eFoil trên biển Nha Trang",
     "titleLine1": "Học bay",
     "titleLine2": "trên eFoil",
@@ -546,7 +548,8 @@
     }
   },
   "Club": {
-    "metaTitle": "Câu lạc bộ",
+    "metaTitle": "Câu lạc bộ và gói lướt eFoil",
+    "metaDescription": "Gói phút với giá tốt, những chuyến ra đảo và một cộng đồng của riêng bạn trên mặt nước ở Nha Trang.",
     "heroAlt": "Ba người cùng bay trên eFoil giữa biển khơi bên những ngọn núi Nha Trang",
     "eyebrow": "Câu lạc bộ FlyGuru",
     "titleLine1": "Lái thoả thích",
@@ -619,7 +622,8 @@
     "telegram-channel": "Kênh Telegram"
   },
   "Prices": {
-    "metaTitle": "Bảng giá",
+    "metaTitle": "Bảng giá eFoil tại Nha Trang",
+    "metaDescription": "Giá học lái, bay đôi và thuê eFoil bằng đồng. Thanh toán tại chỗ, đã bao gồm thiết bị.",
     "heroAlt": "Chiếc eFoil trên mặt nước vịnh Nha Trang, phía sau là thành phố và núi",
     "title": "Bảng giá dịch vụ",
     "lead": "Mọi giá đều tính bằng đồng (₫), thanh toán tại chỗ. Trang bị, áo phao và liên lạc trên nước đã nằm trong giá buổi học — bạn không phải trả thêm.",
@@ -687,7 +691,8 @@
     }
   },
   "Reviews": {
-    "metaTitle": "Đánh giá",
+    "metaTitle": "Đánh giá FlyGuru — eFoil tại Nha Trang",
+    "metaDescription": "Hơn 170 vị khách đã chia sẻ cảm nhận về những chuyến lướt eFoil.",
     "eyebrow": "Đánh giá",
     "titleLine1": "Chúng tôi cố gắng để mỗi vị khách",
     "titleLine2": "ra về với nụ cười!",
@@ -728,7 +733,8 @@
     "catalogName": "Dịch vụ và bảng giá FlyGuru"
   },
   "Contacts": {
-    "metaTitle": "Liên hệ",
+    "metaTitle": "Liên hệ và đường đi — FlyGuru Nha Trang",
+    "metaDescription": "Maryna Beach Club, Nha Trang. Chúng tôi sẽ giúp bạn chọn hình thức và thời gian phù hợp.",
     "hours": "Hằng ngày 8:30 – 18:00",
     "address": "Maryna Beach Club, Nha Trang, Việt Nam",
     "place": "Nha Trang · Maryna Beach Club",
@@ -810,8 +816,8 @@
     "assemblyText": "Ván, cột trụ, cánh ngầm, động cơ và pin — tất cả lắp xong trong vài phút. Bấm vào video để xem lớn."
   },
   "Meta": {
-    "title": "FlyGuru — trường dạy eFoil tại Nha Trang",
-    "description": "Học bay trên eFoil tại Nha Trang. 90% học viên lái được ngay buổi đầu tiên.",
+    "title": "Học lái eFoil tại Nha Trang — trường FlyGuru",
+    "description": "Học lái và bay đôi eFoil tại Nha Trang, Maryna Beach Club. 90% học viên lái được ngay buổi đầu tiên.",
     "ogImageAlt": "Khách của FlyGuru đang lái eFoil tại Nha Trang"
   }
 }
