@@ -8,7 +8,13 @@ import { Squiggle } from "@/components/Squiggle";
 import { IconFoil, IconPeople, IconTag } from "@/components/icons";
 import { AccessoryCard, EfoilCard } from "@/components/shop/ShopCards";
 import { ShopBuyButton } from "@/components/shop/ShopBuyButton";
-import { shopAccessories, shopEfoils, type ShopProduct } from "@/content/shop";
+import {
+  SHOP_BRANDS,
+  shopAccessories,
+  shopEfoils,
+  type ShopEfoil,
+  type ShopProduct,
+} from "@/content/shop";
 import { localeAlternates } from "@/lib/alternates";
 import { formatUsd, priceFrom, pricesVary } from "@/lib/shop";
 
@@ -28,9 +34,10 @@ export async function generateMetadata({
   };
 }
 
-// Три основные линейки — в таблицу «Какой выбрать». Лимитированные серии в неё
-// не идут: это те же LIFT5 и LIFTX в особой отделке, а не отдельный выбор.
-const COMPARE_IDS = ["lift5-f", "lift5", "liftx"];
+// Что идёт в таблицу «Какой выбрать»: три основные линейки Lift и доска
+// Hobbywing. Лимитированные серии в неё не идут — это те же LIFT5 и LIFTX в
+// особой отделке, а не отдельный выбор; S1 Pack — та же S1, но с довеском.
+const COMPARE_IDS = ["lift5-f", "lift5", "liftx", "hobby-s1"];
 
 // Магазин (этап 1): каталог Lift с ценами в долларах, «Купить» = связаться.
 // Порядок блоков — путь покупателя: что есть → чем отличаются → как купить →
@@ -50,6 +57,14 @@ export default async function ShopPage({
   const priceLabel = (p: ShopProduct) =>
     pricesVary(p) ? t("from", { price: formatUsd(priceFrom(p)) }) : formatUsd(priceFrom(p));
 
+  const efoilMeta = (p: ShopEfoil) =>
+    [
+      p.rideMinutes
+        ? tProduct("facts.minutesOnMotor", { minutes: p.rideMinutes })
+        : tProduct("facts.liters", { liters: p.sizes[0].volumeL }),
+      t("sizesCount", { count: p.sizes.length }),
+    ].join(" · ");
+
   const cheapest = Math.min(...shopEfoils.map(priceFrom));
   const heroFacts = [
     { icon: IconFoil, label: t("facts.linesLabel"), value: t("facts.linesValue") },
@@ -62,22 +77,28 @@ export default async function ShopPage({
   ];
 
   const compared = COMPARE_IDS.map((id) => shopEfoils.find((p) => p.id === id)!);
+  // Чего производитель не сказал — то и в таблице честно «уточним», а не
+  // прочерк, который читается как «нет такого».
+  const unknown = t("compare.unknown");
   const compareRows = [
     { label: t("compare.audience"), cells: compared.map((p) => tCat(`${p.id}.audience`)) },
     {
       label: t("compare.ride"),
-      cells: compared.map((p) => tProduct("facts.minutes", { minutes: p.rideMinutes })),
+      cells: compared.map((p) =>
+        p.rideMinutes ? tProduct("facts.minutes", { minutes: p.rideMinutes }) : unknown,
+      ),
     },
     { label: t("compare.sizes"), cells: compared.map((p) => p.sizes.map((s) => s.label).join(", ")) },
     {
       label: t("compare.rider"),
-      cells: compared.map((p) =>
-        tProduct("upToKg", { kg: Math.max(...p.sizes.map((s) => s.maxRiderKg)) }),
-      ),
+      cells: compared.map((p) => {
+        const known = p.sizes.map((s) => s.maxRiderKg).filter((kg): kg is number => !!kg);
+        return known.length ? tProduct("upToKg", { kg: Math.max(...known) }) : unknown;
+      }),
     },
     {
       label: t("compare.controller"),
-      cells: compared.map((p) => p.sizes[0].setup.controller),
+      cells: compared.map((p) => p.sizes[0].setup.controller ?? unknown),
     },
     { label: t("compare.price"), cells: compared.map(priceLabel) },
   ];
@@ -162,23 +183,33 @@ export default async function ShopPage({
       <Section id="efoils" pad="tight" className="scroll-mt-20">
         <Container>
           <SectionHeading title={t("efoilsTitle")} subtitle={t("efoilsSubtitle")} />
-          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {shopEfoils.map((p) => (
-              <EfoilCard
-                key={p.id}
-                product={p}
-                tagline={tCat(`${p.id}.tagline`)}
-                meta={[
-                  tProduct("facts.minutesOnMotor", { minutes: p.rideMinutes }),
-                  t("sizesCount", { count: p.sizes.length }),
-                ].join(" · ")}
-                limitedLabel={tProduct("limited")}
-                price={priceLabel(p)}
-                moreLabel={t("more")}
-              />
-            ))}
-          </div>
-          <p className="mt-5 text-sm text-muted">{tProduct("priceNote")}</p>
+          {/* Брендов теперь два, и цены у них считаются по-разному — мешать их
+              в одну сетку нельзя: человек должен видеть, чью доску смотрит. */}
+          {SHOP_BRANDS.map((brand) => {
+            const items = shopEfoils.filter((p) => p.brand === brand);
+            if (items.length === 0) return null;
+            return (
+              <div key={brand} className="mt-10 first:mt-8">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
+                  {brand}
+                </h3>
+                <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  {items.map((p) => (
+                    <EfoilCard
+                      key={p.id}
+                      product={p}
+                      tagline={tCat(`${p.id}.tagline`)}
+                      meta={efoilMeta(p)}
+                      limitedLabel={tProduct("limited")}
+                      price={priceLabel(p)}
+                      moreLabel={t("more")}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          <p className="mt-6 text-sm text-muted">{t("priceNote")}</p>
         </Container>
       </Section>
 
@@ -190,12 +221,15 @@ export default async function ShopPage({
               вбок не едет. Первая колонка прилипает, чтобы, листая, было видно,
               какую строку сравниваешь. */}
           <div className="mt-8 overflow-x-auto rounded-3xl border border-line bg-surface">
-            <table className="w-full min-w-[640px] text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b border-line">
                   <th className="sticky left-0 bg-surface p-4" />
                   {compared.map((p) => (
                     <th key={p.id} scope="col" className="p-4 text-left text-base font-bold">
+                      {/* Бренд над названием: «S1» рядом с «LIFT5» само по себе
+                          не говорит, чья это доска. */}
+                      <span className="block text-xs font-normal text-muted">{p.brand}</span>
                       {p.name}
                     </th>
                   ))}
@@ -245,11 +279,22 @@ export default async function ShopPage({
       <Section id="accessories" pad="tight" tone="muted" className="scroll-mt-20">
         <Container>
           <SectionHeading title={t("accessoriesTitle")} subtitle={t("accessoriesSubtitle")} />
-          <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            {shopAccessories.map((p) => (
-              <AccessoryCard key={p.id} product={p} price={priceLabel(p)} />
-            ))}
-          </div>
+          {SHOP_BRANDS.map((brand) => {
+            const items = shopAccessories.filter((p) => p.brand === brand);
+            if (items.length === 0) return null;
+            return (
+              <div key={brand} className="mt-10 first:mt-8">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
+                  {brand}
+                </h3>
+                <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                  {items.map((p) => (
+                    <AccessoryCard key={p.id} product={p} price={priceLabel(p)} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </Container>
       </Section>
 

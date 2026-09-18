@@ -1,6 +1,7 @@
 import {
   EFOIL_ANGLES,
   shopProducts,
+  type ShopBrand,
   type ShopEfoil,
   type ShopProduct,
 } from "@/content/shop";
@@ -22,9 +23,31 @@ export function findShopProduct(id: string | null | undefined): ShopProduct | nu
 
 // Фото доски: по одному на ракурс. Имена файлов собраны скриптом по шаблону
 // <размер>-<цвет>-<ракурс>.webp, поэтому путь считаем, а не перечисляем руками
-// сотню строк.
+// сотню строк. Ракурсы у доски свои, если производитель дал не три кадра, а
+// меньше (Hobbywing — один на цвет).
 export function efoilImages(p: ShopEfoil, sizeId: string, colorId: string): string[] {
-  return EFOIL_ANGLES.map((angle) => `/media/shop/${p.id}/${sizeId}-${colorId}-${angle}.webp`);
+  const angles = p.angles ?? EFOIL_ANGLES;
+  return angles.map((angle) => `/media/shop/${p.id}/${sizeId}-${colorId}-${angle}.webp`);
+}
+
+// Подписи, которые зависят от поставщика, а не от товара.
+//
+// У Lift на сайте стоит американская розница без доставки, и завод сам
+// предупреждает, что комплектация 2026 года может немного меняться. У
+// Hobbywing начальник дал цену уже с доставкой до двери, зато не сказал, какой
+// набор крыльев входит в базовую цену. Обещать одно и то же обоим нельзя,
+// поэтому ключи сообщений выбираются по бренду.
+//
+// alsoIncluded = null — строки «плюс зарядное и чехлы» просто нет: у Hobbywing
+// зарядное продаётся и отдельной позицией, и утверждать за него мы не можем.
+export function shopNotes(p: ShopProduct): {
+  price: string;
+  setup: string;
+  alsoIncluded: string | null;
+} {
+  return p.brand === "Hobbywing"
+    ? { price: "priceNoteHobby", setup: "setupNoteHobby", alsoIncluded: null }
+    : { price: "priceNote", setup: "setupNote", alsoIncluded: "alsoIncluded" };
 }
 
 // Обложка товара в сетке каталога.
@@ -75,6 +98,7 @@ export interface ShopSelection {
 // клиента: заявке с сайта верить на слово нельзя.
 export interface ShopItem {
   productId: string;
+  brand: ShopBrand;
   title: string;
   priceUsd: number;
 }
@@ -92,7 +116,8 @@ export function resolveShopSelection(sel: ShopSelection): ShopItem | null {
     if (sel.colorId && !color) return null;
     return {
       productId: p.id,
-      title: [p.name, size.label, color?.name].filter(Boolean).join(" · "),
+      brand: p.brand,
+      title: [p.brand, p.name, size.label, color?.name].filter(Boolean).join(" · "),
       priceUsd: size.priceUsd,
     };
   }
@@ -101,7 +126,8 @@ export function resolveShopSelection(sel: ShopSelection): ShopItem | null {
   if (!variant) return null;
   return {
     productId: p.id,
-    title: [p.name, variant.label].filter(Boolean).join(" · "),
+    brand: p.brand,
+    title: [p.brand, p.name, variant.label].filter(Boolean).join(" · "),
     priceUsd: variant.priceUsd,
   };
 }
@@ -119,7 +145,10 @@ export function buildShopInquiryText(b: {
   const lines = ["🛒 Запрос из магазина", ""];
   if (b.item) {
     lines.push(`📦 Товар: ${b.item.title}`);
-    lines.push(`💵 Цена на сайте: ${formatUsd(b.item.priceUsd)} (розница Lift в США)`);
+    // Приписка к цене разная: у Lift это розница США без доставки, у
+    // Hobbywing — цена уже с доставкой. В чат уходит та, что на сайте.
+    const basis = b.item.brand === "Hobbywing" ? "с доставкой до двери" : "розница Lift в США";
+    lines.push(`💵 Цена на сайте: ${formatUsd(b.item.priceUsd)} (${basis})`);
   } else {
     lines.push("📦 Нужна консультация по выбору");
   }

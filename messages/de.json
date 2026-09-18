@@ -150,17 +150,17 @@
     "bookingNo": "Ihre Anfragenummer: #{no}"
   },
   "Shop": {
-    "metaTitle": "Lift eFoil Shop",
-    "metaDescription": "Lift Foils eFoils in Nha Trang: LIFT5, LIFT5 F, LIFTX und Zubehör. Wir helfen bei der passenden Größe für Ihr Gewicht — ausprobieren können Sie vorher in einer Stunde an unserer Schule.",
+    "metaTitle": "eFoil-Shop: Lift und Hobbywing",
+    "metaDescription": "eFoils in Nha Trang: Lift Foils (LIFT5, LIFT5 F, LIFTX) und Hobbywing S1. Wir finden das Board passend zu Ihrem Gewicht — ausprobieren können Sie es vorher in einer Stunde an unserer Schule.",
     "eyebrow": "Shop",
-    "title": "Lift eFoils in Nha Trang",
-    "lead": "Wir importieren Lift Foils offiziell. Wir helfen Ihnen, das Board passend zu Gewicht und Können zu wählen — und ausprobieren können Sie ein eFoil vorher in einer Stunde an unserer Schule.",
+    "title": "eFoils in Nha Trang",
+    "lead": "Wir importieren Lift Foils und Hobbywing offiziell. Wir helfen Ihnen, das Board passend zu Gewicht und Können zu wählen — und ausprobieren können Sie ein eFoil vorher in einer Stunde an unserer Schule.",
     "heroAlt": "Ein eFoil im Flug über dem Meer",
     "toCatalog": "Modelle ansehen",
     "consult": "Beratung",
     "facts": {
-      "linesLabel": "Modelle 2026",
-      "linesValue": "LIFT5 F · LIFT5 · LIFTX",
+      "linesLabel": "Marken",
+      "linesValue": "Lift Foils · Hobbywing",
       "priceLabel": "Preise",
       "sizingLabel": "Boardgröße",
       "sizingValue": "Passend zu Ihrem Gewicht"
@@ -171,14 +171,15 @@
     "sizesCount": "{count, plural, one {# Größe} other {# Größen}}",
     "more": "Details",
     "compareTitle": "Welches passt zu mir",
-    "compareSubtitle": "Die drei Hauptlinien von Lift und ihre Unterschiede — kurz gefasst.",
+    "compareSubtitle": "Die drei Hauptlinien von Lift und das Board von Hobbywing — kurz zu den Unterschieden.",
     "compare": {
       "audience": "Für wen",
       "ride": "Fahrzeit mit Motor",
       "sizes": "Größen",
       "rider": "Fahrergewicht",
       "controller": "Fernbedienung",
-      "price": "Preis"
+      "price": "Preis",
+      "unknown": "Klären wir"
     },
     "howTitle": "So kaufen Sie",
     "how": {
@@ -190,20 +191,21 @@
       "getText": "Wir klären Zahlung und Lieferung. Und vor dem Kauf können Sie ein eFoil in einer Stunde an unserer Schule ausprobieren."
     },
     "accessoriesTitle": "Zubehör",
-    "accessoriesSubtitle": "Akkus, Fernbedienungen, Motoren und alles, was den Strandtag leichter macht.",
+    "accessoriesSubtitle": "Akkus, Fernbedienungen, Motoren, Flügel und alles, was den Strandtag leichter macht.",
     "faqHeading": "Fragen zum Kauf",
     "faq": {
       "tryQ": "Kann ich vor dem Kauf ausprobieren?",
       "tryA": "Ja. Buchen Sie eine Stunde an unserer Schule in Nha Trang: Ein Lehrer bringt Sie aufs eFoil, und danach ist viel klarer, welches Board zu Ihnen passt.",
       "priceQ": "Warum sind die Preise in Dollar?",
-      "priceA": "Auf der Website steht der offizielle US-Verkaufspreis von Lift. Den Endpreis in Vietnam inklusive Lieferung nennen wir Ihnen, wenn wir Sie kontaktieren.",
+      "priceA": "So geben die Hersteller sie an. Bei Lift steht auf der Website der offizielle US-Verkaufspreis ohne Lieferung, bei Hobbywing der Preis inklusive Lieferung bis zur Tür. Den Endpreis in Vietnam nennen wir Ihnen, wenn wir Sie kontaktieren.",
       "sizeQ": "Welche Größe soll ich wählen?",
       "sizeA": "Entscheidend sind Gewicht und Erfahrung. Ein größeres Board ist stabiler und leichter zum Aufstehen, ein kleineres schneller und wendiger. Bei jeder Größe steht auf der Modellseite, für welches Fahrergewicht sie ausgelegt ist. Unsicher? Schreiben Sie uns, wir helfen."
     },
     "ctaTitle": "Nicht sicher, welches Board?",
     "ctaText": "Nennen Sie uns Gewicht und Erfahrung — wir wählen Modell und Größe.",
     "ctaButton": "Schreiben Sie uns",
-    "ctaBook": "Stunde buchen"
+    "ctaBook": "Stunde buchen",
+    "priceNote": "Preise in Dollar. Bei Lift ist es der US-Verkaufspreis ohne Lieferung, bei Hobbywing der Preis inklusive Lieferung bis zur Tür. Den Endpreis in Vietnam nennen wir Ihnen bei der Kontaktaufnahme."
   },
   "ShopProduct": {
     "back": "Shop",
@@ -242,7 +244,9 @@
     "aboutTitle": "Das Wichtigste",
     "fits": "Passt zu",
     "relatedTitle": "Zubehör für dieses Board",
-    "allAccessories": "Alles Zubehör"
+    "allAccessories": "Alles Zubehör",
+    "priceNoteHobby": "Preis inklusive Lieferung bis zur Tür. Den Endpreis in Vietnam nennen wir Ihnen bei der Kontaktaufnahme.",
+    "setupNoteHobby": "Was genau im Paket enthalten ist, bestätigen wir bei der Kontaktaufnahme — wir klären das gerade mit dem Lieferanten."
   },
   "ShopInquiry": {
     "title": "Wie erreichen wir Sie?",
@@ -401,6 +405,103 @@
       "features": {
         "f1": "Versionen für Gen5 und LIFTX",
         "f2": "Gewicht auf den Schultern statt in den Händen"
+      }
+    },
+    "hobby-s1": {
+      "tagline": "Großes, ruhiges Board mit 100 Litern",
+      "audience": "Für alle, denen Stabilität wichtig ist",
+      "description": "Ein Hobbywing-eFoil auf Carbonflügeln. 100 Liter Volumen sind viel: Das Board trägt gut und verzeiht Fehler, solange Sie das Aufstehen üben. Direktantrieb mit bis zu 6 kW, mit Schutz gegen Überhitzung, Überstrom und Blockieren. Der Akku mit 2016 Wh ist mit Samsung-50S-Zellen aufgebaut.",
+      "features": {
+        "f1": "Akku 2016 Wh (40 Ah) mit Samsung-50S-Zellen — 300 Zyklen ohne Kapazitätsverlust",
+        "f2": "Motor bis 6 kW, FOC-Antrieb, Schutz gegen Überhitzung, Überlast und Blockieren",
+        "f3": "Ladegerät mit 1300 W: volle Ladung in 150 Minuten",
+        "f4": "Die Fernbedienung schwimmt: Display, Bluetooth, IP68, bis zu 10 Stunden Laufzeit"
+      }
+    },
+    "hobby-s1-pack": {
+      "tagline": "Dasselbe S1, mit zweitem Akku und beiden Flügelsätzen",
+      "audience": "Für alle, die gleich alles nehmen",
+      "description": "Alles auf einmal. Ein zweiter Akku bedeutet doppelt so viel Fahrzeit am Tag, und zwei Flügelsätze verändern den Charakter desselben Boards: Cruising mit dem großen Frontflügel von 1843 cm² hebt früher ab und läuft ruhiger, Smooth mit 1201 cm² ist kleiner und schneller. Laut Preisliste kostet das weniger, als Akku und Flügel einzeln zu kaufen.",
+      "features": {
+        "f1": "Zweiter Akku mit 2016 Wh — doppelt so viel Fahrzeit am Tag",
+        "f2": "Zwei Sätze Carbonflügel: Cruising 1843 cm² und Smooth 1201 cm²",
+        "f3": "Günstiger, als Akku und Flügel einzeln zu kaufen",
+        "f4": "Farbe nach Wahl: Weiß, Blau, Rosa oder Holzoptik"
+      }
+    },
+    "hobby-cruising-front-wing": {
+      "tagline": "Frontflügel Cruising, 1843 cm²",
+      "description": "Ein großer Carbon-Frontflügel. Je mehr Fläche, desto früher löst sich das Board vom Wasser und desto ruhiger trägt es bei geringem Tempo — der Flügel zum Lernen und für gemütliches Fahren.",
+      "features": {
+        "f1": "1843 cm², Carbon",
+        "f2": "Passt zum Heckflügel Cruising 459,9 cm²"
+      }
+    },
+    "hobby-cruising-rear-wing": {
+      "tagline": "Heckflügel (Stabilisator) Cruising, 459,9 cm²",
+      "description": "Der Carbon-Stabilisator des Cruising-Satzes. Der Heckflügel bestimmt, wie ruhig das Board läuft und wie willig es den Füßen folgt.",
+      "features": {
+        "f1": "459,9 cm², Carbon",
+        "f2": "Passt zum Frontflügel Cruising 1843 cm²"
+      }
+    },
+    "hobby-smooth-front-wing": {
+      "tagline": "Frontflügel Smooth, 1201 cm²",
+      "description": "Ein kleinerer Frontflügel: Er hebt später ab und braucht mehr Tempo, dafür läuft das Board schneller und dreht williger. Für alle, die schon sicher stehen.",
+      "features": {
+        "f1": "1201 cm², Carbon",
+        "f2": "Passt zum Heckflügel Smooth 309,7 cm²"
+      }
+    },
+    "hobby-smooth-rear-wing": {
+      "tagline": "Heckflügel (Stabilisator) Smooth, 309,7 cm²",
+      "description": "Der Carbon-Stabilisator des Smooth-Satzes. Kleiner als beim Cruising — das Board wird lebendiger und reagiert williger in Kurven.",
+      "features": {
+        "f1": "309,7 cm², Carbon",
+        "f2": "Passt zum Frontflügel Smooth 1201 cm²"
+      }
+    },
+    "hobby-power-system": {
+      "tagline": "Mast mit Motor: 76 oder 56 cm",
+      "description": "Der gesamte Antrieb als eine Einheit: Mast und Motor mit Direktantrieb. Maximale Leistung 6 kW, Nennstrom 120 A, FOC-Antrieb. Eingebauter Schutz gegen Überhitzung, Überstrom, Überspannung und Blockieren.",
+      "features": {
+        "f1": "Bis 6 kW, Nennstrom 120 A",
+        "f2": "Mast nach Wahl: 76 cm oder 56 cm",
+        "f3": "Schutz gegen Überhitzung, Überlast, Überspannung und Blockieren"
+      }
+    },
+    "hobby-battery": {
+      "tagline": "Akku 2016 Wh (40 Ah)",
+      "description": "Leichtes Kunststoffgehäuse, innen Samsung-50S-Zellen. Der Hersteller nennt 300 Ladezyklen ohne Kapazitätsverlust und bis zu 1000 Zyklen bis auf 80 % Kapazität. Ein zweiter Akku bedeutet doppelt so viel Fahrzeit am Tag.",
+      "features": {
+        "f1": "2016 Wh (40 Ah), Samsung-50S-Zellen",
+        "f2": "300 Zyklen ohne Kapazitätsverlust, bis zu 1000 Zyklen bis auf 80 %",
+        "f3": "Volle Ladung in 150 Minuten mit dem 1300-W-Ladegerät"
+      }
+    },
+    "hobby-remote": {
+      "tagline": "Fernbedienung: schwimmt, IP68, bis zu 10 Stunden",
+      "description": "Sie schwimmt — fällt sie ins Wasser, bleibt sie oben. LCD-Display, Bluetooth und 2,4 GHz, Wasserschutz IP68. In 2 Stunden geladen, bis zu 10 Stunden Laufzeit.",
+      "features": {
+        "f1": "Schwimmt, Wasserschutz IP68",
+        "f2": "LCD-Display, Bluetooth und 2,4 GHz",
+        "f3": "In 2 Stunden geladen, bis zu 10 Stunden Laufzeit"
+      }
+    },
+    "hobby-board": {
+      "tagline": "Nur der Rumpf: 100 l, 7,5 kg",
+      "description": "Nur der Board-Rumpf, ohne Mast, Flügel und Akku — als Ersatz oder als zweites Board. 100 Liter, 7,5 kg, 160 × 65 × 15 cm.",
+      "features": {
+        "f1": "100 l, 7,5 kg",
+        "f2": "160 × 65 × 15 cm"
+      }
+    },
+    "hobby-charger": {
+      "tagline": "Ladegerät 1300 W: volle Ladung in 150 Minuten",
+      "description": "Ladegerät mit 1300 W und 20 A. Ein vollständig leerer Akku ist in 150 Minuten wieder voll.",
+      "features": {
+        "f1": "1300 W, 20 A",
+        "f2": "Volle Ladung in 150 Minuten"
       }
     }
   },

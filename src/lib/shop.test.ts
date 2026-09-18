@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { shopEfoils, shopProducts } from "@/content/shop";
+import { SHOP_BRANDS, shopEfoils, shopProducts } from "@/content/shop";
 import {
   buildShopInquiryText,
   efoilImages,
@@ -45,22 +45,48 @@ test("размер по умолчанию есть в списке размер
   }
 });
 
+// Цену с чужой базой нельзя показывать под подписью «розница Lift в США», и
+// наоборот. Бренд — единственное, что их различает, поэтому он обязан быть
+// известным: чужая строка тихо увела бы Hobbywing под подпись Lift.
+test("бренд товара — один из тех, что знает каталог", () => {
+  for (const p of shopProducts) {
+    assert.ok(SHOP_BRANDS.includes(p.brand), p.id);
+  }
+});
+
 test("выбор гостя превращается в понятную строку с ценой из справочника", () => {
+  // Бренд в начале строки — не украшение: у Hobbywing доска называется просто
+  // «S1», и без бренда в чат прилетало бы «S1 · 160 cm · Blue».
   assert.deepEqual(
     resolveShopSelection({ productId: "lift5", sizeId: "5-4", colorId: "steel-blue" }),
-    { productId: "lift5", title: "LIFT5 · 5'4 Cruiser · Steel Blue", priceUsd: 14_999 },
+    {
+      productId: "lift5",
+      brand: "Lift Foils",
+      title: "Lift Foils · LIFT5 · 5'4 Cruiser · Steel Blue",
+      priceUsd: 14_999,
+    },
   );
   assert.deepEqual(resolveShopSelection({ productId: "blowfish", variantId: "4-9" }), {
     productId: "blowfish",
-    title: "Blowfish · 4'9",
+    brand: "Lift Foils",
+    title: "Lift Foils · Blowfish · 4'9",
     priceUsd: 599,
   });
   // Вариант у товара один — без подписи варианта в названии.
-  assert.equal(resolveShopSelection({ productId: "beach-wheels" })?.title, "LIFT5 Beach Wheels");
+  assert.equal(
+    resolveShopSelection({ productId: "beach-wheels" })?.title,
+    "Lift Foils · LIFT5 Beach Wheels",
+  );
+  assert.deepEqual(resolveShopSelection({ productId: "hobby-s1", colorId: "wood" }), {
+    productId: "hobby-s1",
+    brand: "Hobbywing",
+    title: "Hobbywing · S1 · 160 cm · Wood",
+    priceUsd: 6_900,
+  });
 });
 
 test("пустой размер — берём тот, что показан по умолчанию", () => {
-  assert.equal(resolveShopSelection({ productId: "liftx" })?.title, "LIFTX · 4'8");
+  assert.equal(resolveShopSelection({ productId: "liftx" })?.title, "Lift Foils · LIFTX · 4'8");
 });
 
 test("выдуманный товар, размер, цвет или вариант не проходит", () => {
@@ -87,11 +113,22 @@ test("уведомление о заявке: товар, цена и конта
     comment: "Можно в рассрочку?",
     locale: "ko",
   });
-  assert.match(text, /Товар: LIFT5 · 4'9 Sport · Red Rock/);
+  assert.match(text, /Товар: Lift Foils · LIFT5 · 4'9 Sport · Red Rock/);
   assert.match(text, /\$14,999/);
+  assert.match(text, /розница Lift в США/);
   assert.match(text, /\+84 90 123 45 67 \(WhatsApp\)/);
   assert.match(text, /Можно в рассрочку\?/);
   assert.match(text, /корейский/);
+});
+
+test("у Hobbywing в чат уходит своя приписка к цене: доставка уже внутри", () => {
+  const text = buildShopInquiryText({
+    item: resolveShopSelection({ productId: "hobby-s1-pack", colorId: "blue" }),
+    clientName: "Игорь",
+    contact: "0901234567",
+  });
+  assert.match(text, /Товар: Hobbywing · S1 Pack · 160 cm · Blue/);
+  assert.match(text, /\$9,900 \(с доставкой до двери\)/);
 });
 
 test("уведомление без товара — это просьба о консультации", () => {

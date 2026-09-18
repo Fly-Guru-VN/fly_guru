@@ -150,17 +150,17 @@
     "bookingNo": "예약 번호: #{no}"
   },
   "Shop": {
-    "metaTitle": "Lift eFoil 스토어",
-    "metaDescription": "나트랑의 Lift Foils eFoil: LIFT5, LIFT5 F, LIFTX와 액세서리. 체중에 맞는 사이즈를 골라 드리며, 구매 전에 저희 스쿨 강습에서 먼저 타 볼 수 있습니다.",
+    "metaTitle": "eFoil 스토어: Lift와 Hobbywing",
+    "metaDescription": "나트랑의 eFoil: Lift Foils(LIFT5, LIFT5 F, LIFTX)와 Hobbywing S1. 체중에 맞는 보드를 골라 드리고, 구매 전에 저희 스쿨 강습에서 먼저 타 볼 수 있습니다.",
     "eyebrow": "스토어",
-    "title": "나트랑의 Lift eFoil",
-    "lead": "Lift Foils를 정식 수입합니다. 체중과 실력에 맞는 보드를 골라 드리고, 구매 전에 저희 스쿨 강습에서 eFoil을 먼저 타 볼 수 있습니다.",
+    "title": "나트랑의 eFoil",
+    "lead": "Lift Foils와 Hobbywing을 정식 수입합니다. 체중과 실력에 맞는 보드를 골라 드리고, 구매 전에 저희 스쿨 강습에서 eFoil을 먼저 타 볼 수 있습니다.",
     "heroAlt": "바다 위를 나는 eFoil",
     "toCatalog": "모델 보기",
     "consult": "선택 도움받기",
     "facts": {
-      "linesLabel": "2026년 모델",
-      "linesValue": "LIFT5 F · LIFT5 · LIFTX",
+      "linesLabel": "브랜드",
+      "linesValue": "Lift Foils · Hobbywing",
       "priceLabel": "가격",
       "sizingLabel": "보드 사이즈",
       "sizingValue": "체중에 맞춰 추천"
@@ -171,14 +171,15 @@
     "sizesCount": "{count, plural, other {사이즈 #종}}",
     "more": "자세히",
     "compareTitle": "어떤 모델을 고를까",
-    "compareSubtitle": "Lift의 세 가지 주력 라인과 차이점을 간단히 정리했습니다.",
+    "compareSubtitle": "Lift의 세 가지 주력 라인과 Hobbywing 보드의 차이를 간단히 정리했습니다.",
     "compare": {
       "audience": "추천 대상",
       "ride": "모터 주행 시간",
       "sizes": "사이즈",
       "rider": "라이더 체중",
       "controller": "핸드 컨트롤러",
-      "price": "가격"
+      "price": "가격",
+      "unknown": "확인 후 안내"
     },
     "howTitle": "구매 방법",
     "how": {
@@ -190,20 +191,21 @@
       "getText": "결제와 배송을 함께 정합니다. 구매 전에는 저희 스쿨 강습에서 eFoil을 먼저 타 볼 수 있습니다."
     },
     "accessoriesTitle": "액세서리",
-    "accessoriesSubtitle": "배터리, 핸드 컨트롤러, 모터, 그리고 해변에서의 하루를 편하게 해 주는 것들.",
+    "accessoriesSubtitle": "배터리, 핸드 컨트롤러, 모터, 윙, 그리고 해변에서의 하루를 편하게 해 주는 것들.",
     "faqHeading": "구매 관련 질문",
     "faq": {
       "tryQ": "구매 전에 타 볼 수 있나요?",
       "tryA": "네. 나트랑에 있는 저희 스쿨 강습을 예약하세요. 강사가 eFoil 위에 서도록 도와 드리고, 어떤 보드가 맞는지 훨씬 분명해집니다.",
       "priceQ": "왜 가격이 달러로 표시되나요?",
-      "priceA": "사이트에는 Lift의 미국 공식 소비자가가 표시됩니다. 배송을 포함한 베트남 최종 가격은 연락드릴 때 안내해 드립니다.",
+      "priceA": "제조사가 그렇게 가격을 매깁니다. Lift는 배송을 뺀 미국 공식 소비자가가 사이트에 표시되고, Hobbywing은 문 앞 배송까지 포함한 가격입니다. 베트남 최종 가격은 연락드릴 때 안내해 드립니다.",
       "sizeQ": "어떤 사이즈를 골라야 하나요?",
       "sizeA": "가장 중요한 것은 체중과 경험입니다. 큰 보드는 더 안정적이고 일어서기 쉽고, 작은 보드는 더 빠르고 민첩합니다. 모델 페이지에서 사이즈마다 권장 라이더 체중이 표시됩니다. 고민되시면 메시지 주세요, 골라 드립니다."
     },
     "ctaTitle": "어떤 보드가 좋을지 모르겠나요?",
     "ctaText": "체중과 경험을 알려 주시면 모델과 사이즈를 골라 드립니다.",
     "ctaButton": "문의하기",
-    "ctaBook": "강습 예약"
+    "ctaBook": "강습 예약",
+    "priceNote": "가격은 달러입니다. Lift는 배송을 뺀 미국 소비자가, Hobbywing은 문 앞 배송까지 포함한 가격입니다. 베트남 최종 가격은 연락드릴 때 안내해 드립니다."
   },
   "ShopProduct": {
     "back": "스토어",
@@ -242,7 +244,9 @@
     "aboutTitle": "핵심 정리",
     "fits": "호환 모델",
     "relatedTitle": "이 보드용 액세서리",
-    "allAccessories": "전체 액세서리"
+    "allAccessories": "전체 액세서리",
+    "priceNoteHobby": "문 앞 배송까지 포함한 가격입니다. 베트남 최종 가격은 연락드릴 때 안내해 드립니다.",
+    "setupNoteHobby": "패키지에 정확히 무엇이 들어가는지는 연락드릴 때 확인해 드립니다 — 공급처에 확인 중입니다."
   },
   "ShopInquiry": {
     "title": "어떻게 연락드릴까요?",
@@ -401,6 +405,103 @@
       "features": {
         "f1": "Gen5용과 LIFTX용",
         "f2": "손이 아닌 어깨로 드는 무게"
+      }
+    },
+    "hobby-s1": {
+      "tagline": "100리터의 크고 안정적인 보드",
+      "audience": "안정성이 중요한 분께",
+      "description": "카본 윙을 쓴 Hobbywing eFoil입니다. 100리터는 큰 부피라 보드가 잘 뜨고, 일어서는 연습을 하는 동안 실수를 너그럽게 받아 줍니다. 최대 6kW 다이렉트 드라이브 모터에 과열·과전류·구속 보호가 들어 있습니다. 2016Wh 배터리는 삼성 50S 셀로 만들어졌습니다.",
+      "features": {
+        "f1": "삼성 50S 셀을 쓴 2016Wh(40Ah) 배터리 — 용량 손실 없이 300사이클",
+        "f2": "최대 6kW 모터, FOC 구동, 과열·과부하·구속 보호",
+        "f3": "1300W 충전기: 150분이면 완충",
+        "f4": "핸드 컨트롤러는 물에 뜹니다: 화면, 블루투스, IP68, 최대 10시간 사용"
+      }
+    },
+    "hobby-s1-pack": {
+      "tagline": "같은 S1에 두 번째 배터리와 윙 두 세트",
+      "audience": "한 번에 다 갖추려는 분께",
+      "description": "한 번에 다 갖춥니다. 배터리가 하나 더 있으면 하루 라이딩 시간이 두 배가 되고, 윙 두 세트는 같은 보드의 성격을 바꿉니다. Cruising은 1843cm²의 큰 앞날개로 더 일찍 떠오르고 더 차분하며, Smooth는 1201cm²로 더 작고 빠릅니다. 가격표 기준으로 배터리와 윙을 따로 사는 것보다 쌉니다.",
+      "features": {
+        "f1": "두 번째 2016Wh 배터리 — 하루 라이딩 시간이 두 배",
+        "f2": "카본 윙 두 세트: Cruising 1843cm²와 Smooth 1201cm²",
+        "f3": "배터리와 윙을 따로 사는 것보다 저렴",
+        "f4": "색상 선택: 화이트, 블루, 핑크, 우드"
+      }
+    },
+    "hobby-cruising-front-wing": {
+      "tagline": "Cruising 앞날개, 1843cm²",
+      "description": "면적이 큰 카본 앞날개입니다. 면적이 클수록 보드가 더 일찍 물 위로 떠오르고 저속에서 더 안정적입니다 — 배우고 느긋하게 타기 위한 윙입니다.",
+      "features": {
+        "f1": "1843cm², 카본",
+        "f2": "Cruising 459.9cm² 뒷날개와 한 세트"
+      }
+    },
+    "hobby-cruising-rear-wing": {
+      "tagline": "Cruising 뒷날개(스태빌라이저), 459.9cm²",
+      "description": "Cruising 세트의 카본 스태빌라이저입니다. 뒷날개는 보드가 얼마나 평평하게 나아가고 발에 얼마나 잘 반응하는지를 결정합니다.",
+      "features": {
+        "f1": "459.9cm², 카본",
+        "f2": "Cruising 1843cm² 앞날개와 한 세트"
+      }
+    },
+    "hobby-smooth-front-wing": {
+      "tagline": "Smooth 앞날개, 1201cm²",
+      "description": "더 작은 앞날개입니다. 더 늦게 떠오르고 속도가 더 필요하지만, 일단 떠오르면 보드가 더 빠르고 턴이 경쾌합니다. 이미 안정적으로 서는 분께 맞습니다.",
+      "features": {
+        "f1": "1201cm², 카본",
+        "f2": "Smooth 309.7cm² 뒷날개와 한 세트"
+      }
+    },
+    "hobby-smooth-rear-wing": {
+      "tagline": "Smooth 뒷날개(스태빌라이저), 309.7cm²",
+      "description": "Smooth 세트의 카본 스태빌라이저입니다. Cruising 것보다 작아서 보드가 더 활발하고 턴 반응이 빨라집니다.",
+      "features": {
+        "f1": "309.7cm², 카본",
+        "f2": "Smooth 1201cm² 앞날개와 한 세트"
+      }
+    },
+    "hobby-power-system": {
+      "tagline": "모터가 달린 마스트: 76cm 또는 56cm",
+      "description": "구동부 전체가 하나로: 마스트와 다이렉트 드라이브 모터입니다. 최대 출력 6kW, 정격 전류 120A, FOC 구동. 과열·과전류·과전압·구속 보호가 내장되어 있습니다.",
+      "features": {
+        "f1": "최대 6kW, 정격 전류 120A",
+        "f2": "마스트 선택: 76cm 또는 56cm",
+        "f3": "과열·과부하·과전압·구속 보호"
+      }
+    },
+    "hobby-battery": {
+      "tagline": "배터리 2016Wh(40Ah)",
+      "description": "가벼운 플라스틱 케이스 안에 삼성 50S 셀이 들어 있습니다. 제조사는 용량 손실 없이 300사이클, 용량 80%까지 최대 1000사이클을 제시합니다. 배터리가 하나 더 있으면 하루 라이딩 시간이 두 배가 됩니다.",
+      "features": {
+        "f1": "2016Wh(40Ah), 삼성 50S 셀",
+        "f2": "용량 손실 없이 300사이클, 80%까지 최대 1000사이클",
+        "f3": "1300W 충전기로 150분이면 완충"
+      }
+    },
+    "hobby-remote": {
+      "tagline": "핸드 컨트롤러: 물에 뜨고 IP68, 최대 10시간",
+      "description": "물에 뜹니다 — 떨어뜨려도 수면에 남습니다. LCD 화면, 블루투스와 2.4GHz 연결, IP68 방수. 2시간이면 충전되고 최대 10시간 사용합니다.",
+      "features": {
+        "f1": "물에 뜸, IP68 방수",
+        "f2": "LCD 화면, 블루투스와 2.4GHz",
+        "f3": "2시간 충전, 최대 10시간 사용"
+      }
+    },
+    "hobby-board": {
+      "tagline": "보드 본체만: 100리터, 7.5kg",
+      "description": "마스트·윙·배터리 없이 보드 본체만 — 교체용이나 두 번째 보드로. 100리터, 7.5kg, 160 × 65 × 15cm.",
+      "features": {
+        "f1": "100리터, 7.5kg",
+        "f2": "160 × 65 × 15cm"
+      }
+    },
+    "hobby-charger": {
+      "tagline": "1300W 충전기: 150분이면 완충",
+      "description": "1300W, 20A 충전기입니다. 완전히 방전된 배터리도 150분이면 가득 찹니다.",
+      "features": {
+        "f1": "1300W, 20A",
+        "f2": "150분이면 완충"
       }
     }
   },

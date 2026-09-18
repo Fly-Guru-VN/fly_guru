@@ -150,17 +150,17 @@
     "bookingNo": "Mã yêu cầu của bạn: #{no}"
   },
   "Shop": {
-    "metaTitle": "Cửa hàng eFoil Lift",
-    "metaDescription": "eFoil Lift Foils tại Nha Trang: LIFT5, LIFT5 F, LIFTX và phụ kiện. Chúng tôi giúp chọn kích cỡ theo cân nặng, và bạn có thể thử trước trong buổi học tại trường.",
+    "metaTitle": "Cửa hàng eFoil: Lift và Hobbywing",
+    "metaDescription": "eFoil tại Nha Trang: Lift Foils (LIFT5, LIFT5 F, LIFTX) và Hobbywing S1. Chúng tôi chọn ván theo cân nặng của bạn, và bạn có thể thử trước trong một buổi học tại trường.",
     "eyebrow": "Cửa hàng",
-    "title": "eFoil Lift tại Nha Trang",
-    "lead": "Chúng tôi nhập chính hãng Lift Foils. Sẽ giúp bạn chọn ván theo cân nặng và trình độ — và bạn có thể thử eFoil trước trong một buổi học tại trường của chúng tôi.",
+    "title": "eFoil tại Nha Trang",
+    "lead": "Chúng tôi nhập chính hãng Lift Foils và Hobbywing. Sẽ giúp bạn chọn ván theo cân nặng và trình độ — và bạn có thể thử eFoil trước trong một buổi học tại trường của chúng tôi.",
     "heroAlt": "eFoil đang bay trên mặt biển",
     "toCatalog": "Xem các mẫu",
     "consult": "Tư vấn chọn ván",
     "facts": {
-      "linesLabel": "Mẫu năm 2026",
-      "linesValue": "LIFT5 F · LIFT5 · LIFTX",
+      "linesLabel": "Thương hiệu",
+      "linesValue": "Lift Foils · Hobbywing",
       "priceLabel": "Giá",
       "sizingLabel": "Kích cỡ ván",
       "sizingValue": "Chọn theo cân nặng của bạn"
@@ -171,14 +171,15 @@
     "sizesCount": "{count, plural, other {# kích cỡ}}",
     "more": "Chi tiết",
     "compareTitle": "Nên chọn mẫu nào",
-    "compareSubtitle": "Ba dòng chính của Lift và điểm khác nhau, nói ngắn gọn.",
+    "compareSubtitle": "Ba dòng chính của Lift và ván Hobbywing — điểm khác nhau, nói ngắn gọn.",
     "compare": {
       "audience": "Dành cho ai",
       "ride": "Thời gian chạy động cơ",
       "sizes": "Kích cỡ",
       "rider": "Cân nặng người lướt",
       "controller": "Tay điều khiển",
-      "price": "Giá"
+      "price": "Giá",
+      "unknown": "Sẽ báo sau"
     },
     "howTitle": "Cách mua",
     "how": {
@@ -190,20 +191,21 @@
       "getText": "Chúng tôi sẽ trao đổi về thanh toán và giao hàng. Trước khi mua, bạn có thể thử eFoil trong một buổi học tại trường."
     },
     "accessoriesTitle": "Phụ kiện",
-    "accessoriesSubtitle": "Pin, tay điều khiển, động cơ và những thứ giúp ngày ra biển nhẹ nhàng hơn.",
+    "accessoriesSubtitle": "Pin, tay điều khiển, động cơ, cánh và những thứ giúp ngày ra biển nhẹ nhàng hơn.",
     "faqHeading": "Câu hỏi về việc mua",
     "faq": {
       "tryQ": "Tôi có thể thử trước khi mua không?",
       "tryA": "Có. Hãy đặt một buổi học tại trường của chúng tôi ở Nha Trang: huấn luyện viên sẽ giúp bạn đứng lên eFoil, và bạn sẽ hiểu rõ hơn ván nào hợp với mình.",
       "priceQ": "Vì sao giá tính bằng đô la?",
-      "priceA": "Trên trang web là giá bán lẻ chính thức của Lift tại Mỹ. Giá cuối cùng tại Việt Nam, đã gồm vận chuyển, chúng tôi sẽ báo khi liên hệ với bạn.",
+      "priceA": "Nhà sản xuất báo giá như vậy. Với Lift, trang web hiển thị giá bán lẻ chính thức tại Mỹ chưa gồm vận chuyển; với Hobbywing là giá đã gồm giao tận nhà. Giá cuối cùng tại Việt Nam chúng tôi sẽ báo khi liên hệ với bạn.",
       "sizeQ": "Nên chọn kích cỡ nào?",
       "sizeA": "Quan trọng nhất là cân nặng và kinh nghiệm. Ván lớn vững hơn, dễ đứng lên hơn; ván nhỏ nhanh và linh hoạt hơn. Trên trang mẫu, mỗi kích cỡ đều ghi cân nặng người lướt phù hợp. Chưa chắc? Nhắn cho chúng tôi, chúng tôi sẽ giúp."
     },
     "ctaTitle": "Chưa biết nên chọn ván nào?",
     "ctaText": "Cho chúng tôi biết cân nặng và kinh nghiệm — chúng tôi sẽ chọn mẫu và kích cỡ.",
     "ctaButton": "Nhắn cho chúng tôi",
-    "ctaBook": "Đặt buổi học"
+    "ctaBook": "Đặt buổi học",
+    "priceNote": "Giá tính bằng đô la. Với Lift đó là giá bán lẻ tại Mỹ chưa gồm vận chuyển; với Hobbywing là giá đã gồm giao tận nhà. Giá cuối cùng tại Việt Nam chúng tôi sẽ báo khi liên hệ."
   },
   "ShopProduct": {
     "back": "Cửa hàng",
@@ -242,7 +244,9 @@
     "aboutTitle": "Điểm chính",
     "fits": "Dùng cho",
     "relatedTitle": "Phụ kiện cho ván này",
-    "allAccessories": "Tất cả phụ kiện"
+    "allAccessories": "Tất cả phụ kiện",
+    "priceNoteHobby": "Giá đã gồm giao tận nhà. Giá cuối cùng tại Việt Nam chúng tôi sẽ báo khi liên hệ.",
+    "setupNoteHobby": "Bộ sản phẩm gồm chính xác những gì, chúng tôi sẽ xác nhận khi liên hệ — đang hỏi lại nhà cung cấp."
   },
   "ShopInquiry": {
     "title": "Chúng tôi liên hệ với bạn thế nào?",
@@ -401,6 +405,103 @@
       "features": {
         "f1": "Có bản cho Gen5 và LIFTX",
         "f2": "Sức nặng trên vai, không phải trên tay"
+      }
+    },
+    "hobby-s1": {
+      "tagline": "Ván lớn, vững, thể tích 100 lít",
+      "audience": "Cho ai cần sự vững vàng",
+      "description": "eFoil Hobbywing với cánh carbon. 100 lít là thể tích lớn: ván nổi tốt và tha thứ lỗi khi bạn đang tập đứng lên. Động cơ truyền động trực tiếp tới 6 kW, có bảo vệ quá nhiệt, quá dòng và kẹt động cơ. Pin 2016 Wh dùng cell Samsung 50S.",
+      "features": {
+        "f1": "Pin 2016 Wh (40 Ah) dùng cell Samsung 50S — 300 chu kỳ không hao dung lượng",
+        "f2": "Động cơ tới 6 kW, truyền động FOC, bảo vệ quá nhiệt, quá tải và kẹt",
+        "f3": "Bộ sạc 1300 W: sạc đầy trong 150 phút",
+        "f4": "Tay điều khiển nổi trên nước: màn hình, Bluetooth, IP68, dùng tới 10 giờ"
+      }
+    },
+    "hobby-s1-pack": {
+      "tagline": "Vẫn là S1, kèm pin thứ hai và cả hai bộ cánh",
+      "audience": "Cho ai muốn lấy trọn bộ ngay",
+      "description": "Trọn bộ ngay một lần. Pin thứ hai nghĩa là thời gian lướt mỗi ngày tăng gấp đôi, còn hai bộ cánh làm thay đổi tính cách của cùng một chiếc ván: Cruising với cánh trước lớn 1843 cm² cất lên sớm hơn và chạy êm hơn, Smooth 1201 cm² nhỏ hơn và nhanh hơn. Theo bảng giá, cách này rẻ hơn mua pin và cánh riêng lẻ.",
+      "features": {
+        "f1": "Pin thứ hai 2016 Wh — thời gian lướt mỗi ngày tăng gấp đôi",
+        "f2": "Hai bộ cánh carbon: Cruising 1843 cm² và Smooth 1201 cm²",
+        "f3": "Rẻ hơn so với mua pin và cánh riêng lẻ",
+        "f4": "Chọn màu: trắng, xanh, hồng hoặc vân gỗ"
+      }
+    },
+    "hobby-cruising-front-wing": {
+      "tagline": "Cánh trước Cruising, 1843 cm²",
+      "description": "Cánh trước carbon cỡ lớn. Diện tích càng lớn thì ván càng sớm rời mặt nước và càng êm ở tốc độ thấp — đây là cánh để tập và để lướt thong thả.",
+      "features": {
+        "f1": "1843 cm², carbon",
+        "f2": "Đi cùng cánh sau Cruising 459,9 cm²"
+      }
+    },
+    "hobby-cruising-rear-wing": {
+      "tagline": "Cánh sau (cánh ổn định) Cruising, 459,9 cm²",
+      "description": "Cánh ổn định bằng carbon của bộ Cruising. Cánh sau quyết định ván chạy êm đến đâu và nghe chân đến đâu.",
+      "features": {
+        "f1": "459,9 cm², carbon",
+        "f2": "Đi cùng cánh trước Cruising 1843 cm²"
+      }
+    },
+    "hobby-smooth-front-wing": {
+      "tagline": "Cánh trước Smooth, 1201 cm²",
+      "description": "Cánh trước nhỏ hơn: cất lên muộn hơn và cần tốc độ cao hơn, bù lại khi đã bay thì ván nhanh hơn và bẻ lái nhạy hơn. Dành cho người đã đứng vững.",
+      "features": {
+        "f1": "1201 cm², carbon",
+        "f2": "Đi cùng cánh sau Smooth 309,7 cm²"
+      }
+    },
+    "hobby-smooth-rear-wing": {
+      "tagline": "Cánh sau (cánh ổn định) Smooth, 309,7 cm²",
+      "description": "Cánh ổn định bằng carbon của bộ Smooth. Nhỏ hơn bộ Cruising — ván trở nên linh hoạt và nhạy hơn khi vào cua.",
+      "features": {
+        "f1": "309,7 cm², carbon",
+        "f2": "Đi cùng cánh trước Smooth 1201 cm²"
+      }
+    },
+    "hobby-power-system": {
+      "tagline": "Cột kèm động cơ: 76 hoặc 56 cm",
+      "description": "Toàn bộ phần truyền động trong một khối: cột và động cơ truyền động trực tiếp. Công suất tối đa 6 kW, dòng định mức 120 A, truyền động FOC. Tích hợp bảo vệ quá nhiệt, quá dòng, quá áp và kẹt động cơ.",
+      "features": {
+        "f1": "Tới 6 kW, dòng định mức 120 A",
+        "f2": "Cột tùy chọn: 76 cm hoặc 56 cm",
+        "f3": "Bảo vệ quá nhiệt, quá tải, quá áp và kẹt động cơ"
+      }
+    },
+    "hobby-battery": {
+      "tagline": "Pin 2016 Wh (40 Ah)",
+      "description": "Vỏ nhựa nhẹ, bên trong là cell Samsung 50S. Nhà sản xuất công bố 300 chu kỳ sạc không hao dung lượng và tới 1000 chu kỳ còn 80% dung lượng. Thêm một pin nữa là thời gian lướt mỗi ngày tăng gấp đôi.",
+      "features": {
+        "f1": "2016 Wh (40 Ah), cell Samsung 50S",
+        "f2": "300 chu kỳ không hao dung lượng, tới 1000 chu kỳ còn 80%",
+        "f3": "Sạc đầy trong 150 phút với bộ sạc 1300 W"
+      }
+    },
+    "hobby-remote": {
+      "tagline": "Tay điều khiển: nổi trên nước, IP68, tới 10 giờ",
+      "description": "Nổi trên nước — lỡ tay rơi thì vẫn nằm trên mặt nước. Màn hình LCD, kết nối Bluetooth và 2,4 GHz, chống nước IP68. Sạc 2 giờ, dùng tới 10 giờ.",
+      "features": {
+        "f1": "Nổi trên nước, chống nước IP68",
+        "f2": "Màn hình LCD, Bluetooth và 2,4 GHz",
+        "f3": "Sạc 2 giờ, dùng tới 10 giờ"
+      }
+    },
+    "hobby-board": {
+      "tagline": "Chỉ thân ván: 100 l, 7,5 kg",
+      "description": "Chỉ có thân ván, không kèm cột, cánh hay pin — để thay thế hoặc làm ván thứ hai. 100 lít, 7,5 kg, 160 × 65 × 15 cm.",
+      "features": {
+        "f1": "100 l, 7,5 kg",
+        "f2": "160 × 65 × 15 cm"
+      }
+    },
+    "hobby-charger": {
+      "tagline": "Bộ sạc 1300 W: sạc đầy trong 150 phút",
+      "description": "Bộ sạc 1300 W, 20 A. Pin cạn hoàn toàn sẽ đầy lại sau 150 phút.",
+      "features": {
+        "f1": "1300 W, 20 A",
+        "f2": "Sạc đầy trong 150 phút"
       }
     }
   },

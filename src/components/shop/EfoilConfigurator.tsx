@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { ShopEfoil, ShopSetup } from "@/content/shop";
-import { efoilImages, formatUsd } from "@/lib/shop";
+import { efoilImages, formatUsd, shopNotes } from "@/lib/shop";
 import { BookBtn } from "../BookBtn";
 import { Badge } from "../ui";
 import { ShopBuyButton } from "./ShopBuyButton";
@@ -40,9 +40,14 @@ export function EfoilConfigurator({
   const color = product.colors.find((c) => c.id === colorId) ?? product.colors[0];
   const images = efoilImages(product, size.id, color.id);
   const title = `${product.name} ${size.label}, ${color.name}`;
+  const notes = shopNotes(product);
 
+  // Время на моторе Hobbywing не сообщил — плашку просто не показываем, а не
+  // подставляем красивую цифру.
   const facts = [
-    { label: t("facts.ride"), value: t("facts.minutes", { minutes: product.rideMinutes }) },
+    ...(product.rideMinutes
+      ? [{ label: t("facts.ride"), value: t("facts.minutes", { minutes: product.rideMinutes }) }]
+      : []),
     { label: t("facts.volume"), value: t("facts.liters", { liters: size.volumeL }) },
     { label: t("facts.board"), value: t("facts.cm", { cm: size.dimensionsCm }) },
     { label: t("facts.setup"), value: t("facts.kg", { kg: size.setupKg }) },
@@ -66,7 +71,7 @@ export function EfoilConfigurator({
           <p className="mt-2 text-lg text-muted">{tagline}</p>
 
           <p className="mt-6 text-3xl font-bold">{formatUsd(size.priceUsd)}</p>
-          <p className="mt-1 text-sm text-muted">{t("priceNote")}</p>
+          <p className="mt-1 text-sm text-muted">{t(notes.price)}</p>
 
           {/* Размер — главный выбор: под каждым сразу вес райдера, на который
               он рассчитан. Это и есть «подобрать доску под свой вес». */}
@@ -86,9 +91,11 @@ export function EfoilConfigurator({
                   }`}
                 >
                   <span className="block font-semibold">{s.label}</span>
-                  <span className="block text-xs text-muted">
-                    {t("riderUpTo", { kg: s.maxRiderKg })}
-                  </span>
+                  {s.maxRiderKg && (
+                    <span className="block text-xs text-muted">
+                      {t("riderUpTo", { kg: s.maxRiderKg })}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -154,15 +161,17 @@ export function EfoilConfigurator({
             {t("includedTitle")} <span className="text-muted">· {size.label}</span>
           </h2>
           <dl className="mt-4 divide-y divide-line">
-            {SETUP_ROWS.map((row) => (
+            {SETUP_ROWS.filter((row) => size.setup[row]).map((row) => (
               <div key={row} className="flex items-baseline justify-between gap-4 py-2.5">
                 <dt className="text-sm text-muted">{t(`setup.${row}`)}</dt>
                 <dd className="text-right text-sm font-semibold">{size.setup[row]}</dd>
               </div>
             ))}
           </dl>
-          <p className="mt-4 text-sm text-muted">{t("alsoIncluded")}</p>
-          <p className="mt-3 text-xs text-muted">{t("setupNote")}</p>
+          {notes.alsoIncluded && (
+            <p className="mt-4 text-sm text-muted">{t(notes.alsoIncluded)}</p>
+          )}
+          <p className="mt-3 text-xs text-muted">{t(notes.setup)}</p>
         </section>
         <div>{details}</div>
       </div>

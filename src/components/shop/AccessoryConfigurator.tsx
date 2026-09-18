@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { ShopAccessory } from "@/content/shop";
-import { formatUsd } from "@/lib/shop";
+import { formatUsd, shopNotes } from "@/lib/shop";
 import { ShopBuyButton } from "./ShopBuyButton";
 import { ShopGallery } from "./ShopGallery";
 
@@ -22,6 +22,7 @@ export function AccessoryConfigurator({
   const t = useTranslations("ShopProduct");
   const [variantId, setVariantId] = useState(product.variants[0].id);
   const variant = product.variants.find((v) => v.id === variantId) ?? product.variants[0];
+  const notes = shopNotes(product);
   const title = [product.name, variant.label].filter(Boolean).join(" ");
 
   return (
@@ -36,7 +37,7 @@ export function AccessoryConfigurator({
         <p className="mt-2 text-lg text-muted">{tagline}</p>
 
         <p className="mt-6 text-3xl font-bold">{formatUsd(variant.priceUsd)}</p>
-        <p className="mt-1 text-sm text-muted">{t("priceNote")}</p>
+        <p className="mt-1 text-sm text-muted">{t(notes.price)}</p>
 
         {product.variants.length > 1 && (
           <fieldset className="mt-7">

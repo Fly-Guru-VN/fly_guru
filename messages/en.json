@@ -150,17 +150,17 @@
     "bookingNo": "Your request number: #{no}"
   },
   "Shop": {
-    "metaTitle": "Lift eFoil shop",
-    "metaDescription": "Lift Foils eFoils in Nha Trang: LIFT5, LIFT5 F, LIFTX and accessories. We help you pick the right size for your weight, and you can try one first in a lesson at our school.",
+    "metaTitle": "eFoil shop: Lift and Hobbywing",
+    "metaDescription": "eFoils in Nha Trang: Lift Foils (LIFT5, LIFT5 F, LIFTX) and the Hobbywing S1. We will match a board to your weight, and you can try one first in a lesson at our school.",
     "eyebrow": "Shop",
-    "title": "Lift eFoils in Nha Trang",
-    "lead": "We are official importers of Lift Foils. We will help you choose a board for your weight and level — and you can try an eFoil first, in a lesson at our school.",
+    "title": "eFoils in Nha Trang",
+    "lead": "We are official importers of Lift Foils and Hobbywing. We will help you choose a board for your weight and level — and you can try an eFoil first, in a lesson at our school.",
     "heroAlt": "An eFoil flying over the sea",
     "toCatalog": "See the models",
     "consult": "Help me choose",
     "facts": {
-      "linesLabel": "2026 models",
-      "linesValue": "LIFT5 F · LIFT5 · LIFTX",
+      "linesLabel": "Brands",
+      "linesValue": "Lift Foils · Hobbywing",
       "priceLabel": "Prices",
       "sizingLabel": "Board size",
       "sizingValue": "Matched to your weight"
@@ -171,14 +171,15 @@
     "sizesCount": "{count, plural, one {# size} other {# sizes}}",
     "more": "Details",
     "compareTitle": "Which one to choose",
-    "compareSubtitle": "The three main Lift lines and how they differ, in short.",
+    "compareSubtitle": "The three main Lift lines and the Hobbywing board, and how they differ — in short.",
     "compare": {
       "audience": "Best for",
       "ride": "Ride time on power",
       "sizes": "Sizes",
       "rider": "Rider weight",
       "controller": "Hand controller",
-      "price": "Price"
+      "price": "Price",
+      "unknown": "We'll confirm"
     },
     "howTitle": "How to buy",
     "how": {
@@ -190,20 +191,21 @@
       "getText": "We will sort out payment and delivery. And before you buy, you can try an eFoil in a lesson at our school."
     },
     "accessoriesTitle": "Accessories",
-    "accessoriesSubtitle": "Batteries, hand controllers, motors and things that make beach days easier.",
+    "accessoriesSubtitle": "Batteries, hand controllers, motors, wings and things that make beach days easier.",
     "faqHeading": "Buying questions",
     "faq": {
       "tryQ": "Can I try before I buy?",
       "tryA": "Yes. Book a lesson at our school in Nha Trang: an instructor will get you up on an eFoil, and it becomes much clearer which board suits you.",
       "priceQ": "Why are the prices in dollars?",
-      "priceA": "The site shows Lift's official US retail price. We will give you the final price in Vietnam, including delivery, when we get in touch.",
+      "priceA": "That is how the manufacturers quote them. For Lift the site shows the official US retail price without delivery; for Hobbywing it is the price with delivery to your door. We will give you the final price in Vietnam when we get in touch.",
       "sizeQ": "Which size should I choose?",
       "sizeA": "It mostly depends on your weight and experience. A bigger board is more stable and easier to stand up on; a smaller one is faster and more agile. Each size on the model page shows the rider weight it is designed for. Not sure? Message us and we will help."
     },
     "ctaTitle": "Not sure which board to get?",
     "ctaText": "Tell us your weight and experience — we will pick the model and size.",
     "ctaButton": "Message us",
-    "ctaBook": "Book a lesson"
+    "ctaBook": "Book a lesson",
+    "priceNote": "Prices are in dollars. For Lift it is the US retail price without delivery; for Hobbywing it is the price with delivery to your door. We will give you the final price in Vietnam when we get in touch."
   },
   "ShopProduct": {
     "back": "Shop",
@@ -242,7 +244,9 @@
     "aboutTitle": "The essentials",
     "fits": "Fits",
     "relatedTitle": "Accessories for this board",
-    "allAccessories": "All accessories"
+    "allAccessories": "All accessories",
+    "priceNoteHobby": "Price with delivery to your door. We will give you the final price in Vietnam when we get in touch.",
+    "setupNoteHobby": "We will confirm exactly what is in the package when we get in touch — we are checking with the supplier."
   },
   "ShopInquiry": {
     "title": "How can we reach you?",
@@ -401,6 +405,103 @@
       "features": {
         "f1": "Versions for Gen5 and LIFTX",
         "f2": "Weight on your shoulders, not in your hands"
+      }
+    },
+    "hobby-s1": {
+      "tagline": "A big, steady 100-litre board",
+      "audience": "Anyone who wants stability",
+      "description": "A Hobbywing eFoil on carbon wings. At 100 litres the hull is large: the board floats well and forgives mistakes while you are learning to stand up. A direct-drive motor of up to 6 kW with protection against overheating, overcurrent and stalling. The 2016 Wh battery is built on Samsung 50S cells.",
+      "features": {
+        "f1": "2016 Wh (40 Ah) battery on Samsung 50S cells — 300 cycles with no loss of capacity",
+        "f2": "Motor up to 6 kW, FOC drive, protected against overheating, overload and stalling",
+        "f3": "1300 W charger: a full charge in 150 minutes",
+        "f4": "The hand controller floats: display, Bluetooth, IP68, up to 10 hours of use"
+      }
+    },
+    "hobby-s1-pack": {
+      "tagline": "The same S1, with a second battery and both wing sets",
+      "audience": "Anyone taking the whole kit at once",
+      "description": "Everything at once. A second battery means twice as much riding in a day, and two wing sets change the character of the same board: Cruising, with its large 1843 cm² front wing, lifts earlier and feels calmer; Smooth, at 1201 cm², is smaller and faster. By the price list this costs less than buying the battery and wings separately.",
+      "features": {
+        "f1": "Second 2016 Wh battery — twice as much riding in a day",
+        "f2": "Two sets of carbon wings: Cruising 1843 cm² and Smooth 1201 cm²",
+        "f3": "Cheaper than buying the battery and wings separately",
+        "f4": "Choose your colour: white, blue, pink or wood"
+      }
+    },
+    "hobby-cruising-front-wing": {
+      "tagline": "Cruising front wing, 1843 cm²",
+      "description": "A large carbon front wing. The more area, the earlier the board leaves the water and the steadier it feels at low speed — this is the wing for learning and easy cruising.",
+      "features": {
+        "f1": "1843 cm², carbon",
+        "f2": "Pairs with the Cruising 459.9 cm² rear wing"
+      }
+    },
+    "hobby-cruising-rear-wing": {
+      "tagline": "Cruising rear wing (stabiliser), 459.9 cm²",
+      "description": "The carbon stabiliser of the Cruising set. The rear wing decides how level the board tracks and how readily it answers your feet.",
+      "features": {
+        "f1": "459.9 cm², carbon",
+        "f2": "Pairs with the Cruising 1843 cm² front wing"
+      }
+    },
+    "hobby-smooth-front-wing": {
+      "tagline": "Smooth front wing, 1201 cm²",
+      "description": "A smaller front wing: it lifts later and needs more speed, but once flying the board is faster and turns more willingly. For riders who already stand confidently.",
+      "features": {
+        "f1": "1201 cm², carbon",
+        "f2": "Pairs with the Smooth 309.7 cm² rear wing"
+      }
+    },
+    "hobby-smooth-rear-wing": {
+      "tagline": "Smooth rear wing (stabiliser), 309.7 cm²",
+      "description": "The carbon stabiliser of the Smooth set. Smaller than the Cruising one, so the board becomes livelier and more responsive in turns.",
+      "features": {
+        "f1": "309.7 cm², carbon",
+        "f2": "Pairs with the Smooth 1201 cm² front wing"
+      }
+    },
+    "hobby-power-system": {
+      "tagline": "Mast with motor: 76 or 56 cm",
+      "description": "The whole drive as one unit: mast and direct-drive motor. Maximum output 6 kW, rated current 120 A, FOC drive. Built-in protection against overheating, overcurrent, overvoltage and stalling.",
+      "features": {
+        "f1": "Up to 6 kW, rated current 120 A",
+        "f2": "Mast of your choice: 76 cm or 56 cm",
+        "f3": "Protection against overheating, overload, overvoltage and stalling"
+      }
+    },
+    "hobby-battery": {
+      "tagline": "2016 Wh (40 Ah) battery",
+      "description": "A lightweight plastic case with Samsung 50S cells inside. The manufacturer states 300 charge cycles with no loss of capacity and up to 1000 cycles down to 80% capacity. A second battery means twice as much riding in a day.",
+      "features": {
+        "f1": "2016 Wh (40 Ah), Samsung 50S cells",
+        "f2": "300 cycles with no loss of capacity, up to 1000 cycles down to 80%",
+        "f3": "Full charge in 150 minutes with the 1300 W charger"
+      }
+    },
+    "hobby-remote": {
+      "tagline": "Hand controller: floats, IP68, up to 10 hours",
+      "description": "It floats — drop it and it stays on the surface. LCD display, Bluetooth and 2.4 GHz link, IP68 water protection. Charges in 2 hours and runs for up to 10.",
+      "features": {
+        "f1": "Floats, IP68 water protection",
+        "f2": "LCD display, Bluetooth and 2.4 GHz",
+        "f3": "Charges in 2 hours, up to 10 hours of use"
+      }
+    },
+    "hobby-board": {
+      "tagline": "Bare hull: 100 l, 7.5 kg",
+      "description": "The board hull only — no mast, wings or battery — as a replacement or a second one. 100 litres, 7.5 kg, 160 × 65 × 15 cm.",
+      "features": {
+        "f1": "100 l, 7.5 kg",
+        "f2": "160 × 65 × 15 cm"
+      }
+    },
+    "hobby-charger": {
+      "tagline": "1300 W charger: a full charge in 150 minutes",
+      "description": "A 1300 W, 20 A charger. A fully empty battery reaches a full charge in 150 minutes.",
+      "features": {
+        "f1": "1300 W, 20 A",
+        "f2": "Full charge in 150 minutes"
       }
     }
   },

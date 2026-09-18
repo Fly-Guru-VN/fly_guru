@@ -150,17 +150,17 @@
     "bookingNo": "您的预约编号：#{no}"
   },
   "Shop": {
-    "metaTitle": "Lift 电动水翼板商店",
-    "metaDescription": "芽庄的 Lift Foils 电动水翼板：LIFT5、LIFT5 F、LIFTX 及配件。我们按您的体重帮您选尺寸，购买前还可以在我们学校的课程中先体验。",
+    "metaTitle": "电动水翼板商店：Lift 与 Hobbywing",
+    "metaDescription": "芽庄的电动水翼板：Lift Foils（LIFT5、LIFT5 F、LIFTX）和 Hobbywing S1。我们按您的体重挑选板子，购买前还可以在我们学校的课程中先体验。",
     "eyebrow": "商店",
-    "title": "芽庄的 Lift 电动水翼板",
-    "lead": "我们正规进口 Lift Foils。会按您的体重和水平帮您挑选水翼板，购买前还可以在我们学校的课程中先体验电动水翼板。",
+    "title": "芽庄的电动水翼板",
+    "lead": "我们正规进口 Lift Foils 和 Hobbywing。会按您的体重和水平帮您挑选水翼板，购买前还可以在我们学校的课程中先体验电动水翼板。",
     "heroAlt": "在海面上飞行的电动水翼板",
     "toCatalog": "查看型号",
     "consult": "帮我挑选",
     "facts": {
-      "linesLabel": "2026 年型号",
-      "linesValue": "LIFT5 F · LIFT5 · LIFTX",
+      "linesLabel": "品牌",
+      "linesValue": "Lift Foils · Hobbywing",
       "priceLabel": "价格",
       "sizingLabel": "板子尺寸",
       "sizingValue": "按您的体重推荐"
@@ -171,14 +171,15 @@
     "sizesCount": "{count, plural, other {# 种尺寸}}",
     "more": "详情",
     "compareTitle": "选哪一款",
-    "compareSubtitle": "Lift 三个主要系列及其区别，简单说明。",
+    "compareSubtitle": "Lift 的三个主要系列和 Hobbywing 的板子有何区别，简单说明。",
     "compare": {
       "audience": "适合人群",
       "ride": "电机续航",
       "sizes": "尺寸",
       "rider": "骑手体重",
       "controller": "手柄遥控器",
-      "price": "价格"
+      "price": "价格",
+      "unknown": "待确认"
     },
     "howTitle": "如何购买",
     "how": {
@@ -190,20 +191,21 @@
       "getText": "我们一起商定付款和交付方式。购买前，您还可以在我们学校的课程中先体验电动水翼板。"
     },
     "accessoriesTitle": "配件",
-    "accessoriesSubtitle": "电池、遥控器、电机，以及让海滩一天更轻松的装备。",
+    "accessoriesSubtitle": "电池、遥控器、电机、翼板，以及让海滩一天更轻松的装备。",
     "faqHeading": "购买常见问题",
     "faq": {
       "tryQ": "购买前可以先试试吗？",
       "tryA": "可以。在我们芽庄的学校预约一节课：教练会带您站上电动水翼板，您会更清楚哪款板子适合自己。",
       "priceQ": "为什么价格用美元标示？",
-      "priceA": "网站上是 Lift 在美国的官方零售价。含运费在内的越南最终价格，我们会在联系您时告知。",
+      "priceA": "厂家就是这样报价的。Lift 在网站上显示的是美国官方零售价，不含运费；Hobbywing 的价格已含送货上门。越南的最终价格我们会在联系您时告知。",
       "sizeQ": "该选哪个尺寸？",
       "sizeA": "关键看体重和经验。大板更稳、更容易站起来；小板更快、更灵活。型号页面上每个尺寸都标有适合的骑手体重。拿不定主意？给我们留言，我们帮您挑。"
     },
     "ctaTitle": "不知道选哪块板？",
     "ctaText": "告诉我们您的体重和经验，我们帮您挑型号和尺寸。",
     "ctaButton": "给我们留言",
-    "ctaBook": "预约课程"
+    "ctaBook": "预约课程",
+    "priceNote": "价格以美元标示。Lift 为美国零售价，不含运费；Hobbywing 为已含送货上门的价格。越南的最终价格我们会在联系您时告知。"
   },
   "ShopProduct": {
     "back": "商店",
@@ -242,7 +244,9 @@
     "aboutTitle": "要点",
     "fits": "适用于",
     "relatedTitle": "适配这款板的配件",
-    "allAccessories": "全部配件"
+    "allAccessories": "全部配件",
+    "priceNoteHobby": "价格已含送货上门。越南的最终价格我们会在联系您时告知。",
+    "setupNoteHobby": "套装具体包含哪些部件，我们会在联系您时确认——正在向供应商核实。"
   },
   "ShopInquiry": {
     "title": "我们如何联系您？",
@@ -401,6 +405,103 @@
       "features": {
         "f1": "有 Gen5 款和 LIFTX 款",
         "f2": "重量在肩上，而不是手上"
+      }
+    },
+    "hobby-s1": {
+      "tagline": "100 升的大板，稳",
+      "audience": "看重稳定性的人",
+      "description": "Hobbywing 电动水翼板，配碳纤维翼板。100 升的板身很大：浮力好，在学习站立时容错度高。直驱电机最大 6 kW，带过热、过流和堵转保护。2016 Wh 电池采用三星 50S 电芯。",
+      "features": {
+        "f1": "2016 Wh（40 Ah）电池，三星 50S 电芯——300 次循环容量不衰减",
+        "f2": "电机最大 6 kW，FOC 驱动，具备过热、过载和堵转保护",
+        "f3": "1300 W 充电器：150 分钟充满",
+        "f4": "遥控器不下沉：带屏幕、蓝牙、IP68 防水，续航可达 10 小时"
+      }
+    },
+    "hobby-s1-pack": {
+      "tagline": "同样的 S1，多一块电池和两套翼板",
+      "audience": "想一次买齐的人",
+      "description": "一次配齐。多一块电池意味着每天玩水时间翻倍，两套翼板则让同一块板有两种性格：Cruising 的大前翼 1843 cm² 起飞更早、更稳；Smooth 的 1201 cm² 更小、更快。按价目表算，这比单独加买电池和翼板更便宜。",
+      "features": {
+        "f1": "第二块 2016 Wh 电池——每天玩水时间翻倍",
+        "f2": "两套碳纤维翼板：Cruising 1843 cm² 和 Smooth 1201 cm²",
+        "f3": "比单独加买电池和翼板更便宜",
+        "f4": "颜色任选：白色、蓝色、粉色或木纹"
+      }
+    },
+    "hobby-cruising-front-wing": {
+      "tagline": "Cruising 前翼，1843 cm²",
+      "description": "大面积碳纤维前翼。面积越大，板子越早离开水面，低速时越稳——这是用来学习和悠闲巡航的翼板。",
+      "features": {
+        "f1": "1843 cm²，碳纤维",
+        "f2": "与 Cruising 459.9 cm² 后翼配套"
+      }
+    },
+    "hobby-cruising-rear-wing": {
+      "tagline": "Cruising 后翼（稳定翼），459.9 cm²",
+      "description": "Cruising 套装的碳纤维稳定翼。后翼决定板子走得有多平稳、对脚下动作有多听话。",
+      "features": {
+        "f1": "459.9 cm²，碳纤维",
+        "f2": "与 Cruising 1843 cm² 前翼配套"
+      }
+    },
+    "hobby-smooth-front-wing": {
+      "tagline": "Smooth 前翼，1201 cm²",
+      "description": "更小的前翼：起飞更晚、需要更高速度，但飞起来之后板子更快、转向更利索。适合已经站得稳的人。",
+      "features": {
+        "f1": "1201 cm²，碳纤维",
+        "f2": "与 Smooth 309.7 cm² 后翼配套"
+      }
+    },
+    "hobby-smooth-rear-wing": {
+      "tagline": "Smooth 后翼（稳定翼），309.7 cm²",
+      "description": "Smooth 套装的碳纤维稳定翼。比 Cruising 的更小——板子更灵活，转向反应更快。",
+      "features": {
+        "f1": "309.7 cm²，碳纤维",
+        "f2": "与 Smooth 1201 cm² 前翼配套"
+      }
+    },
+    "hobby-power-system": {
+      "tagline": "带电机的立柱：76 或 56 厘米",
+      "description": "整套动力单元：立柱加直驱电机。最大功率 6 kW，额定电流 120 A，FOC 驱动。内置过热、过流、过压和堵转保护。",
+      "features": {
+        "f1": "最大 6 kW，额定电流 120 A",
+        "f2": "立柱可选：76 厘米或 56 厘米",
+        "f3": "过热、过载、过压和堵转保护"
+      }
+    },
+    "hobby-battery": {
+      "tagline": "2016 Wh（40 Ah）电池",
+      "description": "轻量化塑料外壳，内部为三星 50S 电芯。厂家称 300 次充放电循环容量不衰减，最多 1000 次循环后容量仍有 80%。多备一块电池，每天玩水时间翻倍。",
+      "features": {
+        "f1": "2016 Wh（40 Ah），三星 50S 电芯",
+        "f2": "300 次循环容量不衰减，最多 1000 次循环后仍有 80%",
+        "f3": "用 1300 W 充电器 150 分钟充满"
+      }
+    },
+    "hobby-remote": {
+      "tagline": "遥控器：不下沉、IP68、续航 10 小时",
+      "description": "不下沉——掉进水里也浮在水面。LCD 屏幕，蓝牙和 2.4 GHz 连接，IP68 防水。2 小时充满，可用 10 小时。",
+      "features": {
+        "f1": "不下沉，IP68 防水",
+        "f2": "LCD 屏幕，蓝牙和 2.4 GHz",
+        "f3": "2 小时充满，续航可达 10 小时"
+      }
+    },
+    "hobby-board": {
+      "tagline": "裸板身：100 升，7.5 公斤",
+      "description": "只有板身，不含立柱、翼板和电池——用作备件或第二块板。100 升，7.5 公斤，160 × 65 × 15 厘米。",
+      "features": {
+        "f1": "100 升，7.5 公斤",
+        "f2": "160 × 65 × 15 厘米"
+      }
+    },
+    "hobby-charger": {
+      "tagline": "1300 W 充电器：150 分钟充满",
+      "description": "1300 W、20 A 充电器。完全放空的电池 150 分钟即可充满。",
+      "features": {
+        "f1": "1300 W，20 A",
+        "f2": "150 分钟充满"
       }
     }
   },

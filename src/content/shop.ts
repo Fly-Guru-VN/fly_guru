@@ -14,13 +14,29 @@
 //   немного меняться, — отсюда сноска на странице товара;
 // • фото — рендеры с liftfoils.com, лежат в public/media/shop/<id товара>/.
 //
+// Hobbywing (сентябрь 2026) пришёл отдельной папкой от начальника
+// (prompts/Shop/HobbyWing info and photo):
+// • цены — «ПРАЙС САЙТ.xlsx». ⚠️ Это НЕ американская розница, как у Lift, а
+//   цена уже С ДОСТАВКОЙ до двери — поэтому подпись под ценой другая, её
+//   выбирает shopNotes() в lib/shop.ts;
+// • характеристики — «Технические характеристики кратко.docx»;
+// • фото — рендеры производителя из той же папки.
+// Чего начальник НЕ дал и что поэтому нигде не написано: время катания на
+// одном заряде, предельный вес райдера, выбирается ли мачта 56/76 см и какой
+// комплект крыльев входит в базовую цену. Пустые поля здесь — не забывчивость.
+//
 // Названия моделей, цветов и деталей не переводим: это фирменные имена, по
 // ним человек потом ищет вещь у производителя и в чатах райдеров.
 
 export type ShopCategory = "efoil" | "accessory";
 
+// Бренд — не свободная строка: по нему каталог раскладывается на группы, а
+// подпись под ценой выбирает shopNotes(). Новый бренд = осознанная правка тут.
+export type ShopBrand = "Lift Foils" | "Hobbywing";
+export const SHOP_BRANDS: ShopBrand[] = ["Lift Foils", "Hobbywing"];
+
 // Линейка доски — по ней аксессуар «подходит к».
-export type ShopLine = "LIFT5" | "LIFT5 F" | "LIFTX";
+export type ShopLine = "LIFT5" | "LIFT5 F" | "LIFTX" | "HOBBY S1";
 
 export interface ShopColor {
   id: string; // в имени файла фото: <размер>-<цвет>-<ракурс>.webp
@@ -29,14 +45,16 @@ export interface ShopColor {
 }
 
 // Что стоит на доске этого размера. Подписи строк («Мачта с мотором»,
-// «Переднее крыло») — в messages, ShopProduct.setup.
+// «Переднее крыло») — в messages, ShopProduct.setup. Поля необязательные:
+// у Hobbywing винт не выделен в отдельную деталь, и пустая строка «Пропеллер:
+// —» выглядела бы как недоделка.
 export interface ShopSetup {
-  mast: string;
-  propeller: string;
-  frontWing: string;
-  backWing: string;
-  battery: string;
-  controller: string;
+  mast?: string;
+  propeller?: string;
+  frontWing?: string;
+  backWing?: string;
+  battery?: string;
+  controller?: string;
 }
 
 export interface ShopSize {
@@ -46,7 +64,7 @@ export interface ShopSize {
   volumeL: number;
   dimensionsCm: string; // длина × ширина × толщина доски
   setupKg: number; // весь комплект: доска, мачта, крылья, батарея
-  maxRiderKg: number; // рекомендация Lift
+  maxRiderKg?: number; // рекомендация производителя; у Hobbywing её не дали
   maxRiderBlowfishKg?: number; // то же с надувным Blowfish
   setup: ShopSetup;
 }
@@ -54,14 +72,17 @@ export interface ShopSize {
 export interface ShopEfoil {
   category: "efoil";
   id: string; // адрес /shop/<id>
-  brand: string;
+  brand: ShopBrand;
   name: string;
   line: ShopLine;
-  rideMinutes: number; // среднее время на моторе с полной батареи
+  rideMinutes?: number; // среднее время на моторе с полной батареи
   limited?: boolean; // лимитированная серия
   colors: ShopColor[];
   sizes: ShopSize[];
   defaultSizeId: string; // что показываем первым — самый ходовой размер
+  // Ракурсы рендеров этой доски. У Lift их три, у Hobbywing производитель дал
+  // по одному кадру на цвет — галерея показывает столько, сколько есть.
+  angles?: readonly string[];
 }
 
 export interface ShopAccessoryVariant {
@@ -74,7 +95,7 @@ export interface ShopAccessoryVariant {
 export interface ShopAccessory {
   category: "accessory";
   id: string;
-  brand: string;
+  brand: ShopBrand;
   name: string;
   fits: ShopLine[]; // с какими досками работает
   variants: ShopAccessoryVariant[];
@@ -108,6 +129,22 @@ const LIFT_HC = "Lift Hand Controller";
 const MAST_68_32 = '32" LCS Carbon 68';
 const MAST_55_LOW = '32" LCS Carbon 55 Low Mount';
 const LIFTX_PROP = "LCS 55 Folding Glide";
+
+// Цвета Hobbywing. Кружки палитры сняты с рендеров производителя.
+const HW = {
+  white: { id: "white", name: "White", hex: "#e9e7e4" },
+  blue: { id: "blue", name: "Blue", hex: "#3ec6e0" },
+  pink: { id: "pink", name: "Pink", hex: "#f4a795" },
+  wood: { id: "wood", name: "Wood", hex: "#ddc091" },
+} satisfies Record<string, ShopColor>;
+
+// Доска у Hobbywing одна, комплектации две — цифры не дублируем руками.
+const HW_BOARD = { volumeL: 100, dimensionsCm: "160 × 65 × 15", setupKg: 31.5 };
+const HW_MAST = "76 cm / 56 cm";
+const HW_BATTERY = "2016 Wh / 40 Ah";
+const HW_CONTROLLER = "Bluetooth, IP68";
+// Рендер от производителя один на цвет — ракурс тоже один.
+const HW_ANGLES = ["iso"] as const;
 
 export const shopEfoils: ShopEfoil[] = [
   {
@@ -364,6 +401,58 @@ export const shopEfoils: ShopEfoil[] = [
       },
     ],
   },
+  {
+    category: "efoil",
+    id: "hobby-s1",
+    brand: "Hobbywing",
+    name: "S1",
+    line: "HOBBY S1",
+    colors: [HW.white, HW.blue, HW.pink, HW.wood],
+    defaultSizeId: "160",
+    angles: HW_ANGLES,
+    sizes: [
+      {
+        id: "160",
+        label: "160 cm",
+        priceUsd: 6_900,
+        ...HW_BOARD,
+        setup: {
+          mast: HW_MAST,
+          // Какой из двух наборов крыльев идёт в базовой цене, начальник не
+          // уточнил, — поэтому показываем оба как выбор, а не выдумываем один.
+          frontWing: "Cruising 1843 cm² / Smooth 1201 cm²",
+          backWing: "Cruising 459,9 cm² / Smooth 309,7 cm²",
+          battery: HW_BATTERY,
+          controller: HW_CONTROLLER,
+        },
+      },
+    ],
+  },
+  {
+    category: "efoil",
+    id: "hobby-s1-pack",
+    brand: "Hobbywing",
+    name: "S1 Pack",
+    line: "HOBBY S1",
+    colors: [HW.white, HW.blue, HW.pink, HW.wood],
+    defaultSizeId: "160",
+    angles: HW_ANGLES,
+    sizes: [
+      {
+        id: "160",
+        label: "160 cm",
+        priceUsd: 9_900,
+        ...HW_BOARD,
+        setup: {
+          mast: HW_MAST,
+          frontWing: "Cruising 1843 cm² + Smooth 1201 cm²",
+          backWing: "Cruising 459,9 cm² + Smooth 309,7 cm²",
+          battery: `${HW_BATTERY} × 2`,
+          controller: HW_CONTROLLER,
+        },
+      },
+    ],
+  },
 ];
 
 const img = (id: string, variant: string, count: number) =>
@@ -460,6 +549,78 @@ export const shopAccessories: ShopAccessory[] = [
       { id: "gen5", label: "Gen5", priceUsd: 85, images: img("battery-backpack", "gen5", 1) },
       { id: "liftx", label: "LIFTX", priceUsd: 85, images: img("battery-backpack", "liftx", 1) },
     ],
+  },
+  {
+    category: "accessory",
+    id: "hobby-cruising-front-wing",
+    brand: "Hobbywing",
+    name: "S1 Cruising Front Wing",
+    fits: ["HOBBY S1"],
+    variants: [{ id: "main", priceUsd: 515, images: img("hobby-cruising-front-wing", "main", 1) }],
+  },
+  {
+    category: "accessory",
+    id: "hobby-cruising-rear-wing",
+    brand: "Hobbywing",
+    name: "S1 Cruising Rear Wing",
+    fits: ["HOBBY S1"],
+    variants: [{ id: "main", priceUsd: 220, images: img("hobby-cruising-rear-wing", "main", 1) }],
+  },
+  {
+    category: "accessory",
+    id: "hobby-smooth-front-wing",
+    brand: "Hobbywing",
+    name: "S1 Smooth Front Wing",
+    fits: ["HOBBY S1"],
+    variants: [{ id: "main", priceUsd: 515, images: img("hobby-smooth-front-wing", "main", 1) }],
+  },
+  {
+    category: "accessory",
+    id: "hobby-smooth-rear-wing",
+    brand: "Hobbywing",
+    name: "S1 Smooth Rear Wing",
+    fits: ["HOBBY S1"],
+    variants: [{ id: "main", priceUsd: 220, images: img("hobby-smooth-rear-wing", "main", 1) }],
+  },
+  {
+    category: "accessory",
+    id: "hobby-power-system",
+    brand: "Hobbywing",
+    name: "S1 Power System",
+    fits: ["HOBBY S1"],
+    variants: [{ id: "main", priceUsd: 2_950, images: img("hobby-power-system", "main", 1) }],
+  },
+  {
+    category: "accessory",
+    id: "hobby-battery",
+    brand: "Hobbywing",
+    name: "S1 Battery",
+    fits: ["HOBBY S1"],
+    variants: [{ id: "main", priceUsd: 3_000, images: img("hobby-battery", "main", 1) }],
+  },
+  {
+    category: "accessory",
+    id: "hobby-remote",
+    brand: "Hobbywing",
+    name: "S1 Remote Controller",
+    fits: ["HOBBY S1"],
+    variants: [{ id: "main", priceUsd: 290, images: img("hobby-remote", "main", 1) }],
+  },
+  {
+    category: "accessory",
+    id: "hobby-board",
+    brand: "Hobbywing",
+    name: "S1 Board",
+    fits: ["HOBBY S1"],
+    variants: [{ id: "main", priceUsd: 2_700, images: img("hobby-board", "main", 1) }],
+  },
+  {
+    category: "accessory",
+    id: "hobby-charger",
+    brand: "Hobbywing",
+    name: "S1 Charger",
+    fits: ["HOBBY S1"],
+    variants: [{ id: "main", priceUsd: 660, images: img("hobby-charger", "main", 1) }],
   },
 ];
 

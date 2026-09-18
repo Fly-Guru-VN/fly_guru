@@ -150,17 +150,17 @@
     "bookingNo": "Tu número de solicitud: #{no}"
   },
   "Shop": {
-    "metaTitle": "Tienda de eFoils Lift",
-    "metaDescription": "eFoils Lift Foils en Nha Trang: LIFT5, LIFT5 F, LIFTX y accesorios. Te ayudamos a elegir la talla según tu peso, y puedes probarlo antes en una clase en nuestra escuela.",
+    "metaTitle": "Tienda de eFoils: Lift y Hobbywing",
+    "metaDescription": "eFoils en Nha Trang: Lift Foils (LIFT5, LIFT5 F, LIFTX) y Hobbywing S1. Te buscamos la tabla según tu peso, y puedes probarla antes en una clase en nuestra escuela.",
     "eyebrow": "Tienda",
-    "title": "eFoils Lift en Nha Trang",
-    "lead": "Somos importadores oficiales de Lift Foils. Te ayudamos a elegir la tabla según tu peso y tu nivel, y puedes probar un eFoil antes, en una clase en nuestra escuela.",
+    "title": "eFoils en Nha Trang",
+    "lead": "Somos importadores oficiales de Lift Foils y Hobbywing. Te ayudamos a elegir la tabla según tu peso y tu nivel, y puedes probar un eFoil antes, en una clase en nuestra escuela.",
     "heroAlt": "Un eFoil volando sobre el mar",
     "toCatalog": "Ver los modelos",
     "consult": "Ayúdame a elegir",
     "facts": {
-      "linesLabel": "Modelos 2026",
-      "linesValue": "LIFT5 F · LIFT5 · LIFTX",
+      "linesLabel": "Marcas",
+      "linesValue": "Lift Foils · Hobbywing",
       "priceLabel": "Precios",
       "sizingLabel": "Talla de la tabla",
       "sizingValue": "Según tu peso"
@@ -171,14 +171,15 @@
     "sizesCount": "{count, plural, one {# talla} other {# tallas}}",
     "more": "Ver más",
     "compareTitle": "Cuál elegir",
-    "compareSubtitle": "Las tres líneas principales de Lift y en qué se diferencian, en breve.",
+    "compareSubtitle": "Las tres líneas principales de Lift y la tabla de Hobbywing, y en qué se diferencian.",
     "compare": {
       "audience": "Para quién",
       "ride": "Autonomía con motor",
       "sizes": "Tallas",
       "rider": "Peso del rider",
       "controller": "Mando",
-      "price": "Precio"
+      "price": "Precio",
+      "unknown": "Lo confirmamos"
     },
     "howTitle": "Cómo comprar",
     "how": {
@@ -190,20 +191,21 @@
       "getText": "Acordamos el pago y la entrega. Y antes de comprar puedes probar un eFoil en una clase en nuestra escuela."
     },
     "accessoriesTitle": "Accesorios",
-    "accessoriesSubtitle": "Baterías, mandos, motores y lo que hace más fácil el día en la playa.",
+    "accessoriesSubtitle": "Baterías, mandos, motores, alas y lo que hace más fácil el día en la playa.",
     "faqHeading": "Preguntas sobre la compra",
     "faq": {
       "tryQ": "¿Puedo probarlo antes de comprar?",
       "tryA": "Sí. Reserva una clase en nuestra escuela de Nha Trang: un instructor te subirá al eFoil y tendrás mucho más claro qué tabla te conviene.",
       "priceQ": "¿Por qué los precios están en dólares?",
-      "priceA": "En la web aparece el precio oficial de venta de Lift en EE. UU. El precio final en Vietnam, con envío, te lo diremos cuando contactemos contigo.",
+      "priceA": "Así los dan los fabricantes. En Lift la web muestra el precio oficial de venta en EE. UU. sin envío; en Hobbywing, el precio con entrega a domicilio. El precio final en Vietnam te lo diremos cuando contactemos contigo.",
       "sizeQ": "¿Qué talla elijo?",
       "sizeA": "Lo principal es tu peso y tu experiencia. Una tabla grande es más estable y es más fácil levantarse; una pequeña es más rápida y ágil. En la página del modelo, cada talla indica el peso del rider para el que está pensada. ¿Dudas? Escríbenos y te ayudamos."
     },
     "ctaTitle": "¿No sabes qué tabla elegir?",
     "ctaText": "Cuéntanos tu peso y tu experiencia y te elegimos el modelo y la talla.",
     "ctaButton": "Escríbenos",
-    "ctaBook": "Reservar una clase"
+    "ctaBook": "Reservar una clase",
+    "priceNote": "Precios en dólares. En Lift es el precio de venta en EE. UU. sin envío; en Hobbywing, el precio ya con entrega a domicilio. El precio final en Vietnam te lo diremos cuando contactemos contigo."
   },
   "ShopProduct": {
     "back": "Tienda",
@@ -242,7 +244,9 @@
     "aboutTitle": "Lo esencial",
     "fits": "Compatible con",
     "relatedTitle": "Accesorios para esta tabla",
-    "allAccessories": "Todos los accesorios"
+    "allAccessories": "Todos los accesorios",
+    "priceNoteHobby": "Precio con entrega a domicilio. El precio final en Vietnam te lo diremos al contactar.",
+    "setupNoteHobby": "Confirmaremos qué incluye exactamente el paquete cuando contactemos contigo: lo estamos comprobando con el proveedor."
   },
   "ShopInquiry": {
     "title": "¿Cómo te contactamos?",
@@ -401,6 +405,103 @@
       "features": {
         "f1": "Versiones para Gen5 y LIFTX",
         "f2": "El peso en los hombros, no en las manos"
+      }
+    },
+    "hobby-s1": {
+      "tagline": "Una tabla grande y estable de 100 litros",
+      "audience": "Para quien busca estabilidad",
+      "description": "Un eFoil de Hobbywing con alas de carbono. 100 litros es mucho volumen: la tabla flota bien y perdona errores mientras aprendes a ponerte de pie. Motor de accionamiento directo de hasta 6 kW, con protección contra sobrecalentamiento, sobrecorriente y bloqueo. La batería de 2016 Wh está montada con celdas Samsung 50S.",
+      "features": {
+        "f1": "Batería de 2016 Wh (40 Ah) con celdas Samsung 50S: 300 ciclos sin pérdida de capacidad",
+        "f2": "Motor de hasta 6 kW, accionamiento FOC, protegido contra sobrecalentamiento, sobrecarga y bloqueo",
+        "f3": "Cargador de 1300 W: carga completa en 150 minutos",
+        "f4": "El mando flota: pantalla, Bluetooth, IP68, hasta 10 horas de uso"
+      }
+    },
+    "hobby-s1-pack": {
+      "tagline": "La misma S1, con segunda batería y los dos juegos de alas",
+      "audience": "Para quien se lo lleva todo de una vez",
+      "description": "Todo de golpe. Una segunda batería es el doble de tiempo en el agua al día, y dos juegos de alas cambian el carácter de la misma tabla: Cruising, con su ala delantera grande de 1843 cm², despega antes y va más tranquila; Smooth, de 1201 cm², es más pequeña y más rápida. Según la lista de precios sale más barato que comprar la batería y las alas por separado.",
+      "features": {
+        "f1": "Segunda batería de 2016 Wh: el doble de tiempo en el agua al día",
+        "f2": "Dos juegos de alas de carbono: Cruising 1843 cm² y Smooth 1201 cm²",
+        "f3": "Más barato que comprar la batería y las alas por separado",
+        "f4": "Color a elegir: blanco, azul, rosa o madera"
+      }
+    },
+    "hobby-cruising-front-wing": {
+      "tagline": "Ala delantera Cruising, 1843 cm²",
+      "description": "Un ala delantera grande de carbono. Cuanta más superficie, antes se despega la tabla del agua y más tranquila va a poca velocidad: es el ala para aprender y para pasear.",
+      "features": {
+        "f1": "1843 cm², carbono",
+        "f2": "Va con el ala trasera Cruising de 459,9 cm²"
+      }
+    },
+    "hobby-cruising-rear-wing": {
+      "tagline": "Ala trasera (estabilizador) Cruising, 459,9 cm²",
+      "description": "El estabilizador de carbono del juego Cruising. El ala trasera decide lo estable que va la tabla y lo bien que responde a los pies.",
+      "features": {
+        "f1": "459,9 cm², carbono",
+        "f2": "Va con el ala delantera Cruising de 1843 cm²"
+      }
+    },
+    "hobby-smooth-front-wing": {
+      "tagline": "Ala delantera Smooth, 1201 cm²",
+      "description": "Un ala delantera más pequeña: despega más tarde y pide más velocidad, pero en vuelo la tabla va más rápida y gira con más ganas. Para quien ya se mantiene de pie con seguridad.",
+      "features": {
+        "f1": "1201 cm², carbono",
+        "f2": "Va con el ala trasera Smooth de 309,7 cm²"
+      }
+    },
+    "hobby-smooth-rear-wing": {
+      "tagline": "Ala trasera (estabilizador) Smooth, 309,7 cm²",
+      "description": "El estabilizador de carbono del juego Smooth. Más pequeño que el de Cruising: la tabla se vuelve más viva y más reactiva en los giros.",
+      "features": {
+        "f1": "309,7 cm², carbono",
+        "f2": "Va con el ala delantera Smooth de 1201 cm²"
+      }
+    },
+    "hobby-power-system": {
+      "tagline": "Mástil con motor: 76 o 56 cm",
+      "description": "Toda la parte motriz en una pieza: mástil y motor de accionamiento directo. Potencia máxima de 6 kW, corriente nominal de 120 A, accionamiento FOC. Lleva protección contra sobrecalentamiento, sobrecorriente, sobretensión y bloqueo.",
+      "features": {
+        "f1": "Hasta 6 kW, corriente nominal de 120 A",
+        "f2": "Mástil a elegir: 76 cm o 56 cm",
+        "f3": "Protección contra sobrecalentamiento, sobrecarga, sobretensión y bloqueo"
+      }
+    },
+    "hobby-battery": {
+      "tagline": "Batería de 2016 Wh (40 Ah)",
+      "description": "Carcasa de plástico ligera con celdas Samsung 50S dentro. El fabricante indica 300 ciclos de carga sin pérdida de capacidad y hasta 1000 ciclos bajando al 80 % de capacidad. Una segunda batería es el doble de tiempo en el agua al día.",
+      "features": {
+        "f1": "2016 Wh (40 Ah), celdas Samsung 50S",
+        "f2": "300 ciclos sin pérdida de capacidad, hasta 1000 ciclos bajando al 80 %",
+        "f3": "Carga completa en 150 minutos con el cargador de 1300 W"
+      }
+    },
+    "hobby-remote": {
+      "tagline": "Mando: flota, IP68, hasta 10 horas",
+      "description": "Flota: si se te cae, se queda en la superficie. Pantalla LCD, conexión Bluetooth y 2,4 GHz, protección al agua IP68. Se carga en 2 horas y aguanta hasta 10.",
+      "features": {
+        "f1": "Flota, protección al agua IP68",
+        "f2": "Pantalla LCD, Bluetooth y 2,4 GHz",
+        "f3": "Carga en 2 horas, hasta 10 horas de uso"
+      }
+    },
+    "hobby-board": {
+      "tagline": "Solo el casco: 100 l, 7,5 kg",
+      "description": "Solo el casco de la tabla, sin mástil, alas ni batería: de repuesto o como segunda tabla. 100 litros, 7,5 kg, 160 × 65 × 15 cm.",
+      "features": {
+        "f1": "100 l, 7,5 kg",
+        "f2": "160 × 65 × 15 cm"
+      }
+    },
+    "hobby-charger": {
+      "tagline": "Cargador de 1300 W: carga completa en 150 minutos",
+      "description": "Cargador de 1300 W y 20 A. Una batería totalmente vacía se carga del todo en 150 minutos.",
+      "features": {
+        "f1": "1300 W, 20 A",
+        "f2": "Carga completa en 150 minutos"
       }
     }
   },
