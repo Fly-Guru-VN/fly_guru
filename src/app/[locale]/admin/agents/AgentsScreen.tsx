@@ -5,6 +5,7 @@ import { vnd } from "@/lib/stats";
 import { AGENT_PLANS, asAgentPlan, type AgentPlan } from "@/lib/agentTerms";
 import {
   deleteAgentPayoutAction,
+  renameAgentAction,
   setAgentTermsAction,
   toggleAgentActiveAction,
 } from "../actions";
@@ -252,6 +253,32 @@ function AgentCard({
             </div>
           )}
         </div>
+
+        {/* Имя агента. Меняется только подпись в списках — реф-код, ссылка и
+            QR остаются прежними, они уже разошлись по визиткам партнёра. */}
+        <form
+          action={renameAgentAction}
+          className="rounded-2xl border border-line/70 p-3"
+        >
+          <input type="hidden" name="id" value={a.id} />
+          <label className="text-xs text-muted">
+            Имя агента
+            <input
+              type="text"
+              name="name"
+              defaultValue={name}
+              required
+              maxLength={80}
+              className="mt-1 h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm outline-none focus:border-primary"
+            />
+          </label>
+          <button
+            type="submit"
+            className="mt-2 rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+          >
+            Сохранить имя
+          </button>
+        </form>
 
         {/* Смена условий. Меняет только БУДУЩИЕ занятия: уже записанные хранят
             свою комиссию, и задним числом мы их не трогаем — иначе поехали бы

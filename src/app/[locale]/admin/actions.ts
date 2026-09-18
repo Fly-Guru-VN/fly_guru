@@ -1437,6 +1437,40 @@ export async function setAgentTermsAction(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
+// Переименовать агента. Имя партнёра лежит в users — в agents только связь с
+// реф-кодом и условия, поэтому правим там. Понадобилось из-за тёзок: «Сергей»
+// в школе и механик, и агент, и в общих списках их было не различить.
+//
+// Правим строго ту строку, на которую ссылается карточка (user_id берём из
+// самой agents, а не из формы), и только если это действительно агент: иначе
+// id из браузера переименовал бы любого сотрудника.
+//
+// Реф-код и ссылка не меняются: они выданы партнёру на визитках и в QR.
+export async function renameAgentAction(formData: FormData) {
+  const user = await requireOffice();
+  const id = String(formData.get("id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  // Пустое имя — это не переименование, а потеря карточки в списке.
+  if (!id || !name) return;
+
+  const supabase = await officeClient(user);
+  const { data: agent, error: findError } = await supabase
+    .from("agents")
+    .select("user_id")
+    .eq("id", id)
+    .single();
+  failIfError(findError, "не удалось найти агента");
+  if (!agent?.user_id) return;
+
+  const { error } = await supabase
+    .from("users")
+    .update({ name })
+    .eq("id", agent.user_id)
+    .eq("role", "agent");
+  failIfError(error, "не удалось переименовать агента");
+  revalidatePath("/", "layout");
+}
+
 // ── Члены клуба (подэтап 4.6) ────────────────────────────────────────────────
 // Инвайт-ссылка: клиент купил абонемент офлайн → админ шлёт ему /invite/<token>
 // в мессенджер → клиент ставит пароль и получает кабинет. Токен живёт 7 дней
