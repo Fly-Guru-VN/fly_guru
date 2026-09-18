@@ -19,6 +19,24 @@ import { SITE_URL } from "@/lib/site";
 // Боевой адрес школы берём из lib/site: в ссылке «Принять» когда-то жил ещё
 // старый vercel-адрес, и инструкторы каждый раз уходили не туда (пачка №6, п.4).
 
+// Свои обложки для служебных сообщений (scripts/make-tg-covers.mjs).
+//
+// Раньше у всех трёх сообщений в чате была одна картинка — начальник на фойле.
+// Причина: ссылки ведут в кабинеты (/admin, /instructor), а они за логином.
+// Телеграм идёт за превью, получает редирект на /login и берёт общие OG-теги
+// сайта. Починить это тегами нельзя — страницу за логином боту не отдать.
+// Поэтому сообщение уходит КАРТИНКОЙ с подписью: что послали, то и видно.
+const COVER = {
+  booking: `${SITE_URL}/tg/booking.jpg`,
+  shiftOpen: `${SITE_URL}/tg/shift-open.jpg`,
+  shiftClose: `${SITE_URL}/tg/shift-close.jpg`,
+} as const;
+
+// Предел подписи под фото у Telegram. У текстового сообщения он 4096, поэтому
+// длинная заявка (гость написал комментарий на страницу) уходит без картинки:
+// текст заявки важнее обложки, резать его нельзя.
+const CAPTION_LIMIT = 1024;
+
 interface BookingNotification {
   serviceName: string | null; // название услуги
   clientName: string;
@@ -68,7 +86,7 @@ export async function sendBookingNotification(
   // попадаешь туда, где заявку обрабатывают, а не ищешь адрес по закладкам.
   lines.push("", `Открыть: ${SITE_URL}/admin/bookings`);
 
-  await sendTelegram(chatId, lines.join("\n"));
+  await sendTelegram(chatId, lines.join("\n"), COVER.booking);
 }
 
 // Уведомление в группу ИНСТРУКТОРОВ: админ подтвердил заявку → появилась
@@ -92,7 +110,7 @@ export async function sendInstructorsBookingAlert(b: {
   if (b.scheduledTime) lines.push(`🕐 ${b.scheduledTime}`);
   lines.push("", `Принять: ${SITE_URL}/instructor/bookings`);
 
-  await sendTelegram(chatId, lines.join("\n"));
+  await sendTelegram(chatId, lines.join("\n"), COVER.booking);
 }
 
 // Напоминалка про смену в группу инструкторов (пак C). Конкретного человека не
@@ -126,7 +144,7 @@ export async function sendShiftReminder(kind: "open" | "close"): Promise<boolean
           SHIFT_URL,
         ].join("\n");
 
-  return sendTelegram(chatId, text);
+  return sendTelegram(chatId, text, kind === "open" ? COVER.shiftOpen : COVER.shiftClose);
 }
 
 // Свободное сообщение в рабочий чат админа. Нужно там, где текст не подходит
@@ -156,19 +174,39 @@ export async function sendShopInquiry(text: string): Promise<boolean> {
 // экранировать). Операцию не роняем из-за уведомления, но и не глотаем сбой
 // молча — пишем в лог, иначе «уведомление не пришло» невозможно расследовать.
 //
+// Задан photo — уходит картинка с подписью (sendPhoto), иначе обычный текст.
+// Картинку Telegram забирает с сайта сам по ссылке; файлы лежат в public/tg.
+//
 // Две попытки: ПЕРВЫЙ исходящий запрос из «холодной» serverless-функции (свежий
 // инстанс — DNS + TLS-хендшейк) бывает заметно медленнее и не укладывался в
 // прежний таймаут 4с — терялось именно первое уведомление, а «тёплые» доходили.
 // Больший таймаут + ретрай это закрывают.
-async function sendTelegram(chatId: string, text: string): Promise<boolean> {
+async function sendTelegram(
+  chatId: string,
+  text: string,
+  photo?: string,
+): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) {
     console.error("[telegram] TELEGRAM_BOT_TOKEN не задан — сообщение не отправлено");
     return false;
   }
 
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  const body = JSON.stringify({ chat_id: chatId, text });
+  const withPhoto = Boolean(photo) && text.length <= CAPTION_LIMIT;
+  const url = `https://api.telegram.org/bot${token}/${withPhoto ? "sendPhoto" : "sendMessage"}`;
+  const body = JSON.stringify(
+    withPhoto
+      ? { chat_id: chatId, photo, caption: text }
+      : {
+          chat_id: chatId,
+          text,
+          // Своя обложка не влезла — тогда и чужого превью не надо: телеграм
+          // подставил бы сюда общую картинку сайта, ровно ту, от которой
+          // уходим. Там, где картинки нет вовсе (магазин, отмена записи),
+          // превью остаётся как было.
+          ...(photo ? { link_preview_options: { is_disabled: true } } : {}),
+        },
+  );
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
