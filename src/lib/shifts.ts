@@ -15,6 +15,10 @@ export interface ShiftEntry {
   id: string;
   instructorId: string;
   name: string;
+  // Роль вышедшего — ради цвета плашки в месячной сетке (механик зелёный,
+  // СММщик голубой). Берём из самой смены, а не из списка staff: у уволенного
+  // в staff строки уже нет, а его прошлые смены в календаре остаются.
+  role: string;
   note: string | null;
   // Факт выхода (пак C). null — смена запланирована, но инструктор её ещё не
   // открыл/закрыл.
@@ -99,7 +103,7 @@ interface MonthShiftRow {
   close_comment: string | null;
   bonus_cancelled?: boolean | null;
   bonus_comment?: string | null;
-  instructor: { name: string } | null;
+  instructor: { name: string; role: string } | null;
 }
 
 async function loadMonthShifts(
@@ -110,7 +114,7 @@ async function loadMonthShifts(
   const { data, error } = await supabase
     .from("shifts")
     .select(
-      "id, instructor_id, date, note, planned, opened_at, closed_at, open_comment, close_comment, bonus_cancelled, bonus_comment, instructor:users!instructor_id(name)",
+      "id, instructor_id, date, note, planned, opened_at, closed_at, open_comment, close_comment, bonus_cancelled, bonus_comment, instructor:users!instructor_id(name, role)",
     )
     .gte("date", fromDay)
     .lt("date", toDay);
@@ -179,11 +183,15 @@ export async function getMonthCalendar(
   };
 
   for (const s of shiftsRes.data ?? []) {
-    const instr = s.instructor as unknown as { name: string } | null;
+    const instr = s.instructor as unknown as {
+      name: string;
+      role: string;
+    } | null;
     day(s.date as string).shifts.push({
       id: s.id as string,
       instructorId: s.instructor_id as string,
       name: instr?.name ?? "?",
+      role: instr?.role ?? "",
       note: (s.note as string | null) ?? null,
       planned: (s.planned as boolean | null) ?? true,
       openedAt: (s.opened_at as string | null) ?? null,

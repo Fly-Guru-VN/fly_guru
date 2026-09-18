@@ -86,6 +86,7 @@ export default async function MechanicCalendarPage({
                 shifts={entry.shifts.map((s) => ({
                   id: s.id,
                   name: s.name,
+                  role: s.role,
                   mine: s.instructorId === user.id,
                 }))}
                 bookings={entry.bookings.length}
