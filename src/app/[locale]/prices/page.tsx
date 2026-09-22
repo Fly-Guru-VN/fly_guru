@@ -45,8 +45,8 @@ const ORDER: ServiceCategory[] = ["training", "tandem", "rental", "subscription"
 // Самый ходовой формат школы — карточка с рамкой и меткой «Популярное».
 const POPULAR = "basic-adult";
 
-// Прайс собран по макету: фигурный кадр в шапке, под ним — шесть тематических
-// вкладок, и в каждой карточки только своей группы услуг.
+// Прайс: заголовок и сразу под ним шесть тематических вкладок, в каждой
+// карточки только своей группы услуг.
 //
 // Почему вкладки, а не всё подряд. Услуг тринадцать, и списком в шесть колонок
 // страница читалась как выгрузка из таблицы: человек, пришедший за ценой
@@ -131,95 +131,20 @@ export default async function PricesPage({
         data={priceListSchema(site, tSchema("catalogName"), (cat) => tCategory(cat))}
       />
 
-      {/* ── Первый экран ── */}
-      {/* Собран ровно как первый экран тандема, под макет hero_maket_3
-          (1669×942 — те же размеры, что у кадра тандема): до lg кадр идёт
-          полосой во всю ширину, текст под ним; от lg кадр уходит в правый
-          верхний угол окна и стоит там враспор, а текст занимает левую
-          половину.
-
-          Section тут не используется: у первого экрана свои поля — сверху
-          кадр должен вставать встык под шапку. Фон градиентом в surface-2,
-          чтобы стык со следующей секцией (она начинается тем же цветом) не
-          читался ступенькой. */}
-      {/* min-h на ПК — ровно по высоте кадра. Кадр лежит absolute, то есть
-          высоту секции не задаёт; её задавал текст, а он ниже кадра — и волну
-          по нижнему краю фотографии срезало overflow-hidden. 29.4vw — это и
-          есть высота кадра: 52% ширины окна, делённые на пропорцию файла
-          1669/942. Меняете долю кадра или файл — пересчитайте и это число. */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2 lg:flex lg:min-h-[29.4vw] lg:items-center">
-        {/* Чайки — как в блоках главной. Обе слева: правую половину экрана от
-            lg занимает кадр, а ниже lg он идёт во всю ширину, и чайка легла бы
-            прямо на воду. */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
-          <Image
-            src="/media/decor/bird.webp"
-            alt=""
-            width={320}
-            height={117}
-            className="absolute left-6 top-28 w-14 -rotate-[7deg] opacity-90"
-          />
-          <Image
-            src="/media/decor/bird.webp"
-            alt=""
-            width={320}
-            height={117}
-            className="absolute left-2 top-52 w-[4.5rem] rotate-[5deg] opacity-80"
-          />
-        </div>
-
-        {/* Кадр. У файла уже зашиты скруглённый левый край и волна снизу —
-            подложки и масок ему не нужно, прозрачные края показывают фон
-            страницы.
-            От lg — справа, до самого края окна, и прижат к верху секции
-            (items-start): по центру между шапкой и кадром зияла бы полоса.
-            На узком экране кадр сдвинут влево на свою прозрачную полосу
-            (4% ширины файла — измерено по альфе), иначе слева оставалась бы
-            пустая проплешина. Второго файла под телефон не делаем — кадр
-            первого экрана грузится всегда, и это лишний запрос. */}
-        {/* 52%, а не 56% как у тандема. Кадр прижат к краю ОКНА, а текст живёт
-            в контейнере, который с ростом окна отъезжает вправо быстрее, чем
-            левый край кадра, — значит доля кадра решает, сойдутся они или нет.
-            Условие простое: непрозрачная часть кадра должна начинаться правее
-            середины окна. У тандема это выходит само собой, потому что слева у
-            его файла 12.5% прозрачного поля и текст подтыкается под него; у
-            макета 3 поля всего 4%, и при 56% текст лез под воду уже с 1200 px
-            (проверено). При 52% зазор держится на всех ширинах. */}
-        <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:flex lg:w-[52%] lg:items-start">
-          <div className="relative -ml-[4.2%] w-[104.2%] lg:ml-0 lg:w-full">
-            <Image
-              src="/media/photo/prices/hero.webp"
-              alt={t("heroAlt")}
-              width={1669}
-              height={942}
-              priority
-              quality={90}
-              sizes="(min-width: 1024px) 60vw, 105vw"
-              className="h-auto w-full"
-            />
-          </div>
-        </div>
-
-        <Container className="relative">
-          {/* Надстрочника «Прайс» над заголовком нет: он повторял название
-              раздела, которое и так подсвечено в шапке. */}
-          {/* На ПК текст стоит по центру высоты кадра (items-center у секции),
-              поэтому поля симметричные: с прежними pt-20/pb-16 он сидел под
-              шапкой, а под ним зияла пустая половина экрана. */}
-          <div className="pb-10 pt-8 lg:max-w-[46%] lg:py-12">
-            <h1 className="text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
-              {t("title")}
-            </h1>
-            <Squiggle long className="mt-4" />
-            <p className="mt-5 max-w-xl text-muted">{t("lead")}</p>
-          </div>
-        </Container>
-      </section>
-
-      {/* ── Вкладки с услугами ── */}
-      <Section pad="tight" className="bg-gradient-to-b from-surface-2 to-white">
+      {/* ── Заголовок и вкладки с услугами ── */}
+      {/* Первого экрана с фото больше нет (David, 22.09.2026): человек пришёл
+          за ценами — под заголовком сразу вкладки с услугами. Кадр
+          hero_maket_3 переехал в магазин. Надстрочника «Прайс» тоже нет: он
+          повторял название раздела, подсвеченное в шапке. */}
+      <Section pad="tight" className="bg-gradient-to-b from-surface-2 to-white sm:pt-14">
         <Container>
-          <PriceTabs groups={groups} />
+          <h1 className="text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
+            {t("title")}
+          </h1>
+          <Squiggle long className="mt-4" />
+          <div className="mt-8">
+            <PriceTabs groups={groups} />
+          </div>
 
           <div className="mt-10 overflow-hidden rounded-3xl border border-line bg-surface">
             <ul className="grid sm:grid-cols-2 lg:grid-cols-5">
