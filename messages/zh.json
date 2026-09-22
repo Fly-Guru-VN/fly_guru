@@ -152,23 +152,15 @@
   "Shop": {
     "metaTitle": "电动水翼板商店：Lift 与 Hobbywing",
     "metaDescription": "芽庄的电动水翼板：Lift Foils（LIFT5、LIFT5 F、LIFTX）和 Hobbywing S1。我们按您的体重挑选板子，购买前还可以在我们学校的课程中先体验。",
-    "eyebrow": "商店",
-    "title": "芽庄的电动水翼板",
-    "lead": "我们正规进口 Lift Foils 和 Hobbywing。会按您的体重和水平帮您挑选水翼板，购买前还可以在我们学校的课程中先体验电动水翼板。",
+    "eyebrow": "FlyGuru 商店",
+    "title": "下一次飞行，踩在你自己的板上",
+    "lead": "Lift Foils 与 Hobbywing 电动水翼板。我们帮你按经验和滑行风格挑选合适的板。",
     "heroAlt": "在海面上飞行的电动水翼板",
-    "toCatalog": "查看型号",
+    "toCatalog": "挑选电动水翼板",
     "consult": "帮我挑选",
-    "facts": {
-      "linesLabel": "品牌",
-      "linesValue": "Lift Foils · Hobbywing",
-      "priceLabel": "价格",
-      "sizingLabel": "板子尺寸",
-      "sizingValue": "按您的体重推荐"
-    },
     "from": "{price} 起",
-    "efoilsTitle": "电动水翼板",
-    "efoilsSubtitle": "整套装备：板子、带电机的桅杆、水翼、电池和手柄遥控器。尺寸和颜色在型号页面选择。",
-    "sizesCount": "{count, plural, other {# 种尺寸}}",
+    "efoilsTitle": "找到你的 eFoil",
+    "efoilsSubtitle": "按经验和滑行风格选板。每款都是完整套装：板、带电机的桅杆、水翼、电池和遥控器。",
     "more": "详情",
     "compareTitle": "选哪一款",
     "compareSubtitle": "Lift 的三个主要系列和 Hobbywing 的板子有何区别，简单说明。",
@@ -190,8 +182,8 @@
       "getTitle": "确认购买",
       "getText": "我们一起商定付款和交付方式。购买前，您还可以在我们学校的课程中先体验电动水翼板。"
     },
-    "accessoriesTitle": "配件",
-    "accessoriesSubtitle": "电池、遥控器、电机、翼板，以及让海滩一天更轻松的装备。",
+    "accessoriesTitle": "你的 eFoil 所需的一切",
+    "accessoriesSubtitle": "电池、遥控器、水翼和电机——为每一次下水准备。",
     "faqHeading": "购买常见问题",
     "faq": {
       "tryQ": "购买前可以先试试吗？",
@@ -205,7 +197,39 @@
     "ctaText": "告诉我们您的体重和经验，我们帮您挑型号和尺寸。",
     "ctaButton": "给我们留言",
     "ctaBook": "预约课程",
-    "priceNote": "价格以美元标示。Lift 为美国零售价，不含运费；Hobbywing 为已含送货上门的价格。越南的最终价格我们会在联系您时告知。"
+    "priceNote": "价格以美元标示。Lift 为美国零售价，不含运费；Hobbywing 为已含送货上门的价格。越南的最终价格我们会在联系您时告知。",
+    "perks": {
+      "fitTitle": "为你挑选",
+      "fitText": "经验、体重与滑行风格",
+      "tryTitle": "先试再买",
+      "tryText": "在课程中体验 eFoil",
+      "allTitle": "滑行所需一应俱全",
+      "allText": "板、电池、遥控器与水翼"
+    },
+    "tabs": {
+      "efoils": "电动水翼板",
+      "accessories": "配件",
+      "help": "选购帮助",
+      "aria": "商店栏目"
+    },
+    "allModels": "全部型号",
+    "brandFilter": "品牌",
+    "compareButton": "比较型号",
+    "efoilsHelpTitle": "不确定哪块板适合你？",
+    "efoilsHelpText": "告诉我们你的经验和体重，我们帮你理清各个型号。",
+    "efoilsHelpButton": "帮我选板",
+    "accessoriesEyebrow": "配件",
+    "allAccessories": "全部配件",
+    "kindFilter": "分类",
+    "kinds": {
+      "battery": "电池与充电",
+      "controller": "遥控器",
+      "propulsion": "水翼与电机",
+      "gear": "板与携带"
+    },
+    "accessoriesHelpTitle": "帮你挑选兼容配件",
+    "accessoriesHelpText": "告诉我们你的板型号，我们帮你配齐所需套装。",
+    "accessoriesHelpButton": "帮我挑选"
   },
   "ShopProduct": {
     "back": "商店",
@@ -281,7 +305,8 @@
         "f2": "28″ 铝合金桅杆，飞行平稳可控",
         "f3": "Gen5 电池——电机续航最长 90 分钟",
         "f4": "随您进步：以后可升级为碳纤维桅杆和水翼"
-      }
+      },
+      "badge": "入门 eFoil"
     },
     "lift5": {
       "tagline": "旗舰款——适合第一次飞行，也适合资深骑手",
@@ -292,7 +317,8 @@
         "f2": "碳纤维桅杆和 Camber Pro 水翼",
         "f3": "Elite 彩屏遥控器：GPS 速度、电量、距离",
         "f4": "兼容 Blowfish——适合练习和带孩子一起玩"
-      }
+      },
+      "badge": "全能型"
     },
     "liftx": {
       "tagline": "混合型：像水翼一样滑行，像电动水翼一样推进",
@@ -303,7 +329,8 @@
         "f2": "整套重量不到 22 公斤",
         "f3": "LIFTX 电池——电机续航约 45 分钟",
         "f4": "适合中级和高级骑手"
-      }
+      },
+      "badge": "混合型"
     },
     "lift5-laird": {
       "tagline": "与冲浪传奇 Laird Hamilton 合作打造的签名系列",
@@ -314,7 +341,8 @@
         "f2": "窄板身内含 64 升体积——起飞轻松",
         "f3": "Gen5 电池——电机续航约 90 分钟",
         "f4": "2026 年限量生产"
-      }
+      },
+      "badge": "限量版"
     },
     "liftx-florence": {
       "tagline": "Florence 兄弟的顺风与冲浪系列",
@@ -325,7 +353,8 @@
         "f2": "介于 4'3 和 4'8 之间——资深骑手最爱的尺寸",
         "f3": "折叠螺旋桨和低位电机",
         "f4": "2026 年限量生产"
-      }
+      },
+      "badge": "限量版"
     },
     "gen5-battery": {
       "tagline": "LIFT5 和 LIFT5 F 的心脏——电机续航最长 90 分钟",
@@ -416,7 +445,8 @@
         "f2": "电机最大 6 kW，FOC 驱动，具备过热、过载和堵转保护",
         "f3": "1300 W 充电器：150 分钟充满",
         "f4": "遥控器不下沉：带屏幕、蓝牙、IP68 防水，续航可达 10 小时"
-      }
+      },
+      "badge": "稳定型"
     },
     "hobby-s1-pack": {
       "tagline": "同样的 S1，多一块电池和两套翼板",
@@ -427,7 +457,8 @@
         "f2": "两套碳纤维翼板：Cruising 1843 cm² 和 Smooth 1201 cm²",
         "f3": "比单独加买电池和翼板更便宜",
         "f4": "颜色任选：白色、蓝色、粉色或木纹"
-      }
+      },
+      "badge": "全套装"
     },
     "hobby-cruising-front-wing": {
       "tagline": "Cruising 前翼，1843 cm²",

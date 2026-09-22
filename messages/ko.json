@@ -152,23 +152,15 @@
   "Shop": {
     "metaTitle": "eFoil 스토어: Lift와 Hobbywing",
     "metaDescription": "나트랑의 eFoil: Lift Foils(LIFT5, LIFT5 F, LIFTX)와 Hobbywing S1. 체중에 맞는 보드를 골라 드리고, 구매 전에 저희 스쿨 강습에서 먼저 타 볼 수 있습니다.",
-    "eyebrow": "스토어",
-    "title": "나트랑의 eFoil",
-    "lead": "Lift Foils와 Hobbywing을 정식 수입합니다. 체중과 실력에 맞는 보드를 골라 드리고, 구매 전에 저희 스쿨 강습에서 eFoil을 먼저 타 볼 수 있습니다.",
+    "eyebrow": "FlyGuru 숍",
+    "title": "다음 비행은 나만의 보드로",
+    "lead": "Lift Foils와 Hobbywing 이포일. 경험과 라이딩 스타일에 맞는 보드를 함께 골라 드립니다.",
     "heroAlt": "바다 위를 나는 eFoil",
-    "toCatalog": "모델 보기",
+    "toCatalog": "이포일 고르기",
     "consult": "선택 도움받기",
-    "facts": {
-      "linesLabel": "브랜드",
-      "linesValue": "Lift Foils · Hobbywing",
-      "priceLabel": "가격",
-      "sizingLabel": "보드 사이즈",
-      "sizingValue": "체중에 맞춰 추천"
-    },
     "from": "{price}부터",
-    "efoilsTitle": "eFoil",
-    "efoilsSubtitle": "풀 패키지: 보드, 모터 마스트, 윙, 배터리, 핸드 컨트롤러. 사이즈와 색상은 모델 페이지에서 고릅니다.",
-    "sizesCount": "{count, plural, other {사이즈 #종}}",
+    "efoilsTitle": "나에게 맞는 eFoil 찾기",
+    "efoilsSubtitle": "경험과 라이딩 스타일에 맞는 보드를 고르세요. 모두 보드, 모터 마스트, 윙, 배터리, 리모컨이 포함된 완성 세트입니다.",
     "more": "자세히",
     "compareTitle": "어떤 모델을 고를까",
     "compareSubtitle": "Lift의 세 가지 주력 라인과 Hobbywing 보드의 차이를 간단히 정리했습니다.",
@@ -190,8 +182,8 @@
       "getTitle": "구매 확정",
       "getText": "결제와 배송을 함께 정합니다. 구매 전에는 저희 스쿨 강습에서 eFoil을 먼저 타 볼 수 있습니다."
     },
-    "accessoriesTitle": "액세서리",
-    "accessoriesSubtitle": "배터리, 핸드 컨트롤러, 모터, 윙, 그리고 해변에서의 하루를 편하게 해 주는 것들.",
+    "accessoriesTitle": "eFoil을 위한 모든 것",
+    "accessoriesSubtitle": "배터리, 리모컨, 윙, 모터 — 물 위의 모든 순간을 위해.",
     "faqHeading": "구매 관련 질문",
     "faq": {
       "tryQ": "구매 전에 타 볼 수 있나요?",
@@ -205,7 +197,39 @@
     "ctaText": "체중과 경험을 알려 주시면 모델과 사이즈를 골라 드립니다.",
     "ctaButton": "문의하기",
     "ctaBook": "강습 예약",
-    "priceNote": "가격은 달러입니다. Lift는 배송을 뺀 미국 소비자가, Hobbywing은 문 앞 배송까지 포함한 가격입니다. 베트남 최종 가격은 연락드릴 때 안내해 드립니다."
+    "priceNote": "가격은 달러입니다. Lift는 배송을 뺀 미국 소비자가, Hobbywing은 문 앞 배송까지 포함한 가격입니다. 베트남 최종 가격은 연락드릴 때 안내해 드립니다.",
+    "perks": {
+      "fitTitle": "맞춤 추천",
+      "fitText": "경험, 체중, 라이딩 스타일",
+      "tryTitle": "먼저 타 보세요",
+      "tryText": "강습에서 eFoil 체험",
+      "allTitle": "라이딩에 필요한 모든 것",
+      "allText": "보드, 배터리, 리모컨, 윙"
+    },
+    "tabs": {
+      "efoils": "이포일",
+      "accessories": "액세서리",
+      "help": "선택 도움",
+      "aria": "숍 메뉴"
+    },
+    "allModels": "전체 모델",
+    "brandFilter": "브랜드",
+    "compareButton": "모델 비교",
+    "efoilsHelpTitle": "어떤 보드가 맞을지 모르겠나요?",
+    "efoilsHelpText": "경험과 체중을 알려 주시면 모델 선택을 도와드립니다.",
+    "efoilsHelpButton": "보드 추천받기",
+    "accessoriesEyebrow": "액세서리",
+    "allAccessories": "전체 액세서리",
+    "kindFilter": "분류",
+    "kinds": {
+      "battery": "배터리·충전",
+      "controller": "리모컨",
+      "propulsion": "윙·모터",
+      "gear": "보드·운반"
+    },
+    "accessoriesHelpTitle": "호환되는 액세서리를 찾아 드립니다",
+    "accessoriesHelpText": "보드 모델을 알려 주시면 필요한 구성을 함께 맞춰 드립니다.",
+    "accessoriesHelpButton": "선택 도움받기"
   },
   "ShopProduct": {
     "back": "스토어",
@@ -281,7 +305,8 @@
         "f2": "28″ 알루미늄 마스트 — 부드럽고 예측 가능한 비행",
         "f3": "Gen5 배터리 — 최대 90분 모터 주행",
         "f4": "실력에 맞춰 성장: 나중에 마스트와 윙을 카본으로 교체 가능"
-      }
+      },
+      "badge": "첫 eFoil"
     },
     "lift5": {
       "tagline": "플래그십 — 첫 비행부터 숙련 라이더까지",
@@ -292,7 +317,8 @@
         "f2": "카본 마스트와 Camber Pro 윙",
         "f3": "컬러 화면 Elite 컨트롤러: GPS 속도, 배터리, 거리",
         "f4": "Blowfish 호환 — 연습용, 아이와 함께 타기에"
-      }
+      },
+      "badge": "올라운더"
     },
     "liftx": {
       "tagline": "하이브리드: 포일처럼 타고, eFoil처럼 나아간다",
@@ -303,7 +329,8 @@
         "f2": "풀 세트 무게 22kg 미만",
         "f3": "LIFTX 배터리 — 약 45분 모터 주행",
         "f4": "중급·상급 라이더용"
-      }
+      },
+      "badge": "하이브리드"
     },
     "lift5-laird": {
       "tagline": "서핑 전설 레어드 해밀턴과 함께 만든 시그니처 시리즈",
@@ -314,7 +341,8 @@
         "f2": "좁은 몸체에 64리터 — 쉽게 떠오릅니다",
         "f3": "Gen5 배터리 — 약 90분 모터 주행",
         "f4": "2026년 한정 생산"
-      }
+      },
+      "badge": "한정판"
     },
     "liftx-florence": {
       "tagline": "플로렌스 형제의 다운윈드·파도용 시리즈",
@@ -325,7 +353,8 @@
         "f2": "4'3과 4'8 사이 — 숙련 라이더가 가장 좋아하는 크기",
         "f3": "접이식 프로펠러와 로우 마운트 모터",
         "f4": "2026년 한정 생산"
-      }
+      },
+      "badge": "한정판"
     },
     "gen5-battery": {
       "tagline": "LIFT5와 LIFT5 F의 심장 — 최대 90분 모터 주행",
@@ -416,7 +445,8 @@
         "f2": "최대 6kW 모터, FOC 구동, 과열·과부하·구속 보호",
         "f3": "1300W 충전기: 150분이면 완충",
         "f4": "핸드 컨트롤러는 물에 뜹니다: 화면, 블루투스, IP68, 최대 10시간 사용"
-      }
+      },
+      "badge": "안정적"
     },
     "hobby-s1-pack": {
       "tagline": "같은 S1에 두 번째 배터리와 윙 두 세트",
@@ -427,7 +457,8 @@
         "f2": "카본 윙 두 세트: Cruising 1843cm²와 Smooth 1201cm²",
         "f3": "배터리와 윙을 따로 사는 것보다 저렴",
         "f4": "색상 선택: 화이트, 블루, 핑크, 우드"
-      }
+      },
+      "badge": "풀 세트"
     },
     "hobby-cruising-front-wing": {
       "tagline": "Cruising 앞날개, 1843cm²",

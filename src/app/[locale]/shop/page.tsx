@@ -1,18 +1,26 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Container, Section, SectionHeading } from "@/components/ui";
+import { Container, Section, SectionHeading, buttonClasses } from "@/components/ui";
 import { BookBtn } from "@/components/BookBtn";
 import { Faq } from "@/components/Faq";
 import { Squiggle } from "@/components/Squiggle";
-import { IconFoil, IconPeople, IconTag } from "@/components/icons";
+import {
+  IconArrowRight,
+  IconPeople,
+  IconSliders,
+  IconWaves,
+  IconWrench,
+} from "@/components/icons";
 import { AccessoryCard, EfoilCard } from "@/components/shop/ShopCards";
 import { ShopBuyButton } from "@/components/shop/ShopBuyButton";
+import { ShopFilter } from "@/components/shop/ShopFilter";
+import { ShopTabs } from "@/components/shop/ShopTabs";
 import {
+  SHOP_ACCESSORY_KINDS,
   SHOP_BRANDS,
   shopAccessories,
   shopEfoils,
-  type ShopEfoil,
   type ShopProduct,
 } from "@/content/shop";
 import { localeAlternates } from "@/lib/alternates";
@@ -39,9 +47,13 @@ export async function generateMetadata({
 // особой отделке, а не отдельный выбор; S1 Pack — та же S1, но с довеском.
 const COMPARE_IDS = ["lift5-f", "lift5", "liftx", "hobby-s1"];
 
-// Магазин (этап 1): каталог Lift с ценами в долларах, «Купить» = связаться.
-// Порядок блоков — путь покупателя: что есть → чем отличаются → как купить →
-// что докупить → ответы на сомнения.
+// Флагман Lift — карточка с рамкой и оранжевой плашкой, как на макете.
+const FEATURED_ID = "lift5";
+
+// Магазин: каталог Lift и Hobbywing с ценами в долларах, «Купить» = связаться.
+// Собран по макетам David'а (photo_video/shop, ref_1…3, сентябрь 2026): первый
+// экран с кадром справа, под ним три вкладки — доски, аксессуары и «помощь с
+// выбором» (сравнение, как купить, вопросы).
 export default async function ShopPage({
   params,
 }: {
@@ -57,23 +69,10 @@ export default async function ShopPage({
   const priceLabel = (p: ShopProduct) =>
     pricesVary(p) ? t("from", { price: formatUsd(priceFrom(p)) }) : formatUsd(priceFrom(p));
 
-  const efoilMeta = (p: ShopEfoil) =>
-    [
-      p.rideMinutes
-        ? tProduct("facts.minutesOnMotor", { minutes: p.rideMinutes })
-        : tProduct("facts.liters", { liters: p.sizes[0].volumeL }),
-      t("sizesCount", { count: p.sizes.length }),
-    ].join(" · ");
-
-  const cheapest = Math.min(...shopEfoils.map(priceFrom));
-  const heroFacts = [
-    { icon: IconFoil, label: t("facts.linesLabel"), value: t("facts.linesValue") },
-    {
-      icon: IconTag,
-      label: t("facts.priceLabel"),
-      value: t("from", { price: formatUsd(cheapest) }),
-    },
-    { icon: IconPeople, label: t("facts.sizingLabel"), value: t("facts.sizingValue") },
+  const perks = [
+    { icon: IconPeople, title: t("perks.fitTitle"), text: t("perks.fitText") },
+    { icon: IconWaves, title: t("perks.tryTitle"), text: t("perks.tryText") },
+    { icon: IconWrench, title: t("perks.allTitle"), text: t("perks.allText") },
   ];
 
   const compared = COMPARE_IDS.map((id) => shopEfoils.find((p) => p.id === id)!);
@@ -114,214 +113,354 @@ export default async function ShopPage({
     a: t(`faq.${key}A`),
   }));
 
+  // Панели вкладок рисуются здесь, на сервере, и уходят в ShopTabs готовыми:
+  // карточки так и остаются серверными ссылками.
+  const efoilsPanel = (
+    <>
+      <div className="mt-10 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-bold sm:text-4xl">{t("efoilsTitle")}</h2>
+          <Squiggle className="mt-3" />
+          <p className="mt-3 max-w-2xl text-muted">{t("efoilsSubtitle")}</p>
+        </div>
+        <ShopBuyButton selection={{ productId: null }} place="shop-efoils" variant="ghost" size="md" className="!px-0">
+          {t("consult")} <IconArrowRight aria-hidden className="h-4 w-4" />
+        </ShopBuyButton>
+      </div>
+      {/* Бренды в одной сетке, но с фильтром: цены у них считаются по-разному,
+          и человек должен видеть, чью доску смотрит, — бренд подписан в
+          карточке, а сноска о ценах стоит под сеткой. */}
+      <ShopFilter
+        ariaLabel={t("brandFilter")}
+        chips={[
+          { key: "all", label: t("allModels") },
+          ...SHOP_BRANDS.map((b) => ({ key: b, label: b })),
+        ]}
+        aside={
+          <a href="#help" className={buttonClasses({ variant: "secondary", size: "md" })}>
+            <IconSliders aria-hidden className="h-5 w-5" />
+            {t("compareButton")}
+          </a>
+        }
+        gridClassName="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
+        items={shopEfoils.map((p) => ({
+          id: p.id,
+          tags: [p.brand],
+          node: (
+            <EfoilCard
+              product={p}
+              badge={tCat(`${p.id}.badge`)}
+              featured={p.id === FEATURED_ID}
+              tagline={tCat(`${p.id}.tagline`)}
+              colorLabel={tProduct("color")}
+              price={priceLabel(p)}
+              moreLabel={t("more")}
+            />
+          ),
+        }))}
+      />
+      <p className="mt-6 text-sm text-muted">{t("priceNote")}</p>
+      <HelpBanner
+        title={t("efoilsHelpTitle")}
+        text={t("efoilsHelpText")}
+        button={t("efoilsHelpButton")}
+        place="shop-efoils-help"
+        media={
+          <Image
+            src="/brand/flyguru-logo.jpg"
+            alt=""
+            width={96}
+            height={96}
+            className="h-16 w-16 rounded-full border-4 border-white shadow-sm sm:h-20 sm:w-20"
+          />
+        }
+      />
+    </>
+  );
+
+  const accessoriesPanel = (
+    <>
+      <div className="mt-10">
+        <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+          {t("accessoriesEyebrow")}
+        </p>
+        <h2 className="mt-2 text-3xl font-bold sm:text-4xl">{t("accessoriesTitle")}</h2>
+        <Squiggle className="mt-3" />
+        <p className="mt-3 max-w-2xl text-muted">{t("accessoriesSubtitle")}</p>
+      </div>
+      <ShopFilter
+        ariaLabel={t("kindFilter")}
+        chips={[
+          { key: "all", label: t("allAccessories") },
+          ...SHOP_ACCESSORY_KINDS.map((k) => ({ key: k, label: t(`kinds.${k}`) })),
+        ]}
+        gridClassName="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4"
+        items={shopAccessories.map((p) => ({
+          id: p.id,
+          tags: [p.kind],
+          node: (
+            <AccessoryCard
+              product={p}
+              price={priceLabel(p)}
+              kindLabel={t(`kinds.${p.kind}`)}
+              fitsLabel={tProduct("fits")}
+              moreLabel={t("more")}
+            />
+          ),
+        }))}
+      />
+      <HelpBanner
+        title={t("accessoriesHelpTitle")}
+        text={t("accessoriesHelpText")}
+        button={t("accessoriesHelpButton")}
+        place="shop-accessories-help"
+        media={
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-primary shadow-sm sm:h-20 sm:w-20">
+            <IconWrench aria-hidden className="h-8 w-8" />
+          </span>
+        }
+      />
+    </>
+  );
+
+  const helpPanel = (
+    <>
+      {/* ── Какой выбрать ── */}
+      <div className="mt-10">
+        <SectionHeading title={t("compareTitle")} subtitle={t("compareSubtitle")} />
+        {/* Таблица шире телефона — прокручивается сама по себе, страница
+            вбок не едет. Первая колонка прилипает, чтобы, листая, было видно,
+            какую строку сравниваешь. */}
+        <div className="mt-8 overflow-x-auto rounded-3xl border border-line bg-surface">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead>
+              <tr className="border-b border-line">
+                <th className="sticky left-0 bg-surface p-4" />
+                {compared.map((p) => (
+                  <th key={p.id} scope="col" className="p-4 text-left text-base font-bold">
+                    {/* Бренд над названием: «S1» рядом с «LIFT5» само по себе
+                        не говорит, чья это доска. */}
+                    <span className="block text-xs font-normal text-muted">{p.brand}</span>
+                    {p.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {compareRows.map((row) => (
+                <tr key={row.label}>
+                  <th
+                    scope="row"
+                    className="sticky left-0 bg-surface p-4 text-left font-medium text-muted"
+                  >
+                    {row.label}
+                  </th>
+                  {row.cells.map((cell, i) => (
+                    <td key={compared[i].id} className="p-4 font-semibold">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Как купить ── */}
+      <div className="mt-16">
+        <SectionHeading title={t("howTitle")} />
+        <ol className="mt-8 grid gap-4 md:grid-cols-3">
+          {steps.map((s, i) => (
+            <li key={s.title} className="rounded-3xl border border-line bg-surface p-6">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-lg font-bold text-white">
+                {i + 1}
+              </span>
+              <h3 className="mt-4 text-lg font-bold">{s.title}</h3>
+              <p className="mt-1.5 text-muted">{s.text}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      {/* ── Вопросы + помощь с выбором ── */}
+      <div className="mt-16 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+        <Faq items={faq} heading={t("faqHeading")} />
+        <div className="rounded-3xl bg-primary p-6 text-white sm:p-8">
+          <h2 className="text-2xl font-bold">{t("ctaTitle")}</h2>
+          <p className="mt-2 text-white/85">{t("ctaText")}</p>
+          <div className="mt-6 flex flex-col gap-3">
+            <ShopBuyButton selection={{ productId: null }} place="shop-cta" className="w-full">
+              {t("ctaButton")}
+            </ShopBuyButton>
+            <BookBtn place="shop-cta" variant="light" size="lg" className="w-full">
+              {t("ctaBook")}
+            </BookBtn>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <>
       {/* ── Первый экран ── */}
-      {/* Та же плашка, что ведёт сюда с главной, и тот же кадр: наша доска на
-          нашей воде. Устройство повторяет блок главной (фото полосой сверху на
-          телефоне, текст поверх светлой воды от sm) — там оно уже выверено. */}
-      <section className="bg-gradient-to-b from-surface-2 to-white pb-4 pt-6 sm:pt-10">
-        <Container>
-          <div className="relative isolate overflow-hidden rounded-3xl bg-surface shadow-[0_18px_40px_-28px_rgba(15,34,51,0.45)] sm:min-h-[380px]">
-            <div className="relative h-48 sm:absolute sm:inset-0 sm:-z-10 sm:h-auto">
+      {/* Собран по макету Ref 1 ровно как первый экран прайса и тандема, на
+          том же кадре hero_maket_3: до lg кадр идёт полосой во всю ширину,
+          текст под ним; от lg кадр уходит в правый верхний угол окна и стоит
+          там враспор, а текст занимает левую половину.
+          Все числа (52% ширины, 29.4vw высоты, сдвиг на 4.2%) — от этого
+          файла и посчитаны в prices/page.tsx; меняется кадр — пересчитать. */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-white to-surface-2 lg:flex lg:min-h-[29.4vw] lg:items-center">
+        {/* Чайки — как в прайсе. Обе слева: справа от lg кадр. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute left-6 top-24 w-14 -rotate-[7deg] opacity-90"
+          />
+          <Image
+            src="/media/decor/bird.webp"
+            alt=""
+            width={320}
+            height={117}
+            className="absolute left-2 top-48 w-[4.5rem] rotate-[5deg] opacity-80"
+          />
+        </div>
+
+        <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:flex lg:w-[52%] lg:items-start">
+          <div className="relative -ml-[4.2%] w-[104.2%] lg:ml-0 lg:w-full">
+            <Image
+              src="/media/photo/prices/hero.webp"
+              alt={t("heroAlt")}
+              width={1669}
+              height={942}
+              priority
+              quality={90}
+              sizes="(min-width: 1024px) 60vw, 105vw"
+              className="h-auto w-full"
+            />
+          </div>
+        </div>
+
+        <Container className="relative">
+          <div className="pb-10 pt-8 lg:max-w-[46%] lg:py-12">
+            <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+              {t("eyebrow")}
+            </p>
+            <Squiggle className="mt-3" />
+            <h1 className="mt-4 text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">
+              {t("title")}
+            </h1>
+            <p className="mt-5 max-w-xl text-muted sm:text-lg">{t("lead")}</p>
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <a href="#efoils" className={buttonClasses({ variant: "primary", size: "md" })}>
+                {t("toCatalog")} <IconArrowRight aria-hidden className="h-4 w-4" />
+              </a>
+              <ShopBuyButton
+                selection={{ productId: null }}
+                place="shop-hero"
+                variant="secondary"
+                size="md"
+              >
+                {t("consult")}
+              </ShopBuyButton>
+            </div>
+            {/* Логотипы брендов — официальные: Hobbywing с их сайта, Lift —
+                с обложки их каталога 2026 (на сайте только крошечный PNG).
+                Приглушены, чтобы не спорить с кнопками. */}
+            <div className="mt-7 flex items-center gap-6">
               <Image
-                src="/media/photo/shop-hero.webp"
-                alt={t("heroAlt")}
-                fill
-                priority
-                sizes="(min-width: 1152px) 1152px, 100vw"
-                quality={90}
-                className="object-cover object-[70%_50%] sm:object-center"
+                src="/media/shop/brands/lift-foils.webp"
+                alt="Lift Foils"
+                width={409}
+                height={200}
+                className="h-10 w-auto opacity-80"
+              />
+              <span aria-hidden className="h-8 w-px bg-line" />
+              <Image
+                src="/media/shop/brands/hobbywing.webp"
+                alt="Hobbywing"
+                width={634}
+                height={114}
+                className="h-6 w-auto opacity-80"
               />
             </div>
-            {/* Колонка текста уже, чем на главной (52%): нос доски на этом
-                кадре начинается на ~46% ширины плашки, а заголовок здесь в две
-                строки и абзац длиннее — при 54% текст заезжал на доску. */}
-            <div className="p-6 sm:flex sm:min-h-[380px] sm:max-w-[48%] sm:flex-col sm:justify-center sm:p-10 lg:max-w-[43%]">
-              <p className="text-sm font-semibold uppercase tracking-wide text-primary">
-                {t("eyebrow")}
-              </p>
-              <Squiggle className="mt-3" />
-              <h1 className="mt-4 text-3xl font-bold leading-tight sm:text-4xl">{t("title")}</h1>
-              <p className="mt-3 text-muted sm:text-lg">{t("lead")}</p>
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <a
-                  href="#efoils"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-strong"
-                >
-                  {t("toCatalog")}
-                </a>
-                <ShopBuyButton
-                  selection={{ productId: null }}
-                  place="shop-hero"
-                  variant="secondary"
-                  size="md"
-                >
-                  {t("consult")}
-                </ShopBuyButton>
-              </div>
-            </div>
           </div>
+        </Container>
+      </section>
 
-          <ul className="mt-6 grid gap-4 sm:grid-cols-3">
-            {heroFacts.map((f) => (
-              <li key={f.label} className="flex items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-2 text-primary">
-                  <f.icon aria-hidden className="h-5 w-5" />
+      {/* ── Три обещания + вкладки каталога ── */}
+      {/* Верхнее поле почти убрано: у текста героя своё нижнее поле, и вместе
+          они давали пустую полосу во весь экран между логотипами и пунктами. */}
+      <Section pad="tight" className="bg-gradient-to-b from-surface-2 to-white !pt-2">
+        <Container>
+          <ul className="grid gap-4 sm:grid-cols-3 sm:gap-0">
+            {perks.map((p, i) => (
+              <li
+                key={p.title}
+                className={`flex items-center gap-3 sm:px-6 ${i > 0 ? "sm:border-l sm:border-line" : "sm:pl-0"}`}
+              >
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-primary shadow-sm">
+                  <p.icon aria-hidden className="h-6 w-6" />
                 </span>
                 <span>
-                  <span className="block text-xs text-muted">{f.label}</span>
-                  <span className="block text-sm font-bold leading-tight">{f.value}</span>
+                  <span className="block font-bold leading-tight">{p.title}</span>
+                  <span className="mt-0.5 block text-sm text-muted">{p.text}</span>
                 </span>
               </li>
             ))}
           </ul>
-        </Container>
-      </section>
 
-      {/* ── Электрофойлы ── */}
-      <Section id="efoils" pad="tight" className="scroll-mt-20">
-        <Container>
-          <SectionHeading title={t("efoilsTitle")} subtitle={t("efoilsSubtitle")} />
-          {/* Брендов теперь два, и цены у них считаются по-разному — мешать их
-              в одну сетку нельзя: человек должен видеть, чью доску смотрит. */}
-          {SHOP_BRANDS.map((brand) => {
-            const items = shopEfoils.filter((p) => p.brand === brand);
-            if (items.length === 0) return null;
-            return (
-              <div key={brand} className="mt-10 first:mt-8">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
-                  {brand}
-                </h3>
-                <div className="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {items.map((p) => (
-                    <EfoilCard
-                      key={p.id}
-                      product={p}
-                      tagline={tCat(`${p.id}.tagline`)}
-                      meta={efoilMeta(p)}
-                      limitedLabel={tProduct("limited")}
-                      price={priceLabel(p)}
-                      moreLabel={t("more")}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-          <p className="mt-6 text-sm text-muted">{t("priceNote")}</p>
-        </Container>
-      </Section>
-
-      {/* ── Какой выбрать ── */}
-      <Section pad="tight" tone="muted">
-        <Container>
-          <SectionHeading title={t("compareTitle")} subtitle={t("compareSubtitle")} />
-          {/* Таблица шире телефона — прокручивается сама по себе, страница
-              вбок не едет. Первая колонка прилипает, чтобы, листая, было видно,
-              какую строку сравниваешь. */}
-          <div className="mt-8 overflow-x-auto rounded-3xl border border-line bg-surface">
-            <table className="w-full min-w-[760px] text-sm">
-              <thead>
-                <tr className="border-b border-line">
-                  <th className="sticky left-0 bg-surface p-4" />
-                  {compared.map((p) => (
-                    <th key={p.id} scope="col" className="p-4 text-left text-base font-bold">
-                      {/* Бренд над названием: «S1» рядом с «LIFT5» само по себе
-                          не говорит, чья это доска. */}
-                      <span className="block text-xs font-normal text-muted">{p.brand}</span>
-                      {p.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {compareRows.map((row) => (
-                  <tr key={row.label}>
-                    <th
-                      scope="row"
-                      className="sticky left-0 bg-surface p-4 text-left font-medium text-muted"
-                    >
-                      {row.label}
-                    </th>
-                    {row.cells.map((cell, i) => (
-                      <td key={compared[i].id} className="p-4 font-semibold">
-                        {cell}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Container>
-      </Section>
-
-      {/* ── Как купить ── */}
-      <Section pad="tight">
-        <Container>
-          <SectionHeading title={t("howTitle")} />
-          <ol className="mt-8 grid gap-4 md:grid-cols-3">
-            {steps.map((s, i) => (
-              <li key={s.title} className="rounded-3xl border border-line bg-surface p-6">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-lg font-bold text-white">
-                  {i + 1}
-                </span>
-                <h3 className="mt-4 text-lg font-bold">{s.title}</h3>
-                <p className="mt-1.5 text-muted">{s.text}</p>
-              </li>
-            ))}
-          </ol>
-        </Container>
-      </Section>
-
-      {/* ── Аксессуары ── */}
-      <Section id="accessories" pad="tight" tone="muted" className="scroll-mt-20">
-        <Container>
-          <SectionHeading title={t("accessoriesTitle")} subtitle={t("accessoriesSubtitle")} />
-          {SHOP_BRANDS.map((brand) => {
-            const items = shopAccessories.filter((p) => p.brand === brand);
-            if (items.length === 0) return null;
-            return (
-              <div key={brand} className="mt-10 first:mt-8">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted">
-                  {brand}
-                </h3>
-                <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-                  {items.map((p) => (
-                    <AccessoryCard key={p.id} product={p} price={priceLabel(p)} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </Container>
-      </Section>
-
-      {/* ── Вопросы + помощь с выбором ── */}
-      <Section pad="tight">
-        <Container>
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
-            <Faq items={faq} heading={t("faqHeading")} />
-            <div className="rounded-3xl bg-primary p-6 text-white sm:p-8">
-              <h2 className="text-2xl font-bold">{t("ctaTitle")}</h2>
-              <p className="mt-2 text-white/85">{t("ctaText")}</p>
-              <div className="mt-6 flex flex-col gap-3">
-                <ShopBuyButton
-                  selection={{ productId: null }}
-                  place="shop-cta"
-                  className="w-full"
-                >
-                  {t("ctaButton")}
-                </ShopBuyButton>
-                <BookBtn place="shop-cta" variant="light" size="lg" className="w-full">
-                  {t("ctaBook")}
-                </BookBtn>
-              </div>
-            </div>
+          <div className="mt-10">
+            <ShopTabs
+              ariaLabel={t("tabs.aria")}
+              labels={{
+                efoils: t("tabs.efoils"),
+                accessories: t("tabs.accessories"),
+                help: t("tabs.help"),
+              }}
+              panels={{ efoils: efoilsPanel, accessories: accessoriesPanel, help: helpPanel }}
+            />
           </div>
         </Container>
       </Section>
     </>
+  );
+}
+
+// Плашка «не уверены — поможем» под сеткой каталога: картинка слева, текст,
+// оранжевая кнопка справа. На телефоне всё в столбик.
+function HelpBanner({
+  title,
+  text,
+  button,
+  place,
+  media,
+}: {
+  title: string;
+  text: string;
+  button: string;
+  place: string;
+  media: React.ReactNode;
+}) {
+  return (
+    <div className="mt-10 flex flex-col items-start gap-4 rounded-3xl bg-gradient-to-r from-primary/10 to-surface-2 p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
+      <span className="shrink-0">{media}</span>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-lg font-bold sm:text-xl">{title}</h3>
+        <p className="mt-1 text-sm text-muted sm:text-base">{text}</p>
+      </div>
+      <ShopBuyButton
+        selection={{ productId: null }}
+        place={place}
+        size="md"
+        className="w-full shrink-0 sm:w-auto"
+      >
+        {button}
+      </ShopBuyButton>
+    </div>
   );
 }

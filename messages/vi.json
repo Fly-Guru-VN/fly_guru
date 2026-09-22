@@ -152,23 +152,15 @@
   "Shop": {
     "metaTitle": "Cửa hàng eFoil: Lift và Hobbywing",
     "metaDescription": "eFoil tại Nha Trang: Lift Foils (LIFT5, LIFT5 F, LIFTX) và Hobbywing S1. Chúng tôi chọn ván theo cân nặng của bạn, và bạn có thể thử trước trong một buổi học tại trường.",
-    "eyebrow": "Cửa hàng",
-    "title": "eFoil tại Nha Trang",
-    "lead": "Chúng tôi nhập chính hãng Lift Foils và Hobbywing. Sẽ giúp bạn chọn ván theo cân nặng và trình độ — và bạn có thể thử eFoil trước trong một buổi học tại trường của chúng tôi.",
+    "eyebrow": "Cửa hàng FlyGuru",
+    "title": "Chuyến bay tiếp theo — trên chiếc ván của riêng bạn",
+    "lead": "eFoil Lift Foils và Hobbywing. Chúng tôi giúp bạn chọn ván phù hợp với kinh nghiệm và phong cách lướt.",
     "heroAlt": "eFoil đang bay trên mặt biển",
-    "toCatalog": "Xem các mẫu",
+    "toCatalog": "Chọn eFoil",
     "consult": "Tư vấn chọn ván",
-    "facts": {
-      "linesLabel": "Thương hiệu",
-      "linesValue": "Lift Foils · Hobbywing",
-      "priceLabel": "Giá",
-      "sizingLabel": "Kích cỡ ván",
-      "sizingValue": "Chọn theo cân nặng của bạn"
-    },
     "from": "từ {price}",
-    "efoilsTitle": "eFoil",
-    "efoilsSubtitle": "Trọn bộ: ván, cột có động cơ, cánh, pin và tay điều khiển. Kích cỡ và màu chọn trên trang của từng mẫu.",
-    "sizesCount": "{count, plural, other {# kích cỡ}}",
+    "efoilsTitle": "Tìm eFoil của bạn",
+    "efoilsSubtitle": "Chọn ván theo kinh nghiệm và phong cách lướt. Mỗi mẫu là một bộ hoàn chỉnh: ván, trụ có động cơ, cánh, pin và tay điều khiển.",
     "more": "Chi tiết",
     "compareTitle": "Nên chọn mẫu nào",
     "compareSubtitle": "Ba dòng chính của Lift và ván Hobbywing — điểm khác nhau, nói ngắn gọn.",
@@ -190,8 +182,8 @@
       "getTitle": "Thống nhất việc mua",
       "getText": "Chúng tôi sẽ trao đổi về thanh toán và giao hàng. Trước khi mua, bạn có thể thử eFoil trong một buổi học tại trường."
     },
-    "accessoriesTitle": "Phụ kiện",
-    "accessoriesSubtitle": "Pin, tay điều khiển, động cơ, cánh và những thứ giúp ngày ra biển nhẹ nhàng hơn.",
+    "accessoriesTitle": "Mọi thứ cho eFoil của bạn",
+    "accessoriesSubtitle": "Pin, tay điều khiển, cánh và động cơ — cho mỗi lần xuống nước.",
     "faqHeading": "Câu hỏi về việc mua",
     "faq": {
       "tryQ": "Tôi có thể thử trước khi mua không?",
@@ -205,7 +197,39 @@
     "ctaText": "Cho chúng tôi biết cân nặng và kinh nghiệm — chúng tôi sẽ chọn mẫu và kích cỡ.",
     "ctaButton": "Nhắn cho chúng tôi",
     "ctaBook": "Đặt buổi học",
-    "priceNote": "Giá tính bằng đô la. Với Lift đó là giá bán lẻ tại Mỹ chưa gồm vận chuyển; với Hobbywing là giá đã gồm giao tận nhà. Giá cuối cùng tại Việt Nam chúng tôi sẽ báo khi liên hệ."
+    "priceNote": "Giá tính bằng đô la. Với Lift đó là giá bán lẻ tại Mỹ chưa gồm vận chuyển; với Hobbywing là giá đã gồm giao tận nhà. Giá cuối cùng tại Việt Nam chúng tôi sẽ báo khi liên hệ.",
+    "perks": {
+      "fitTitle": "Chọn theo bạn",
+      "fitText": "Kinh nghiệm, cân nặng và phong cách lướt",
+      "tryTitle": "Thử trước đã",
+      "tryText": "Làm quen eFoil trong buổi học",
+      "allTitle": "Đủ mọi thứ để lướt",
+      "allText": "Ván, pin, tay điều khiển và cánh"
+    },
+    "tabs": {
+      "efoils": "eFoil",
+      "accessories": "Phụ kiện",
+      "help": "Tư vấn chọn",
+      "aria": "Mục cửa hàng"
+    },
+    "allModels": "Tất cả mẫu",
+    "brandFilter": "Thương hiệu",
+    "compareButton": "So sánh các mẫu",
+    "efoilsHelpTitle": "Chưa biết ván nào hợp với bạn?",
+    "efoilsHelpText": "Hãy cho chúng tôi biết kinh nghiệm và cân nặng — chúng tôi giúp bạn chọn mẫu.",
+    "efoilsHelpButton": "Chọn ván giúp tôi",
+    "accessoriesEyebrow": "Phụ kiện",
+    "allAccessories": "Tất cả phụ kiện",
+    "kindFilter": "Danh mục",
+    "kinds": {
+      "battery": "Pin và sạc",
+      "controller": "Tay điều khiển",
+      "propulsion": "Cánh và động cơ",
+      "gear": "Ván và vận chuyển"
+    },
+    "accessoriesHelpTitle": "Chọn phụ kiện tương thích",
+    "accessoriesHelpText": "Cho chúng tôi biết mẫu ván của bạn — chúng tôi giúp bạn chọn đúng bộ.",
+    "accessoriesHelpButton": "Tư vấn chọn"
   },
   "ShopProduct": {
     "back": "Cửa hàng",
@@ -281,7 +305,8 @@
         "f2": "Cột nhôm 28″ — bay êm và dễ đoán",
         "f3": "Pin Gen5 — tới 90 phút chạy động cơ",
         "f4": "Nâng cấp dần: sau này có thể thay cột và cánh bằng carbon"
-      }
+      },
+      "badge": "eFoil đầu tiên"
     },
     "lift5": {
       "tagline": "Mẫu chủ lực — cho lần bay đầu tiên lẫn người lướt giàu kinh nghiệm",
@@ -292,7 +317,8 @@
         "f2": "Cột carbon và cánh Camber Pro",
         "f3": "Tay điều khiển Elite màn hình màu: tốc độ GPS, pin, quãng đường",
         "f4": "Dùng được với Blowfish — để tập và chơi cùng trẻ em"
-      }
+      },
+      "badge": "Đa năng"
     },
     "liftx": {
       "tagline": "Dòng lai: lướt như foil, đẩy như eFoil",
@@ -303,7 +329,8 @@
         "f2": "Cả bộ nặng dưới 22 kg",
         "f3": "Pin LIFTX — khoảng 45 phút chạy động cơ",
         "f4": "Cho trình độ trung bình và nâng cao"
-      }
+      },
+      "badge": "Lai"
     },
     "lift5-laird": {
       "tagline": "Phiên bản hợp tác với huyền thoại lướt sóng Laird Hamilton",
@@ -314,7 +341,8 @@
         "f2": "64 lít trong thân hẹp — cất cánh dễ dàng",
         "f3": "Pin Gen5 — khoảng 90 phút chạy động cơ",
         "f4": "Số lượng giới hạn năm 2026"
-      }
+      },
+      "badge": "Phiên bản giới hạn"
     },
     "liftx-florence": {
       "tagline": "Phiên bản của anh em Florence cho downwind và sóng",
@@ -325,7 +353,8 @@
         "f2": "Nằm giữa 4'3 và 4'8 — cỡ ưa thích của người lướt giỏi",
         "f3": "Chân vịt gập và động cơ gắn thấp",
         "f4": "Số lượng giới hạn năm 2026"
-      }
+      },
+      "badge": "Phiên bản giới hạn"
     },
     "gen5-battery": {
       "tagline": "Trái tim của LIFT5 và LIFT5 F — tới 90 phút chạy động cơ",
@@ -416,7 +445,8 @@
         "f2": "Động cơ tới 6 kW, truyền động FOC, bảo vệ quá nhiệt, quá tải và kẹt",
         "f3": "Bộ sạc 1300 W: sạc đầy trong 150 phút",
         "f4": "Tay điều khiển nổi trên nước: màn hình, Bluetooth, IP68, dùng tới 10 giờ"
-      }
+      },
+      "badge": "Ổn định"
     },
     "hobby-s1-pack": {
       "tagline": "Vẫn là S1, kèm pin thứ hai và cả hai bộ cánh",
@@ -427,7 +457,8 @@
         "f2": "Hai bộ cánh carbon: Cruising 1843 cm² và Smooth 1201 cm²",
         "f3": "Rẻ hơn so với mua pin và cánh riêng lẻ",
         "f4": "Chọn màu: trắng, xanh, hồng hoặc vân gỗ"
-      }
+      },
+      "badge": "Bộ đầy đủ"
     },
     "hobby-cruising-front-wing": {
       "tagline": "Cánh trước Cruising, 1843 cm²",

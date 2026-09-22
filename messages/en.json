@@ -152,23 +152,15 @@
   "Shop": {
     "metaTitle": "eFoil shop: Lift and Hobbywing",
     "metaDescription": "eFoils in Nha Trang: Lift Foils (LIFT5, LIFT5 F, LIFTX) and the Hobbywing S1. We will match a board to your weight, and you can try one first in a lesson at our school.",
-    "eyebrow": "Shop",
-    "title": "eFoils in Nha Trang",
-    "lead": "We are official importers of Lift Foils and Hobbywing. We will help you choose a board for your weight and level — and you can try an eFoil first, in a lesson at our school.",
+    "eyebrow": "FlyGuru shop",
+    "title": "Your next flight — on your own board",
+    "lead": "Lift Foils and Hobbywing eFoils. We'll help you pick a board for your experience and riding style.",
     "heroAlt": "An eFoil flying over the sea",
-    "toCatalog": "See the models",
+    "toCatalog": "Choose an eFoil",
     "consult": "Help me choose",
-    "facts": {
-      "linesLabel": "Brands",
-      "linesValue": "Lift Foils · Hobbywing",
-      "priceLabel": "Prices",
-      "sizingLabel": "Board size",
-      "sizingValue": "Matched to your weight"
-    },
     "from": "from {price}",
-    "efoilsTitle": "eFoils",
-    "efoilsSubtitle": "Complete packages: board, motor mast, wings, battery and hand controller. Pick the size and colour on the model page.",
-    "sizesCount": "{count, plural, one {# size} other {# sizes}}",
+    "efoilsTitle": "Find your eFoil",
+    "efoilsSubtitle": "Pick a board for your experience and riding style. Each one is a complete set: board, mast with motor, wings, battery and remote.",
     "more": "Details",
     "compareTitle": "Which one to choose",
     "compareSubtitle": "The three main Lift lines and the Hobbywing board, and how they differ — in short.",
@@ -190,8 +182,8 @@
       "getTitle": "Agree on the purchase",
       "getText": "We will sort out payment and delivery. And before you buy, you can try an eFoil in a lesson at our school."
     },
-    "accessoriesTitle": "Accessories",
-    "accessoriesSubtitle": "Batteries, hand controllers, motors, wings and things that make beach days easier.",
+    "accessoriesTitle": "Everything for your eFoil",
+    "accessoriesSubtitle": "Batteries, remotes, wings and motors — for every session on the water.",
     "faqHeading": "Buying questions",
     "faq": {
       "tryQ": "Can I try before I buy?",
@@ -205,7 +197,39 @@
     "ctaText": "Tell us your weight and experience — we will pick the model and size.",
     "ctaButton": "Message us",
     "ctaBook": "Book a lesson",
-    "priceNote": "Prices are in dollars. For Lift it is the US retail price without delivery; for Hobbywing it is the price with delivery to your door. We will give you the final price in Vietnam when we get in touch."
+    "priceNote": "Prices are in dollars. For Lift it is the US retail price without delivery; for Hobbywing it is the price with delivery to your door. We will give you the final price in Vietnam when we get in touch.",
+    "perks": {
+      "fitTitle": "Matched to you",
+      "fitText": "Experience, weight and riding style",
+      "tryTitle": "Try it first",
+      "tryText": "Get to know eFoil in a lesson",
+      "allTitle": "Everything to ride",
+      "allText": "Boards, batteries, remotes and wings"
+    },
+    "tabs": {
+      "efoils": "eFoils",
+      "accessories": "Accessories",
+      "help": "Help choosing",
+      "aria": "Shop sections"
+    },
+    "allModels": "All models",
+    "brandFilter": "Brand",
+    "compareButton": "Compare models",
+    "efoilsHelpTitle": "Not sure which board fits you?",
+    "efoilsHelpText": "Tell us about your experience and weight — we'll help you sort out the models.",
+    "efoilsHelpButton": "Find my board",
+    "accessoriesEyebrow": "Accessories",
+    "allAccessories": "All accessories",
+    "kindFilter": "Section",
+    "kinds": {
+      "battery": "Batteries & charging",
+      "controller": "Remotes",
+      "propulsion": "Wings & motors",
+      "gear": "Boards & carrying"
+    },
+    "accessoriesHelpTitle": "We'll find compatible accessories",
+    "accessoriesHelpText": "Tell us your board model — we'll help you put together the right set.",
+    "accessoriesHelpButton": "Help me choose"
   },
   "ShopProduct": {
     "back": "Shop",
@@ -281,7 +305,8 @@
         "f2": "28″ aluminium mast for smooth, predictable flight",
         "f3": "Gen5 battery — up to 90 minutes on power",
         "f4": "Grows with you: upgrade the mast and wings to carbon later"
-      }
+      },
+      "badge": "First eFoil"
     },
     "lift5": {
       "tagline": "The flagship — for first flights and experienced riders alike",
@@ -292,7 +317,8 @@
         "f2": "Carbon mast and Camber Pro wings",
         "f3": "Elite hand controller with a colour screen: GPS speed, charge, distance",
         "f4": "Blowfish compatible — for learning and riding with kids"
-      }
+      },
+      "badge": "All-rounder"
     },
     "liftx": {
       "tagline": "The hybrid: rides like a foil, powers like an eFoil",
@@ -303,7 +329,8 @@
         "f2": "The whole setup weighs under 22 kg",
         "f3": "LIFTX battery — about 45 minutes on power",
         "f4": "For intermediate and advanced riders"
-      }
+      },
+      "badge": "Hybrid"
     },
     "lift5-laird": {
       "tagline": "Signature series created with surfing legend Laird Hamilton",
@@ -314,7 +341,8 @@
         "f2": "64 litres in a narrow outline — easy take-offs",
         "f3": "Gen5 battery — about 90 minutes on power",
         "f4": "Limited 2026 run"
-      }
+      },
+      "badge": "Limited edition"
     },
     "liftx-florence": {
       "tagline": "The Florence brothers' series for downwinders and waves",
@@ -325,7 +353,8 @@
         "f2": "Sits between the 4'3 and 4'8 — the sweet spot for experienced riders",
         "f3": "Folding propeller and low-mount motor",
         "f4": "Limited 2026 run"
-      }
+      },
+      "badge": "Limited edition"
     },
     "gen5-battery": {
       "tagline": "The heart of the LIFT5 and LIFT5 F — up to 90 minutes on power",
@@ -416,7 +445,8 @@
         "f2": "Motor up to 6 kW, FOC drive, protected against overheating, overload and stalling",
         "f3": "1300 W charger: a full charge in 150 minutes",
         "f4": "The hand controller floats: display, Bluetooth, IP68, up to 10 hours of use"
-      }
+      },
+      "badge": "Stable"
     },
     "hobby-s1-pack": {
       "tagline": "The same S1, with a second battery and both wing sets",
@@ -427,7 +457,8 @@
         "f2": "Two sets of carbon wings: Cruising 1843 cm² and Smooth 1201 cm²",
         "f3": "Cheaper than buying the battery and wings separately",
         "f4": "Choose your colour: white, blue, pink or wood"
-      }
+      },
+      "badge": "Full set"
     },
     "hobby-cruising-front-wing": {
       "tagline": "Cruising front wing, 1843 cm²",

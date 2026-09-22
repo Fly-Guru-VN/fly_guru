@@ -92,12 +92,23 @@ export interface ShopAccessoryVariant {
   images: string[];
 }
 
+// Разделы аксессуаров — чипы над сеткой в каталоге. Подписи — в messages,
+// Shop.kinds. Порядок массива = порядок чипов.
+export type ShopAccessoryKind = "battery" | "controller" | "propulsion" | "gear";
+export const SHOP_ACCESSORY_KINDS: ShopAccessoryKind[] = [
+  "battery",
+  "controller",
+  "propulsion",
+  "gear",
+];
+
 export interface ShopAccessory {
   category: "accessory";
   id: string;
   brand: ShopBrand;
   name: string;
   fits: ShopLine[]; // с какими досками работает
+  kind: ShopAccessoryKind; // раздел в каталоге — по нему чипы-фильтры
   variants: ShopAccessoryVariant[];
 }
 
@@ -465,6 +476,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Lift Foils",
     name: "Gen5 Full Range Battery",
     fits: ["LIFT5", "LIFT5 F"],
+    kind: "battery",
     variants: [{ id: "main", priceUsd: 3_880, images: img("gen5-battery", "main", 3) }],
   },
   {
@@ -473,6 +485,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Lift Foils",
     name: "LIFTX Battery",
     fits: ["LIFTX", "LIFT5", "LIFT5 F"],
+    kind: "battery",
     variants: [{ id: "main", priceUsd: 3_200, images: img("liftx-battery", "main", 3) }],
   },
   {
@@ -481,6 +494,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Lift Foils",
     name: "LIFTX Battery Adapter",
     fits: ["LIFT5", "LIFT5 F"],
+    kind: "battery",
     variants: [{ id: "main", priceUsd: 299, images: img("liftx-battery-adapter", "main", 3) }],
   },
   {
@@ -489,6 +503,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Lift Foils",
     name: "Elite Hand Controller",
     fits: ["LIFT5", "LIFTX"],
+    kind: "controller",
     variants: [{ id: "main", priceUsd: 895, images: img("elite-hand-controller", "main", 3) }],
   },
   {
@@ -497,6 +512,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Lift Foils",
     name: "Lift Hand Controller",
     fits: ["LIFT5", "LIFT5 F", "LIFTX"],
+    kind: "controller",
     variants: [{ id: "main", priceUsd: 529, images: img("lift-hand-controller", "main", 3) }],
   },
   {
@@ -505,6 +521,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Lift Foils",
     name: "LCS Carbon 55 Propulsion",
     fits: ["LIFTX", "LIFT5", "LIFT5 F"],
+    kind: "propulsion",
     variants: [
       { id: "low", label: '32" Low Mount', priceUsd: 3_071, images: img("propulsion-55", "low", 2) },
       { id: "high", label: '32" High Mount', priceUsd: 3_071, images: img("propulsion-55", "high", 1) },
@@ -522,6 +539,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Lift Foils",
     name: "Blowfish",
     fits: ["LIFT5", "LIFT5 F"],
+    kind: "gear",
     // Размер Blowfish = размер доски, под которую он надевается. Фото общие:
     // у Lift они одни на все три размера.
     variants: ["4'4", "4'9", "5'4"].map((label) => ({
@@ -537,6 +555,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Lift Foils",
     name: "LIFT5 Beach Wheels",
     fits: ["LIFT5", "LIFT5 F"],
+    kind: "gear",
     variants: [{ id: "main", priceUsd: 250, images: img("beach-wheels", "main", 2) }],
   },
   {
@@ -545,6 +564,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Lift Foils",
     name: "Battery Backpack",
     fits: ["LIFT5", "LIFT5 F", "LIFTX"],
+    kind: "gear",
     variants: [
       { id: "gen5", label: "Gen5", priceUsd: 85, images: img("battery-backpack", "gen5", 1) },
       { id: "liftx", label: "LIFTX", priceUsd: 85, images: img("battery-backpack", "liftx", 1) },
@@ -556,6 +576,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Hobbywing",
     name: "S1 Cruising Front Wing",
     fits: ["HOBBY S1"],
+    kind: "propulsion",
     variants: [{ id: "main", priceUsd: 515, images: img("hobby-cruising-front-wing", "main", 1) }],
   },
   {
@@ -564,6 +585,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Hobbywing",
     name: "S1 Cruising Rear Wing",
     fits: ["HOBBY S1"],
+    kind: "propulsion",
     variants: [{ id: "main", priceUsd: 220, images: img("hobby-cruising-rear-wing", "main", 1) }],
   },
   {
@@ -572,6 +594,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Hobbywing",
     name: "S1 Smooth Front Wing",
     fits: ["HOBBY S1"],
+    kind: "propulsion",
     variants: [{ id: "main", priceUsd: 515, images: img("hobby-smooth-front-wing", "main", 1) }],
   },
   {
@@ -580,6 +603,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Hobbywing",
     name: "S1 Smooth Rear Wing",
     fits: ["HOBBY S1"],
+    kind: "propulsion",
     variants: [{ id: "main", priceUsd: 220, images: img("hobby-smooth-rear-wing", "main", 1) }],
   },
   {
@@ -588,6 +612,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Hobbywing",
     name: "S1 Power System",
     fits: ["HOBBY S1"],
+    kind: "propulsion",
     variants: [{ id: "main", priceUsd: 2_950, images: img("hobby-power-system", "main", 1) }],
   },
   {
@@ -596,6 +621,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Hobbywing",
     name: "S1 Battery",
     fits: ["HOBBY S1"],
+    kind: "battery",
     variants: [{ id: "main", priceUsd: 3_000, images: img("hobby-battery", "main", 1) }],
   },
   {
@@ -604,6 +630,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Hobbywing",
     name: "S1 Remote Controller",
     fits: ["HOBBY S1"],
+    kind: "controller",
     variants: [{ id: "main", priceUsd: 290, images: img("hobby-remote", "main", 1) }],
   },
   {
@@ -612,6 +639,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Hobbywing",
     name: "S1 Board",
     fits: ["HOBBY S1"],
+    kind: "gear",
     variants: [{ id: "main", priceUsd: 2_700, images: img("hobby-board", "main", 1) }],
   },
   {
@@ -620,6 +648,7 @@ export const shopAccessories: ShopAccessory[] = [
     brand: "Hobbywing",
     name: "S1 Charger",
     fits: ["HOBBY S1"],
+    kind: "battery",
     variants: [{ id: "main", priceUsd: 660, images: img("hobby-charger", "main", 1) }],
   },
 ];

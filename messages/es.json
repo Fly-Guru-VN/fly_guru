@@ -152,23 +152,15 @@
   "Shop": {
     "metaTitle": "Tienda de eFoils: Lift y Hobbywing",
     "metaDescription": "eFoils en Nha Trang: Lift Foils (LIFT5, LIFT5 F, LIFTX) y Hobbywing S1. Te buscamos la tabla según tu peso, y puedes probarla antes en una clase en nuestra escuela.",
-    "eyebrow": "Tienda",
-    "title": "eFoils en Nha Trang",
-    "lead": "Somos importadores oficiales de Lift Foils y Hobbywing. Te ayudamos a elegir la tabla según tu peso y tu nivel, y puedes probar un eFoil antes, en una clase en nuestra escuela.",
+    "eyebrow": "Tienda FlyGuru",
+    "title": "Tu próximo vuelo, en tu propia tabla",
+    "lead": "eFoils de Lift Foils y Hobbywing. Te ayudamos a elegir la tabla según tu experiencia y estilo.",
     "heroAlt": "Un eFoil volando sobre el mar",
-    "toCatalog": "Ver los modelos",
+    "toCatalog": "Elegir eFoil",
     "consult": "Ayúdame a elegir",
-    "facts": {
-      "linesLabel": "Marcas",
-      "linesValue": "Lift Foils · Hobbywing",
-      "priceLabel": "Precios",
-      "sizingLabel": "Talla de la tabla",
-      "sizingValue": "Según tu peso"
-    },
     "from": "desde {price}",
-    "efoilsTitle": "eFoils",
-    "efoilsSubtitle": "Paquetes completos: tabla, mástil con motor, alas, batería y mando. La talla y el color se eligen en la página del modelo.",
-    "sizesCount": "{count, plural, one {# talla} other {# tallas}}",
+    "efoilsTitle": "Encuentra tu eFoil",
+    "efoilsSubtitle": "Elige una tabla según tu experiencia y estilo. Cada una es un equipo completo: tabla, mástil con motor, alas, batería y mando.",
     "more": "Ver más",
     "compareTitle": "Cuál elegir",
     "compareSubtitle": "Las tres líneas principales de Lift y la tabla de Hobbywing, y en qué se diferencian.",
@@ -190,8 +182,8 @@
       "getTitle": "Cerramos la compra",
       "getText": "Acordamos el pago y la entrega. Y antes de comprar puedes probar un eFoil en una clase en nuestra escuela."
     },
-    "accessoriesTitle": "Accesorios",
-    "accessoriesSubtitle": "Baterías, mandos, motores, alas y lo que hace más fácil el día en la playa.",
+    "accessoriesTitle": "Todo para tu eFoil",
+    "accessoriesSubtitle": "Baterías, mandos, alas y motores para cada salida al agua.",
     "faqHeading": "Preguntas sobre la compra",
     "faq": {
       "tryQ": "¿Puedo probarlo antes de comprar?",
@@ -205,7 +197,39 @@
     "ctaText": "Cuéntanos tu peso y tu experiencia y te elegimos el modelo y la talla.",
     "ctaButton": "Escríbenos",
     "ctaBook": "Reservar una clase",
-    "priceNote": "Precios en dólares. En Lift es el precio de venta en EE. UU. sin envío; en Hobbywing, el precio ya con entrega a domicilio. El precio final en Vietnam te lo diremos cuando contactemos contigo."
+    "priceNote": "Precios en dólares. En Lift es el precio de venta en EE. UU. sin envío; en Hobbywing, el precio ya con entrega a domicilio. El precio final en Vietnam te lo diremos cuando contactemos contigo.",
+    "perks": {
+      "fitTitle": "A tu medida",
+      "fitText": "Experiencia, peso y estilo",
+      "tryTitle": "Pruébalo primero",
+      "tryText": "Conoce el eFoil en una clase",
+      "allTitle": "Todo para navegar",
+      "allText": "Tablas, baterías, mandos y alas"
+    },
+    "tabs": {
+      "efoils": "eFoils",
+      "accessories": "Accesorios",
+      "help": "Ayuda para elegir",
+      "aria": "Secciones de la tienda"
+    },
+    "allModels": "Todos los modelos",
+    "brandFilter": "Marca",
+    "compareButton": "Comparar modelos",
+    "efoilsHelpTitle": "¿No sabes qué tabla te conviene?",
+    "efoilsHelpText": "Cuéntanos tu experiencia y tu peso: te ayudamos a entender los modelos.",
+    "efoilsHelpButton": "Elegir tabla",
+    "accessoriesEyebrow": "Accesorios",
+    "allAccessories": "Todos los accesorios",
+    "kindFilter": "Sección",
+    "kinds": {
+      "battery": "Baterías y carga",
+      "controller": "Mandos",
+      "propulsion": "Alas y motores",
+      "gear": "Tablas y transporte"
+    },
+    "accessoriesHelpTitle": "Te ayudamos con accesorios compatibles",
+    "accessoriesHelpText": "Dinos el modelo de tu tabla y armamos el equipo que necesitas.",
+    "accessoriesHelpButton": "Ayuda para elegir"
   },
   "ShopProduct": {
     "back": "Tienda",
@@ -281,7 +305,8 @@
         "f2": "Mástil de aluminio de 28″: vuelo suave y predecible",
         "f3": "Batería Gen5: hasta 90 minutos con motor",
         "f4": "Crece contigo: más adelante puedes pasar a mástil y alas de carbono"
-      }
+      },
+      "badge": "Primer eFoil"
     },
     "lift5": {
       "tagline": "El buque insignia: para el primer vuelo y para riders con experiencia",
@@ -292,7 +317,8 @@
         "f2": "Mástil de carbono y alas Camber Pro",
         "f3": "Mando Elite con pantalla a color: velocidad GPS, carga y distancia",
         "f4": "Compatible con Blowfish: para aprender y salir con niños"
-      }
+      },
+      "badge": "Versátil"
     },
     "liftx": {
       "tagline": "El híbrido: navega como un foil, empuja como un eFoil",
@@ -303,7 +329,8 @@
         "f2": "El equipo completo pesa menos de 22 kg",
         "f3": "Batería LIFTX: unos 45 minutos con motor",
         "f4": "Para nivel intermedio y avanzado"
-      }
+      },
+      "badge": "Híbrido"
     },
     "lift5-laird": {
       "tagline": "Serie creada con la leyenda del surf Laird Hamilton",
@@ -314,7 +341,8 @@
         "f2": "64 litros en un contorno estrecho: despega con facilidad",
         "f3": "Batería Gen5: unos 90 minutos con motor",
         "f4": "Tirada limitada de 2026"
-      }
+      },
+      "badge": "Edición limitada"
     },
     "liftx-florence": {
       "tagline": "La serie de los hermanos Florence para downwind y olas",
@@ -325,7 +353,8 @@
         "f2": "Entre la 4'3 y la 4'8: la talla favorita de los riders expertos",
         "f3": "Hélice plegable y motor de montaje bajo",
         "f4": "Tirada limitada de 2026"
-      }
+      },
+      "badge": "Edición limitada"
     },
     "gen5-battery": {
       "tagline": "El corazón del LIFT5 y el LIFT5 F: hasta 90 minutos con motor",
@@ -416,7 +445,8 @@
         "f2": "Motor de hasta 6 kW, accionamiento FOC, protegido contra sobrecalentamiento, sobrecarga y bloqueo",
         "f3": "Cargador de 1300 W: carga completa en 150 minutos",
         "f4": "El mando flota: pantalla, Bluetooth, IP68, hasta 10 horas de uso"
-      }
+      },
+      "badge": "Estable"
     },
     "hobby-s1-pack": {
       "tagline": "La misma S1, con segunda batería y los dos juegos de alas",
@@ -427,7 +457,8 @@
         "f2": "Dos juegos de alas de carbono: Cruising 1843 cm² y Smooth 1201 cm²",
         "f3": "Más barato que comprar la batería y las alas por separado",
         "f4": "Color a elegir: blanco, azul, rosa o madera"
-      }
+      },
+      "badge": "Equipo completo"
     },
     "hobby-cruising-front-wing": {
       "tagline": "Ala delantera Cruising, 1843 cm²",

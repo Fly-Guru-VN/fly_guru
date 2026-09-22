@@ -152,23 +152,15 @@
   "Shop": {
     "metaTitle": "eFoil-Shop: Lift und Hobbywing",
     "metaDescription": "eFoils in Nha Trang: Lift Foils (LIFT5, LIFT5 F, LIFTX) und Hobbywing S1. Wir finden das Board passend zu Ihrem Gewicht — ausprobieren können Sie es vorher in einer Stunde an unserer Schule.",
-    "eyebrow": "Shop",
-    "title": "eFoils in Nha Trang",
-    "lead": "Wir importieren Lift Foils und Hobbywing offiziell. Wir helfen Ihnen, das Board passend zu Gewicht und Können zu wählen — und ausprobieren können Sie ein eFoil vorher in einer Stunde an unserer Schule.",
+    "eyebrow": "FlyGuru Shop",
+    "title": "Dein nächster Flug — auf deinem eigenen Board",
+    "lead": "eFoils von Lift Foils und Hobbywing. Wir helfen dir, das Board für deine Erfahrung und deinen Fahrstil zu finden.",
     "heroAlt": "Ein eFoil im Flug über dem Meer",
-    "toCatalog": "Modelle ansehen",
+    "toCatalog": "eFoil auswählen",
     "consult": "Beratung",
-    "facts": {
-      "linesLabel": "Marken",
-      "linesValue": "Lift Foils · Hobbywing",
-      "priceLabel": "Preise",
-      "sizingLabel": "Boardgröße",
-      "sizingValue": "Passend zu Ihrem Gewicht"
-    },
     "from": "ab {price}",
-    "efoilsTitle": "eFoils",
-    "efoilsSubtitle": "Komplettpakete: Board, Motormast, Flügel, Akku und Fernbedienung. Größe und Farbe wählen Sie auf der Modellseite.",
-    "sizesCount": "{count, plural, one {# Größe} other {# Größen}}",
+    "efoilsTitle": "Finde dein eFoil",
+    "efoilsSubtitle": "Wähle ein Board für deine Erfahrung und deinen Fahrstil. Jedes ist ein komplettes Set: Board, Mast mit Motor, Flügel, Akku und Fernbedienung.",
     "more": "Details",
     "compareTitle": "Welches passt zu mir",
     "compareSubtitle": "Die drei Hauptlinien von Lift und das Board von Hobbywing — kurz zu den Unterschieden.",
@@ -190,8 +182,8 @@
       "getTitle": "Kauf vereinbaren",
       "getText": "Wir klären Zahlung und Lieferung. Und vor dem Kauf können Sie ein eFoil in einer Stunde an unserer Schule ausprobieren."
     },
-    "accessoriesTitle": "Zubehör",
-    "accessoriesSubtitle": "Akkus, Fernbedienungen, Motoren, Flügel und alles, was den Strandtag leichter macht.",
+    "accessoriesTitle": "Alles für dein eFoil",
+    "accessoriesSubtitle": "Akkus, Fernbedienungen, Flügel und Motoren — für jede Session auf dem Wasser.",
     "faqHeading": "Fragen zum Kauf",
     "faq": {
       "tryQ": "Kann ich vor dem Kauf ausprobieren?",
@@ -205,7 +197,39 @@
     "ctaText": "Nennen Sie uns Gewicht und Erfahrung — wir wählen Modell und Größe.",
     "ctaButton": "Schreiben Sie uns",
     "ctaBook": "Stunde buchen",
-    "priceNote": "Preise in Dollar. Bei Lift ist es der US-Verkaufspreis ohne Lieferung, bei Hobbywing der Preis inklusive Lieferung bis zur Tür. Den Endpreis in Vietnam nennen wir Ihnen bei der Kontaktaufnahme."
+    "priceNote": "Preise in Dollar. Bei Lift ist es der US-Verkaufspreis ohne Lieferung, bei Hobbywing der Preis inklusive Lieferung bis zur Tür. Den Endpreis in Vietnam nennen wir Ihnen bei der Kontaktaufnahme.",
+    "perks": {
+      "fitTitle": "Passend für dich",
+      "fitText": "Erfahrung, Gewicht und Fahrstil",
+      "tryTitle": "Erst ausprobieren",
+      "tryText": "eFoil kennenlernen in einer Stunde",
+      "allTitle": "Alles zum Fahren",
+      "allText": "Boards, Akkus, Fernbedienungen und Flügel"
+    },
+    "tabs": {
+      "efoils": "eFoils",
+      "accessories": "Zubehör",
+      "help": "Hilfe bei der Wahl",
+      "aria": "Shop-Bereiche"
+    },
+    "allModels": "Alle Modelle",
+    "brandFilter": "Marke",
+    "compareButton": "Modelle vergleichen",
+    "efoilsHelpTitle": "Nicht sicher, welches Board passt?",
+    "efoilsHelpText": "Erzähl uns von deiner Erfahrung und deinem Gewicht — wir helfen dir bei der Auswahl.",
+    "efoilsHelpButton": "Board finden",
+    "accessoriesEyebrow": "Zubehör",
+    "allAccessories": "Alles Zubehör",
+    "kindFilter": "Bereich",
+    "kinds": {
+      "battery": "Akkus & Laden",
+      "controller": "Fernbedienungen",
+      "propulsion": "Flügel & Motoren",
+      "gear": "Boards & Transport"
+    },
+    "accessoriesHelpTitle": "Wir finden passendes Zubehör",
+    "accessoriesHelpText": "Nenne uns dein Board-Modell — wir stellen das richtige Set zusammen.",
+    "accessoriesHelpButton": "Hilfe bei der Auswahl"
   },
   "ShopProduct": {
     "back": "Shop",
@@ -281,7 +305,8 @@
         "f2": "28″-Aluminiummast für ruhigen, berechenbaren Flug",
         "f3": "Gen5-Akku — bis zu 90 Minuten mit Motor",
         "f4": "Wächst mit: Mast und Flügel lassen sich später gegen Carbon tauschen"
-      }
+      },
+      "badge": "Erstes eFoil"
     },
     "lift5": {
       "tagline": "Das Flaggschiff — für den ersten Flug und für erfahrene Fahrer",
@@ -292,7 +317,8 @@
         "f2": "Carbonmast und Camber-Pro-Flügel",
         "f3": "Elite-Fernbedienung mit Farbdisplay: GPS-Tempo, Ladestand, Strecke",
         "f4": "Blowfish-kompatibel — zum Lernen und Fahren mit Kindern"
-      }
+      },
+      "badge": "Allrounder"
     },
     "liftx": {
       "tagline": "Der Hybrid: fährt wie ein Foil, zieht wie ein eFoil",
@@ -303,7 +329,8 @@
         "f2": "Das ganze Set wiegt unter 22 kg",
         "f3": "LIFTX-Akku — rund 45 Minuten mit Motor",
         "f4": "Für Fortgeschrittene und Könner"
-      }
+      },
+      "badge": "Hybrid"
     },
     "lift5-laird": {
       "tagline": "Signature-Serie mit Surflegende Laird Hamilton",
@@ -314,7 +341,8 @@
         "f2": "64 Liter in schmaler Form — startet leicht",
         "f3": "Gen5-Akku — rund 90 Minuten mit Motor",
         "f4": "Limitierte Auflage 2026"
-      }
+      },
+      "badge": "Limitierte Edition"
     },
     "liftx-florence": {
       "tagline": "Die Serie der Florence-Brüder für Downwinder und Wellen",
@@ -325,7 +353,8 @@
         "f2": "Zwischen 4'3 und 4'8 — die Lieblingsgröße erfahrener Fahrer",
         "f3": "Klapppropeller und tief montierter Motor",
         "f4": "Limitierte Auflage 2026"
-      }
+      },
+      "badge": "Limitierte Edition"
     },
     "gen5-battery": {
       "tagline": "Das Herz von LIFT5 und LIFT5 F — bis zu 90 Minuten mit Motor",
@@ -416,7 +445,8 @@
         "f2": "Motor bis 6 kW, FOC-Antrieb, Schutz gegen Überhitzung, Überlast und Blockieren",
         "f3": "Ladegerät mit 1300 W: volle Ladung in 150 Minuten",
         "f4": "Die Fernbedienung schwimmt: Display, Bluetooth, IP68, bis zu 10 Stunden Laufzeit"
-      }
+      },
+      "badge": "Stabil"
     },
     "hobby-s1-pack": {
       "tagline": "Dasselbe S1, mit zweitem Akku und beiden Flügelsätzen",
@@ -427,7 +457,8 @@
         "f2": "Zwei Sätze Carbonflügel: Cruising 1843 cm² und Smooth 1201 cm²",
         "f3": "Günstiger, als Akku und Flügel einzeln zu kaufen",
         "f4": "Farbe nach Wahl: Weiß, Blau, Rosa oder Holzoptik"
-      }
+      },
+      "badge": "Komplettset"
     },
     "hobby-cruising-front-wing": {
       "tagline": "Frontflügel Cruising, 1843 cm²",
