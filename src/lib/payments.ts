@@ -1,6 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { vnPeriod } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
+import { loadPaidSubscriptionMoney } from "@/lib/subscriptionExtensions";
 import { MONEY_DATE } from "@/lib/sessions";
 import type { StatsRange } from "@/lib/stats";
 
@@ -112,24 +113,23 @@ async function getPeriodPayments(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<PaymentBreakdown> {
-  const [sessionsRes, subsRes] = await Promise.all([
+  type Row = { payment_methods: { name: string } | null };
+  const [sessionsRes, subs] = await Promise.all([
     supabase
       .from("sessions")
       .select("amount, payment_methods(name), services(category)")
       .gte(MONEY_DATE, range.fromDay)
       .lt(MONEY_DATE, range.toDay)
       .gt("amount", 0),
-    supabase
-      .from("subscriptions")
-      .select("price, payment_methods(name)")
-      .not("paid_at", "is", null)
-      .gte("paid_at", range.fromIso)
-      .lt("paid_at", range.toIso),
+    // Продления (0062) лежат в той же строке «Абонементы»: это те же деньги.
+    loadPaidSubscriptionMoney<Row & { price: number | null }>(
+      supabase,
+      "price, payment_methods(name)",
+      range,
+    ),
   ]);
 
   failIfReadError(sessionsRes.error, "не удалось прочитать оплаты занятий");
-  failIfReadError(subsRes.error, "не удалось прочитать оплаты абонементов");
-  type Row = { payment_methods: { name: string } | null };
   const payments: PaymentInput[] = [];
   for (const r of (sessionsRes.data ?? []) as unknown as (Row & {
     amount: number | null;
@@ -141,9 +141,7 @@ async function getPeriodPayments(
       category: r.services?.category ?? null,
     });
   }
-  for (const r of (subsRes.data ?? []) as unknown as (Row & {
-    price: number | null;
-  })[]) {
+  for (const r of subs) {
     payments.push({
       amount: Number(r.price ?? 0),
       method: r.payment_methods?.name ?? null,

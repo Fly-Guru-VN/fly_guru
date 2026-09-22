@@ -3,6 +3,7 @@ import { vnPeriod } from "@/lib/dates";
 import { MARINA_RATE, netSessionsBase } from "@/lib/finance";
 import { loadDayShareBosses, loadShiftCrew } from "@/lib/staff";
 import { failIfReadError } from "@/lib/dbError";
+import { loadPaidSubscriptionMoney } from "@/lib/subscriptionExtensions";
 import {
   BOSS_DAY_SHARE_FROM,
   getSessionShare,
@@ -116,6 +117,7 @@ export interface DayReport {
   sessionsRevenue: number; // чеки занятий дня
   subsRevenue: number; // абонементы, оплаченные в этот день
   subsPaidCount: number; // сколько абонементов оплачено за день
+  subsExtendedCount: number; // сколько продлений оплачено за день (0062)
   minutesWrittenOff: number; // списано минут с абонементов
   revenue: number; // всё вместе — касса дня
   marina: number; // 35% площадке (с выручки за вычетом комиссий агентов)
@@ -164,19 +166,19 @@ export async function getDayReport(
 ): Promise<DayReport> {
   const range = vnPeriod(date, date);
 
-  const [sessionsRes, subsRes, shifts, staff, bosses] = await Promise.all([
+  const [sessionsRes, subs, shifts, staff, bosses] = await Promise.all([
     admin
       .from("sessions")
       .select(
         "amount, agent_commission, minutes_used, payment_methods(name), services(code, category)",
       )
       .eq("date", date),
-    admin
-      .from("subscriptions")
-      .select("price, sold_by, payment_methods(name)")
-      .not("paid_at", "is", null)
-      .gte("paid_at", range.fromIso)
-      .lt("paid_at", range.toIso),
+    // Продления (0062) — те же деньги абонемента: с них 35% Марине и котёл.
+    loadPaidSubscriptionMoney<{
+      price: number | null;
+      sold_by: string | null;
+      payment_methods: { name: string } | null;
+    }>(admin, "price, sold_by, payment_methods(name)", range),
     loadDayShifts(admin, date),
     loadShiftCrew(admin),
     loadDayShareBosses(admin),
@@ -225,12 +227,6 @@ export async function getDayReport(
     count: tally.get(key) ?? 0,
   })).filter((row) => row.count > 0);
 
-  type SubRow = {
-    price: number | null;
-    sold_by: string | null;
-    payment_methods: { name: string } | null;
-  };
-  const subs = (subsRes.data ?? []) as unknown as SubRow[];
   const subsRevenue = subs.reduce((s, r) => s + Number(r.price ?? 0), 0);
   for (const s of subs) {
     payments.push({
@@ -320,7 +316,8 @@ export async function getDayReport(
     servicesTotal: sessions.length,
     sessionsRevenue,
     subsRevenue,
-    subsPaidCount: subs.length,
+    subsPaidCount: subs.filter((r) => !r.extension).length,
+    subsExtendedCount: subs.filter((r) => r.extension).length,
     minutesWrittenOff,
     revenue,
     marina,

@@ -17,8 +17,9 @@ import { getActiveDict, embeddedName } from "@/lib/dictionaries";
 import { loadPaymentClaims, type ClaimInfo } from "@/lib/subscriptions";
 import { PAYMENT_CLAIM_BADGE, PAYMENT_CLAIM_TEXT } from "@/lib/paymentClaim";
 import { hiddenStaffIds, inShiftCrew, loadSessionStaff } from "@/lib/staff";
-import type { AppRole } from "@/lib/auth";
+import { getActiveAppUser, isAdminLike, type AppRole } from "@/lib/auth";
 import {
+  ExtendSubscriptionForm,
   SellSubscriptionForm,
   WriteOffMinutesForm,
   type SubscriptionPrefill,
@@ -56,6 +57,12 @@ interface HistoryItem {
   comment?: string | null;
 }
 
+interface ExtensionItem {
+  paid_at: string;
+  price: number;
+  who: string;
+}
+
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary";
 
@@ -68,6 +75,8 @@ function SubscriptionCard({
   paymentName,
   paymentMethods,
   claim,
+  extensions,
+  viewerIsBoss,
 }: {
   s: SubRow;
   left: number;
@@ -82,6 +91,10 @@ function SubscriptionCard({
   paymentMethods: { id: string; name: string }[];
   // Заявление инструктора об оплате (0032), если он его оставил.
   claim?: ClaimInfo;
+  // Продления за доплату (0062), от старых к новым.
+  extensions: ExtensionItem[];
+  // Смотрит босс — в форме продления спрашиваем про общий котёл (0048).
+  viewerIsBoss: boolean;
 }) {
   // Отменённый — продажа не состоялась (п.13). Проверяем первым: у него могли
   // и минуты кончиться, и срок выйти, но человеку важно одно — он отменён.
@@ -176,6 +189,11 @@ function SubscriptionCard({
           Продан {momentDay(s.sold_at)} · {vnd(s.price)} · продал{" "}
           {s.seller?.name ?? "—"} · {left} мин из {s.total_minutes}
         </p>
+        {extensions.map((e, i) => (
+          <p key={i} className="mt-0.5 text-xs text-muted">
+            Продлён {momentDay(e.paid_at)} · {vnd(e.price)} · продлил {e.who}
+          </p>
+        ))}
 
         {/* Продажа босса: делим её с ребятами или оставляем школе. 15% уходят
             сменщикам того дня, когда абонемент ОПЛАЧЕН, — то же правило, что у
@@ -323,6 +341,21 @@ function SubscriptionCard({
               subscriptionId={s.id}
               staff={staff}
               today={today}
+            />
+          </div>
+        )}
+
+        {/* Продление за доплату (0062): только действующий — сгоревший,
+            откатанный и отменённый продлить нельзя (решение от 22.09.2026). */}
+        {!cancelled && !expired && s.status === "active" && (
+          <div className="mt-4 border-t border-line/70 pt-3">
+            <p className="text-xs font-semibold text-muted">
+              Продлить срок за доплату
+            </p>
+            <ExtendSubscriptionForm
+              subscriptionId={s.id}
+              paymentMethods={paymentMethods}
+              viewerIsBoss={viewerIsBoss}
             />
           </div>
         )}
@@ -516,6 +549,29 @@ export async function SubscriptionsScreen({
     }
   }
 
+  // Продления (0062) — строкой под ценой: когда, за сколько и кто продлил.
+  // Мягко, как способ оплаты выше: это справка в карточке, а деньги продлений
+  // считают денежные экраны через lib/subscriptionExtensions.
+  const extensionsBySub = new Map<string, ExtensionItem[]>();
+  if (ids.length) {
+    const { data: extRows } = await supabase
+      .from("subscription_extensions")
+      .select("subscription_id, paid_at, price, seller:users!sold_by(name)")
+      .in("subscription_id", ids)
+      .order("paid_at", { ascending: true });
+    for (const r of extRows ?? []) {
+      const list = extensionsBySub.get(r.subscription_id as string) ?? [];
+      list.push({
+        paid_at: r.paid_at as string,
+        price: Number(r.price ?? 0),
+        who: (r.seller as unknown as { name: string } | null)?.name ?? "—",
+      });
+      extensionsBySub.set(r.subscription_id as string, list);
+    }
+  }
+  const viewer = await getActiveAppUser();
+  const viewerIsBoss = viewer ? isAdminLike(viewer.role) : false;
+
   // По алфавиту — см. комментарий в admin/members: загрузчик отдаёт по id.
   const clients = [...clientsRes.rows].sort((a, b) =>
     a.name.localeCompare(b.name, "ru"),
@@ -693,6 +749,8 @@ export async function SubscriptionsScreen({
             paymentName={paymentBySub.get(s.id)}
             paymentMethods={paymentMethods}
             claim={claimBySub.get(s.id)}
+            extensions={extensionsBySub.get(s.id) ?? []}
+            viewerIsBoss={viewerIsBoss}
           />
         ))}
       </div>

@@ -4,6 +4,7 @@ import { getSessionShare, getShiftPay, getSubsShares } from "@/lib/salary";
 import { loadDayShareBosses, loadShiftCrew } from "@/lib/staff";
 import { loadAllSessions } from "@/lib/sessions";
 import { failIfReadError } from "@/lib/dbError";
+import { loadPaidSubscriptionMoney } from "@/lib/subscriptionExtensions";
 
 // Финансовая модель школы за период — питает вкладку «Расходы».
 //
@@ -100,28 +101,23 @@ export async function getCrmPayout(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<CrmPayout> {
-  const [sessions, subsRes] = await Promise.all([
+  const [sessions, subs] = await Promise.all([
     // Деньги — по денежной дате (0042).
     loadAllSessions<SessionMoneyRow>(supabase, "amount, agent_commission", {
       fromDay: range.fromDay,
       toDay: range.toDay,
       by: "money",
     }),
-    supabase
-      .from("subscriptions")
-      .select("price")
-      .not("paid_at", "is", null)
-      .gte("paid_at", range.fromIso)
-      .lt("paid_at", range.toIso),
+    // Абонементы вместе с продлениями (0062): 2% берутся и с них.
+    loadPaidSubscriptionMoney<{ price: number | null }>(supabase, "price", range),
   ]);
 
   failIfReadError(sessions.error, "не удалось прочитать занятия для расчёта CRM");
-  failIfReadError(subsRes.error, "не удалось прочитать абонементы для расчёта CRM");
 
   // Комиссию агента вычитаем ДО процента — как у Marina и у инструкторов.
   const revenue =
     netSessionsBase(sessions.rows) +
-    (subsRes.data ?? []).reduce((s, r) => s + Number(r.price ?? 0), 0);
+    subs.reduce((s, r) => s + Number(r.price ?? 0), 0);
   const total = revenue * CRM_RATE;
 
   return {
@@ -265,7 +261,7 @@ export async function getFinance(
   //  • moneySessions — что оплачено в этом периоде: выручка школы;
   //  • workSessions — что откатано в этом периоде: с них 15% и комиссии агентов.
   // У занятия без paid_on обе даты совпадают, и наборы одинаковы — как раньше.
-  const [moneySessions, workSessions, subsRes, expensesRes, staff, bosses] =
+  const [moneySessions, workSessions, subs, expensesRes, staff, bosses] =
     await Promise.all([
       loadAllSessions<SessionMoneyRow>(supabase, "amount, agent_commission", {
         fromDay: range.fromDay,
@@ -277,12 +273,8 @@ export async function getFinance(
         "amount, agent_commission, instructor_id",
         { fromDay: range.fromDay, toDay: range.toDay },
       ),
-      supabase
-        .from("subscriptions")
-        .select("price, sold_by")
-        .not("paid_at", "is", null)
-        .gte("paid_at", range.fromIso)
-        .lt("paid_at", range.toIso),
+      // Продления (0062) — та же продажа абонемента: в выручке и в базе процентов.
+      loadPaidSubscriptionMoney<{ price: number | null }>(supabase, "price", range),
       supabase
         .from("expenses")
         .select(
@@ -296,7 +288,6 @@ export async function getFinance(
     ]);
   failIfReadError(moneySessions.error, "не удалось прочитать оплаченные занятия");
   failIfReadError(workSessions.error, "не удалось прочитать проведённые занятия");
-  failIfReadError(subsRes.error, "не удалось прочитать оплаченные абонементы");
   failIfReadError(expensesRes.error, "не удалось прочитать расходы");
 
   // Полевой состав: инструкторы и СММщик, который тоже выходит на смену
@@ -326,7 +317,6 @@ export async function getFinance(
       getSessionShare(supabase, range, crewIds, bossIds),
     ]);
 
-  const subs = subsRes.data ?? [];
   const sessionsRevenue = moneySessions.rows.reduce(
     (s, r) => s + Number(r.amount ?? 0),
     0,

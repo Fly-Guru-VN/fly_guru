@@ -177,7 +177,12 @@ export function TodayBoard({
           <Row
             label="Абонементы"
             value={money(report.subsRevenue)}
-            hint={`оплачено сегодня: ${report.subsPaidCount}`}
+            hint={
+              `оплачено сегодня: ${report.subsPaidCount}` +
+              (report.subsExtendedCount > 0
+                ? `, продлений: ${report.subsExtendedCount}`
+                : "")
+            }
           />
         )}
         <div className="border-t border-line/60 pt-1">

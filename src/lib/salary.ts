@@ -2,6 +2,7 @@ import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
 import { vnDay, vnShiftDays, vnToday } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
+import { loadPaidSubscriptionMoney } from "@/lib/subscriptionExtensions";
 import { closeStatus, openStatus } from "@/lib/shiftRules";
 import { staffOn, type StaffMember } from "@/lib/staff";
 
@@ -579,17 +580,16 @@ export async function getSubsShares(
   range: StatsRange,
   staff: StaffMember[],
 ): Promise<SubsShares> {
-  const [{ data, error }, shifts] = await Promise.all([
-    client
-      .from("subscriptions")
-      .select("price, paid_at, sold_by, pool_share")
-      .not("paid_at", "is", null)
-      .gte("paid_at", range.fromIso)
-      .lt("paid_at", range.toIso),
+  // Продления (0062) делятся в котёл так же, как проданный абонемент:
+  // 15% сменщикам дня оплаты, продление босса — только с галочкой.
+  const [data, shifts] = await Promise.all([
+    loadPaidSubscriptionMoney<PoolSubRow>(
+      client,
+      "price, paid_at, sold_by, pool_share",
+      range,
+    ),
     loadShifts(client, range),
   ]);
-
-  failIfReadError(error, "не удалось прочитать абонементы для расчёта зарплаты");
 
   // День → кто в этот день открыл смену. Нужен только «второй работе»: у
   // инструктора выходной долю котла не отнимает, это его основной оклад.
@@ -614,7 +614,7 @@ export async function getSubsShares(
     sharedCount.set(id, (sharedCount.get(id) ?? 0) + 1);
   };
 
-  for (const raw of (data ?? []) as unknown as PoolSubRow[]) {
+  for (const raw of data) {
     const seller = raw.sold_by;
     if (!seller || !raw.paid_at) continue;
     // Продал полевой состав — котёл всегда. Продал босс — только с галочкой
@@ -624,7 +624,8 @@ export async function getSubsShares(
 
     // Справка «сам продал N штук» — про полевые продажи: в кабинете её видит
     // инструктор рядом со своей долей. Босса в этих списках нет.
-    if (fromCrew) soldCount.set(seller, (soldCount.get(seller) ?? 0) + 1);
+    // Продление — не новый абонемент: в деньгах оно считается, в счётчике нет.
+    if (fromCrew && !raw.extension) soldCount.set(seller, (soldCount.get(seller) ?? 0) + 1);
     const cut = Number(raw.price ?? 0) * SUBS_RATE;
     if (cut <= 0) continue;
 

@@ -18,11 +18,12 @@ import {
   normalizeTelegram,
   PHONE_ERROR,
 } from "@/lib/phone";
-import { vnToday, subscriptionExpiry } from "@/lib/dates";
+import { vnDay, vnToday, subscriptionExpiry } from "@/lib/dates";
 import { checkRecordDate } from "@/lib/recordDate";
 import { isPaymentClaim } from "@/lib/paymentClaim";
 import { minutesLeft } from "@/lib/subscriptions";
 import { writeOffSubscription } from "@/lib/subscriptionWriteOff";
+import { extendSubscription } from "@/lib/subscriptionExtensions";
 import { parseRiders, writeOffNote } from "@/lib/riders";
 import { parseVnd } from "@/lib/money";
 import { checkPhoto, isShiftPhotoStoragePath } from "@/lib/photos";
@@ -717,6 +718,50 @@ export async function writeOffAction(
     name: clientName,
     minutes: String(minutes),
     left: String(result.left),
+  });
+  redirect(`/instructor/done?${params.toString()}`);
+}
+
+// Продление действующего абонемента клиента на 3 месяца за 1 000 000 ₫ (0062).
+// Как у продажи: 15% с продления уходят в общий котёл сменщиков дня оплаты
+// (lib/salary). Проверка «не сгорел ли» и сдвиг срока — внутри RPC под
+// блокировкой строки; прочитанный здесь статус разрешением не считается.
+export async function extendSubscriptionAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireStaff();
+  const supabase = await createClient();
+  const clientId = String(formData.get("clientId") ?? "");
+  const clientName = String(formData.get("clientName") ?? "");
+  const paymentMethodId = String(formData.get("paymentMethodId") ?? "").trim();
+  if (!clientId) return { error: "Клиент не найден." };
+  if (!paymentMethodId) return { error: "Укажите формат оплаты." };
+
+  const { data: sub, error } = await supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("client_id", clientId)
+    .eq("status", "active")
+    .order("sold_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return { error: "Не удалось прочитать абонемент. Попробуйте ещё раз." };
+  if (!sub) return { error: "У клиента нет действующего абонемента — продлить нечего." };
+
+  const result = await extendSubscription(createAdminClient(), {
+    subscriptionId: sub.id,
+    paymentMethodId,
+    actorId: user.id,
+    poolShare: false,
+  });
+  if (result.error !== null) return { error: result.error };
+
+  revalidatePath("/", "layout");
+  const params = new URLSearchParams({
+    type: "extend",
+    name: clientName,
+    until: vnDay(result.expiresAt),
   });
   redirect(`/instructor/done?${params.toString()}`);
 }

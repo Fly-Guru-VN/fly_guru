@@ -21,6 +21,7 @@ import {
 import { subscriptionExpiry, vnIsoAt, vnToday } from "@/lib/dates";
 import { minutesLeft } from "@/lib/subscriptions";
 import { writeOffSubscription } from "@/lib/subscriptionWriteOff";
+import { extendSubscription } from "@/lib/subscriptionExtensions";
 import { parseRiders, writeOffNote } from "@/lib/riders";
 import { sendInstructorsBookingAlert } from "@/lib/telegram";
 import { pickChannel } from "@/lib/channels";
@@ -1116,6 +1117,34 @@ export async function writeOffMinutesAction(
     actorId: user.id,
     note: writeOffNote(riders, comment),
     date,
+  });
+  if (result.error !== null) return { error: result.error };
+
+  revalidatePath("/", "layout");
+  officeRedirect(user, "/subscriptions");
+}
+
+// Продление действующего абонемента на 3 месяца за 1 000 000 ₫ (0062). Цена
+// и срок зашиты в lib/subscriptionExtensions и в SQL, из формы приходят только
+// способ оплаты и галочка котла. Проверки «не сгорел ли» и блокировка строки —
+// в extend_subscription: двойной клик второй раз не продлит по старому сроку.
+// Галочку котла база учитывает только у босса (0048).
+export async function extendSubscriptionAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireOffice();
+
+  const subId = String(formData.get("subscriptionId") ?? "");
+  const paymentMethodId = String(formData.get("paymentMethodId") ?? "").trim();
+  if (!subId) return { error: "Абонемент не найден." };
+  if (!paymentMethodId) return { error: "Укажите формат оплаты." };
+
+  const result = await extendSubscription(createAdminClient(), {
+    subscriptionId: subId,
+    paymentMethodId,
+    actorId: user.id,
+    poolShare: formData.get("poolShare") === "on",
   });
   if (result.error !== null) return { error: result.error };
 

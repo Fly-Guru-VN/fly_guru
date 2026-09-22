@@ -32,11 +32,11 @@ function fakeDb(failingTable?: string, secondPage = false): Db {
 }
 
 const cases: [string, (db: Db) => Promise<unknown>, string[]][] = [
-  ["доля CRM", (db) => getCrmPayout(db, range), ["sessions", "subscriptions"]],
+  ["доля CRM", (db) => getCrmPayout(db, range), ["sessions", "subscriptions", "subscription_extensions"]],
   ["зарплата занятий", (db) => getSessionShare(db, range, ["staff"]), ["sessions", "shifts"]],
-  ["котёл абонементов", (db) => getSubsShares(db, range, []), ["subscriptions", "shifts"]],
-  ["финансы школы", (db) => getFinance(db, range), ["sessions", "subscriptions", "expenses", "users", "shifts", "salary_payouts", "agent_payouts"]],
-  ["оплаты дня", (db) => getDayPayments(db, range.fromDay), ["sessions", "subscriptions"]],
+  ["котёл абонементов", (db) => getSubsShares(db, range, []), ["subscriptions", "subscription_extensions", "shifts"]],
+  ["финансы школы", (db) => getFinance(db, range), ["sessions", "subscriptions", "subscription_extensions", "expenses", "users", "shifts", "salary_payouts", "agent_payouts"]],
+  ["оплаты дня", (db) => getDayPayments(db, range.fromDay), ["sessions", "subscriptions", "subscription_extensions"]],
   ["расчёт выплат", (db) => getMonthlyPayroll(db, range), ["agents", "referral_rewards"]],
   ["история выплат", (db) => getPayoutHistory(db), ["users", "agents"]],
 ];

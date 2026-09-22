@@ -5,6 +5,8 @@ import { minutesLeft, loadPaymentClaims } from "@/lib/subscriptions";
 import { loadAllClients } from "@/lib/clients";
 import { PaidBadge } from "@/components/cabinet/PaidBadge";
 import { WriteOffForm } from "./WriteOffForm";
+import { ExtendForm } from "./ExtendForm";
+import { getActiveDict } from "@/lib/dictionaries";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 
 // Списание минут: поиск клиента → остаток крупно → внести каталку.
@@ -64,6 +66,8 @@ export default async function WriteOffPage({
     // всего + корректировки админа − списания. Свой подсчёт здесь забывал про
     // корректировки, и экран показывал не ту цифру, которую примет сервер.
     const left = sub ? await minutesLeft(supabase, sub) : null;
+    // Справочник способов оплаты — только для формы продления (0062).
+    const paymentMethods = sub ? await getActiveDict(supabase, "payment_methods") : [];
 
     return (
       <div>
@@ -108,6 +112,24 @@ export default async function WriteOffPage({
             <div className="mt-6">
               <WriteOffForm clientId={client.id} clientName={client.name} left={left} />
             </div>
+            {/* Продление за доплату (0062): только пока абонемент действует —
+                сгоревший и откатанный сюда не попадают (ищем status = active). */}
+            {left > 0 && (
+              <div className="mt-8 rounded-2xl border border-line bg-surface p-4">
+                <p className="font-semibold">Продлить срок</p>
+                <p className="mt-1 text-sm text-muted">
+                  Клиент доплачивает — абонемент действует ещё 3 месяца, остаток
+                  минут сохраняется.
+                </p>
+                <div className="mt-4">
+                  <ExtendForm
+                    clientId={client.id}
+                    clientName={client.name}
+                    paymentMethods={paymentMethods}
+                  />
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="mt-6 rounded-2xl border border-line bg-surface p-6 text-center text-muted">

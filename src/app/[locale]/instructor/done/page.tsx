@@ -22,6 +22,7 @@ export default async function DonePage({
     existing?: string;
     date?: string;
     claim?: string;
+    until?: string;
   }>;
 }) {
   const p = await searchParams;
@@ -67,6 +68,17 @@ export default async function DonePage({
     ];
     nextHref = "/instructor/writeoff";
     nextLabel = "Списать ещё";
+  } else if (p.type === "extend") {
+    title = "Абонемент продлён";
+    details = [
+      `${p.name ?? "Клиент"} — +3 месяца`,
+      p.until
+        ? `Действует до ${p.until.split("-").reverse().join(".")}`
+        : "Новый срок — в карточке абонемента.",
+      "Оплата получена — 15% пойдут в общий котёл инструкторов.",
+    ];
+    nextHref = "/instructor/writeoff";
+    nextLabel = "К списанию минут";
   }
 
   return (

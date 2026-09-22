@@ -3,8 +3,10 @@
 import { useActionState, useState } from "react";
 import {
   adminSellSubscriptionAction,
+  extendSubscriptionAction,
   writeOffMinutesAction,
 } from "../actions";
+import { EXTENSION_MONTHS, EXTENSION_PRICE } from "@/lib/subscriptionExtensions";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { Spinner } from "@/components/Spinner";
@@ -353,6 +355,85 @@ export function WriteOffMinutesForm({
       >
         {pending && <Spinner />}
         {pending ? "Списываем…" : "Списать минуты"}
+      </button>
+    </form>
+  );
+}
+
+// Продление действующего абонемента за доплату (0062). Цена и срок зашиты —
+// в форме только способ оплаты и, у босса, галочка котла. confirm() перед
+// отправкой: продление сразу попадает в выручку, и случайный клик означал бы
+// лишний миллион в кассе.
+export function ExtendSubscriptionForm({
+  subscriptionId,
+  paymentMethods,
+  viewerIsBoss,
+}: {
+  subscriptionId: string;
+  paymentMethods: Option[];
+  /** Продлевает босс — спрашиваем про общий котёл (0048). */
+  viewerIsBoss: boolean;
+}) {
+  const [state, formAction, pending] = useActionState(extendSubscriptionAction, {
+    error: null,
+  });
+  const price = new Intl.NumberFormat("ru-RU").format(EXTENSION_PRICE);
+
+  return (
+    <form
+      action={formAction}
+      onSubmit={(e) => {
+        if (!confirm(`Продлить абонемент на ${EXTENSION_MONTHS} месяца за ${price} ₫? Деньги сразу попадут в выручку.`)) {
+          e.preventDefault();
+        }
+      }}
+      className="mt-3 space-y-2"
+    >
+      <input type="hidden" name="subscriptionId" value={subscriptionId} />
+      {/* Свой select, а не PaymentMethodField: у того фиксированный
+          id="paymentMethodId", а карточек с этой формой на странице десятки. */}
+      <label className="block min-w-0 text-xs text-muted sm:max-w-xs">
+        Формат оплаты *
+        <select
+          name="paymentMethodId"
+          required
+          defaultValue=""
+          className={`mt-1 ${inputClass}`}
+        >
+          <option value="" disabled>
+            Выберите…
+          </option>
+          {paymentMethods.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {viewerIsBoss && (
+        <label className="flex items-start gap-2 rounded-xl border border-line bg-bg px-3 py-2 text-sm">
+          <input
+            type="checkbox"
+            name="poolShare"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+          />
+          <span>
+            15% в общий котёл
+            <span className="block text-xs text-muted">
+              Продление делят сменщики сегодняшнего дня. Без галочки эти деньги
+              остаются школе.
+            </span>
+          </span>
+        </label>
+      )}
+      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      <button
+        type="submit"
+        disabled={pending}
+        className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
+      >
+        {pending && <Spinner />}
+        {pending ? "Продлеваем…" : `Продлить на ${EXTENSION_MONTHS} месяца — ${price} ₫`}
       </button>
     </form>
   );
