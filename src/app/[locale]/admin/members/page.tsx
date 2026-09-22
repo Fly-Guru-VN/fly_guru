@@ -8,9 +8,9 @@ import { PageNote } from "@/components/cabinet/PageNote";
 
 export const metadata: Metadata = { title: "Админка · Члены клуба" };
 
-// Члены клуба: кто в клубе и с какого дня. Членство заводит сама продажа
-// абонемента (09.09.2026, см. lib/memberships) — форма ниже нужна только для
-// тех, кого впускают без покупки.
+// Члены клуба: кто в клубе и с какого дня. Членство заводит само списание
+// последней минуты абонемента (0061, решение от 22.09.2026: в клуб принимает
+// ОТКАТАННЫЙ абонемент) — форма ниже нужна только для исключений.
 //
 // Инвайт-ссылки на этой вкладке больше нет: кабинет клиента живёт в Telegram
 // и опознаёт человека по привязанному номеру, отдельный пароль ему не нужен.
@@ -126,7 +126,7 @@ export default async function AdminMembersPage() {
         title="Члены клуба"
         hint="Клиенты с абонементом и доступом в кабинет"
       />
-      <PageNote>Членство появляется само с первым абонементом. Вручную — только тех, кого впускаем без покупки.</PageNote>
+      <PageNote>Членство появляется само, когда клиент откатает абонемент до нуля. Вручную — только исключения.</PageNote>
 
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="mb-3 font-bold">Принять в клуб вручную</h2>
@@ -156,7 +156,7 @@ export default async function AdminMembersPage() {
       <p className="mt-4 text-sm text-muted">В клубе: {members.length}</p>
 
       {members.length === 0 && (
-        <p className="mt-2 text-sm text-muted">Пока никого — членство появится с первой продажей абонемента.</p>
+        <p className="mt-2 text-sm text-muted">Пока никого — членство появится, когда клиент откатает первый абонемент.</p>
       )}
       <div className="mt-3 space-y-3">
         {members.map((m) => (

@@ -640,7 +640,7 @@
       },
       "membership": {
         "q": "Thành viên câu lạc bộ được gì?",
-        "a": "Tư cách thành viên được kích hoạt bằng gói phút đầu tiên và theo bạn mãi mãi. Bạn được vào kênh Telegram của câu lạc bộ, đi tour cùng đội và lái chung với những người đã vững trên cánh ngầm."
+        "a": "Tư cách thành viên được mở khi bạn dùng hết gói phút đầu tiên. Bạn được vào kênh Telegram của câu lạc bộ, đi tour cùng đội và lái chung với những người đã vững trên cánh ngầm."
       },
       "where": {
         "q": "Các bạn lái ở đâu?",
@@ -694,9 +694,9 @@
       "subscriptionMeta": "{minutes} phút",
       "subscriptionTitle": "Gói phút",
       "subscriptionText": "Bạn mua gói phút và lái vào lúc thuận tiện: mỗi phút rẻ hơn {percent}% so với thuê lẻ.",
-      "clubMeta": "tư cách vĩnh viễn",
+      "clubMeta": "sau gói phút đầu tiên",
       "clubTitle": "Bạn đã ở trong câu lạc bộ",
-      "clubText": "Tư cách thành viên được kích hoạt bằng gói đầu tiên và theo bạn mãi mãi: kênh riêng, những chuyến đi cùng đội và cộng đồng của bạn trên mặt nước."
+      "clubText": "Tư cách thành viên được mở khi bạn dùng hết gói đầu tiên: kênh riêng, những chuyến đi cùng đội và cộng đồng của bạn trên mặt nước."
     },
     "perks": {
       "channel": "Kênh câu lạc bộ",

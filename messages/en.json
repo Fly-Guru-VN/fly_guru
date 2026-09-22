@@ -640,7 +640,7 @@
       },
       "membership": {
         "q": "What does club membership give me?",
-        "a": "Membership is activated by your first package and stays with you for good. It means access to the club Telegram channel, trips out with the team and riding alongside people who are already solid on the wing."
+        "a": "Membership opens once you have ridden through your first package. It means access to the club Telegram channel, trips out with the team and riding alongside people who are already solid on the wing."
       },
       "where": {
         "q": "Where do you ride?",
@@ -694,9 +694,9 @@
       "subscriptionMeta": "{minutes} minutes",
       "subscriptionTitle": "The package",
       "subscriptionText": "You buy a package of minutes and ride whenever it suits you: a minute works out {percent}% cheaper than single rental.",
-      "clubMeta": "membership for good",
+      "clubMeta": "after your first package",
       "clubTitle": "You are in the club",
-      "clubText": "Membership is activated by your first package and stays for good: the club channel, trips out with the team and your own crowd on the water."
+      "clubText": "Membership opens once you have ridden through your first package: the club channel, trips out with the team and your own crowd on the water."
     },
     "perks": {
       "channel": "Club channel",

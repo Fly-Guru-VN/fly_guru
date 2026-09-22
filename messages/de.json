@@ -640,7 +640,7 @@
       },
       "membership": {
         "q": "Was bringt die Clubmitgliedschaft?",
-        "a": "Die Mitgliedschaft wird mit dem ersten Paket aktiviert und bleibt für immer bestehen. Sie bedeutet Zugang zum Telegram-Kanal des Clubs, gemeinsame Ausfahrten mit dem Team und Fahren mit Leuten, die schon sicher auf dem Flügel stehen."
+        "a": "Die Mitgliedschaft beginnt, sobald Sie Ihr erstes Paket abgefahren haben. Sie bedeutet Zugang zum Telegram-Kanal des Clubs, gemeinsame Ausfahrten mit dem Team und Fahren mit Leuten, die schon sicher auf dem Flügel stehen."
       },
       "where": {
         "q": "Wo fahrt ihr?",
@@ -694,9 +694,9 @@
       "subscriptionMeta": "{minutes} Minuten",
       "subscriptionTitle": "Das Paket",
       "subscriptionText": "Sie kaufen ein Minutenpaket und fahren, wann es Ihnen passt: Die Minute kommt Sie {percent} % günstiger als im Einzelverleih.",
-      "clubMeta": "Status auf Dauer",
+      "clubMeta": "nach dem ersten Paket",
       "clubTitle": "Sie sind im Club",
-      "clubText": "Die Mitgliedschaft wird mit dem ersten Paket aktiviert und bleibt für immer: Clubkanal, gemeinsame Ausfahrten und Ihre eigene Runde auf dem Wasser."
+      "clubText": "Die Mitgliedschaft beginnt, sobald Sie Ihr erstes Paket abgefahren haben: Clubkanal, gemeinsame Ausfahrten und Ihre eigene Runde auf dem Wasser."
     },
     "perks": {
       "channel": "Clubkanal",
