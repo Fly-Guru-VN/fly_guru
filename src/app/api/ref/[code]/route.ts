@@ -12,7 +12,8 @@ import { asAgentPlan } from "@/lib/agentTerms";
 // ссылке ЖИВОГО агента: инструкторский код скидки не даёт, выключенный агент —
 // тоже. Проверить это может только сервер, у браузера в руках лишь строка.
 //
-// Что отвечаем: kind — 'agent' | 'instructor' | null, а у агента ещё plan —
+// Что отвечаем: kind — 'agent' | 'instructor' | 'client' | null (client — член
+// клуба, 0063: новому гостю +10 минут, скидки нет), а у агента ещё plan —
 // его тариф (agents.terms_plan, 0046). Тариф нужен браузеру, чтобы назвать
 // РАЗМЕР скидки: с 17.08.2026 он у разных агентов разный. Ни имени, ни сумм
 // выплат здесь по-прежнему нет: адрес открыт всем без входа, коды короткие, и
@@ -69,6 +70,18 @@ export async function GET(
     return NextResponse.json({ error: "service_unavailable" }, { status: 503 });
   }
   if (instructor) return NextResponse.json({ kind: "instructor" });
+
+  // Клиент — только член клуба: ссылка остальных бонусов не даёт.
+  const { data: client, error: clientError } = await supabase
+    .from("clients")
+    .select("id, membership:memberships!inner(id)")
+    .eq("ref_code", code)
+    .maybeSingle();
+  if (clientError) {
+    console.error("[ref lookup] clients query error:", clientError.message);
+    return NextResponse.json({ error: "service_unavailable" }, { status: 503 });
+  }
+  if (client) return NextResponse.json({ kind: "client" });
 
   return NextResponse.json({ kind: null });
 }

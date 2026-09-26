@@ -2,7 +2,7 @@ import { redirect } from "@/i18n/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { failIfReadError } from "@/lib/dbError";
 
-// Личная ссылка /r/<код> (агента или инструктора).
+// Личная ссылка /r/<код> (агента, инструктора или клиента — члена клуба).
 //
 // Раньше здесь был отдельный лендинг — он никуда не делся, лежит рядом в
 // RefLanding.tsx и ждёт доработки. Сейчас же ссылка просто уводит гостя на
@@ -17,7 +17,8 @@ import { failIfReadError } from "@/lib/dbError";
 // Страница динамическая: код проверяется в базе при каждом заходе, поэтому
 // force-static здесь НЕ ставим.
 
-// Живой ли код: активный агент или инструктор с личным кодом. Проверяем до
+// Живой ли код: активный агент, инструктор с личным кодом или клиент — член
+// клуба (0063; не в клубе — ссылка бонусов не даёт). Проверяем до
 // редиректа, чтобы мусорный код (опечатка, ссылка удалённого агента) не осел
 // в браузере гостя на 30 дней и не цеплялся ко всем его заявкам.
 async function refExists(code: string): Promise<boolean> {
@@ -39,7 +40,15 @@ async function refExists(code: string): Promise<boolean> {
     .eq("role", "instructor")
     .maybeSingle();
   failIfReadError(instructorError, "не удалось проверить реф-код инструктора");
-  return Boolean(instructor);
+  if (instructor) return true;
+
+  const { data: client, error: clientError } = await supabase
+    .from("clients")
+    .select("id, membership:memberships!inner(id)")
+    .eq("ref_code", code)
+    .maybeSingle();
+  failIfReadError(clientError, "не удалось проверить реф-код клиента");
+  return Boolean(client);
 }
 
 export default async function ReferralRedirectPage({

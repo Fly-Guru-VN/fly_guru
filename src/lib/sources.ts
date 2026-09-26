@@ -171,7 +171,7 @@ export async function getSourcesReport(
   supabase: Supabase,
   range: StatsRange,
 ): Promise<SourcesReport> {
-  const [visits, bookingsRes, materialsRes, channelsRes, agentsRes, instructorsRes] =
+  const [visits, bookingsRes, materialsRes, channelsRes, agentsRes, instructorsRes, clientsRes] =
     await Promise.all([
       loadVisits(supabase, range),
       loadBookings(supabase, range),
@@ -185,6 +185,8 @@ export async function getSourcesReport(
         .select("name, ref_code")
         .eq("role", "instructor")
         .not("ref_code", "is", null),
+      // Реф-коды клиентов — членов клуба (0063).
+      supabase.from("clients").select("name, ref_code").not("ref_code", "is", null),
     ]);
 
   const materials = new Map(
@@ -221,6 +223,15 @@ export async function getSourcesReport(
     ref_code: string | null;
   }[]) {
     if (u.ref_code) refOwners.set(u.ref_code, `Инструктор ${u.name}`);
+  }
+  for (const c of (clientsRes.data ?? []) as {
+    name: string | null;
+    ref_code: string | null;
+  }[]) {
+    // Агент и инструктор главнее при совпадении кода — как в lib/refOwner.
+    if (c.ref_code && !refOwners.has(c.ref_code)) {
+      refOwners.set(c.ref_code, `Клиент ${c.name ?? "—"}`);
+    }
   }
 
   // Заготовка строки. Ключ у метки и у реф-кода может совпасть только по злому
