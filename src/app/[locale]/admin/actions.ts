@@ -39,6 +39,16 @@ import {
   type AgentPlan,
 } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
+import {
+  addFriendBonusMinutes,
+  grantReferralReward,
+  memberReferrerFor,
+} from "@/lib/referrals";
+import {
+  BONUS_SERVICE_CODE,
+  FRIEND_BONUS_NOTE,
+  friendBonusApplies,
+} from "@/lib/referralTerms";
 import { normalizeCertificateCode, randomCertificateCode } from "@/lib/certificateCode";
 import { releaseCertificate } from "@/lib/certificates";
 import { BOSS_DAY_SHARE_FROM } from "@/lib/salary";
@@ -371,7 +381,10 @@ async function resolveClient(
   adminId: string,
   formData: FormData,
   createdAt: string,
-): Promise<{ id: string } | { error: string }> {
+  // Карточка пригласившего члена клуба (0063): новый клиент запомнит, кто его
+  // позвал, — от этого зависят бонусные минуты (lib/referrals).
+  memberReferrerId: string | null = null,
+): Promise<{ id: string; created?: true } | { error: string }> {
   const clientId = String(formData.get("clientId") ?? "");
   if (clientId) return { id: clientId };
 
@@ -413,7 +426,9 @@ async function resolveClient(
       phone: phoneDigits(phone) || phone,
       city: city || null,
       telegram_username: telegram,
-      source: "offline",
+      source: memberReferrerId ? "member" : "offline",
+      referrer_type: memberReferrerId ? "member" : null,
+      referrer_id: memberReferrerId,
       created_by: adminId,
       created_at: createdAt,
     })
@@ -422,7 +437,8 @@ async function resolveClient(
   if (error || !created) {
     return { error: `Не удалось создать клиента: ${error?.message ?? "?"}` };
   }
-  return { id: created.id };
+  // created — карточка заведена ЭТОЙ записью: «новый клиент» для бонусов.
+  return { id: created.id, created: true };
 }
 
 // Скидка по агентской ссылке и условия награды агента — общие с кабинетом
@@ -527,6 +543,8 @@ export async function createSessionAction(
   // награды зависит от услуги (lib/agentTerms). А с 17.08.2026 — ещё и от
   // тарифа агента (agents.terms_plan, 0046): у одного партнёра свои условия.
   let agent: { id: string; plan: AgentPlan } | null = null;
+  // Не агент — может, друга пригласил член клуба (0063).
+  let memberReferrerId: string | null = null;
   // Прежнее состояние заявки — для отката, если после захвата занятие не
   // запишется (см. lib/bookingClaim).
   let bookingBefore: BookingClaimState | null = null;
@@ -569,6 +587,9 @@ export async function createSessionAction(
       agent = data
         ? { id: data.id as string, plan: asAgentPlan(data.terms_plan) }
         : null;
+      if (!agent) {
+        memberReferrerId = await memberReferrerFor(createAdminClient(), booking.ref_code);
+      }
     }
   }
   // Тариф нужен и там, где агента нет: функции условий требуют его всегда, а
@@ -586,6 +607,15 @@ export async function createSessionAction(
   if (service.category === "subscription") {
     return { error: "Абонемент оформляется на вкладке «Абонементы»." };
   }
+  // Бонусные минуты (0063) тратятся с проверкой остатка — это умеет только
+  // «Записать клиента» в кабинете инструктора. Простая сессия здесь увела бы
+  // баланс в минус без единого вопроса.
+  if (service.code === BONUS_SERVICE_CODE) {
+    return {
+      error:
+        "Бонусные минуты списываются через «Записать клиента» в кабинете инструктора — там проверяется остаток.",
+    };
+  }
 
   // Город и канал записи спрашивает «Записать клиента»; форма сессий их не
   // шлёт (там вносят прошлое, где канала уже не вспомнить) — поэтому проверяем
@@ -602,9 +632,19 @@ export async function createSessionAction(
 
   // Клиент — последним из проверок: всё, что могло отказать, уже отказало.
   // created_at = дате занятия (см. resolveClient).
-  const clientRes = await resolveClient(supabase, user.id, formData, dayToIso(date));
+  const clientRes = await resolveClient(
+    supabase,
+    user.id,
+    formData,
+    dayToIso(date),
+    memberReferrerId,
+  );
   if ("error" in clientRes) return clientRes;
   const clientId = clientRes.id;
+
+  // +10 минут приглашённому: новый клиент по ссылке члена клуба, обучение.
+  const friendBonus =
+    Boolean(memberReferrerId) && clientRes.created === true && friendBonusApplies(service.category);
 
   // Заработал ли агент на этом занятии: только первое базовое обучение
   // клиента (в т.ч. парное) — то же правило, что в кабинете инструктора.
@@ -695,7 +735,10 @@ export async function createSessionAction(
     channel,
     // Пусто = платили в день занятия (0042).
     ...(paidOn ? { paid_on: paidOn } : {}),
-    note: String(formData.get("note") ?? "").trim() || null,
+    note:
+      [friendBonus ? FRIEND_BONUS_NOTE : "", String(formData.get("note") ?? "").trim()]
+        .filter(Boolean)
+        .join(" · ") || null,
     created_by: user.id,
   };
   const { data: session, error: insError } = await supabase
@@ -735,6 +778,9 @@ export async function createSessionAction(
     // Награду в крайнем случае восстановит админ, дубль денег — нет.
     if (rewardError) console.error("[admin] reward insert error:", rewardError.message);
   }
+
+  // Друг члена клуба оплатил занятие — пригласившему бонусные минуты (0063).
+  await grantReferralReward(createAdminClient(), clientId);
 
   // Начальник записал занятие на СЕБЯ = он в этот день был на пляже: открываем
   // ему смену, чтобы 15% дня делились между ним и напарником. Флаг autoShift
@@ -796,10 +842,13 @@ export async function updateSessionAction(formData: FormData) {
     // Ту же сессию нельзя ПЕРЕДЕЛАТЬ в абонемент — см. createSessionAction.
     const { data: svc } = await supabase
       .from("services")
-      .select("category")
+      .select("category, code")
       .eq("id", serviceId)
       .maybeSingle();
-    if (svc && svc.category !== "subscription") patch.service_id = serviceId;
+    // И в «Бонусные минуты» (0063) тоже: так остаток ушёл бы в минус без проверки.
+    if (svc && svc.category !== "subscription" && svc.code !== BONUS_SERVICE_CODE) {
+      patch.service_id = serviceId;
+    }
   }
   if (Object.keys(patch).length === 0) return;
   const { error } = await supabase.from("sessions").update(patch).eq("id", id);
@@ -920,10 +969,12 @@ export async function adminSellSubscriptionAction(
   // От двух устройств сразу это не спасает — для этого захват ниже.
   const bookingId = String(formData.get("bookingId") ?? "") || null;
   let bookingBefore: BookingClaimState | null = null;
+  // Друг члена клуба по ссылке (0063): +10 минут к абонементу.
+  let memberReferrerId: string | null = null;
   if (bookingId) {
     const { data: booking } = await supabase
       .from("bookings")
-      .select("status, client_id, payment_method_id")
+      .select("status, client_id, payment_method_id, ref_code")
       .eq("id", bookingId)
       .maybeSingle();
     if (!booking) return { error: "Заявка не найдена." };
@@ -938,11 +989,15 @@ export async function adminSellSubscriptionAction(
       client_id: (booking.client_id as string | null) ?? null,
       payment_method_id: (booking.payment_method_id as string | null) ?? null,
     };
+    memberReferrerId = await memberReferrerFor(
+      createAdminClient(),
+      booking.ref_code as string | null,
+    );
   }
 
   // created_at клиента = дате продажи: абонемент, проданный задним числом, не
   // должен делать клиента «новым в этом месяце» (см. resolveClient).
-  const clientRes = await resolveClient(supabase, user.id, formData, soldAt);
+  const clientRes = await resolveClient(supabase, user.id, formData, soldAt, memberReferrerId);
   if ("error" in clientRes) return clientRes;
   const clientId = clientRes.id;
 
@@ -1014,6 +1069,13 @@ export async function adminSellSubscriptionAction(
     await linkBookingResult(supabase, bookingId, { subscription_id: sub.id as string });
   }
 
+  // Новый клиент по ссылке члена клуба: +10 минут к абонементу поправкой, а
+  // пригласившему — бонусные минуты, как только абонемент оплачен (0063).
+  if (memberReferrerId && clientRes.created === true) {
+    await addFriendBonusMinutes(createAdminClient(), sub.id as string, user.id);
+  }
+  if (paidAt) await grantReferralReward(createAdminClient(), clientId);
+
   revalidatePath("/", "layout");
   officeRedirect(user, "/subscriptions");
 }
@@ -1052,6 +1114,19 @@ export async function togglePaidAction(formData: FormData) {
   // принял админ» на уже отмеченном абонементе.
   const { error } = await supabase.from("subscriptions").update(patch).eq("id", id);
   failIfError(error, "не удалось изменить отметку оплаты");
+
+  // Абонемент оплачен — если его купил друг члена клуба, пригласившему
+  // бонусные минуты (0063). Снятая потом отметка минуты не забирает: за одного
+  // друга награда одна, и повторная отметка её не задвоит.
+  if (paidAt) {
+    const admin = createAdminClient();
+    const { data: sub } = await admin
+      .from("subscriptions")
+      .select("client_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (sub?.client_id) await grantReferralReward(admin, sub.client_id as string);
+  }
   revalidatePath("/", "layout");
 }
 

@@ -37,6 +37,18 @@ import {
   type AgentPlan,
 } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
+import {
+  addFriendBonusMinutes,
+  grantReferralReward,
+  memberReferrerFor,
+  writeOffBonusMinutes,
+} from "@/lib/referrals";
+import {
+  BONUS_SERVICE_CODE,
+  FRIEND_BONUS_MINUTES,
+  FRIEND_BONUS_NOTE,
+  friendBonusApplies,
+} from "@/lib/referralTerms";
 import { pickChannel } from "@/lib/channels";
 import {
   claimBooking,
@@ -112,9 +124,13 @@ async function findOrCreateClient(
     source: "site" | "offline";
     city?: string | null;
     telegram?: string | null;
-    referrer?: { type: "agent"; id: string } | null;
+    // agent — агентская ссылка; member — клиент, член клуба (0063).
+    referrer?: { type: "agent" | "member"; id: string } | null;
   },
-): Promise<{ id: string; existingName?: string } | { error: string }> {
+): Promise<
+  | { id: string; existingName?: string; created?: true }
+  | { error: string }
+> {
   const { rows: existing, error: selError } = await loadAllClients<{
     id: string;
     name: string | null;
@@ -157,7 +173,7 @@ async function findOrCreateClient(
       phone: phoneDigits(input.phone) || input.phone,
       city: input.city || null,
       telegram_username: input.telegram || null,
-      source: input.referrer ? "agent" : input.source,
+      source: input.referrer?.type ?? input.source,
       referrer_type: input.referrer?.type ?? null,
       referrer_id: input.referrer?.id ?? null,
       created_by: user.id,
@@ -167,7 +183,9 @@ async function findOrCreateClient(
   if (insError || !created) {
     return { error: `Не удалось создать клиента: ${insError?.message ?? "?"}` };
   }
-  return { id: created.id };
+  // created — карточка заведена ЭТОЙ записью. По нему решается «новый ли
+  // клиент» для бонусов реферальной ссылки (lib/referrals).
+  return { id: created.id, created: true };
 }
 
 // ── Записи (подтверждённые админом заявки) ───────────────────────────────────
@@ -294,13 +312,30 @@ export async function recordClientAction(
   if (!name || !phone || !serviceId) {
     return { error: "Заполните имя, телефон и услугу." };
   }
+
+  const { data: service } = await supabase
+    .from("services")
+    .select("id, name, price, category, code")
+    .eq("id", serviceId)
+    .maybeSingle();
+  if (!service) return { error: "Услуга не найдена." };
+  // Абонемент сессией не оформить: без своей формы клиент не получит минуты,
+  // членство и отметку оплаты. Дубль-защита к фильтру списка на странице.
+  if (service.category === "subscription") {
+    return { error: "Абонемент оформляется через «Продажу абонемента»." };
+  }
+  // «Бонусные минуты» (0063) — трата минут за приглашённых друзей. Чека нет,
+  // поэтому ни оплата, ни город с каналом тут не спрашиваются: клиент уже
+  // наш, а откуда он пришёл, записано в его первом занятии.
+  const isBonus = service.code === BONUS_SERVICE_CODE;
+
   // Город и канал записи обязательны (пачка №20): required в разметке —
   // подсказка, правило здесь. Без них не видно, откуда к нам едут люди.
-  if (!city) {
+  if (!city && !isBonus) {
     return { error: "Укажите город клиента." };
   }
   const channel = pickChannel(formData.get("channel"), formData.get("channelOther"));
-  if (!channel) {
+  if (!channel && !isBonus) {
     return { error: "Укажите канал записи." };
   }
   // Длину номера проверяем и на сервере: в разметке она подсказка, здесь —
@@ -308,7 +343,7 @@ export async function recordClientAction(
   if (!isValidPhone(phone)) {
     return { error: PHONE_ERROR };
   }
-  if (!paymentMethodId) {
+  if (!paymentMethodId && !isBonus) {
     return { error: "Укажите формат оплаты." };
   }
 
@@ -345,6 +380,10 @@ export async function recordClientAction(
     refCode = booking.ref_code ?? null;
   }
 
+  if (isBonus) {
+    return recordBonusMinutes(user, formData, { name, phone, date, bookingId, bookingBefore });
+  }
+
   // Резолвим реф-код → агент. Реф-коды и награды для членов клуба в текущей
   // модели не реализованы.
   // commission_fixed из карточки агента больше не читаем: с 16.08.2026 размер
@@ -365,6 +404,9 @@ export async function recordClientAction(
   // Тариф нужен и там, где агента нет: функции условий требуют его всегда, а
   // без агента они всё равно возвращают ноль.
   const plan = agent?.plan ?? DEFAULT_AGENT_PLAN;
+  // Не агент — может, член клуба пригласил друга (0063). Вместе коды не живут:
+  // у заявки один ref_code, и агент при совпадении главнее.
+  const memberReferrerId = agent ? null : await memberReferrerFor(createAdminClient(), refCode);
 
   const clientResult = await findOrCreateClient(supabase, user, {
     name,
@@ -372,22 +414,23 @@ export async function recordClientAction(
     city,
     telegram: normalizeTelegram(formData.get("telegramUsername") as string),
     source: bookingId ? "site" : "offline",
-    referrer: agent ? { type: "agent", id: agent.id } : null,
+    referrer: agent
+      ? { type: "agent", id: agent.id }
+      : memberReferrerId
+        ? { type: "member", id: memberReferrerId }
+        : null,
   });
   if ("error" in clientResult) return { error: clientResult.error };
   const clientId = clientResult.id;
 
-  const { data: service } = await supabase
-    .from("services")
-    .select("id, name, price, category, code")
-    .eq("id", serviceId)
-    .maybeSingle();
-  if (!service) return { error: "Услуга не найдена." };
-  // Абонемент сессией не оформить: без своей формы клиент не получит минуты,
-  // членство и отметку оплаты. Дубль-защита к фильтру списка на странице.
-  if (service.category === "subscription") {
-    return { error: "Абонемент оформляется через «Продажу абонемента»." };
-  }
+  // +10 минут приглашённому: только новому клиенту (карточка заведена этой
+  // записью) и только на обучение. Минуты — это время на воде, в чек они не
+  // входят; инструктор видит их в заметке занятия и на экране «Готово».
+  const friendBonus =
+    Boolean(memberReferrerId) && clientResult.created === true && friendBonusApplies(service.category);
+  const typedNote = String(formData.get("note") ?? "").trim();
+  const sessionNote =
+    [friendBonus ? FRIEND_BONUS_NOTE : "", typedNote].filter(Boolean).join(" · ") || null;
 
   // Заработал ли агент на этом занятии: только первое базовое обучение
   // клиента (в т.ч. парное). Личный код инструктора скидки и награды не даёт —
@@ -449,7 +492,7 @@ export async function recordClientAction(
       // Как человек записался на это занятие (0034): заявки у записи с пляжа
       // нет, и канал терялся бы совсем.
       channel,
-      note: String(formData.get("note") ?? "").trim() || null,
+      note: sessionNote,
       created_by: user.id,
     })
     .select("id")
@@ -496,6 +539,10 @@ export async function recordClientAction(
     }
   }
 
+  // Друг члена клуба оплатил занятие — пригласившему бонусные минуты. Функция
+  // сама проверит, что клиент пришёл по ссылке, и не начислит дважды.
+  await grantReferralReward(createAdminClient(), clientId);
+
   // Заявка уже закрыта захватом выше — там же ей проставлены клиент и способ
   // оплаты, которым он расплатился (админу видно прямо в ленте заявок).
 
@@ -515,10 +562,83 @@ export async function recordClientAction(
   // Не флаг, а сумма: скидка теперь разная у базового и парного занятия, и
   // «со скидкой» без числа инструктору ничего не говорит.
   if (discounted && discount > 0) params.set("discount", String(discount));
+  if (friendBonus) params.set("bonus", String(FRIEND_BONUS_MINUTES));
   // Записали не сегодняшним числом — проговариваем это на экране «Готово»:
   // промах в дате иначе всплывёт только в конце месяца, в чужой ЗП.
   if (date !== vnToday()) params.set("date", date);
   if (clientResult.existingName) params.set("existing", clientResult.existingName);
+  redirect(`/instructor/done?${params.toString()}`);
+}
+
+// ── Бонусные минуты (0063) ───────────────────────────────────────────────────
+// Та же «Записать клиента», но услуга — «Бонусные минуты»: клиент катается за
+// минуты, заработанные приглашёнными друзьями. Чека нет (сумма 0), остаток
+// проверяет и списывает функция базы под блокировкой — как с абонемента.
+// Клиента здесь НЕ заводим: у человека не из базы бонусных минут нет.
+async function recordBonusMinutes(
+  user: AppUser,
+  formData: FormData,
+  ctx: {
+    name: string;
+    phone: string;
+    date: string;
+    bookingId: string | null;
+    bookingBefore: BookingClaimState | null;
+  },
+): Promise<ActionState> {
+  const minutes = Number(formData.get("bonusMinutes"));
+  if (!Number.isSafeInteger(minutes) || minutes <= 0) {
+    return { error: "Укажите, сколько бонусных минут списать, — целое число больше нуля." };
+  }
+
+  const admin = createAdminClient();
+  const { rows, error: selError } = await loadAllClients<{
+    id: string;
+    name: string | null;
+    phone: string | null;
+  }>(admin, "id, name, phone", { onlyWithPhone: true });
+  if (selError) return { error: `Не удалось найти клиента: ${selError}` };
+  const client = rows.find((c) => phonesMatch(c.phone, ctx.phone));
+  if (!client) {
+    return { error: "Клиента с таким телефоном нет в базе — бонусных минут у него нет." };
+  }
+
+  // Заявку (например, бронь из кабинета в Telegram) занимаем до списания —
+  // та же защита от двух устройств, что у обычной записи.
+  if (ctx.bookingId && ctx.bookingBefore) {
+    const claim = await claimBooking(admin, ctx.bookingId, {
+      client_id: client.id,
+      payment_method_id: null,
+    });
+    if (claim.error) return { error: `Не удалось записать: ${claim.error}` };
+    if (!claim.claimed) return { error: "Эта заявка уже оформлена — занятие записано." };
+  }
+
+  const result = await writeOffBonusMinutes(admin, {
+    clientId: client.id,
+    minutes,
+    date: ctx.date,
+    instructorId: user.id,
+    actorId: user.id,
+    note: String(formData.get("note") ?? "").trim() || null,
+  });
+  if (result.error !== null) {
+    if (ctx.bookingId && ctx.bookingBefore) {
+      await releaseBooking(admin, ctx.bookingId, ctx.bookingBefore);
+    }
+    return { error: result.error };
+  }
+  if (ctx.bookingId) {
+    await linkBookingResult(admin, ctx.bookingId, { session_id: result.sessionId });
+  }
+
+  revalidatePath("/", "layout");
+  const params = new URLSearchParams({
+    type: "bonus",
+    name: client.name ?? ctx.name,
+    minutes: String(minutes),
+    left: String(result.left),
+  });
   redirect(`/instructor/done?${params.toString()}`);
 }
 
@@ -566,10 +686,12 @@ export async function sellSubscriptionAction(
   // а у клиента появлялись лишние 300 минут.
   // Настоящая защита от двух устройств сразу — захват заявки ниже.
   let bookingBefore: BookingClaimState | null = null;
+  // Реф-код — из заявки на сервере, как у записи занятия (0063).
+  let refCode: string | null = null;
   if (bookingId) {
     const { data: booking } = await supabase
       .from("bookings")
-      .select("status, client_id, payment_method_id")
+      .select("status, client_id, payment_method_id, ref_code")
       .eq("id", bookingId)
       .maybeSingle();
     if (!booking) return { error: "Заявка не найдена." };
@@ -581,13 +703,18 @@ export async function sellSubscriptionAction(
       client_id: (booking.client_id as string | null) ?? null,
       payment_method_id: (booking.payment_method_id as string | null) ?? null,
     };
+    refCode = (booking.ref_code as string | null) ?? null;
   }
+  // Агентских условий у абонемента нет, а вот друг члена клуба получает +10
+  // минут к абонементу, пригласивший — бонусные минуты (lib/referrals).
+  const memberReferrerId = await memberReferrerFor(createAdminClient(), refCode);
 
   const clientResult = await findOrCreateClient(supabase, user, {
     name,
     phone,
     telegram: normalizeTelegram(formData.get("telegramUsername") as string),
     source: bookingId ? "site" : "offline",
+    referrer: memberReferrerId ? { type: "member", id: memberReferrerId } : null,
   });
   if ("error" in clientResult) return { error: clientResult.error };
   const clientId = clientResult.id;
@@ -663,9 +790,20 @@ export async function sellSubscriptionAction(
     await linkBookingResult(admin, bookingId, { subscription_id: sub.id as string });
   }
 
+  // Новый клиент по ссылке члена клуба: +10 минут к абонементу — поправкой с
+  // комментарием, её видно в истории и остаток её учитывает (lib/subscriptions).
+  // Пригласившему — бонусные минуты, но только за оплаченный абонемент; иначе
+  // их начислит «Отметить оплату» у админа.
+  const friendBonus = Boolean(memberReferrerId) && clientResult.created === true;
+  if (friendBonus) {
+    await addFriendBonusMinutes(admin, sub.id as string, user.id);
+  }
+  if (paid) await grantReferralReward(admin, clientId);
+
   revalidatePath("/", "layout"); // см. комментарий в recordClientAction
 
   const params = new URLSearchParams({ type: "subscription", name });
+  if (friendBonus) params.set("bonus", String(FRIEND_BONUS_MINUTES));
   if (paid) params.set("paid", "1");
   if (claim) params.set("claim", claim);
   if (clientResult.existingName) params.set("existing", clientResult.existingName);
@@ -940,10 +1078,13 @@ export async function updateMySessionAction(formData: FormData) {
       // Сессию нельзя переделать в абонемент: у него своя форма с минутами.
       const { data: svc } = await admin
         .from("services")
-        .select("category")
+        .select("category, code")
         .eq("id", serviceId)
         .maybeSingle();
-      if (svc && svc.category !== "subscription") patch.service_id = serviceId;
+      // И в «Бонусные минуты» (0063) тоже: так остаток ушёл бы в минус без проверки.
+      if (svc && svc.category !== "subscription" && svc.code !== BONUS_SERVICE_CODE) {
+        patch.service_id = serviceId;
+      }
     }
 
     // Способ оплаты, в отличие от остальных полей, разрешаем и СТИРАТЬ: пустое

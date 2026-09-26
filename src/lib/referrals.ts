@@ -1,6 +1,11 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { failIfReadError } from "@/lib/dbError";
-import { REFERRER_REWARD_MINUTES } from "@/lib/referralTerms";
+import {
+  FRIEND_BONUS_MINUTES,
+  FRIEND_BONUS_NOTE,
+  REFERRER_REWARD_MINUTES,
+} from "@/lib/referralTerms";
+import { resolveRefOwners } from "@/lib/refOwner";
 
 // Рефералы — клиенты, которые приглашают друзей (миграция 0063). Условия
 // словами и числа — в lib/referralTerms, здесь правила, которым нужна база.
@@ -22,15 +27,15 @@ import { REFERRER_REWARD_MINUTES } from "@/lib/referralTerms";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-// Код 6 символов без похожих знаков (0/O, 1/l) — его диктуют вслух. Та же
-// маленькая копия, что у кабинетов агента и инструктора (см. их комментарии).
+// Код 6 символов без похожих знаков (0/O, 1/l) — его диктуют вслух. Формат тот
+// же, что у кабинетов агента и инструктора, но источник случайности —
+// crypto.getRandomValues, как у сертификатов: последовательность Math.random
+// восстанавливается по нескольким выданным кодам. Смещение от остатка деления
+// (256 % 31) для кода, который и так раздают друзьям, не важно.
 const REF_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 function randomRefCode(): string {
-  let code = "";
-  for (let i = 0; i < 6; i++) {
-    code += REF_ALPHABET[Math.floor(Math.random() * REF_ALPHABET.length)];
-  }
-  return code;
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  return Array.from(bytes, (b) => REF_ALPHABET[b % REF_ALPHABET.length]).join("");
 }
 
 /** Член клуба = есть строка в memberships (её заводит откатанный абонемент, 0061). */
@@ -85,6 +90,27 @@ export async function getOrCreateClientRefCode(
   return (after?.ref_code as string | null) ?? null;
 }
 
+/**
+ * Реф-код заявки → карточка пригласившего члена клуба, или null. Старшинство
+ * кодов то же, что везде (агент, инструктор, клиент — lib/refOwner).
+ *
+ * Сбой чтения не роняет оформление: занятие и оплата важнее минут. Потерянную
+ * награду видно — в логе и по тому, что у друга нет пригласившего.
+ */
+export async function memberReferrerFor(
+  admin: Admin,
+  refCode: string | null | undefined,
+): Promise<string | null> {
+  if (!refCode) return null;
+  try {
+    const owner = (await resolveRefOwners(admin, [refCode])).get(refCode);
+    return owner?.kind === "client" && owner.active && owner.clientId ? owner.clientId : null;
+  } catch (e) {
+    console.error("[referrals] ref owner lookup failed:", e);
+    return null;
+  }
+}
+
 /** Остаток бонусных минут (функция базы, 0063). */
 export async function bonusMinutesLeft(admin: Admin, clientId: string): Promise<number> {
   const { data, error } = await admin.rpc("bonus_minutes_left", { p_client_id: clientId });
@@ -135,6 +161,26 @@ export async function grantReferralReward(
     return false;
   }
   return true;
+}
+
+/**
+ * +10 минут приглашённому к только что проданному абонементу. Пишем
+ * поправкой (subscription_adjustments) с комментарием: остаток её учитывает,
+ * в истории абонемента видно, откуда минуты. Стандартные 300 не трогаем.
+ * Абонемент уже продан, поэтому сбой только логируем — минуты админ добавит.
+ */
+export async function addFriendBonusMinutes(
+  admin: Admin,
+  subscriptionId: string,
+  actorId: string,
+): Promise<void> {
+  const { error } = await admin.from("subscription_adjustments").insert({
+    subscription_id: subscriptionId,
+    delta_minutes: FRIEND_BONUS_MINUTES,
+    comment: FRIEND_BONUS_NOTE,
+    created_by: actorId,
+  });
+  if (error) console.error("[referrals] friend bonus insert error:", error.message);
 }
 
 export interface InvitedFriend {
@@ -192,7 +238,7 @@ export async function writeOffBonusMinutes(
     actorId: string;
     note: string | null;
   },
-): Promise<{ left: number; error: null } | { error: string }> {
+): Promise<{ left: number; sessionId: string; error: null } | { error: string }> {
   if (!Number.isSafeInteger(input.minutes) || input.minutes <= 0 || input.minutes > 2147483647) {
     return { error: "Минуты — целое число больше нуля в допустимом диапазоне." };
   }
@@ -206,8 +252,14 @@ export async function writeOffBonusMinutes(
   });
   if (error) return { error: `Не удалось списать: ${error.message}` };
   const left = Number(data?.[0]?.left_minutes);
-  if (data?.length !== 1 || data[0].left_minutes == null || !Number.isSafeInteger(left) || left < 0) {
+  if (
+    data?.length !== 1 ||
+    data[0].left_minutes == null ||
+    !data[0].session_id ||
+    !Number.isSafeInteger(left) ||
+    left < 0
+  ) {
     throw new Error("База не подтвердила результат списания. Проверьте историю перед повтором.");
   }
-  return { left, error: null };
+  return { left, sessionId: data[0].session_id as string, error: null };
 }
