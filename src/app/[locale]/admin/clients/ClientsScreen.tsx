@@ -12,6 +12,7 @@ import { vnd } from "@/lib/stats";
 import { updateClientAction } from "../actions";
 import { SaveForm } from "../SaveForm";
 import { ClientPhoto } from "./ClientPhoto";
+import { BONUS_SERVICE_CODE } from "@/lib/referralTerms";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import {
   createPrivatePhotoUrls,
@@ -74,7 +75,10 @@ interface ClientStats {
   lastVisit: string | null;
   activeSubs: number;
   member: boolean;
-  agentName: string | null;
+  // Кто привёл: агент или клиент — член клуба (0063).
+  referrerName: string | null;
+  // Бонусные минуты за приглашённых друзей: null — не приглашал и не тратил.
+  bonusLeft: number | null;
 }
 
 // Ширины колонок свёрнутой строки. Один и тот же шаблон у карточки и у шапки
@@ -205,8 +209,14 @@ function ClientCard({
           )}
           <p>
             Источник: {SOURCE_LABEL[c.source] ?? c.source}
-            {stats.agentName && ` — ${stats.agentName}`}
+            {stats.referrerName && ` — ${stats.referrerName}`}
           </p>
+          {stats.bonusLeft !== null && (
+            <p>
+              Бонусных минут за друзей:{" "}
+              <span className="font-bold text-ink">{stats.bonusLeft}</span>
+            </p>
+          )}
           <p>
             В базе с {momentDay(c.created_at)}
             {c.age !== null && ` · ${c.age} лет`}
@@ -359,7 +369,7 @@ export async function ClientsScreen({
   const stat = (id: string): ClientStats => {
     let s = statsById.get(id);
     if (!s) {
-      s = { sessions: 0, spent: 0, lastVisit: null, activeSubs: 0, member: false, agentName: null };
+      s = { sessions: 0, spent: 0, lastVisit: null, activeSubs: 0, member: false, referrerName: null, bonusLeft: null };
       statsById.set(id, s);
     }
     return s;
@@ -393,6 +403,9 @@ export async function ClientsScreen({
   const agentIds = shown
     .filter((c) => c.referrer_type === "agent" && c.referrer_id)
     .map((c) => c.referrer_id as string);
+  const memberReferrerIds = shown
+    .filter((c) => c.referrer_type === "member" && c.referrer_id)
+    .map((c) => c.referrer_id as string);
   const photoPathByClient = new Map(
     shown.map((c) => [
       c.id,
@@ -400,7 +413,15 @@ export async function ClientsScreen({
     ]),
   );
 
-  const [subsRes, membersRes, agentsRes, photoUrls] = await Promise.all([
+  const [
+    subsRes,
+    membersRes,
+    agentsRes,
+    photoUrls,
+    referrersRes,
+    bonusEarnedRes,
+    bonusSpentRes,
+  ] = await Promise.all([
     ids.length
       ? supabase
           .from("subscriptions")
@@ -417,6 +438,27 @@ export async function ClientsScreen({
           .in("id", agentIds)
       : Promise.resolve({ data: [] }),
     createPrivatePhotoUrls("clients", [...photoPathByClient.values()]),
+    // Рефералы (0063): кто пригласил, сколько минут начислено и потрачено.
+    // Та же формула, что у функции базы bonus_minutes_left, только пачкой.
+    memberReferrerIds.length
+      ? supabase.from("clients").select("id, name").in("id", memberReferrerIds)
+      : Promise.resolve({ data: [] }),
+    ids.length
+      ? supabase
+          .from("referral_rewards")
+          .select("referrer_id, amount")
+          .eq("referrer_type", "member")
+          .eq("reward_type", "minutes")
+          .eq("status", "confirmed")
+          .in("referrer_id", ids)
+      : Promise.resolve({ data: [] }),
+    ids.length
+      ? supabase
+          .from("sessions")
+          .select("client_id, minutes_used, services!inner(code)")
+          .eq("services.code", BONUS_SERVICE_CODE)
+          .in("client_id", ids)
+      : Promise.resolve({ data: [] }),
   ]);
   for (const r of subsRes.data ?? []) {
     if (r.status === "active") stat(r.client_id as string).activeSubs += 1;
@@ -430,10 +472,23 @@ export async function ClientsScreen({
       `${(a.user as unknown as { name: string } | null)?.name ?? "агент"} (${a.ref_code})`,
     ]),
   );
+  const memberById = new Map(
+    (referrersRes.data ?? []).map((r) => [r.id as string, `${r.name ?? "клиент"} (клиент)`]),
+  );
   for (const c of shown) {
     if (c.referrer_type === "agent" && c.referrer_id) {
-      stat(c.id).agentName = agentById.get(c.referrer_id) ?? null;
+      stat(c.id).referrerName = agentById.get(c.referrer_id) ?? null;
+    } else if (c.referrer_type === "member" && c.referrer_id) {
+      stat(c.id).referrerName = memberById.get(c.referrer_id) ?? null;
     }
+  }
+  for (const r of bonusEarnedRes.data ?? []) {
+    const st = stat(r.referrer_id as string);
+    st.bonusLeft = (st.bonusLeft ?? 0) + Number(r.amount ?? 0);
+  }
+  for (const r of bonusSpentRes.data ?? []) {
+    const st = stat(r.client_id as string);
+    st.bonusLeft = (st.bonusLeft ?? 0) - Number(r.minutes_used ?? 0);
   }
 
   return (
