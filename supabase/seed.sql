@@ -24,5 +24,7 @@ values
   ('Абонемент 300 минут',               300,  6000000, 'subscription', 'subscription',       true),
   ('Фото/видео с монтажом',             null, 1200000, 'extra',      'video',               true),
   ('Фото/видео без монтажа',            null, 600000,  'extra',      'video-raw',           true),
-  ('Съёмка с дрона Hover Aqua Pro',     20,   1000000, 'extra',      'drone',               true)
+  ('Съёмка с дрона Hover Aqua Pro',     20,   1000000, 'extra',      'drone',               true),
+  -- 0063: трата бонусных минут рефералов; на сайте скрыта (lib/services).
+  ('Бонусные минуты',                   null, 0,       'rental',     'bonus-minutes',       true)
 on conflict (code) do nothing;
