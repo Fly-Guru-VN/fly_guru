@@ -18,11 +18,10 @@ import {
 // (например, на странице обучения — только training).
 //
 // «Бонусные минуты» (0063) — служебная услуга: на ней клиент тратит минуты за
-// приглашённых друзей. Гостю сайта записаться на неё нечем, поэтому по
-// умолчанию её в списке нет; кабинет в Telegram просит её явно (includeBonus).
+// приглашённых друзей. В общих списках её нет: в кабинете Telegram у бонусов
+// свой режим записи, рядом с «По абонементу».
 export async function getActiveServices(
   category?: ServiceCategory,
-  { includeBonus = false }: { includeBonus?: boolean } = {},
 ): Promise<ServiceOption[]> {
   const supabase = createAdminClient();
   let query = supabase
@@ -32,7 +31,7 @@ export async function getActiveServices(
 
   if (category) query = query.eq("category", category);
   // neq в SQL отбросил бы и услуги без кода (заведённые админом руками).
-  if (!includeBonus) query = query.or(`code.is.null,code.neq.${BONUS_SERVICE_CODE}`);
+  query = query.or(`code.is.null,code.neq.${BONUS_SERVICE_CODE}`);
 
   const { data, error } = await query;
   if (error) {

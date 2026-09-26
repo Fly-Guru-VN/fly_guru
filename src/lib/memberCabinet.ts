@@ -1,6 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { minutesLeft } from "@/lib/subscriptions";
 import { failIfReadError } from "@/lib/dbError";
+import { SITE_URL } from "@/lib/site";
+import {
+  bonusMinutesLeft,
+  getOrCreateClientRefCode,
+  isClubMember,
+  loadInvitedFriends,
+  type InvitedFriend,
+} from "@/lib/referrals";
 
 // Кабинет клиента: кто это, сколько у него минут и что у него записано.
 //
@@ -86,6 +94,13 @@ export interface MemberData {
   } | null;
   bookings: MemberBooking[];
   history: MemberVisit[];
+  // «Пригласить друга» (0063). Вкладку видят все, ссылку — только члены клуба.
+  referral: {
+    isMember: boolean;
+    link: string | null; // null — не член клуба, ссылки нет
+    bonusLeft: number; // бонусных минут на балансе
+    invited: InvitedFriend[]; // только имя и дата — телефонов друзей тут нет
+  };
 }
 
 export type MemberState =
@@ -197,7 +212,7 @@ export async function loadMemberData(telegramId: number): Promise<MemberState> {
     .maybeSingle();
   failIfReadError(subError, "не удалось прочитать абонемент клиента");
 
-  const [left, bookingsRes, historyRes] = await Promise.all([
+  const [left, bookingsRes, historyRes, referral] = await Promise.all([
     sub ? minutesLeft(supabase, sub) : Promise.resolve(0),
     supabase
       .from("bookings")
@@ -212,6 +227,7 @@ export async function loadMemberData(telegramId: number): Promise<MemberState> {
       .eq("client_id", who.clientId)
       .order("date", { ascending: false })
       .limit(30),
+    loadReferral(supabase, who.clientId),
   ]);
   failIfReadError(bookingsRes.error, "не удалось прочитать записи клиента");
   failIfReadError(historyRes.error, "не удалось прочитать историю клиента");
@@ -235,6 +251,27 @@ export async function loadMemberData(telegramId: number): Promise<MemberState> {
       history: ((historyRes.data ?? []) as unknown as MemberVisitRow[]).map(
         toMemberVisit,
       ),
+      referral,
     },
+  };
+}
+
+// Блок приглашений. Код выдаётся при первом открытии кабинета членом клуба —
+// ссылка готова, когда человек до неё доберётся.
+async function loadReferral(
+  supabase: Admin,
+  clientId: string,
+): Promise<MemberData["referral"]> {
+  const member = await isClubMember(supabase, clientId);
+  const [code, bonusLeft, invited] = await Promise.all([
+    member ? getOrCreateClientRefCode(supabase, clientId) : Promise.resolve(null),
+    bonusMinutesLeft(supabase, clientId),
+    loadInvitedFriends(supabase, clientId),
+  ]);
+  return {
+    isMember: member,
+    link: code ? `${SITE_URL}/r/${code}` : null,
+    bonusLeft,
+    invited,
   };
 }

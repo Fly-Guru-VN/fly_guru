@@ -13,6 +13,8 @@ import { canBookOn, canCancelBooking, isBookingOpenNow } from "@/lib/bookingWind
 import { isRealDay } from "@/lib/bookings";
 import { isUuid } from "@/lib/photos";
 import { minutesLeft } from "@/lib/subscriptions";
+import { bonusMinutesLeft } from "@/lib/referrals";
+import { BONUS_SERVICE_CODE } from "@/lib/referralTerms";
 import { parseRiders } from "@/lib/riders";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { sendBookingNotification, sendStaffMessage } from "@/lib/telegram";
@@ -55,6 +57,9 @@ export interface BookInput {
   // Выбранная услуга. null — «катание по абонементу»: услуги как таковой нет,
   // есть минуты и число катающихся.
   serviceId?: string | null;
+  // Катание за бонусные минуты от приглашённых друзей (0063) — те же минуты и
+  // катающиеся, но списываются с бонусного баланса. Только без serviceId.
+  bonus?: boolean;
 }
 
 // Записаться. Заявка, а не подтверждённая бронь: её принимает живой человек —
@@ -139,10 +144,35 @@ export async function bookAction(
     totalMinutes = duration * riders;
   }
 
+  // За бонусные минуты: хватит ли баланса и какая услуга ляжет в заявку.
+  // Услуга «Бонусные минуты» нужна инструктору — открыв заявку, он сразу
+  // попадёт в нужный режим записи. Окончательно остаток проверит списание.
+  const useBonus = !service && input.bonus === true;
+  let bonusServiceId: string | null = null;
+  if (useBonus) {
+    const left = await bonusMinutesLeft(supabase, who.clientId);
+    if (totalMinutes > left) {
+      return {
+        ok: false,
+        error: `Бонусных минут ${left} — на эту запись нужно ${totalMinutes}. Возьмите короче.`,
+      };
+    }
+    const { data: bonusService, error: bonusError } = await supabase
+      .from("services")
+      .select("id")
+      .eq("code", BONUS_SERVICE_CODE)
+      .maybeSingle();
+    if (bonusError || !bonusService) {
+      console.error("[member] bonus service lookup error:", bonusError?.message ?? "missing");
+      return { ok: false, error: "Не удалось записать за бонусные минуты. Напишите в поддержку." };
+    }
+    bonusServiceId = bonusService.id as string;
+  }
+
   // Хватит ли минут. Вопрос только к записи по абонементу и только если сам
   // абонемент есть: без него это обычная платная запись, и минуты ни при чём.
   let sub: { id: string; total_minutes: number } | null = null;
-  if (!service) {
+  if (!service && !useBonus) {
     const { data, error: subError } = await supabase
       .from("subscriptions")
       .select("id, total_minutes")
@@ -193,7 +223,7 @@ export async function bookAction(
     : [
         "Запись из кабинета",
         `${duration} мин${riders > 1 ? ` × ${riders} райдера = ${totalMinutes} мин` : ""}`,
-        sub ? "по абонементу" : "без абонемента",
+        useBonus ? "за бонусные минуты" : sub ? "по абонементу" : "без абонемента",
       ];
   const comment = String(input.comment ?? "").trim().slice(0, 500);
   if (comment) noteParts.push(`Клиент: ${comment}`);
@@ -206,7 +236,7 @@ export async function bookAction(
     scheduled_time: input.time,
     // Услуга есть только у записи на занятие: катание по абонементу — это
     // минуты, отдельной строки в services под него нет.
-    service_id: service?.id ?? null,
+    service_id: service?.id ?? bonusServiceId,
     internal_note: noteParts.join(" · "),
     // В public_note лежит только исходное пожелание самого клиента. Служебная
     // раскладка минут остаётся в internal_note и назад в Mini App не уходит.
@@ -223,7 +253,12 @@ export async function bookAction(
     : `${input.time}, ${duration} мин${riders > 1 ? ` × ${riders}` : ""}`;
   await sendBookingNotification({
     serviceName:
-      service?.name ?? (sub ? "Катание по абонементу" : "Катание (без абонемента)"),
+      service?.name ??
+      (useBonus
+        ? "Катание за бонусные минуты"
+        : sub
+          ? "Катание по абонементу"
+          : "Катание (без абонемента)"),
     clientName: client.name ?? who.clientName,
     contact: client.phone,
     messenger: "Telegram-кабинет",

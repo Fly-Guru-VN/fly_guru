@@ -14,6 +14,8 @@ import {
   parseTimeText,
 } from "@/lib/bookingWindow";
 import type { MemberData } from "@/lib/memberCabinet";
+import { FRIEND_BONUS_MINUTES, REFERRER_REWARD_MINUTES } from "@/lib/referralTerms";
+import { vnDay } from "@/lib/dates";
 import { bookAction, cancelAction, loadCabinetAction } from "./actions";
 
 // Кабинет клиента — та же страница сайта, открытая внутри Telegram.
@@ -76,7 +78,7 @@ const bigButton =
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
 
-type Screen = "home" | "book" | "list" | "history";
+type Screen = "home" | "book" | "list" | "history" | "invite";
 type Phase =
   | { kind: "loading" }
   | { kind: "outside" } // открыли не в Telegram
@@ -225,6 +227,11 @@ export function MemberApp({ services }: { services: ServiceOption[] }) {
                 Активного абонемента нет. Записаться можно и без него — оплата на месте.
               </p>
             )}
+            {data.referral.bonusLeft > 0 && (
+              <p className="mt-2 text-sm font-semibold text-accent-strong">
+                + {data.referral.bonusLeft} бонусных мин за приглашённых друзей
+              </p>
+            )}
           </div>
 
           <div className="mt-4 space-y-3">
@@ -240,6 +247,10 @@ export function MemberApp({ services }: { services: ServiceOption[] }) {
             </button>
             <button type="button" className={bigButton} onClick={() => setScreen("history")}>
               <span>🕒 История</span>
+              <span className="text-muted">›</span>
+            </button>
+            <button type="button" className={bigButton} onClick={() => setScreen("invite")}>
+              <span>🎁 Пригласить друга</span>
               <span className="text-muted">›</span>
             </button>
             <button type="button" className={bigButton} onClick={openSite}>
@@ -259,6 +270,7 @@ export function MemberApp({ services }: { services: ServiceOption[] }) {
           initData={initData}
           services={services}
           hasSubscription={data.subscription !== null}
+          bonusLeft={data.referral.bonusLeft}
           onSupport={openSupport}
           onDone={async () => {
             await refresh(initData);
@@ -277,6 +289,8 @@ export function MemberApp({ services }: { services: ServiceOption[] }) {
       )}
 
       {screen === "history" && <HistoryScreen data={data} />}
+
+      {screen === "invite" && <InviteScreen data={data} />}
     </div>
   );
 }
@@ -360,16 +374,20 @@ function defaultServiceId(services: ServiceOption[]): string {
   );
 }
 
+type BookMode = "sub" | "bonus" | "service";
+
 function BookScreen({
   initData,
   services,
   hasSubscription,
+  bonusLeft,
   onSupport,
   onDone,
 }: {
   initData: string;
   services: ServiceOption[];
   hasSubscription: boolean;
+  bonusLeft: number;
   onSupport: () => void;
   onDone: () => void;
 }) {
@@ -382,9 +400,17 @@ function BookScreen({
   // ответила) тоже уводит в минуты: иначе человек упрётся в пустую выпайдайку
   // и не запишется вовсе.
   const canPickService = services.length > 0;
-  const [bySubscription, setBySubscription] = useState(
-    hasSubscription || !canPickService,
+  // Третий режим — «Бонусные»: те же минуты и катающиеся, но с баланса за
+  // приглашённых друзей (0063). Есть только у того, у кого этот баланс есть.
+  const [mode, setMode] = useState<BookMode>(
+    hasSubscription || !canPickService ? "sub" : "service",
   );
+  const bySubscription = mode !== "service"; // минуты вместо услуги
+  const modes: { key: BookMode; label: string }[] = [
+    ...(hasSubscription ? [{ key: "sub" as const, label: "По абонементу" }] : []),
+    ...(bonusLeft > 0 ? [{ key: "bonus" as const, label: "Бонусные" }] : []),
+    ...(canPickService ? [{ key: "service" as const, label: "Другое занятие" }] : []),
+  ];
   const [serviceId, setServiceId] = useState(() => defaultServiceId(services));
   const [duration, setDuration] = useState(60);
   const [riders, setRiders] = useState(1);
@@ -405,6 +431,7 @@ function BookScreen({
       comment,
       // null — «катание по абонементу»: услуги как таковой нет, есть минуты.
       serviceId: bySubscription ? null : serviceId,
+      bonus: mode === "bonus",
     });
     setBusy(false);
     if (res.ok) onDone();
@@ -461,22 +488,22 @@ function BookScreen({
       </label>
 
       {/* Развилка нужна только тем, у кого есть что списывать: без абонемента
-          выбор между «минутами» и услугой человеку ничего не объясняет. */}
-      {hasSubscription && canPickService && (
+          и без бонусных минут выбор между «минутами» и услугой человеку ничего
+          не объясняет. */}
+      {modes.length > 1 && (
         <div>
           <span className="block text-sm font-medium">На что записываемся</span>
           <div className="mt-1 flex gap-2">
-            {[
-              { on: true, label: "По абонементу" },
-              { on: false, label: "Другое занятие" },
-            ].map((opt) => (
+            {modes.map((opt) => (
               <button
-                key={opt.label}
+                key={opt.key}
                 type="button"
-                onClick={() => setBySubscription(opt.on)}
-                aria-pressed={bySubscription === opt.on}
-                className={`flex-1 rounded-xl border py-3 text-base font-semibold transition-colors ${
-                  bySubscription === opt.on
+                onClick={() => setMode(opt.key)}
+                aria-pressed={mode === opt.key}
+                className={`flex-1 rounded-xl border py-3 font-semibold transition-colors ${
+                  modes.length > 2 ? "text-sm" : "text-base"
+                } ${
+                  mode === opt.key
                     ? "border-accent bg-accent text-white"
                     : "border-line bg-surface text-muted"
                 }`}
@@ -485,6 +512,11 @@ function BookScreen({
               </button>
             ))}
           </div>
+          {mode === "bonus" && (
+            <p className="mt-2 text-sm text-muted">
+              Бонусных минут: <b>{bonusLeft}</b> — за приглашённых друзей.
+            </p>
+          )}
         </div>
       )}
 
@@ -531,8 +563,9 @@ function BookScreen({
             </div>
             {riders > 1 && (
               <p className="mt-2 text-sm text-muted">
-                С абонемента спишется <b>{total} мин</b> ({duration} × {riders}) — минуты идут на
-                каждого катающегося.
+                {mode === "bonus" ? "С бонусного баланса" : "С абонемента"} спишется{" "}
+                <b>{total} мин</b> ({duration} × {riders}) — минуты идут на каждого
+                катающегося.
               </p>
             )}
           </div>
@@ -673,6 +706,111 @@ function HistoryScreen({ data }: { data: MemberData }) {
           {v.note && <p className="mt-1 text-sm text-muted">{v.note}</p>}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── пригласить друга (0063) ──────────────────────────────────────────────────
+// Вкладку видят все клиенты, ссылку — только члены клуба (откатал абонемент).
+// Остальным честно объясняем, когда она появится, вместо пустого экрана.
+function InviteScreen({ data }: { data: MemberData }) {
+  const { referral } = data;
+  const [copied, setCopied] = useState(false);
+
+  const shareText = `Покатайся на электрофойле во FlyGuru — по моей ссылке тебе +${FRIEND_BONUS_MINUTES} минут к обучению или абонементу 🌊`;
+
+  const copy = async () => {
+    if (!referral.link) return;
+    try {
+      await navigator.clipboard.writeText(referral.link);
+      setCopied(true);
+      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred("light");
+    } catch {
+      // Буфер обмена в webview бывает закрыт — тогда ссылку видно на экране,
+      // её можно выделить руками или отправить кнопкой «Поделиться».
+    }
+  };
+  const share = () => {
+    if (!referral.link) return;
+    const url = `https://t.me/share/url?url=${encodeURIComponent(referral.link)}&text=${encodeURIComponent(shareText)}`;
+    if (window.Telegram?.WebApp) window.Telegram.WebApp.openTelegramLink(url);
+    else window.open(url);
+  };
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-xl font-bold">Пригласить друга</h1>
+
+      <div className={card}>
+        <p className="text-base">
+          За каждого нового друга, который придёт по вашей ссылке и оплатит первое
+          занятие, — <b>+{REFERRER_REWARD_MINUTES} бонусных минут</b> вам. Другу —{" "}
+          <b>+{FRIEND_BONUS_MINUTES} минут</b> к обучению или абонементу.
+        </p>
+      </div>
+
+      {referral.link ? (
+        <>
+          <div className={card}>
+            <p className="text-sm text-muted">Ваша ссылка</p>
+            <p className="mt-1 break-all text-base font-semibold">{referral.link}</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={share}
+              className="flex-1 rounded-full bg-accent px-4 py-3 text-base font-semibold text-white transition-colors active:bg-accent-strong"
+            >
+              Поделиться
+            </button>
+            <button
+              type="button"
+              onClick={copy}
+              className="flex-1 rounded-full border border-line bg-surface px-4 py-3 text-base font-semibold text-muted transition-colors active:border-primary"
+            >
+              {copied ? "Скопировано ✓" : "Скопировать"}
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="rounded-2xl border border-accent/40 bg-accent/10 p-4 text-base">
+          Ссылка откроется, когда вы откатаете абонемент и станете членом клуба.
+        </div>
+      )}
+
+      <div className={card}>
+        <p className="text-sm text-muted">Бонусных минут</p>
+        <p className="mt-1 text-3xl font-bold leading-none">
+          {referral.bonusLeft}
+          <span className="ml-2 text-base font-semibold text-muted">мин</span>
+        </p>
+        <p className="mt-2 text-sm text-muted">
+          Потратить: «Записаться» → «Бонусные». Минуты не сгорают.
+        </p>
+      </div>
+
+      {referral.invited.length > 0 && (
+        <div className={card}>
+          <p className="text-sm font-semibold">Кого вы пригласили</p>
+          <ul className="mt-2 space-y-2">
+            {referral.invited.map((f, i) => (
+              <li key={`${f.since}-${i}`} className="flex items-baseline justify-between gap-3">
+                <span>
+                  {f.name}
+                  <span className="ml-2 text-sm text-muted">
+                    {ruDate(vnDay(f.since))}
+                  </span>
+                </span>
+                <span
+                  className={`shrink-0 text-sm ${f.rewarded ? "font-semibold text-accent-strong" : "text-muted"}`}
+                >
+                  {f.rewarded ? `+${REFERRER_REWARD_MINUTES} мин` : "ещё не оплатил"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
