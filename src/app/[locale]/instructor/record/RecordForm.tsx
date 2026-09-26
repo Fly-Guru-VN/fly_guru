@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { recordClientAction, type ActionState } from "../actions";
 import { agentDiscountFor, DEFAULT_AGENT_PLAN, type AgentPlan } from "@/lib/agentTerms";
 import { vnd } from "@/lib/stats";
+import { BONUS_SERVICE_CODE, FRIEND_BONUS_MINUTES } from "@/lib/referralTerms";
 import { PhoneField } from "@/components/cabinet/PhoneField";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { ChannelField } from "@/components/cabinet/ChannelField";
@@ -21,6 +22,8 @@ export interface RecordPrefill {
   serviceId?: string;
   refCode?: string | null;
   refIsAgent?: boolean; // код агента (скидка) или инструктора (без скидки)
+  // Код клиента — члена клуба (0063): новому гостю +10 минут к обучению.
+  refIsClient?: boolean;
   // Положена ли скидка ЭТОМУ гостю: она даётся за первое базовое обучение,
   // и повторному клиенту по той же ссылке её уже не будет.
   refDiscount?: boolean;
@@ -71,6 +74,9 @@ export function RecordForm({
     chosen?.price,
     prefill?.refPlan ?? DEFAULT_AGENT_PLAN,
   );
+  // «Бонусные минуты» (0063): клиент катается за минуты от приглашённых
+  // друзей. Чека нет — вместо оплаты, города и канала спрашиваем минуты.
+  const isBonus = chosen?.code === BONUS_SERVICE_CODE;
 
   return (
     <form action={formAction} className="space-y-4">
@@ -101,10 +107,16 @@ export function RecordForm({
               скидки нет — она только на базовое и парное обучение.
             </p>
           )
+        ) : prefill.refIsClient ? (
+          <p className="rounded-xl bg-accent/10 px-4 py-3 text-sm font-medium text-accent-strong">
+            Гостя пригласил член клуба. Если человек у нас впервые — на обучение
+            ему +{FRIEND_BONUS_MINUTES} минут (к абонементу добавятся сами), а
+            пригласившему система начислит бонусные минуты.
+          </p>
         ) : (
           <p className="rounded-xl bg-line/40 px-4 py-3 text-sm text-muted">
-            Заявка по реф-ссылке инструктора «{prefill.refCode}». Скидки нет — она
-            действует только по агентским ссылкам.
+            Заявка по реф-ссылке «{prefill.refCode}». Скидки нет — она действует
+            только по агентским ссылкам.
           </p>
         ))}
 
@@ -132,28 +144,32 @@ export function RecordForm({
       {/* Город обязателен (пачка №20). У нового клиента он ляжет в карточку,
           у существующего заполнит пустое поле — уже вписанный город не
           перетирается. Из заявки приезжает заполненным. */}
-      <div>
-        <label htmlFor="city" className="mb-1 block text-sm font-medium">
-          Город *
-        </label>
-        <input
-          id="city"
-          name="city"
-          type="text"
-          required
-          defaultValue={prefill?.city ?? ""}
-          placeholder="Nha Trang"
-          className={inputClass}
-        />
-      </div>
+      {!isBonus && (
+        <div>
+          <label htmlFor="city" className="mb-1 block text-sm font-medium">
+            Город *
+          </label>
+          <input
+            id="city"
+            name="city"
+            type="text"
+            required
+            defaultValue={prefill?.city ?? ""}
+            placeholder="Nha Trang"
+            className={inputClass}
+          />
+        </div>
+      )}
 
       {/* Канал записи: список из справочника (0041), по умолчанию «Пляжи»,
           любой свой — через «Другой…». */}
-      <ChannelField
-        className={inputClass}
-        channels={channels}
-        defaultValue={prefill?.channel}
-      />
+      {!isBonus && (
+        <ChannelField
+          className={inputClass}
+          channels={channels}
+          defaultValue={prefill?.channel}
+        />
+      )}
 
       <div>
         <label htmlFor="serviceId" className="mb-1 block text-sm font-medium">
@@ -178,12 +194,36 @@ export function RecordForm({
       {/* Формат оплаты (пак A, пункт 6) — обязателен: занятие уже проведено и
           оплачено, так что «чем платили» известно всегда. Если запись открыли из
           заявки, способ приезжает уже выбранным — его указал админ. */}
-      <PaymentMethodField
-        methods={paymentMethods}
-        selectedId={prefill?.paymentMethodId}
-        selectedName={prefill?.paymentMethodName}
-        className={inputClass}
-      />
+      {isBonus ? (
+        <div>
+          <label htmlFor="bonusMinutes" className="mb-1 block text-sm font-medium">
+            Сколько минут списать *
+          </label>
+          <input
+            id="bonusMinutes"
+            name="bonusMinutes"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            step={1}
+            required
+            placeholder="30"
+            className={inputClass}
+          />
+          <p className="mt-1 text-xs text-muted">
+            Спишется с бонусного баланса клиента — минут за приглашённых друзей.
+            Не хватит минут — система не даст записать. Катались вдвоём —
+            впишите сумму на двоих.
+          </p>
+        </div>
+      ) : (
+        <PaymentMethodField
+          methods={paymentMethods}
+          selectedId={prefill?.paymentMethodId}
+          selectedName={prefill?.paymentMethodName}
+          className={inputClass}
+        />
+      )}
 
       {/* Примечание к занятию (пачка №9, пак 3): то же поле, что у админа.
           Инструктору есть что сказать про занятие — «катал с сыном», «доска

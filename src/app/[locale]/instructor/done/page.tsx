@@ -23,6 +23,7 @@ export default async function DonePage({
     date?: string;
     claim?: string;
     until?: string;
+    bonus?: string;
   }>;
 }) {
   const p = await searchParams;
@@ -46,6 +47,8 @@ export default async function DonePage({
       }`,
       otherDay ? `Дата занятия: ${otherDay} (не сегодня)` : "Сессия записана на вас.",
     ];
+    // Новый гость по ссылке члена клуба (0063): ему положено дольше на воде.
+    if (p.bonus) details.push(`+${p.bonus} мин к занятию — гостя пригласил член клуба.`);
   } else if (p.type === "subscription") {
     title = "Абонемент продан";
     details = [
@@ -58,6 +61,7 @@ export default async function DonePage({
             "Оплата не отмечена: админ проверит и подтвердит. Минуты списывать можно уже сейчас."
           : "Оплата не отмечена — админ отметит позже, тогда 15% пойдут в общий котёл.",
     ];
+    if (p.bonus) details.push(`+${p.bonus} мин к абонементу — гостя пригласил член клуба.`);
     nextHref = "/instructor/subscription";
     nextLabel = "Продать ещё";
   } else if (p.type === "writeoff") {
@@ -68,6 +72,13 @@ export default async function DonePage({
     ];
     nextHref = "/instructor/writeoff";
     nextLabel = "Списать ещё";
+  } else if (p.type === "bonus") {
+    // Трата бонусных минут за приглашённых друзей (0063).
+    title = "Бонусные минуты списаны";
+    details = [
+      `${p.name ?? "Клиент"}: −${p.minutes ?? "?"} мин`,
+      `Бонусных минут осталось: ${p.left ?? "?"}`,
+    ];
   } else if (p.type === "extend") {
     title = "Абонемент продлён";
     details = [

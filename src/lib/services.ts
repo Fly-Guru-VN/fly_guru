@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ServiceOption } from "@/components/BookingForm";
 import { sortServicesByType } from "@/lib/serviceOrder";
+import { BONUS_SERVICE_CODE } from "@/lib/referralTerms";
 import {
   services as contentServices,
   type Service,
@@ -15,8 +16,13 @@ import {
 //
 // category (необязательно) — показать услуги только одной категории
 // (например, на странице обучения — только training).
+//
+// «Бонусные минуты» (0063) — служебная услуга: на ней клиент тратит минуты за
+// приглашённых друзей. Гостю сайта записаться на неё нечем, поэтому по
+// умолчанию её в списке нет; кабинет в Telegram просит её явно (includeBonus).
 export async function getActiveServices(
   category?: ServiceCategory,
+  { includeBonus = false }: { includeBonus?: boolean } = {},
 ): Promise<ServiceOption[]> {
   const supabase = createAdminClient();
   let query = supabase
@@ -25,6 +31,8 @@ export async function getActiveServices(
     .eq("active", true);
 
   if (category) query = query.eq("category", category);
+  // neq в SQL отбросил бы и услуги без кода (заведённые админом руками).
+  if (!includeBonus) query = query.or(`code.is.null,code.neq.${BONUS_SERVICE_CODE}`);
 
   const { data, error } = await query;
   if (error) {

@@ -315,7 +315,10 @@ export async function SessionsScreen({
       .from("services")
       .select("id, name, price, code, category")
       .eq("active", true)
-      .neq("category", "subscription"),
+      .neq("category", "subscription")
+      // «Бонусные минуты» (0063) — только через «Записать клиента» инструктора:
+      // там проверяется остаток.
+      .or("code.is.null,code.neq.bonus-minutes"),
     loadSessionStaff(supabase),
     // Уволенных в списке «кто провёл» быть не должно: выбрать его можно только
     // по ошибке, а занятие уедет человеку, которого в школе уже нет (0036).

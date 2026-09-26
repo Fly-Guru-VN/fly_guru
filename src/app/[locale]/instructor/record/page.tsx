@@ -9,6 +9,7 @@ import { CopyLink } from "@/app/[locale]/admin/CopyLink";
 import { RecordForm, type RecordPrefill } from "./RecordForm";
 import { createMyRefCodeAction } from "../actions";
 import { firstBasicTrainingByPhone, asAgentPlan } from "@/lib/agentReward";
+import { memberReferrerFor } from "@/lib/referrals";
 import { sortServicesByType } from "@/lib/serviceOrder";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 
@@ -127,6 +128,12 @@ export default async function RecordPage({
             booking.phone,
           ]);
           prefill.refDiscount = known.get(booking.phone as string);
+        } else {
+          // Не агент — может, ссылка члена клуба (0063): тогда новому гостю
+          // +10 минут к обучению, и инструктор должен знать это ДО занятия.
+          prefill.refIsClient = Boolean(
+            await memberReferrerFor(createAdminClient(), booking.ref_code),
+          );
         }
       }
     }

@@ -283,7 +283,10 @@ export default async function InstructorSessionsPage({
       .from("services")
       .select("id, name, code, category")
       .eq("active", true)
-      .neq("category", "subscription"),
+      .neq("category", "subscription")
+      // «Бонусные минуты» (0063) — только через «Записать клиента» инструктора:
+      // там проверяется остаток.
+      .or("code.is.null,code.neq.bonus-minutes"),
   ]);
 
   const sessions = (sessionsRes.data ?? []) as unknown as SessionRow[];

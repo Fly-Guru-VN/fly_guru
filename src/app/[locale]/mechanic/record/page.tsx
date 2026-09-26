@@ -33,7 +33,10 @@ export default async function MechanicRecordPage({
     .from("services")
     .select("id, name, code, category")
     .eq("active", true)
-    .neq("category", "subscription");
+    .neq("category", "subscription")
+    // «Бонусные минуты» (0063) — только через «Записать клиента» инструктора:
+    // там проверяется остаток.
+    .or("code.is.null,code.neq.bonus-minutes");
   // Порядок «по типажам» (lib/serviceOrder.ts).
   const services = sortServicesByType(serviceRows ?? []).map((s) => ({
     id: s.id as string,
