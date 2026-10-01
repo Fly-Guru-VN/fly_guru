@@ -139,15 +139,15 @@ function DueCard({
             Переплата {vnd(-row.left!)}
           </span>
         )}
-        {/* Что накапало за текущий месяц: 1% с оборота у недельщиков, оклад у
-            механика. Висит у ника напоминалкой и в «осталось выдать» не входит,
-            пока месяц не закрыт. */}
+        {/* Что накапало за текущий месяц: 1% с оборота у недельщиков. Висит
+            у ника напоминалкой и в «осталось выдать» не входит, пока месяц не
+            закрыт. Оклад механика сюда больше не попадает — он стоит прямо в
+            «осталось выдать» (см. upcoming). */}
         {row.monthly && row.payee && (
           <MonthlyChip
             payee={`${row.payee.kind}:${row.payee.id}`}
             amount={row.monthly.amount}
             label={row.monthly.label}
-            what={row.kind === "mechanic" ? "Оклад" : "1%"}
           />
         )}
       </div>
@@ -191,9 +191,29 @@ function DueCard({
               {vnd(row.payee ? row.paidToDate : row.accrued)}
             </p>
           )}
+          {/* Оклад механика за идущий месяц: виден здесь, чтобы выдать его
+              одной кнопкой, но в общий итог школы он не идёт, пока месяц не
+              закрыт (решение David от 01.10.2026). */}
+          {row.upcoming && row.left !== null && row.left > 0 && (
+            <p className="mt-0.5 text-xs text-muted">
+              из них {vnd(Math.min(row.upcoming.amount, row.left))} — оклад за{" "}
+              {row.upcoming.label}, в долг пока не входит
+            </p>
+          )}
         </div>
 
-        {row.payee && row.accrued > 0 && (
+        {/* Механик: одна кнопка на всё, что ему осталось, включая идущий
+            месяц. Остальным — заработанное за выбранные дни, как раньше. */}
+        {row.payee && row.upcoming && row.left !== null && row.left > 0 && (
+          <div className="w-full sm:ml-auto sm:w-auto">
+            <PayButton
+              payee={`${row.payee.kind}:${row.payee.id}`}
+              amount={row.left}
+            />
+          </div>
+        )}
+
+        {row.payee && !row.upcoming && row.accrued > 0 && (
           <div className="w-full sm:ml-auto sm:w-auto">
             <PayButton
               payee={`${row.payee.kind}:${row.payee.id}`}
@@ -239,6 +259,12 @@ function DueCard({
                   label={`Начислено с ${epochLabel}`}
                   value={row.accruedToDate}
                 />
+                {row.upcoming && (
+                  <DetailLine
+                    label={`· из них оклад за ${row.upcoming.label} (ещё не долг)`}
+                    value={row.upcoming.amount}
+                  />
+                )}
                 {/* Главный вопрос к этой цифре звучит так: «за неделю он
                     заработал миллион, почему осталось выдать два с лишним?».
                     Ответ — накопительный хвост: то, что начислено раньше
@@ -247,7 +273,10 @@ function DueCard({
                     уме. Показываем только когда хвост есть и он положительный:
                     при периоде за пределами накопительного окна разность
                     смысла не имеет. */}
-                {row.accruedToDate - row.accrued > 0 && row.accrued > 0 && (
+                {/* Оклад за идущий месяц уже показан строкой выше — из
+                    «более ранних дней» его вычитаем, иначе он попал бы туда. */}
+                {row.accruedToDate - (row.upcoming?.amount ?? 0) - row.accrued > 0 &&
+                  row.accrued > 0 && (
                   <>
                     <DetailLine
                       label={`· из них за ${periodLabel}`}
@@ -255,7 +284,7 @@ function DueCard({
                     />
                     <DetailLine
                       label="· из них за более ранние дни"
-                      value={row.accruedToDate - row.accrued}
+                      value={row.accruedToDate - (row.upcoming?.amount ?? 0) - row.accrued}
                     />
                   </>
                 )}

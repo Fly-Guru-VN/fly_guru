@@ -13,7 +13,7 @@ import {
   getWeeklyFixedPay,
   shiftPayStatus,
 } from "@/lib/salary";
-import { vnPeriod } from "@/lib/dates";
+import { vnPeriod, vnToday } from "@/lib/dates";
 import type { StaffMember } from "@/lib/staff";
 
 // Тесты денежных формул. Запуск: npm test
@@ -569,6 +569,15 @@ test("два закрытых месяца — два оклада, идущий
   assert.equal(pay.months, 2);
   assert.equal(pay.amount, 20_000_000);
   assert.equal(pay.current, 0);
+});
+
+test("за идущий месяц висит полный оклад, а не доля прошедших дней", () => {
+  // Решение David от 01.10.2026: 1-го числа напоминалка должна показывать все
+  // 10 млн, а не 10 млн × 1/31. Период — с начала текущего месяца по сегодня.
+  const today = vnToday();
+  const pay = getMonthlyFixedPay(MECHANIC_MONTH_PAY, `${today.slice(0, 7)}-01`, today);
+  assert.equal(pay.current, MECHANIC_MONTH_PAY);
+  assert.equal(pay.currentMonth, `${today.slice(0, 7)}-01`);
 });
 
 test("принятому в середине месяца оклад считается по отработанным дням", () => {

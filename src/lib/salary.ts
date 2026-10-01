@@ -528,7 +528,15 @@ export function getMonthlyFixedPay(
         months += 1;
         amount += share;
       } else {
-        current = share;
+        // Идущий месяц — сразу полный оклад, а не «сколько дней уже прошло»
+        // (решение David от 01.10.2026: «у него просто фикс в месяц»). Делим
+        // по дням, только если человек уходит в этом же месяце или пришёл в нём.
+        const plannedTo =
+          member?.leftAt && member.leftAt < monthEnd ? member.leftAt : monthEnd;
+        const planned = daysBetween(workedFrom, plannedTo) + 1;
+        const inMonth = daysBetween(cursor, monthEnd) + 1;
+        current =
+          planned >= inMonth ? monthPay : Math.round((monthPay * planned) / inMonth);
         currentMonth = cursor;
       }
     }

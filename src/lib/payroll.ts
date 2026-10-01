@@ -136,6 +136,16 @@ export interface DueRow {
    * напоминалка сменится на следующий месяц.
    */
   monthly?: { label: string; amount: number };
+  // Оклад механика за идущий месяц (решение David от 01.10.2026). Он уже
+  // входит в left и accruedToDate этой карточки — начальник видит «осталось
+  // выдать 10 млн» и платит одной кнопкой, — но это ещё НЕ долг: в общие итоги
+  // школы он не идёт (см. debtOf), пока месяц не закрыт.
+  upcoming?: { label: string; amount: number };
+}
+
+// Долг по строке без оклада за идущий месяц. Им считаются итоги школы.
+export function debtOf(r: Pick<DueRow, "left" | "upcoming">): number {
+  return Math.max(0, (r.left ?? 0) - (r.upcoming?.amount ?? 0));
 }
 
 // Одна выплата — и в истории, и в подсчёте «выплачено за период».
@@ -794,8 +804,9 @@ export async function getMonthlyPayroll(
   // Оклад 10 млн в месяц (решение David от 21.08.2026). За смену он не получает
   // ничего, хотя открывает её наравне со всеми: его в SHIFT_CREW_ROLES нет.
   //
-  // Начисляем за ЗАКРЫТЫЙ месяц, идущий висит напоминалкой у ника — то же
-  // правило, что у 1% СММщика: за неотработанные дни школа не должна.
+  // В долг идёт ЗАКРЫТЫЙ месяц. Идущий с 01.10.2026 сразу целиком стоит в
+  // «осталось выдать» карточки (upcoming), но в итоги школы не входит: у
+  // механика просто фикс в месяц, и начальник выдаёт его одной кнопкой.
   const mechanics = allMechanics.filter(inScope);
   for (const u of mechanics) {
     const fix = getMonthlyFixedPay(MECHANIC_MONTH_PAY, range.fromDay, lastDay, u);
@@ -814,12 +825,14 @@ export async function getMonthlyPayroll(
       name: u.name,
       accrued: fix.amount,
       paid,
-      accruedToDate: fixToDate.amount,
+      // Идущий месяц сразу в карточке: выплатил его заранее — «Переплаты» нет,
+      // висит «✓ Всё выдано»; не выплатил — 1-го числа он станет долгом сам.
+      accruedToDate: fixToDate.amount + fixToDate.current,
       paidToDate: paidAll,
-      left: fixToDate.amount - paidAll,
+      left: fixToDate.amount + fixToDate.current - paidAll,
       employmentLabel: employmentLabel(u),
       fired: isFired(u),
-      monthly:
+      upcoming:
         fixToDate.current > 0 && fixToDate.currentMonth
           ? {
               label: monthName(fixToDate.currentMonth),
@@ -999,11 +1012,14 @@ export async function getMonthlyPayroll(
     payees,
     accruedTotal: payableRows.reduce((s, r) => s + r.accrued, 0),
     paidTotal: payableRows.reduce((s, r) => s + r.paid, 0),
-    accruedToDateTotal: payableRows.reduce((s, r) => s + r.accruedToDate, 0),
+    accruedToDateTotal: payableRows.reduce(
+      (s, r) => s + r.accruedToDate - (r.upcoming?.amount ?? 0),
+      0,
+    ),
     paidToDateTotal: payableRows.reduce((s, r) => s + r.paidToDate, 0),
     // Переплата одному человеку не гасит долг другому: в «отдать сегодня»
     // складываем только положительные сальдо.
-    leftTotal: payableRows.reduce((s, r) => s + Math.max(0, r.left ?? 0), 0),
+    leftTotal: payableRows.reduce((s, r) => s + debtOf(r), 0),
     crmMonthLabel: crmMonth.label,
     crmInTotal,
     epoch: PAYROLL_EPOCH,
