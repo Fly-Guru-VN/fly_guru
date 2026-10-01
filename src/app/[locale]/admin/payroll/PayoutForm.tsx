@@ -26,15 +26,27 @@ const field =
 export function PayoutForm({
   payees,
   today,
+  initialPayee = "",
 }: {
   payees: Payee[];
   today: string;
+  /** Карточка инструктора: работник выбран сразу, форма — только для него. */
+  initialPayee?: string;
 }) {
-  const [state, formAction, pending] = useActionState(paySalaryAction, {
-    error: null,
-  });
-  const [payee, setPayee] = useState("");
+  const [payee, setPayee] = useState(initialPayee);
   const [amount, setAmount] = useState("");
+  const [comment, setComment] = useState("");
+  // Комментарий раньше был неуправляемым полем и сам очищался после отправки.
+  // Теперь его заполняет кнопка недели — очищаем вручную после удачной
+  // выплаты, чтобы «за 12–18 сен.» не уехало в следующую.
+  const [state, formAction, pending] = useActionState(
+    async (prev: Awaited<ReturnType<typeof paySalaryAction>>, data: FormData) => {
+      const result = await paySalaryAction(prev, data);
+      if (!result.error) setComment("");
+      return result;
+    },
+    { error: null },
+  );
   const formRef = useRef<HTMLFormElement>(null);
 
   const groups = [...new Set(payees.map((p) => p.group))];
@@ -52,10 +64,14 @@ export function PayoutForm({
   // она наверху страницы, а список долгов длинный.
   useEffect(() => {
     const onPay = (e: Event) => {
-      const { payee: who, amount: sum } = (e as CustomEvent<PayoutRequest>)
-        .detail;
+      const {
+        payee: who,
+        amount: sum,
+        comment: note,
+      } = (e as CustomEvent<PayoutRequest>).detail;
       setPayee(who);
       setAmount(sum > 0 ? String(sum) : "");
+      if (note) setComment(note);
       formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     };
     window.addEventListener(PAYOUT_EVENT, onPay);
@@ -119,6 +135,8 @@ export function PayoutForm({
         Комментарий
         <input
           name="comment"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
           placeholder="аванс · за прошлую неделю · остаток"
           className={field}
         />

@@ -8,13 +8,12 @@ import {
   getPayoutHistory,
   PAYROLL_EPOCH,
   type DueRow,
-  type PayoutRow,
 } from "@/lib/payroll";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { PayoutForm } from "./PayoutForm";
 import { MonthlyChip, PayButton } from "./PayButton";
-import { deleteSalaryPayoutAction } from "../actions";
-import { ConfirmSubmit } from "../ConfirmSubmit";
+import { HistoryRow } from "./HistoryRow";
+import { CHIP, DetailLine, StatLabel } from "./parts";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 
@@ -53,55 +52,6 @@ const KIND_LABEL: Record<DueRow["kind"], string> = {
   crm: "справка",
 };
 
-// Подпись над крупной цифрой. Капсом и с разрядкой намеренно: цифр в строке
-// две, они про разное, и подпись должна прочитаться раньше самого числа —
-// иначе рядом стоят два похожих числа и непонятно, какое из них к чему.
-function StatLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-      {children}
-    </p>
-  );
-}
-
-const CHIP = "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold";
-
-// Строка в раскрывашке «Как посчитали»: подпись слева, число справа колонкой.
-// Кегль здесь обычный (text-sm у родителя), а не 11 пикселей, как было: под
-// раскрывашку лезут именно затем, чтобы прочитать, а не «увидеть, что текст
-// есть». Итоговые строки отделяются чертой и жирным — глаз сразу цепляет,
-// откуда взялась крупная цифра наверху.
-function DetailLine({
-  label,
-  hint,
-  value,
-  strong = false,
-  negative = false,
-}: {
-  label: string;
-  hint?: string;
-  value: number;
-  strong?: boolean;
-  negative?: boolean;
-}) {
-  return (
-    <div
-      className={`flex items-baseline justify-between gap-3 py-1 ${
-        strong ? "mt-1 border-t border-line pt-2 font-bold" : "text-muted"
-      }`}
-    >
-      <span className="min-w-0">
-        {label}
-        {hint ? <span className="text-muted"> · {hint}</span> : null}
-      </span>
-      <span className="shrink-0 tabular-nums">
-        {negative ? "− " : ""}
-        {vnd(value)}
-      </span>
-    </div>
-  );
-}
-
 // Карточка человека. На экране остаётся только то, ради чего сюда зашли: имя,
 // две крупные цифры с подписями и кнопка. Цифры две, потому что отвечают на
 // разные вопросы: «заработал за выбранные дни» — это то, что начальник выдаёт в
@@ -125,11 +75,24 @@ function DueCard({
 }) {
   const settled = row.left !== null && row.left <= 0;
   const over = row.left !== null && row.left < 0;
+  // У инструктора вместо «Как посчитали» — своя карточка: недели с выплатами
+  // за каждую, видно, где не внесено (просьба David от 01.10.2026).
+  const cardHref =
+    row.kind === "instructor" && row.payee ? `/admin/payroll/${row.payee.id}` : null;
 
   return (
     <div className="rounded-2xl border border-line bg-bg/70 p-3 sm:p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="min-w-0 font-bold">{row.name}</p>
+        {cardHref ? (
+          <Link
+            href={cardHref}
+            className="min-w-0 font-bold underline decoration-line decoration-2 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary"
+          >
+            {row.name}
+          </Link>
+        ) : (
+          <p className="min-w-0 font-bold">{row.name}</p>
+        )}
         <span className="rounded-full bg-line/50 px-2 py-0.5 text-xs font-semibold text-muted">
           {KIND_LABEL[row.kind]}
           {row.employmentLabel ? ` · ${row.employmentLabel}` : ""}
@@ -224,132 +187,102 @@ function DueCard({
         )}
       </div>
 
-      <details className="group mt-3">
-        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary [&::-webkit-details-marker]:hidden">
-          Как посчитали
-          <span className="transition-transform group-open:rotate-180">▾</span>
-        </summary>
+      {cardHref ? (
+        <Link
+          href={cardHref}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+        >
+          Карточка: по неделям →
+        </Link>
+      ) : (
+        <details className="group mt-3">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary [&::-webkit-details-marker]:hidden">
+            Как посчитали
+            <span className="transition-transform group-open:rotate-180">▾</span>
+          </summary>
 
-        <div className="mt-2 rounded-xl border border-line bg-surface p-3 text-sm">
-          {row.details.length > 0 && (
-            <div>
-              <StatLabel>за {periodLabel}</StatLabel>
-              <div className="mt-1">
-                {row.details.map((d) => (
-                  <DetailLine
-                    key={d.label}
-                    label={d.label}
-                    hint={d.hint}
-                    value={d.value}
-                  />
-                ))}
-                <DetailLine label="Начислено" value={row.accrued} strong />
-                {row.payee && (
-                  <DetailLine label="Выплачено в эти дни" value={row.paid} />
-                )}
-              </div>
-            </div>
-          )}
-
-          {row.left !== null && (
-            <div className={row.details.length > 0 ? "mt-4" : ""}>
-              <StatLabel>откуда «осталось выдать»</StatLabel>
-              <div className="mt-1">
-                <DetailLine
-                  label={`Начислено с ${epochLabel}`}
-                  value={row.accruedToDate}
-                />
-                {row.upcoming && (
-                  <DetailLine
-                    label={`· из них оклад за ${row.upcoming.label} (ещё не долг)`}
-                    value={row.upcoming.amount}
-                  />
-                )}
-                {/* Главный вопрос к этой цифре звучит так: «за неделю он
-                    заработал миллион, почему осталось выдать два с лишним?».
-                    Ответ — накопительный хвост: то, что начислено раньше
-                    выбранных дней и ещё не выдано. Раскладываем начисленное
-                    на две части прямо здесь, чтобы не приходилось считать в
-                    уме. Показываем только когда хвост есть и он положительный:
-                    при периоде за пределами накопительного окна разность
-                    смысла не имеет. */}
-                {/* Оклад за идущий месяц уже показан строкой выше — из
-                    «более ранних дней» его вычитаем, иначе он попал бы туда. */}
-                {row.accruedToDate - (row.upcoming?.amount ?? 0) - row.accrued > 0 &&
-                  row.accrued > 0 && (
-                  <>
+          <div className="mt-2 rounded-xl border border-line bg-surface p-3 text-sm">
+            {row.details.length > 0 && (
+              <div>
+                <StatLabel>за {periodLabel}</StatLabel>
+                <div className="mt-1">
+                  {row.details.map((d) => (
                     <DetailLine
-                      label={`· из них за ${periodLabel}`}
-                      value={row.accrued}
+                      key={d.label}
+                      label={d.label}
+                      hint={d.hint}
+                      value={d.value}
                     />
-                    <DetailLine
-                      label="· из них за более ранние дни"
-                      value={row.accruedToDate - (row.upcoming?.amount ?? 0) - row.accrued}
-                    />
-                  </>
-                )}
-                <DetailLine
-                  label={`Выдано с ${epochLabel}`}
-                  value={row.paidToDate}
-                  negative
-                />
-                <DetailLine
-                  label={row.left < 0 ? "Выдано лишнего" : "Осталось выдать"}
-                  value={Math.abs(row.left)}
-                  strong
-                />
+                  ))}
+                  <DetailLine label="Начислено" value={row.accrued} strong />
+                  {row.payee && (
+                    <DetailLine label="Выплачено в эти дни" value={row.paid} />
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {row.left === null && (
-            <p className={`text-muted ${row.details.length > 0 ? "mt-4" : ""}`}>
-              {row.payee
-                ? `Ставки в системе нет: сколько платить — решает начальник. С ${epochLabel} выдано ${vnd(row.paidToDate)}.`
-                : "Справка: эти деньги школа никому не выдаёт."}
-            </p>
-          )}
-        </div>
-      </details>
-    </div>
-  );
-}
+            {row.left !== null && (
+              <div className={row.details.length > 0 ? "mt-4" : ""}>
+                <StatLabel>откуда «осталось выдать»</StatLabel>
+                <div className="mt-1">
+                  <DetailLine
+                    label={`Начислено с ${epochLabel}`}
+                    value={row.accruedToDate}
+                  />
+                  {row.upcoming && (
+                    <DetailLine
+                      label={`· из них оклад за ${row.upcoming.label} (ещё не долг)`}
+                      value={row.upcoming.amount}
+                    />
+                  )}
+                  {/* Главный вопрос к этой цифре звучит так: «за неделю он
+                      заработал миллион, почему осталось выдать два с лишним?».
+                      Ответ — накопительный хвост: то, что начислено раньше
+                      выбранных дней и ещё не выдано. Раскладываем начисленное
+                      на две части прямо здесь, чтобы не приходилось считать в
+                      уме. Показываем только когда хвост есть и он положительный:
+                      при периоде за пределами накопительного окна разность
+                      смысла не имеет. */}
+                  {/* Оклад за идущий месяц уже показан строкой выше — из
+                      «более ранних дней» его вычитаем, иначе он попал бы туда. */}
+                  {row.accruedToDate - (row.upcoming?.amount ?? 0) - row.accrued > 0 &&
+                    row.accrued > 0 && (
+                    <>
+                      <DetailLine
+                        label={`· из них за ${periodLabel}`}
+                        value={row.accrued}
+                      />
+                      <DetailLine
+                        label="· из них за более ранние дни"
+                        value={row.accruedToDate - (row.upcoming?.amount ?? 0) - row.accrued}
+                      />
+                    </>
+                  )}
+                  <DetailLine
+                    label={`Выдано с ${epochLabel}`}
+                    value={row.paidToDate}
+                    negative
+                  />
+                  <DetailLine
+                    label={row.left < 0 ? "Выдано лишнего" : "Осталось выдать"}
+                    value={Math.abs(row.left)}
+                    strong
+                  />
+                </div>
+              </div>
+            )}
 
-// Одна выплата в истории. Кнопка удаления — на случай «ткнул не туда»:
-// правки суммы нет намеренно, удалить и внести заново честнее.
-function HistoryRow({ p }: { p: PayoutRow }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-line/70 py-2 last:border-0">
-      <div className="min-w-0">
-        <p className="text-sm font-semibold">
-          {p.name}
-          <span className="ml-2 text-xs font-normal text-muted">
-            {dayShort(p.paidOn)}
-          </span>
-        </p>
-        {(p.comment || p.period) && (
-          <p className="truncate text-sm text-muted">
-            {p.period
-              ? `за ${dayShort(p.period.from)} — ${dayShort(p.period.to)}`
-              : ""}
-            {p.period && p.comment ? " · " : ""}
-            {p.comment ?? ""}
-          </p>
-        )}
-      </div>
-      <div className="flex shrink-0 items-baseline gap-3">
-        <p className="font-bold tabular-nums">{vnd(p.amount)}</p>
-        <form action={deleteSalaryPayoutAction}>
-          <input type="hidden" name="id" value={p.id} />
-          <input type="hidden" name="kind" value={p.kind} />
-          <ConfirmSubmit
-            message={`Удалить выплату ${vnd(p.amount)} (${p.name})?`}
-            className="-mr-2 px-2 py-1.5 text-xs font-semibold text-muted transition-colors hover:text-red-600"
-          >
-            удалить
-          </ConfirmSubmit>
-        </form>
-      </div>
+            {row.left === null && (
+              <p className={`text-muted ${row.details.length > 0 ? "mt-4" : ""}`}>
+                {row.payee
+                  ? `Ставки в системе нет: сколько платить — решает начальник. С ${epochLabel} выдано ${vnd(row.paidToDate)}.`
+                  : "Справка: эти деньги школа никому не выдаёт."}
+              </p>
+            )}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

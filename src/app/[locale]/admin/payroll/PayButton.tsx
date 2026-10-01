@@ -16,6 +16,8 @@ export const PAYOUT_EVENT = "flyguru:payout";
 export interface PayoutRequest {
   payee: string; // «staff:<id>» или «agent:<id>» — как в поле формы
   amount: number;
+  /** Подпись в поле «Комментарий»: карточка инструктора пишет «за 12–18 сен.». */
+  comment?: string;
 }
 
 // warn — за этот период человеку уже отдали столько же или выдавать ему больше
@@ -25,6 +27,7 @@ export interface PayoutRequest {
 export function PayButton({
   payee,
   amount,
+  comment,
   warn = false,
 }: PayoutRequest & { warn?: boolean }) {
   return (
@@ -38,7 +41,7 @@ export function PayButton({
       onClick={() =>
         window.dispatchEvent(
           new CustomEvent<PayoutRequest>(PAYOUT_EVENT, {
-            detail: { payee, amount: Math.round(amount) },
+            detail: { payee, amount: Math.round(amount), comment },
           }),
         )
       }
