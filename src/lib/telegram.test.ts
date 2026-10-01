@@ -90,3 +90,33 @@ test("длинная заявка уходит текстом, но без чу�
     else process.env.TELEGRAM_CHAT_ID = oldChat;
   }
 });
+
+test("заявка уходит в каждый рабочий чат из списка через запятую", async () => {
+  const oldToken = process.env.TELEGRAM_BOT_TOKEN;
+  const oldChat = process.env.TELEGRAM_CHAT_ID;
+  const oldFetch = globalThis.fetch;
+  process.env.TELEGRAM_BOT_TOKEN = "test-token";
+  // David и СММщик: каждому в личку, пробел после запятой не мешает.
+  process.env.TELEGRAM_CHAT_ID = "111, 222";
+
+  const chats: string[] = [];
+  globalThis.fetch = async (_input, init) => {
+    chats.push(JSON.parse(String(init?.body ?? "{}")).chat_id);
+    return new Response("", { status: 200 });
+  };
+
+  try {
+    await sendBookingNotification({
+      serviceName: "Тандем",
+      clientName: "Гость",
+      contact: "0900000000",
+    });
+    assert.deepEqual(chats.sort(), ["111", "222"]);
+  } finally {
+    globalThis.fetch = oldFetch;
+    if (oldToken === undefined) delete process.env.TELEGRAM_BOT_TOKEN;
+    else process.env.TELEGRAM_BOT_TOKEN = oldToken;
+    if (oldChat === undefined) delete process.env.TELEGRAM_CHAT_ID;
+    else process.env.TELEGRAM_CHAT_ID = oldChat;
+  }
+});

@@ -37,6 +37,28 @@ const COVER = {
 // текст заявки важнее обложки, резать его нельзя.
 const CAPTION_LIMIT = 1024;
 
+// Рабочий чат админа — это может быть НЕСКОЛЬКО чатов через запятую:
+// TELEGRAM_CHAT_ID="личка David,личка СММщика". С 01.10.2026 новые заявки,
+// отмены и запросы из магазина получает и СММщик (Никита) — тем же ботом, что
+// и David, каждый у себя в личке. Пробелы вокруг запятых не мешают.
+// Чтобы бот смог написать человеку, тот должен один раз нажать /start у бота.
+function staffChatIds(): string[] {
+  return (process.env.TELEGRAM_CHAT_ID ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+// Отправить одно и то же во все рабочие чаты. true — дошло хотя бы в один:
+// для запроса из магазина этого достаточно, кто-то из людей его увидел.
+// Сбой в одном чате не мешает остальным (sendTelegram сам пишет его в лог).
+async function sendToStaffChats(text: string, photo?: string): Promise<boolean> {
+  const results = await Promise.all(
+    staffChatIds().map((chatId) => sendTelegram(chatId, text, photo)),
+  );
+  return results.some(Boolean);
+}
+
 interface BookingNotification {
   serviceName: string | null; // название услуги
   clientName: string;
@@ -55,10 +77,9 @@ export async function sendBookingNotification(
   b: BookingNotification,
 ): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
 
   // Не настроено — тихо выходим. Это нормальный режим до подключения бота.
-  if (!token || !chatId) return;
+  if (!token || staffChatIds().length === 0) return;
 
   // Собираем текст сообщения построчно. Пустые (необязательные) поля пропускаем.
   // Шлём простым текстом (без Markdown) — так надёжнее: не нужно экранировать
@@ -86,7 +107,7 @@ export async function sendBookingNotification(
   // попадаешь туда, где заявку обрабатывают, а не ищешь адрес по закладкам.
   lines.push("", `Открыть: ${SITE_URL}/admin/bookings`);
 
-  await sendTelegram(chatId, lines.join("\n"), COVER.booking);
+  await sendToStaffChats(lines.join("\n"), COVER.booking);
 }
 
 // Уведомление в группу ИНСТРУКТОРОВ: админ подтвердил заявку → появилась
@@ -152,9 +173,8 @@ export async function sendShiftReminder(kind: "open" | "close"): Promise<boolean
 // отменил свою запись в кабинете — это надо увидеть до того, как инструктор
 // поедет на воду.
 export async function sendStaffMessage(text: string): Promise<void> {
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!chatId) return;
-  await sendTelegram(chatId, text);
+  if (staffChatIds().length === 0) return;
+  await sendToStaffChats(text);
 }
 
 // Запрос из магазина (форма «Перезвоните мне» на /shop). В отличие от заявок на
@@ -162,12 +182,11 @@ export async function sendStaffMessage(text: string): Promise<void> {
 // единственный след заявки. Отсюда true/false: при сбое гость должен увидеть
 // «не получилось» и написать в мессенджер сам, а не думать, что его услышали.
 export async function sendShopInquiry(text: string): Promise<boolean> {
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!chatId) {
+  if (staffChatIds().length === 0) {
     console.error("[telegram] TELEGRAM_CHAT_ID не задан — запрос из магазина не отправлен");
     return false;
   }
-  return sendTelegram(chatId, `${text}\n\nСайт: ${SITE_URL}/shop`);
+  return sendToStaffChats(`${text}\n\nСайт: ${SITE_URL}/shop`);
 }
 
 // Общая отправка простым текстом (без Markdown — надёжнее, ничего не надо
