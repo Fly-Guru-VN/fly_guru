@@ -4,6 +4,7 @@ import {
   setHiredAtAction,
   setSeniorAction,
 } from "../actions";
+import type { AppRole } from "@/lib/auth";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { ConfirmSubmit } from "../ConfirmSubmit";
 
@@ -20,9 +21,13 @@ import { ConfirmSubmit } from "../ConfirmSubmit";
 // строку нельзя: занятия потеряют инструктора, а прошлые расчёты ЗП станет не
 // пересчитать. Поэтому здесь только даты первого и последнего рабочего дня, и
 // от них зависит всё остальное — списки в формах, дележ абонементов, вход.
+//
+// Тот же блок рисуется второй раз для СММщиков (kind="smm", с 01.10.2026):
+// даты у них те же, а старшинства нет — утренний осмотр досок не их забота.
 
 export interface StaffRow {
   id: string;
+  role: AppRole;
   name: string;
   senior: boolean;
   hiredAt: string | null;
@@ -36,27 +41,32 @@ const linkClass =
   "text-xs font-semibold text-muted transition-colors hover:text-primary";
 
 export function StaffManager({
+  kind,
   staff,
   today,
 }: {
+  kind: "instructor" | "smm";
   staff: StaffRow[];
   today: string;
 }) {
+  const withSenior = kind === "instructor";
   const working = staff.filter((s) => !s.fired);
   const seniorCount = working.filter((s) => s.senior).length;
   const fired = staff.filter((s) => s.fired);
 
   return (
     <section className="rounded-2xl border border-line bg-surface p-4">
-      <h2 className="font-bold">Инструкторы</h2>
+      <h2 className="font-bold">{withSenior ? "Инструкторы" : "СММ"}</h2>
       <p className="mt-1 text-xs text-muted">
-        Старший отвечает за утренний осмотр оборудования. Это пометка для людей:
-        смену все открывают одинаково — одним фото на пляже, а доску с крылом
-        снимает тот, кому в этот день удобно.
+        {withSenior
+          ? "Старший отвечает за утренний осмотр оборудования. Это пометка для людей: смену все открывают одинаково — одним фото на пляже, а доску с крылом снимает тот, кому в этот день удобно."
+          : "Фикс за неделю и 1% с выручки начисляются только за дни между первым и последним рабочим днём."}
       </p>
 
-      {staff.length === 0 ? (
-        <p className="mt-3 text-sm text-muted">Инструкторов в базе пока нет.</p>
+      {working.length === 0 ? (
+        <p className="mt-3 text-sm text-muted">
+          {withSenior ? "Работающих инструкторов нет." : "Работающего СММщика нет."}
+        </p>
       ) : (
         <ul className="mt-3 space-y-2">
           {working.map((s) => (
@@ -64,7 +74,7 @@ export function StaffManager({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="min-w-0 text-sm">
                   <span className="font-semibold">{s.name}</span>
-                  {s.senior && (
+                  {withSenior && s.senior && (
                     <span className="ml-2 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
                       старший
                     </span>
@@ -73,17 +83,19 @@ export function StaffManager({
                     <span className="ml-2 text-[11px] text-muted">{s.label}</span>
                   )}
                 </span>
-                <form action={setSeniorAction} className="shrink-0">
-                  <input type="hidden" name="id" value={s.id} />
-                  <input
-                    type="hidden"
-                    name="senior"
-                    value={s.senior ? "false" : "true"}
-                  />
-                  <button type="submit" className={linkClass}>
-                    {s.senior ? "Снять старшинство" : "Сделать старшим"}
-                  </button>
-                </form>
+                {withSenior && (
+                  <form action={setSeniorAction} className="shrink-0">
+                    <input type="hidden" name="id" value={s.id} />
+                    <input
+                      type="hidden"
+                      name="senior"
+                      value={s.senior ? "false" : "true"}
+                    />
+                    <button type="submit" className={linkClass}>
+                      {s.senior ? "Снять старшинство" : "Сделать старшим"}
+                    </button>
+                  </form>
+                )}
               </div>
 
               {/* Обе даты рядом: слева «с какого числа работает» (от неё идёт
@@ -133,7 +145,7 @@ export function StaffManager({
         </ul>
       )}
 
-      {working.length > 0 && seniorCount === 0 && (
+      {withSenior && working.length > 0 && seniorCount === 0 && (
         <p className="mt-3 text-xs text-muted">
           Старший не назначен — доски снимет тот, кому удобно. На открытие смены
           это не влияет.

@@ -6,19 +6,21 @@ import { SettingsForm } from "@/app/[locale]/instructor/settings/SettingsForm";
 import { DictionaryManager } from "./DictionaryManager";
 import { EquipmentManager } from "./EquipmentManager";
 import { StaffManager, type StaffRow } from "./StaffManager";
-import { employmentLabel, isFired, loadInstructors } from "@/lib/staff";
+import { employmentLabel, isFired, loadEmployees } from "@/lib/staff";
 import { vnToday } from "@/lib/dates";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 
-// Штат: старшинство (0033) плюс трудовой период (0036).
+// Штат: старшинство (0033) плюс трудовой период (0036). С 01.10.2026 здесь же
+// СММщики — их тоже принимают и увольняют датами.
 async function loadStaff(
   supabase: Awaited<ReturnType<typeof createClient>>,
   today: string,
 ): Promise<StaffRow[]> {
-  const staff = await loadInstructors(supabase);
+  const staff = await loadEmployees(supabase);
   return staff.map((m) => ({
     id: m.id,
+    role: m.role,
     name: m.name || "Без имени",
     senior: m.senior,
     hiredAt: m.hiredAt,
@@ -47,11 +49,14 @@ export default async function AdminSettingsPage() {
     loadStaff(supabase, today),
   ]);
 
+  const instructors = staff.filter((s) => s.role === "instructor");
+  const smm = staff.filter((s) => s.role === "smm");
+
   return (
     <div>
       <PageHeader
         title="Настройки"
-        hint="Профиль, старшие инструкторы, справочники форм, инвентарь"
+        hint="Профиль, штат, справочники форм, инвентарь"
       />
       <PageNote>Имя и фото видны всем в кабинете. Категории расходов редактируются не здесь, а во вкладке «Расходы».</PageNote>
       <div className="mt-6">
@@ -64,9 +69,15 @@ export default async function AdminSettingsPage() {
         />
       </div>
 
-      {staff.length > 0 && (
+      {instructors.length > 0 && (
         <div className="mt-6">
-          <StaffManager staff={staff} today={today} />
+          <StaffManager kind="instructor" staff={instructors} today={today} />
+        </div>
+      )}
+
+      {smm.length > 0 && (
+        <div className="mt-6">
+          <StaffManager kind="smm" staff={smm} today={today} />
         </div>
       )}
 

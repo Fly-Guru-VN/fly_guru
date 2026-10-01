@@ -52,6 +52,7 @@ import {
 import { normalizeCertificateCode, randomCertificateCode } from "@/lib/certificateCode";
 import { releaseCertificate } from "@/lib/certificates";
 import { BOSS_DAY_SHARE_FROM } from "@/lib/salary";
+import { EMPLOYMENT_ROLES } from "@/lib/staff";
 import {
   claimBooking,
   linkBookingResult,
@@ -2155,7 +2156,8 @@ export async function deleteSalaryPayoutAction(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
-// Уволить инструктора (0036). Не удаление: строка в users остаётся, вместе с
+// Уволить инструктора или СММщика (0036; СММщик — с 01.10.2026, когда Рому
+// сменил Никита). Не удаление: строка в users остаётся, вместе с
 // ней остаются его занятия, смены и все прошлые расчёты — начальнику нужно
 // видеть, что такой человек был и сколько ему выплатили.
 //
@@ -2183,8 +2185,8 @@ export async function fireInstructorAction(formData: FormData) {
     .from("users")
     .update({ left_at: day })
     .eq("id", id)
-    .eq("role", "instructor");
-  failIfError(error, "не удалось уволить инструктора");
+    .in("role", EMPLOYMENT_ROLES);
+  failIfError(error, "не удалось уволить сотрудника");
   revalidatePath("/", "layout");
 }
 
@@ -2200,8 +2202,8 @@ export async function rehireInstructorAction(formData: FormData) {
     .from("users")
     .update({ left_at: null })
     .eq("id", id)
-    .eq("role", "instructor");
-  failIfError(error, "не удалось вернуть инструктора");
+    .in("role", EMPLOYMENT_ROLES);
+  failIfError(error, "не удалось вернуть сотрудника");
   revalidatePath("/", "layout");
 }
 
@@ -2221,7 +2223,7 @@ export async function setHiredAtAction(formData: FormData) {
     .from("users")
     .update({ hired_at: raw || null })
     .eq("id", id)
-    .eq("role", "instructor");
+    .in("role", EMPLOYMENT_ROLES);
   failIfError(error, "не удалось сохранить дату приёма");
   revalidatePath("/", "layout");
 }
