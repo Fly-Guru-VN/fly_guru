@@ -126,6 +126,7 @@ export interface ShiftPayInfo {
   plannedCount: number; // смены из графика, которые ещё не отработаны
   amount: number; // paidCount × SHIFT_PAY
   rows: ShiftPayRow[]; // по датам, по возрастанию — чтобы объяснить каждый ноль
+  byDay: Map<string, number>; // amount по дням — карточка раскладывает ЗП по неделям
 }
 
 // Выходы за период по каждому инструктору: сколько зачтено, сколько нет и
@@ -144,7 +145,14 @@ export async function getShiftPay(
   const info = (id: string): ShiftPayInfo => {
     let entry = byInstructor.get(id);
     if (!entry) {
-      entry = { paidCount: 0, unpaidCount: 0, plannedCount: 0, amount: 0, rows: [] };
+      entry = {
+        paidCount: 0,
+        unpaidCount: 0,
+        plannedCount: 0,
+        amount: 0,
+        rows: [],
+        byDay: new Map(),
+      };
       byInstructor.set(id, entry);
     }
     return entry;
@@ -178,6 +186,7 @@ export async function getShiftPay(
     if (status === "paid") {
       entry.paidCount += 1;
       entry.amount += SHIFT_PAY;
+      entry.byDay.set(s.date, (entry.byDay.get(s.date) ?? 0) + SHIFT_PAY);
     } else {
       entry.unpaidCount += 1;
     }
@@ -193,6 +202,7 @@ export interface SessionShare {
   amount: number; // 15%, доставшиеся этому инструктору за период
   sharedDays: number; // дни, где сумма делилась со сменщиками
   ownDays: number; // дни без смен — 15% со своих чеков
+  byDay: Map<string, number>; // amount по дням — карточка раскладывает ЗП по неделям
 }
 
 // Кто делит 15% за конкретный день: сначала открывшие смену, если таких нет —
@@ -333,7 +343,7 @@ export async function getSessionShare(
   const share = (id: string): SessionShare => {
     let entry = result.get(id);
     if (!entry) {
-      entry = { amount: 0, sharedDays: 0, ownDays: 0 };
+      entry = { amount: 0, sharedDays: 0, ownDays: 0, byDay: new Map() };
       result.set(id, entry);
     }
     return entry;
@@ -348,12 +358,14 @@ export async function getSessionShare(
         const entry = share(id);
         entry.amount += each;
         entry.sharedDays += 1;
+        entry.byDay.set(date, (entry.byDay.get(date) ?? 0) + each);
       }
     } else {
       for (const [id, net] of dayOwn.get(date) ?? []) {
         const entry = share(id);
         entry.amount += net * SESSION_RATE;
         entry.ownDays += 1;
+        entry.byDay.set(date, (entry.byDay.get(date) ?? 0) + net * SESSION_RATE);
       }
     }
   }
@@ -564,6 +576,8 @@ export interface SubsShares {
    * непонятное: продал один, а денег пришло как за пять.
    */
   sharedCount: Map<string, number>;
+  /** Инструктор → день оплаты абонемента → его доля. Сумма по дням = shares. */
+  sharesByDay: Map<string, Map<string, number>>;
 }
 
 interface PoolSubRow {
@@ -635,13 +649,17 @@ export async function getSubsShares(
   const shares = new Map<string, number>();
   const soldCount = new Map<string, number>();
   const sharedCount = new Map<string, number>();
+  const sharesByDay = new Map<string, Map<string, number>>();
   let pool = 0;
 
   // Деньги и счётчик абонементов идут вместе: каждый раз, когда человеку падает
   // доля, ему же засчитывается ещё один абонемент в знаменатель объяснения.
-  const add = (id: string, amount: number) => {
+  const add = (id: string, amount: number, day: string) => {
     shares.set(id, (shares.get(id) ?? 0) + amount);
     sharedCount.set(id, (sharedCount.get(id) ?? 0) + 1);
+    const days = sharesByDay.get(id) ?? new Map<string, number>();
+    days.set(day, (days.get(day) ?? 0) + amount);
+    sharesByDay.set(id, days);
   };
 
   for (const raw of data) {
@@ -673,14 +691,14 @@ export async function getSubsShares(
       // просто не делим: отдать её ему же значит записать боссу долю котла.
       if (fromCrew) {
         pool += cut;
-        add(seller, cut);
+        add(seller, cut, day);
       }
       continue;
     }
     pool += cut;
     const each = cut / crew.length;
-    for (const m of crew) add(m.id, each);
+    for (const m of crew) add(m.id, each, day);
   }
 
-  return { pool, shares, soldCount, sharedCount };
+  return { pool, shares, soldCount, sharedCount, sharesByDay };
 }

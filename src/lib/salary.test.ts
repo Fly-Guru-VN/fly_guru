@@ -595,3 +595,59 @@ test("уволенному месяц закрывается днём уволь
   assert.equal(pay.months, 1);
   assert.equal(pay.amount, Math.round((10_000_000 * 10) / 31));
 });
+
+// ── Раскладка по дням (карточка инструктора, 01.10.2026) ─────────────────────
+// Карточка собирает из byDay недели и сверяет их с выплатами. Если сумма по
+// дням разойдётся с итогом хоть на донг, недели перестанут сходиться с
+// «осталось выдать» — поэтому проверяем равенство на всех трёх слагаемых.
+
+test("доли по дням в сумме дают итог: 15%, выходы и котёл", async () => {
+  const crew = [staff("a"), staff("b")];
+  const db = fakeDb({
+    sessions: [
+      { date: "2026-08-10", amount: 1_000_000, agent_commission: 0, instructor_id: "a" },
+      { date: "2026-08-11", amount: 2_000_000, agent_commission: 0, instructor_id: "b" },
+    ],
+    shifts: [
+      {
+        date: "2026-08-10",
+        instructor_id: "a",
+        opened_at: vn("2026-08-10", "08:00"),
+        closed_at: vn("2026-08-10", "18:30"),
+        bonus_cancelled: false,
+      },
+      {
+        date: "2026-08-10",
+        instructor_id: "b",
+        opened_at: vn("2026-08-10", "08:00"),
+        closed_at: vn("2026-08-10", "18:30"),
+        bonus_cancelled: false,
+      },
+    ],
+    subscriptions: [
+      { price: 6_000_000, paid_at: "2026-08-12T03:00:00Z", sold_by: "a" },
+    ],
+  });
+  const range = vnPeriod("2026-08-10", "2026-08-12");
+  const ids = ["a", "b"];
+  const [share, shifts, subs] = await Promise.all([
+    getSessionShare(db, range, ids),
+    getShiftPay(db, range, ids),
+    getSubsShares(db, range, crew),
+  ]);
+  const sum = (m: Map<string, number> | undefined) =>
+    [...(m ?? [])].reduce((s, [, v]) => s + v, 0);
+
+  for (const id of ids) {
+    assert.equal(sum(share.get(id)?.byDay), share.get(id)?.amount);
+    assert.equal(sum(shifts.get(id)?.byDay), shifts.get(id)?.amount);
+    assert.equal(sum(subs.sharesByDay.get(id)), subs.shares.get(id));
+  }
+  // 10-го делили вдвоём (открыли оба), 11-го смен нет — 15% «b» со своего чека.
+  assert.deepEqual([...share.get("a")!.byDay], [["2026-08-10", 75_000]]);
+  assert.deepEqual([...share.get("b")!.byDay], [
+    ["2026-08-10", 75_000],
+    ["2026-08-11", 300_000],
+  ]);
+  assert.deepEqual([...subs.sharesByDay.get("b")!], [["2026-08-12", 450_000]]);
+});

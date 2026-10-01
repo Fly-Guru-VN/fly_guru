@@ -2,9 +2,12 @@ import type { createClient } from "@/lib/supabase/server";
 import {
   getInstructorStats,
   loadPayInputs,
+  salaryByDay,
   salaryFrom,
+  type InstructorStats,
   type StatsRange,
 } from "@/lib/stats";
+import { buildPayWeeks, type PayWeek } from "@/lib/payrollWeeks";
 import { getCrmPayout, getCrmShare, type CrmPayout } from "@/lib/finance";
 import { dayShort, monthName, vnMonth, vnPeriod, vnShiftDays, vnToday } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
@@ -1023,5 +1026,86 @@ export async function getMonthlyPayroll(
     crmMonthLabel: crmMonth.label,
     crmInTotal,
     epoch: PAYROLL_EPOCH,
+  };
+}
+
+// ── Карточка инструктора (/admin/payroll/<id>, просьба David от 01.10.2026) ──
+//
+// Один человек: «осталось выдать» тем же расчётом, что и на вкладке, плюс его
+// заработок по неделям рядом с выплатами (lib/payrollWeeks) и сводка за
+// выбранный месяц. Недели строятся из ТЕХ ЖЕ начислений и выплат, что и
+// остаток, поэтому их сумма с ним сходится до донга.
+
+export interface InstructorCard {
+  member: StaffMember;
+  employmentLabel: string | null;
+  fired: boolean;
+  accruedToDate: number;
+  paidToDate: number;
+  left: number;
+  /** Все недели с PAYROLL_EPOCH, старые сначала. */
+  weeks: PayWeek[];
+  /** Все выплаты человеку с PAYROLL_EPOCH, свежие сверху. */
+  payouts: PayoutRow[];
+  /** Сводка за выбранный месяц: занятия, выходы, из чего сложилась ЗП. */
+  month: StatsRange & { lastDay: string };
+  stats: InstructorStats;
+}
+
+export async function getInstructorCard(
+  supabase: Supabase,
+  instructorId: string,
+  ym: string,
+): Promise<InstructorCard | null> {
+  const today = vnToday();
+  const balanceLastDay = today < PAYROLL_EPOCH ? PAYROLL_EPOCH : today;
+  const balanceRange = vnPeriod(PAYROLL_EPOCH, balanceLastDay);
+
+  // Месяц обрезаем сегодняшним днём, как пресет «Этот месяц» на вкладке.
+  const monthFull = vnMonth(ym);
+  const monthLast = lastDayOf(monthFull);
+  const lastDay = monthLast > today ? today : monthLast;
+  const month = { ...vnPeriod(monthFull.fromDay, lastDay), lastDay };
+
+  const [instructors, balanceInputs, payoutsAll, names] = await Promise.all([
+    loadInstructors(supabase),
+    loadPayInputs(supabase, balanceRange),
+    loadStaffPayouts(supabase, { fromDay: PAYROLL_EPOCH, lastDay: balanceLastDay }),
+    loadNames(supabase),
+  ]);
+  const member = instructors.find((m) => m.id === instructorId);
+  if (!member) return null;
+
+  const stats = await getInstructorStats(supabase, member.id, month);
+
+  const payouts = payoutsAll
+    .filter((p) => p.payeeId === member.id)
+    .map((p) => ({ ...p, name: names.staff.get(p.payeeId) ?? member.name }))
+    .sort((a, b) => b.paidOn.localeCompare(a.paidOn));
+
+  const accruedToDate = salaryFrom(balanceInputs, member.id).total;
+  const paidToDate = payouts.reduce((s, p) => s + p.amount, 0);
+
+  return {
+    member,
+    employmentLabel: employmentLabel(member),
+    fired: isFired(member),
+    accruedToDate,
+    paidToDate,
+    left: accruedToDate - paidToDate,
+    weeks: buildPayWeeks({
+      epoch: PAYROLL_EPOCH,
+      today: balanceLastDay,
+      earnedByDay: salaryByDay(balanceInputs, member.id),
+      payouts: payouts.map((p) => ({
+        id: p.id,
+        amount: p.amount,
+        paidOn: p.paidOn,
+        comment: p.comment,
+      })),
+    }),
+    payouts,
+    month,
+    stats,
   };
 }

@@ -172,6 +172,25 @@ export function salaryFrom(
   };
 }
 
+/**
+ * Те же три слагаемых, разложенные по дням: день → сколько начислено. Сумма
+ * по всем дням равна salaryFrom(...).total — карточка инструктора собирает из
+ * этого недели и сверяет их с выплатами.
+ */
+export function salaryByDay(
+  inputs: PayInputs,
+  instructorId: string,
+): Map<string, number> {
+  const days = new Map<string, number>();
+  const add = (byDay: Map<string, number> | undefined) => {
+    for (const [day, v] of byDay ?? []) days.set(day, (days.get(day) ?? 0) + v);
+  };
+  add(inputs.sessionShare.get(instructorId)?.byDay);
+  add(inputs.shiftPay.get(instructorId)?.byDay);
+  add(inputs.subsShares.sharesByDay.get(instructorId));
+  return days;
+}
+
 // payClient — клиент для расчёта ЗП. Дележ 15% по дням и чужие смены нужны
 // целиком, а инструктору RLS отдаёт только свои сессии: кабинет передаёт сюда
 // service-role, админские экраны — обычный клиент (у админа доступ и так есть).
@@ -249,11 +268,13 @@ export async function getInstructorStats(
     plannedCount: 0,
     amount: 0,
     rows: [],
+    byDay: new Map(),
   };
   const myShare = sessionShare.get(instructorId) ?? {
     amount: 0,
     sharedDays: 0,
     ownDays: 0,
+    byDay: new Map(),
   };
 
   const subRows = subs ?? [];
