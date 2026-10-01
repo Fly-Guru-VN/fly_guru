@@ -5,7 +5,7 @@ import {
   getMonthlyFixedPay,
   MECHANIC_MONTH_PAY,
   SHIFT_PAY,
-  SMM_WEEK_PAY,
+  smmWeekPayOn,
   getSessionShare,
   getShiftPay,
   getSmmFixedPay,
@@ -105,7 +105,7 @@ test("1—14 августа: две субботы — два фикса", () =>
   assert.deepEqual(pay, {
     weeks: 2,
     nextPayday: "2026-08-15",
-    amount: 2 * SMM_WEEK_PAY,
+    amount: 2 * 2_000_000,
   });
 });
 
@@ -114,7 +114,7 @@ test("день выплаты считается сразу: 15 августа �
   assert.deepEqual(pay, {
     weeks: 3,
     nextPayday: "2026-08-22",
-    amount: 3 * SMM_WEEK_PAY,
+    amount: 3 * 2_000_000,
   });
 });
 
@@ -153,6 +153,42 @@ test("принятый в среду получает полный фикс в �
     weeks: 1,
     nextPayday: "2026-08-22",
     amount: DEV_WEEK_PAY,
+  });
+});
+
+test("ставка СММщика по субботе выплаты: Рома 2 млн, с 1 октября Никита 2,5 млн", () => {
+  assert.equal(smmWeekPayOn("2026-08-01"), 2_000_000);
+  assert.equal(smmWeekPayOn("2026-09-26"), 2_000_000);
+  assert.equal(smmWeekPayOn("2026-09-30"), 2_000_000);
+  assert.equal(smmWeekPayOn("2026-10-01"), 2_500_000);
+  assert.equal(smmWeekPayOn("2026-10-03"), 2_500_000);
+});
+
+test("Рома уволен 24 сентября: за сентябрь три субботы по 2 млн", () => {
+  // Субботы сентября — 5, 12, 19, 26. Двадцать шестое уже после ухода.
+  const pay = getSmmFixedPay(
+    "2026-09-01",
+    "2026-09-30",
+    staff("roma", { role: "smm", leftAt: "2026-09-24" }),
+  );
+  assert.deepEqual(pay, {
+    weeks: 3,
+    nextPayday: "2026-09-26",
+    amount: 3 * 2_000_000,
+  });
+});
+
+test("ставка-функция считается по каждой субботе отдельно", () => {
+  // Субботы августа: 1, 8, 15, 22, 29. С 15-го ставка выше.
+  const pay = getWeeklyFixedPay(
+    (payday) => (payday >= "2026-08-15" ? 300 : 100),
+    "2026-08-01",
+    "2026-08-31",
+  );
+  assert.deepEqual(pay, {
+    weeks: 5,
+    nextPayday: "2026-09-05",
+    amount: 100 + 100 + 300 + 300 + 300,
   });
 });
 

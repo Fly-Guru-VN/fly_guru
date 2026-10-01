@@ -147,7 +147,7 @@ export default async function AdminExpensesPage({
             />
           )}
           <Row
-            label="Дэвид + Ромчик (СММ)"
+            label="Дэвид + СММ"
             hint={`2% с оборота без комиссий агентов · по ${vnd(fin.crmEach)} каждому`}
             value={vnd(fin.crmCut)}
           />

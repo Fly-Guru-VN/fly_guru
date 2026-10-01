@@ -375,9 +375,26 @@ export async function getSessionShare(
 // висит в «осталось выдать» до следующей.
 //
 // Второе слагаемое, 1% с выручки, здесь НЕ считается вовсе: он уже живёт в
-// lib/finance как половина CRM_RATE («Ромчик (СММ)») и закрывается помесячно.
+// lib/finance как половина CRM_RATE («СММ») и закрывается помесячно.
 // Начислить его ещё раз значило бы задвоить расход школы.
-export const SMM_WEEK_PAY = 2_000_000; // ₫ за неделю работы СММщика
+//
+// Ставка менялась — поэтому это ступени по дате, а не одно число. До 30.09.2026
+// СММщиком был Рома, 2 000 000 ₫. С 01.10.2026 — Никита, 2 500 000 ₫ (решение
+// David от 01.10.2026). Ставка берётся по СУББОТЕ ВЫПЛАТЫ: так прошлые недели
+// Ромы остаются по 2 млн, и пересчёт истории в «Выплатах» не съезжает.
+// Ступени по возрастанию даты; первая действует с начала времён.
+export const SMM_WEEK_PAY_STEPS: readonly { from: string; pay: number }[] = [
+  { from: "0000-01-01", pay: 2_000_000 },
+  { from: "2026-10-01", pay: 2_500_000 },
+];
+
+// Ставка СММщика за неделю, которая выплачивается в эту субботу.
+export function smmWeekPayOn(payday: string): number {
+  let pay = SMM_WEEK_PAY_STEPS[0].pay;
+  for (const step of SMM_WEEK_PAY_STEPS) if (payday >= step.from) pay = step.pay;
+  return pay;
+}
+
 export const DEV_WEEK_PAY = 2_500_000; // ₫ за неделю работы разработчика (0044)
 
 export interface WeeklyFixedPay {
@@ -401,7 +418,7 @@ function daysBetween(from: string, to: string): number {
 }
 
 // Недельный фикс: сколько суббот прошло за период — столько и ставок. Правило
-// David'а, одно на всех, у кого ставка недельная: СММщик (2 млн) и
+// David'а, одно на всех, у кого ставка недельная: СММщик (2 → 2,5 млн) и
 // разработчик (2,5 млн).
 //
 // Границы периода включительно, приём и увольнение обрезают его с краёв (даты
@@ -409,7 +426,9 @@ function daysBetween(from: string, to: string): number {
 // умолчанию — текущая неделя пн–вс, и без обрезки её суббота начислялась бы
 // уже в понедельник, за неотработанные дни.
 export function getWeeklyFixedPay(
-  weekPay: number,
+  // Число — одна ставка на все субботы; функция — ставка по дате субботы
+  // (у СММщика она менялась, см. smmWeekPayOn).
+  weekPay: number | ((payday: string) => number),
   fromDay: string,
   lastDay: string,
   member?: StaffMember,
@@ -421,11 +440,14 @@ export function getWeeklyFixedPay(
   const end = hardEnd > today ? today : hardEnd;
   const first = saturdayFrom(start);
   const weeks = end < first ? 0 : Math.floor(daysBetween(first, end) / 7) + 1;
+  const rateOn = typeof weekPay === "number" ? () => weekPay : weekPay;
+  let amount = 0;
+  for (let i = 0; i < weeks; i++) amount += rateOn(vnShiftDays(first, i * 7));
   return {
     weeks,
     // Суббота, следующая за последней учтённой: за неё начислим, когда придёт.
     nextPayday: vnShiftDays(first, weeks * 7),
-    amount: weeks * weekPay,
+    amount,
   };
 }
 
@@ -434,7 +456,7 @@ export function getSmmFixedPay(
   lastDay: string,
   member?: StaffMember,
 ): WeeklyFixedPay {
-  return getWeeklyFixedPay(SMM_WEEK_PAY, fromDay, lastDay, member);
+  return getWeeklyFixedPay(smmWeekPayOn, fromDay, lastDay, member);
 }
 
 // ── Месячный фикс: механик (решение David от 21.08.2026) ────────────────────

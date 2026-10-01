@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { getAppUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCrmPayout } from "@/lib/finance";
-import { dayShort, vnMonth, vnShiftDays } from "@/lib/dates";
-import { SHIFT_PAY, SMM_WEEK_PAY } from "@/lib/salary";
+import { getCrmPayout, getCrmShare } from "@/lib/finance";
+import { failIfReadError } from "@/lib/dbError";
+import { dayShort, vnMonth, vnShiftDays, vnToday } from "@/lib/dates";
+import { SHIFT_PAY, smmWeekPayOn } from "@/lib/salary";
 import { getInstructorStats, vnd } from "@/lib/stats";
 import { CalMonthNav, resolveCalYm } from "@/components/cabinet/CalMonthNav";
 import { PageHeader } from "@/components/cabinet/PageHeader";
@@ -53,7 +54,7 @@ export default async function SmmSalaryPage({
 
   const admin = createAdminClient();
   const lastDay = vnShiftDays(month.toDay, -1);
-  const [payoutsRes, crm, shiftStats] = await Promise.all([
+  const [payoutsRes, crm, shiftStats, meRes] = await Promise.all([
     admin
       .from("salary_payouts")
       .select("id, period_from, period_to, amount, paid_on, comment")
@@ -68,8 +69,24 @@ export default async function SmmSalaryPage({
     // Служебным ключом: дележ 15% смотрит на чужие сессии и смены дня, а их
     // RLS СММщику не отдаёт (наружу уходит только его собственная доля).
     getInstructorStats(admin, user.id, month, "smm", admin),
+    // Даты приёма и увольнения: 1% положен только с выручки своих дней.
+    admin.from("users").select("hired_at, left_at").eq("id", user.id).maybeSingle(),
   ]);
+  failIfReadError(meRes.error, "не удалось прочитать даты работы");
   const shiftSalary = shiftStats.salary;
+  // Тот же расчёт, что у начальника в «Выплатах» (finance → getCrmShare):
+  // новичок не видит 1% за дни до своего прихода.
+  const crmEach = await getCrmShare(
+    admin,
+    {
+      hiredAt: (meRes.data?.hired_at as string | null) ?? null,
+      leftAt: (meRes.data?.left_at as string | null) ?? null,
+    },
+    month,
+    crm,
+  );
+  // Ставка менялась (01.10.2026) — показываем действующую сегодня.
+  const weekPay = smmWeekPayOn(vnToday());
 
   // Выплаты считаем по ДНЮ ВЫДАЧИ (0043): вопрос, на который отвечает экран, —
   // «сколько мне отдали в этом месяце», а деньги за последнюю неделю июля
@@ -89,7 +106,7 @@ export default async function SmmSalaryPage({
       <PageHeader title="Моя ЗП" hint="Что уже выплачено и что копится" />
       <PageNote>
         <p>
-          Зарплата складывается из двух частей. Фикс — {vnd(SMM_WEEK_PAY)} за
+          Зарплата складывается из двух частей. Фикс — {vnd(weekPay)} за
           неделю работы; он появляется здесь после того, как начальник отметил
           выплату, поэтому это список уже отданных денег, а не «сколько мне
           должны на сегодня».
@@ -114,12 +131,12 @@ export default async function SmmSalaryPage({
           <p className="text-xs text-muted">Выплачено в этом месяце</p>
           <p className="mt-1 text-3xl font-bold text-primary">{vnd(paidTotal)}</p>
           <p className="mt-1 text-xs text-muted">
-            фикс, {vnd(SMM_WEEK_PAY)} за неделю
+            фикс, {vnd(weekPay)} за неделю
           </p>
         </div>
         <div className="rounded-2xl border border-line bg-surface p-4">
           <p className="text-xs text-muted">1% с выручки · {month.label}</p>
-          <p className="mt-1 text-3xl font-bold">{vnd(crm.each)}</p>
+          <p className="mt-1 text-3xl font-bold">{vnd(crmEach)}</p>
           <p className="mt-1 text-xs text-muted">
             копится и выплачивается в конце месяца
           </p>

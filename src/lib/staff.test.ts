@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   activeStaff,
   employedDuring,
+  employedSpan,
   employmentLabel,
   isFired,
   worksOn,
@@ -52,4 +53,32 @@ test("не вышедший на работу в списки не попада�
   const m = member({ hiredAt: "2026-08-20" });
   assert.equal(activeStaff([m], "2026-08-19").length, 0);
   assert.equal(activeStaff([m], "2026-08-20").length, 1);
+});
+
+// 1% СММщика режется по датам работы (смена Ромы на Никиту, 01.10.2026).
+
+test("уволенный 24 сентября: 1% только с 1 по 24 сентября", () => {
+  const roma = member({ role: "smm", leftAt: "2026-09-24" });
+  assert.deepEqual(employedSpan(roma, "2026-09-01", "2026-09-30"), {
+    fromDay: "2026-09-01",
+    lastDay: "2026-09-24",
+  });
+  assert.equal(employedSpan(roma, "2026-10-01", "2026-10-31"), null);
+});
+
+test("принятый 1 октября: октябрь целиком, сентябрь — ничего", () => {
+  const nikita = member({ role: "smm", hiredAt: "2026-10-01" });
+  assert.equal(employedSpan(nikita, "2026-09-01", "2026-09-30"), null);
+  assert.deepEqual(employedSpan(nikita, "2026-10-01", "2026-10-31"), {
+    fromDay: "2026-10-01",
+    lastDay: "2026-10-31",
+  });
+});
+
+test("принят и уволен внутри месяца — оба края обрезаны", () => {
+  const m = member({ hiredAt: "2026-08-10", leftAt: "2026-08-20" });
+  assert.deepEqual(employedSpan(m, "2026-08-01", "2026-08-31"), {
+    fromDay: "2026-08-10",
+    lastDay: "2026-08-20",
+  });
 });

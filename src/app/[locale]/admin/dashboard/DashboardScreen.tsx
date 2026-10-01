@@ -602,7 +602,7 @@ export async function DashboardScreen({
               </span>
             </p>
             <p className="flex items-baseline justify-between gap-2">
-              <span>Дэвиду и Ромчику за период · 2%</span>
+              <span>Дэвиду и СММ за период · 2%</span>
               <span className="font-semibold text-ink">{vnd(fin.crmCut)}</span>
             </p>
             <p className="pt-1">

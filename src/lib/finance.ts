@@ -1,7 +1,8 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
 import { getSessionShare, getShiftPay, getSubsShares } from "@/lib/salary";
-import { loadDayShareBosses, loadShiftCrew } from "@/lib/staff";
+import { employedSpan, loadDayShareBosses, loadShiftCrew, type StaffMember } from "@/lib/staff";
+import { vnPeriod, vnShiftDays } from "@/lib/dates";
 import { loadAllSessions } from "@/lib/sessions";
 import { failIfReadError } from "@/lib/dbError";
 import { loadPaidSubscriptionMoney } from "@/lib/subscriptionExtensions";
@@ -83,8 +84,8 @@ interface SessionWorkRow {
 }
 
 export const MARINA_RATE = 0.35; // Marina Beach — с выручки за вычетом агентов
-export const CRM_RATE = 0.02; // Дэвид + Ромчик — с сессий + абонементов (пополам)
-export const CRM_PARTNERS = ["Дэвид", "Ромчик (СММ)"] as const; // делят CRM_RATE поровну
+export const CRM_RATE = 0.02; // Дэвид + СММщик — с сессий + абонементов (пополам)
+export const CRM_PARTNERS = ["Дэвид", "СММ"] as const; // делят CRM_RATE поровну
 
 export interface CrmPayout {
   revenue: number; // база: сессии (минус комиссии агентов) + оплаченные абонементы
@@ -128,6 +129,29 @@ export async function getCrmPayout(
   };
 }
 
+// 1% СММщика за месяц — только с выручки тех дней, когда он был в штате
+// (решение David от 01.10.2026). Рома ушёл 24 сентября: ему 1% с выручки
+// 1–24 сентября, а 25–30 сентября не достаются никому и остаются школе.
+// Никита пришёл 1 октября — ему с первого дня.
+//
+// fullMonth — уже посчитанная доля за весь месяц: у того, кто отработал его
+// целиком (почти всегда), второй раз базу не читаем.
+export async function getCrmShare(
+  supabase: Supabase,
+  member: Pick<StaffMember, "hiredAt" | "leftAt">,
+  month: StatsRange,
+  fullMonth: CrmPayout,
+): Promise<number> {
+  const lastDay = vnShiftDays(month.toDay, -1);
+  const span = employedSpan(member, month.fromDay, lastDay);
+  if (!span) return 0;
+  if (span.fromDay === month.fromDay && span.lastDay === lastDay) {
+    return fullMonth.each;
+  }
+  const part = await getCrmPayout(supabase, vnPeriod(span.fromDay, span.lastDay));
+  return part.each;
+}
+
 export interface ExpenseRow {
   id: string;
   date: string;
@@ -163,7 +187,7 @@ export interface Finance {
   owedInstructors: number; // начислено − выдано, но не меньше нуля
   agentCommissions: number; // комиссии агентов по сессиям периода (пак D)
   crmCut: number; // 2% с percentBase
-  crmEach: number; // доля одного (Дэвид / Ромчик) — половина crmCut
+  crmEach: number; // доля одного (Дэвид / СММ) — половина crmCut
 }
 
 // Сколько денег физически выдали за период. Выплаты штату и агентам лежат в

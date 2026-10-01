@@ -249,6 +249,20 @@ export function employedDuring(
   return true;
 }
 
+// Какую часть периода человек отработал: период, обрезанный датами приёма и
+// увольнения (обе границы включительно), или null — в этот период он не
+// работал вовсе. Нужна 1% СММщика: он положен только с выручки тех дней, когда
+// человек был в штате (решение David от 01.10.2026 при смене Ромы на Никиту).
+export function employedSpan(
+  m: Pick<StaffMember, "hiredAt" | "leftAt">,
+  fromDay: string,
+  lastDay: string,
+): { fromDay: string; lastDay: string } | null {
+  const from = m.hiredAt && m.hiredAt > fromDay ? m.hiredAt : fromDay;
+  const last = m.leftAt && m.leftAt < lastDay ? m.leftAt : lastDay;
+  return from > last ? null : { fromDay: from, lastDay: last };
+}
+
 // Кого прятать из выпадающих списков «кто провёл / кто продал / кому ставить
 // смену»: уволенные и ещё не вышедшие. Отдельной функцией, а не фильтром внутри
 // каждого запроса, потому что списки везде собираются по-разному: где-то роли

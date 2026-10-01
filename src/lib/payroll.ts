@@ -5,8 +5,8 @@ import {
   salaryFrom,
   type StatsRange,
 } from "@/lib/stats";
-import { getCrmPayout } from "@/lib/finance";
-import { dayShort, monthName, vnMonth, vnPeriod, vnToday } from "@/lib/dates";
+import { getCrmPayout, getCrmShare, type CrmPayout } from "@/lib/finance";
+import { dayShort, monthName, vnMonth, vnPeriod, vnShiftDays, vnToday } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
 import {
   DEV_WEEK_PAY,
@@ -14,7 +14,8 @@ import {
   getSmmFixedPay,
   getWeeklyFixedPay,
   MECHANIC_MONTH_PAY,
-  SMM_WEEK_PAY,
+  smmWeekPayOn,
+  type WeeklyFixedPay,
 } from "@/lib/salary";
 import {
   employedDuring,
@@ -203,11 +204,20 @@ function monthlyFixLabel(monthPay: number, months: number): string {
 // Подпись строки недельного фикса в «Как посчитали». При нуле выплат счётчик
 // не пишем: «0 выпл.» рядом с нулём читается как поломка, а не как «суббота
 // ещё не наступила».
-function fixLabel(weekPay: number, weeks: number): string {
-  const rate = String(weekPay / 1_000_000).replace(".", ",");
-  return weeks > 0
-    ? `Фикс · ${weeks} выпл. по ${rate} млн (по субботам)`
-    : `Фикс · ${rate} млн по субботам`;
+function fixLabel(
+  rateOn: (payday: string) => number,
+  fix: WeeklyFixedPay,
+): string {
+  const mln = (v: number) => String(v / 1_000_000).replace(".", ",");
+  if (fix.weeks === 0) return `Фикс · ${mln(rateOn(fix.nextPayday))} млн по субботам`;
+  // Ставка берётся по каждой субботе (у СММщика она менялась 01.10.2026):
+  // если в период попали обе, пишем обе, а не среднюю.
+  const rates = new Set<number>();
+  for (let i = 1; i <= fix.weeks; i++) {
+    rates.add(rateOn(vnShiftDays(fix.nextPayday, -7 * i)));
+  }
+  const rate = [...rates].sort((x, y) => x - y).map(mln).join(" и ");
+  return `Фикс · ${fix.weeks} выпл. по ${rate} млн (по субботам)`;
 }
 
 interface StaffPayoutRaw {
@@ -414,14 +424,18 @@ async function loadAgentRewards(
   return byAgent;
 }
 
-// Доля CRM (1%), НАЧИСЛЕННАЯ с точки отсчёта по сегодня. Она закрывается раз в
-// месяц по его итогам, поэтому в долг попадают только уже прошедшие месяцы:
-// пока август идёт, его 1% никому не начислен — начальник закрывает его 1
-// сентября. Месяцев тут единицы, поэтому считаем в лоб, по месяцу за раз.
-async function getCrmDueToDate(
+// Доля CRM (1%) по ЗАКРЫТЫМ месяцам с точки отсчёта по сегодня. Она
+// закрывается раз в месяц по его итогам, поэтому в долг попадают только уже
+// прошедшие месяцы: пока август идёт, его 1% никому не начислен — начальник
+// закрывает его 1 сентября. Месяцев тут единицы, поэтому считаем в лоб, по
+// месяцу за раз.
+//
+// Отдаём помесячно, а не одной суммой: у СММщика доля режется по датам его
+// работы (см. finance → getCrmShare), и ему нужны месяцы по отдельности.
+async function getClosedCrmMonths(
   supabase: Supabase,
   today: string,
-): Promise<number> {
+): Promise<{ month: StatsRange; payout: CrmPayout }[]> {
   const months: string[] = [];
   for (
     let ym = PAYROLL_EPOCH.slice(0, 7);
@@ -435,7 +449,7 @@ async function getCrmDueToDate(
   const payouts = await Promise.all(
     closed.map((m) => getCrmPayout(supabase, m)),
   );
-  return payouts.reduce((s, p) => s + p.each, 0);
+  return closed.map((month, i) => ({ month, payout: payouts[i] }));
 }
 
 export async function getMonthlyPayroll(
@@ -477,7 +491,7 @@ export async function getMonthlyPayroll(
     staffPaidToDate,
     agentPaidToDate,
     crm,
-    crmToDate,
+    crmClosed,
     rewards,
     rewardsToDate,
     agentsRes,
@@ -494,7 +508,7 @@ export async function getMonthlyPayroll(
       loadStaffPayouts(supabase, balanceFilter),
       loadAgentPayouts(supabase, balanceFilter),
       getCrmPayout(supabase, crmMonth),
-      getCrmDueToDate(supabase, balanceLastDay),
+      getClosedCrmMonths(supabase, balanceLastDay),
       loadAgentRewards(supabase, range),
       loadAgentRewards(supabase, balanceRange),
       supabase.from("agents").select("id, active, user:users!user_id(name)"),
@@ -504,6 +518,9 @@ export async function getMonthlyPayroll(
     ]);
 
   failIfReadError(agentsRes.error, "не удалось прочитать агентов для расчёта выплат");
+
+  // Разработчику — все закрытые месяцы целиком: он в штате с самого начала.
+  const crmToDate = crmClosed.reduce((sum, c) => sum + c.payout.each, 0);
 
   // То же самое за накопительный период — им считается «осталось выдать».
   // Выбран ровно он — второй раз не читаем.
@@ -595,6 +612,16 @@ export async function getMonthlyPayroll(
   const smm = allSmm.filter(inScope);
   for (const u of smm) {
     const fix = getSmmFixedPay(range.fromDay, lastDay, u);
+    // 1% — только с выручки дней, когда он был в штате (решение David от
+    // 01.10.2026, смена Ромы на Никиту). Иначе новичок в первый же день
+    // получал бы весь 1% с точки отсчёта, а уволенный копил бы его дальше.
+    const [crmEach, crmClosedShares] = await Promise.all([
+      getCrmShare(supabase, u, crmMonth, crm),
+      Promise.all(
+        crmClosed.map((c) => getCrmShare(supabase, u, c.month, c.payout)),
+      ),
+    ]);
+    const crmDue = crmClosedShares.reduce((sum, v) => sum + v, 0);
     // Сменные деньги сверх фикса (решение David от 21.08.2026): СММщик,
     // вышедший на пляж, зарабатывает как инструктор — те же три слагаемых, тот
     // же расчёт. Фикс при этом не трогаем: СММ-работу он всё равно делает.
@@ -609,11 +636,11 @@ export async function getMonthlyPayroll(
     const salaryToDate = samePeriod ? s.salary : salaryFrom(balanceInputs, u.id).total;
     // 1% закрывается раз в месяц: в начисление он идёт, только когда выбран
     // ровно этот месяц, иначе к недельной выдаче прибавилась бы месячная сумма.
-    const accrued = fix.amount + (crmInTotal ? crm.each : 0) + s.salary;
+    const accrued = fix.amount + (crmInTotal ? crmEach : 0) + s.salary;
     // Долг: недели считаются от точки отсчёта — на стыке периодов дни-остатки
     // не сгорают, а копятся до полной недели.
     const fixToDate = getSmmFixedPay(PAYROLL_EPOCH, balanceLastDay, u);
-    const accruedToDate = fixToDate.amount + crmToDate + salaryToDate;
+    const accruedToDate = fixToDate.amount + crmDue + salaryToDate;
     const paid = paidTo("staff", u.id);
     const paidAll = paidToDate("staff", u.id);
     // Строки про смены показываем, только если он на них выходил: у СММщика без
@@ -633,12 +660,12 @@ export async function getMonthlyPayroll(
       employmentLabel: employmentLabel(u),
       fired: isFired(u),
       monthly:
-        crmMonthOpen && crm.each > 0
-          ? { label: monthName(crmMonth.fromDay), amount: crm.each }
+        crmMonthOpen && crmEach > 0
+          ? { label: monthName(crmMonth.fromDay), amount: crmEach }
           : undefined,
       details: [
         {
-          label: fixLabel(SMM_WEEK_PAY, fix.weeks),
+          label: fixLabel(smmWeekPayOn, fix),
           value: fix.amount,
           hint: isFired(u)
             ? undefined
@@ -646,7 +673,7 @@ export async function getMonthlyPayroll(
         },
         {
           label: `1% с выручки · ${crmMonth.label}`,
-          value: crm.each,
+          value: crmEach,
           hint: crmHint(crmMonthOpen, crmInTotal),
         },
         ...(worked
@@ -711,7 +738,7 @@ export async function getMonthlyPayroll(
           : undefined,
       details: [
         {
-          label: fixLabel(DEV_WEEK_PAY, fix.weeks),
+          label: fixLabel(() => DEV_WEEK_PAY, fix),
           value: fix.amount,
           hint: isFired(u)
             ? undefined
