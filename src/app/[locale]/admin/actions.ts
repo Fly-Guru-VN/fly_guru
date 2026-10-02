@@ -8,6 +8,7 @@ import {
   cabinetBase,
   getActiveAppUser,
   isAdminLike,
+  isLeftStaff,
   isOffice,
   type AppRole,
 } from "@/lib/auth";
@@ -2156,10 +2157,11 @@ export async function deleteSalaryPayoutAction(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
-// Уволить инструктора или СММщика (0036; СММщик — с 01.10.2026, когда Рому
-// сменил Никита). Не удаление: строка в users остаётся, вместе с
-// ней остаются его занятия, смены и все прошлые расчёты — начальнику нужно
-// видеть, что такой человек был и сколько ему выплатили.
+// Уволить инструктора, СММщика или механика (0036; СММщик — с 01.10.2026,
+// когда Рому сменил Никита, механик — с 02.10.2026). Не удаление: строка в
+// users остаётся, вместе с ней остаются его занятия, смены и все прошлые
+// расчёты — начальнику нужно видеть, что такой человек был и сколько ему
+// выплатили.
 //
 // left_at — ПОСЛЕДНИЙ оплачиваемый день включительно. В интерфейсе человек
 // считается уволенным уже с этой даты (см. lib/staff → isFired), поэтому сразу:
@@ -2204,6 +2206,48 @@ export async function rehireInstructorAction(formData: FormData) {
     .eq("id", id)
     .in("role", EMPLOYMENT_ROLES);
   failIfError(error, "не удалось вернуть сотрудника");
+  revalidatePath("/", "layout");
+}
+
+// Удалить ВХОД уволенного (02.10.2026, просьба David): сам логин в Supabase
+// Auth, чтобы с этим email и паролем больше нельзя было даже получить сессию.
+// Увольнение датой уже закрывает и кабинет, и данные (app_role() в 0054), но
+// живой аккаунт уволенного — лишняя дверь.
+//
+// Строку в users НЕ трогаем, кроме auth_id: 21.08.2026 удаление строки Евгения
+// каскадом снесло его смены и отметки выплат. auth.users ни одна таблица не
+// ссылается, так что удаление логина ничего за собой не тянет.
+//
+// Только после последнего рабочего дня: «последний день пятница» не должен
+// отрезать человека от кабинета раньше времени. Вернуть вход потом можно лишь
+// заведя новый логин — «Вернуть в штат» его не восстанавливает.
+export async function deleteStaffLoginAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const admin = createAdminClient();
+  const { data: row, error } = await admin
+    .from("users")
+    .select("auth_id, left_at")
+    .eq("id", id)
+    .in("role", EMPLOYMENT_ROLES)
+    .maybeSingle();
+  failIfError(error, "не удалось найти сотрудника");
+  if (!row?.auth_id || !isLeftStaff(row)) return;
+
+  // 404 = логин уже удалили руками в Supabase: связь всё равно обнуляем.
+  const del = await admin.auth.admin.deleteUser(row.auth_id);
+  if (del.error && del.error.status !== 404) {
+    failIfError(del.error, "не удалось удалить вход");
+  }
+
+  const { error: unlinkError } = await admin
+    .from("users")
+    .update({ auth_id: null })
+    .eq("id", id)
+    .eq("auth_id", row.auth_id);
+  failIfError(unlinkError, "не удалось отвязать вход");
   revalidatePath("/", "layout");
 }
 

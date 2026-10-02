@@ -1,4 +1,5 @@
 import {
+  deleteStaffLoginAction,
   fireInstructorAction,
   rehireInstructorAction,
   setHiredAtAction,
@@ -22,8 +23,12 @@ import { ConfirmSubmit } from "../ConfirmSubmit";
 // пересчитать. Поэтому здесь только даты первого и последнего рабочего дня, и
 // от них зависит всё остальное — списки в формах, дележ абонементов, вход.
 //
-// Тот же блок рисуется второй раз для СММщиков (kind="smm", с 01.10.2026):
-// даты у них те же, а старшинства нет — утренний осмотр досок не их забота.
+// Тот же блок рисуется второй раз для СММщиков (kind="smm", с 01.10.2026) и
+// третий — для механика (kind="mechanic", с 02.10.2026): даты у них те же, а
+// старшинства нет — утренний осмотр досок не их забота.
+//
+// У уволенного есть ещё «Удалить вход»: стирает только логин, строка в users
+// и вся история остаются (см. deleteStaffLoginAction).
 
 export interface StaffRow {
   id: string;
@@ -34,7 +39,22 @@ export interface StaffRow {
   leftAt: string | null;
   fired: boolean; // уволен по состоянию на сегодня
   label: string | null; // «уволен 5 авг» / «с 12 авг»
+  hasLogin: boolean; // жив ли логин в Supabase Auth
 }
+
+const TITLE = { instructor: "Инструкторы", smm: "СММ", mechanic: "Механик" };
+const HINT = {
+  instructor:
+    "Старший отвечает за утренний осмотр оборудования. Это пометка для людей: смену все открывают одинаково — одним фото на пляже, а доску с крылом снимает тот, кому в этот день удобно.",
+  smm: "Фикс за неделю и 1% с выручки начисляются только за дни между первым и последним рабочим днём.",
+  mechanic:
+    "Оклад за месяц начисляется только за дни между первым и последним рабочим днём.",
+};
+const NOBODY = {
+  instructor: "Работающих инструкторов нет.",
+  smm: "Работающего СММщика нет.",
+  mechanic: "Работающего механика нет.",
+};
 
 const dateClass = `${NATIVE_PICKER} rounded-lg border border-line bg-surface px-2 py-1 text-xs outline-none focus:border-primary`;
 const linkClass =
@@ -45,7 +65,7 @@ export function StaffManager({
   staff,
   today,
 }: {
-  kind: "instructor" | "smm";
+  kind: "instructor" | "smm" | "mechanic";
   staff: StaffRow[];
   today: string;
 }) {
@@ -56,17 +76,11 @@ export function StaffManager({
 
   return (
     <section className="rounded-2xl border border-line bg-surface p-4">
-      <h2 className="font-bold">{withSenior ? "Инструкторы" : "СММ"}</h2>
-      <p className="mt-1 text-xs text-muted">
-        {withSenior
-          ? "Старший отвечает за утренний осмотр оборудования. Это пометка для людей: смену все открывают одинаково — одним фото на пляже, а доску с крылом снимает тот, кому в этот день удобно."
-          : "Фикс за неделю и 1% с выручки начисляются только за дни между первым и последним рабочим днём."}
-      </p>
+      <h2 className="font-bold">{TITLE[kind]}</h2>
+      <p className="mt-1 text-xs text-muted">{HINT[kind]}</p>
 
       {working.length === 0 ? (
-        <p className="mt-3 text-sm text-muted">
-          {withSenior ? "Работающих инструкторов нет." : "Работающего СММщика нет."}
-        </p>
+        <p className="mt-3 text-sm text-muted">{NOBODY[kind]}</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {working.map((s) => (
@@ -157,7 +171,8 @@ export function StaffManager({
           <h3 className="text-sm font-semibold text-muted">Уволенные</h3>
           <p className="mt-1 text-xs text-muted">
             Из базы не удалены: их занятия и выплаты видны в статистике и в
-            «Расчёте выплат» за прошлые периоды.
+            «Расчёте выплат» за прошлые периоды. «Удалить вход» стирает только
+            логин — история остаётся.
           </p>
           <ul className="mt-2 space-y-1">
             {fired.map((s) => (
@@ -168,13 +183,29 @@ export function StaffManager({
                 <span className="min-w-0 text-sm">
                   <span className="font-semibold">{s.name}</span>
                   <span className="ml-2 text-[11px] text-muted">{s.label}</span>
+                  {!s.hasLogin && (
+                    <span className="ml-2 text-[11px] text-muted">· вход удалён</span>
+                  )}
                 </span>
-                <form action={rehireInstructorAction} className="shrink-0">
-                  <input type="hidden" name="id" value={s.id} />
-                  <button type="submit" className={linkClass}>
-                    Вернуть в штат
-                  </button>
-                </form>
+                <div className="flex shrink-0 items-center gap-3">
+                  {s.hasLogin && (
+                    <form action={deleteStaffLoginAction}>
+                      <input type="hidden" name="id" value={s.id} />
+                      <ConfirmSubmit
+                        message={`Удалить вход ${s.name}? С этим email и паролем больше нельзя будет войти совсем. Занятия, смены и выплаты останутся. Если человек вернётся, вход придётся заводить заново.`}
+                        className={`${linkClass} hover:text-red-600`}
+                      >
+                        Удалить вход
+                      </ConfirmSubmit>
+                    </form>
+                  )}
+                  <form action={rehireInstructorAction}>
+                    <input type="hidden" name="id" value={s.id} />
+                    <button type="submit" className={linkClass}>
+                      Вернуть в штат
+                    </button>
+                  </form>
+                </div>
               </li>
             ))}
           </ul>

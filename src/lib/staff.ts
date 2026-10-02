@@ -110,14 +110,31 @@ export async function loadSmm(client: Supabase): Promise<StaffMember[]> {
 
 // Кого админ увольняет и принимает датами в «Настройках → Штат». СММщик здесь
 // с 01.10.2026: Рому сменил Никита, и уволенному должен закрыться вход, а
-// новому — начисляться фикс и 1% только с первого рабочего дня. Механика нет:
-// у него месячный оклад и отдельный кабинет, увольнять его через экран пока не
-// просили.
-export const EMPLOYMENT_ROLES: AppRole[] = ["instructor", "smm"];
+// новому — начисляться фикс и 1% только с первого рабочего дня. Механик — с
+// 02.10.2026 (уволили Сергея): его оклад и так считается по датам
+// (getMonthlyFixedPay), не хватало только экрана. Админа и разработчика тут
+// нет — это хозяева кабинета, а не штат.
+export const EMPLOYMENT_ROLES: AppRole[] = ["instructor", "smm", "mechanic"];
 
-// Штат для экрана «Настройки»: инструкторы и СММщики, включая уволенных.
-export async function loadEmployees(client: Supabase): Promise<StaffMember[]> {
-  return loadByRole(client, EMPLOYMENT_ROLES);
+// Сотрудник на экране «Настройки»: плюс признак, жив ли у него вход. После
+// увольнения админ удаляет сам логин (Supabase Auth), а строка в users
+// остаётся — см. deleteStaffLoginAction.
+export interface Employee extends StaffMember {
+  hasLogin: boolean;
+}
+
+// Штат для экрана «Настройки»: инструкторы, СММщики и механик, включая
+// уволенных.
+export async function loadEmployees(client: Supabase): Promise<Employee[]> {
+  const { data, error } = await client
+    .from("users")
+    .select("id, name, role, senior, hired_at, left_at, auth_id")
+    .in("role", EMPLOYMENT_ROLES)
+    .order("name");
+  failIfReadError(error, "не удалось прочитать штат");
+
+  const rows = (data ?? []) as unknown as Record<string, unknown>[];
+  return rows.map((r) => ({ ...toMember(r), hasLogin: Boolean(r.auth_id) }));
 }
 
 // Механик и админ зарплату НЕ зарабатывают по формуле — им платят фиксом, о
@@ -166,15 +183,18 @@ async function loadByRole(
   failIfReadError(error, `не удалось прочитать список (${roles.join(", ")})`);
 
   const rows = (data ?? []) as unknown as Record<string, unknown>[];
+  return rows.map(toMember);
+}
 
-  return rows.map((r) => ({
+function toMember(r: Record<string, unknown>): StaffMember {
+  return {
     id: r.id as string,
     name: r.name as string,
     role: r.role as AppRole,
     hiredAt: (r.hired_at as string | null) ?? null,
     leftAt: (r.left_at as string | null) ?? null,
     senior: Boolean(r.senior),
-  }));
+  };
 }
 
 // Кто мог провести занятие или продать абонемент: инструкторы и хозяева

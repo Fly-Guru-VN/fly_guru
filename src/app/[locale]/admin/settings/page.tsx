@@ -12,7 +12,7 @@ import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 
 // Штат: старшинство (0033) плюс трудовой период (0036). С 01.10.2026 здесь же
-// СММщики — их тоже принимают и увольняют датами.
+// СММщики, с 02.10.2026 — механик: их тоже принимают и увольняют датами.
 async function loadStaff(
   supabase: Awaited<ReturnType<typeof createClient>>,
   today: string,
@@ -27,6 +27,7 @@ async function loadStaff(
     leftAt: m.leftAt,
     fired: isFired(m, today),
     label: employmentLabel(m, today),
+    hasLogin: m.hasLogin,
   }));
 }
 
@@ -51,6 +52,7 @@ export default async function AdminSettingsPage() {
 
   const instructors = staff.filter((s) => s.role === "instructor");
   const smm = staff.filter((s) => s.role === "smm");
+  const mechanics = staff.filter((s) => s.role === "mechanic");
 
   return (
     <div>
@@ -78,6 +80,12 @@ export default async function AdminSettingsPage() {
       {smm.length > 0 && (
         <div className="mt-6">
           <StaffManager kind="smm" staff={smm} today={today} />
+        </div>
+      )}
+
+      {mechanics.length > 0 && (
+        <div className="mt-6">
+          <StaffManager kind="mechanic" staff={mechanics} today={today} />
         </div>
       )}
 
