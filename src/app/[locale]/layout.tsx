@@ -58,9 +58,10 @@ export async function generateMetadata({
   const t = await getTranslations({ locale: appLocale, namespace: "Meta" });
   const title = t("title");
   const description = t("description");
+  const ogImage = `/og/${appLocale}.jpg`;
 
   return {
-  // metadataBase превращает относительные пути ниже (/og.jpg) в абсолютные.
+  // metadataBase превращает относительные пути ниже (/og/ru.jpg) в абсолютные.
   // Без него Next не может собрать og:image, а мессенджеры показывают ссылку
   // голым текстом — именно так flyguru.pro и уходила клиентам в WhatsApp.
   metadataBase: new URL(SITE_URL),
@@ -69,8 +70,9 @@ export async function generateMetadata({
     template: "%s · FlyGuru",
   },
   description,
-  // Превью ссылки: картинка 1200×630 (собрана из фото на воде) + подпись.
-  // Тот же набор читают WhatsApp, Telegram, Facebook и Instagram.
+  // Превью ссылки: карточка 1200×630 на языке страницы (логотип, заголовок
+  // главной, где мы, адрес сайта) — рисует scripts/make-og.mjs. Тот же набор
+  // читают WhatsApp, Telegram, Facebook и Instagram.
   openGraph: {
     type: "website",
     siteName: "FlyGuru",
@@ -82,10 +84,10 @@ export async function generateMetadata({
     description,
     images: [
       {
-        url: "/og.jpg",
+        url: ogImage,
         width: 1200,
         height: 630,
-        alt: t("ogImageAlt"),
+        alt: title,
       },
     ],
   },
@@ -93,7 +95,7 @@ export async function generateMetadata({
     card: "summary_large_image",
     title,
     description,
-    images: ["/og.jpg"],
+    images: [ogImage],
   },
   };
 }
