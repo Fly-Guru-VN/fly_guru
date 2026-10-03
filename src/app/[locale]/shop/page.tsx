@@ -24,6 +24,7 @@ import {
   type ShopProduct,
 } from "@/content/shop";
 import { localeAlternates } from "@/lib/alternates";
+import { ogMeta } from "@/lib/og";
 import { formatUsd, priceFrom, pricesVary } from "@/lib/shop";
 
 export const dynamic = "force-static"; // статичная страница, форсим SSG
@@ -35,10 +36,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Shop" });
+  const title = t("metaTitle");
+  const description = t("metaDescription");
   return {
-    title: t("metaTitle"),
-    description: t("metaDescription"),
+    title,
+    description,
     alternates: localeAlternates(locale, "/shop"),
+    ...ogMeta({ locale, title, description, page: "shop" }),
   };
 }
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { localeAlternates } from "@/lib/alternates";
+import { ogMeta } from "@/lib/og";
 import Image from "next/image";
 import { Container, Section } from "@/components/ui";
 import { HeroStage } from "@/components/HeroStage";
@@ -30,11 +31,14 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Training" });
+  const title = t("metaTitle");
+  const description = t("metaDescription");
 
   return {
-    title: t("metaTitle"),
-    description: t("metaDescription"),
+    title,
+    description,
     alternates: localeAlternates(locale, "/training"),
+    ...ogMeta({ locale, title, description, page: "training" }),
   };
 }
 export const dynamic = "force-static"; // статичная страница, форсим SSG

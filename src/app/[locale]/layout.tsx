@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
-import { DEFAULT_LOCALE, OG_LOCALE } from "@/i18n/locales";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
 import { SiteHeader } from "@/components/SiteHeader";
 import { PageTransition } from "@/components/PageTransition";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -17,6 +17,7 @@ import { BookingProvider } from "@/components/BookingProvider";
 import { HideInMiniApp } from "@/components/HideInMiniApp";
 import { getActiveServices } from "@/lib/services";
 import { SITE_URL } from "@/lib/site";
+import { ogMeta } from "@/lib/og";
 import "../globals.css";
 
 // Self-hosted шрифт (грузится с нашего домена, без обращения к Google на клиенте).
@@ -58,7 +59,6 @@ export async function generateMetadata({
   const t = await getTranslations({ locale: appLocale, namespace: "Meta" });
   const title = t("title");
   const description = t("description");
-  const ogImage = `/og/${appLocale}.jpg`;
 
   return {
   // metadataBase превращает относительные пути ниже (/og/ru.jpg) в абсолютные.
@@ -70,33 +70,9 @@ export async function generateMetadata({
     template: "%s · FlyGuru",
   },
   description,
-  // Превью ссылки: карточка 1200×630 на языке страницы (логотип, заголовок
-  // главной, где мы, адрес сайта) — рисует scripts/make-og.mjs. Тот же набор
-  // читают WhatsApp, Telegram, Facebook и Instagram.
-  openGraph: {
-    type: "website",
-    siteName: "FlyGuru",
-    locale: OG_LOCALE[appLocale],
-    // og:url здесь НЕ ставим: из layout он достался бы всем страницам, и
-    // превью /training вело бы на главную. Без него мессенджеры берут адрес,
-    // который им прислали, а поисковик смотрит на canonical страницы.
-    title,
-    description,
-    images: [
-      {
-        url: ogImage,
-        width: 1200,
-        height: 630,
-        alt: title,
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title,
-    description,
-    images: [ogImage],
-  },
+  // Превью ссылки — карточка главной на языке страницы (см. lib/og). Страницы
+  // разделов и товаров задают свою.
+  ...ogMeta({ locale: appLocale, title, description }),
   };
 }
 

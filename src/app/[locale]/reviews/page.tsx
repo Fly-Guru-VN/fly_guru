@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import type { Metadata } from "next";
 import { localeAlternates } from "@/lib/alternates";
+import { ogMeta } from "@/lib/og";
 import Image from "next/image";
 import { Container, Section, buttonClasses } from "@/components/ui";
 import { Squiggle } from "@/components/Squiggle";
@@ -24,13 +25,16 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "Reviews" });
+  const title = t("metaTitle");
+  const description = t("metaDescription");
 
   return {
     // В заголовке уже есть «FlyGuru» — без absolute шаблон layout дописал бы
     // его второй раз: «… — FlyGuru Нячанг · FlyGuru».
-    title: { absolute: t("metaTitle") },
-    description: t("metaDescription"),
+    title: { absolute: title },
+    description,
     alternates: localeAlternates(locale, "/reviews"),
+    ...ogMeta({ locale, title, description, page: "reviews" }),
   };
 }
 export const dynamic = "force-static"; // статичная страница, форсим SSG

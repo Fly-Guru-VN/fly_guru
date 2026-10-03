@@ -9,6 +9,7 @@ import { AccessoryCard } from "@/components/shop/ShopCards";
 import { EfoilConfigurator } from "@/components/shop/EfoilConfigurator";
 import { shopAccessories, shopProducts } from "@/content/shop";
 import { localeAlternates } from "@/lib/alternates";
+import { ogMeta } from "@/lib/og";
 import { findShopProduct, formatUsd, priceFrom, pricesVary } from "@/lib/shop";
 
 export const dynamic = "force-static"; // статичная страница, форсим SSG
@@ -27,10 +28,18 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const product = findShopProduct(model);
   if (!product) return {};
   const t = await getTranslations({ locale, namespace: "ShopCatalog" });
+  const description = t(`${product.id}.tagline`);
   return {
     title: product.name,
-    description: t(`${product.id}.tagline`),
+    description,
     alternates: localeAlternates(locale, `/shop/${product.id}`),
+    // В превью бренд перед названием: «LIFT5» в чате ни о чём не говорит.
+    ...ogMeta({
+      locale,
+      title: `${product.brand} ${product.name}`,
+      description,
+      product: product.id,
+    }),
   };
 }
 
