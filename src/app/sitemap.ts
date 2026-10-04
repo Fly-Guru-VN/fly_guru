@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { HREFLANG, LOCALES, DEFAULT_LOCALE, localePath } from "@/i18n/locales";
 import { SITE_URL } from "@/lib/site";
 import { shopProducts } from "@/content/shop";
+import { getSitemapPosts } from "@/lib/journalData";
 
 // sitemap.xml — список страниц, которые мы САМИ предлагаем поисковику. Next
 // отдаёт его по /sitemap.xml, ссылка на него стоит в robots.ts.
@@ -29,11 +30,19 @@ const PAGES: { path: string; priority: number; changeFrequency: "weekly" | "mont
   })),
 ];
 
+// Журнал (0064) живёт в базе: публикация в кабинете сбрасывает кэш карты
+// (revalidatePath в admin/journal/actions), revalidate — страховка.
+export const revalidate = 3600;
+
 // lastModified НЕ указываем намеренно. Раньше там стояло время сборки, и при
 // каждом деплое все страницы «менялись» разом — Google такое быстро замечает и
 // перестаёт верить этой дате на сайте совсем. Честной даты правки страницы у
 // нас нет, а без поля робот ходит по своему расписанию.
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  return [...staticPages(), ...(await journalPages())];
+}
+
+function staticPages(): MetadataRoute.Sitemap {
   // Каждая страница попадает в карту семь раз — по разу на язык. Рядом с
   // каждой перечисляем все её переводы (hreflang): так поисковик понимает, что
   // /training и /de/training — это одна и та же страница на разных языках, а не
@@ -56,4 +65,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
       alternates: { languages },
     }));
   });
+}
+
+// Журнал. Посты пока только на русском, поэтому в карте один адрес на пост,
+// без языковых двойников и hreflang (у /en/journal/… canonical ведёт сюда же).
+//
+// lastModified здесь честный, в отличие от страниц выше: это дата публикации
+// или последней правки текста, её ставит сама публикация, а не сборка.
+async function journalPages(): Promise<MetadataRoute.Sitemap> {
+  const posts = await getSitemapPosts();
+  return [
+    { url: `${SITE_URL}/journal`, changeFrequency: "weekly", priority: 0.6 },
+    ...posts.map((post) => ({
+      url: `${SITE_URL}/journal/${post.slug}`,
+      lastModified: post.lastModified,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
+  ];
 }

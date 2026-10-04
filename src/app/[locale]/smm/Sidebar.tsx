@@ -36,6 +36,8 @@ const GROUPS: CabinetNavGroup[] = [
     items: [
       { href: "/smm/materials", label: "Материалы", primary: true },
       { href: "/smm/sources", label: "Источники", primary: true },
+      // Журнал на сайте (0064): статьи и посты пишет в том числе СММщик.
+      { href: "/smm/journal", label: "Журнал" },
     ],
   },
   {

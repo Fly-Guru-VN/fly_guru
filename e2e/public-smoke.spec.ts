@@ -17,6 +17,7 @@ const publicPages = [
   { path: "/shop", name: "магазин" },
   { path: "/shop/lift5", name: "карточка доски" },
   { path: "/shop/blowfish", name: "карточка аксессуара" },
+  { path: "/journal", name: "журнал" },
 ];
 
 for (const pageInfo of publicPages) {
@@ -96,4 +97,11 @@ test("Telegram Mini App сохраняет узкое разрешение ifram
     "frame-ancestors 'self' https://web.telegram.org",
   );
   expect(response.headers()["x-frame-options"]).toBeUndefined();
+});
+
+test("журнал: несуществующий пост отдаёт 404, а не пустую страницу", async ({ page }) => {
+  const response = await page.goto("/journal/takogo-posta-net", {
+    waitUntil: "domcontentloaded",
+  });
+  expect(response?.status()).toBe(404);
 });

@@ -134,6 +134,12 @@ const nextConfig: NextConfig = {
         hostname: "*.supabase.co",
         pathname: "/storage/v1/object/public/avatars/**",
       },
+      // Фото журнала публичные (0064): их видит любой посетитель и поисковик.
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/journal/**",
+      },
       {
         protocol: "https",
         hostname: "*.supabase.co",

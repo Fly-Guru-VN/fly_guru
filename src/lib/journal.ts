@@ -1,0 +1,170 @@
+// Журнал: общие правила поста — без базы и без React, чтобы их одинаково
+// применяли редактор, server actions и публичные страницы (и чтобы их можно
+// было проверить тестами).
+//
+// Пост — это заголовок и список блоков. Блоки, а не «HTML из редактора»:
+// на телефоне так удобнее (абзац, «+ Фото», снова абзац), а на сайт попадает
+// только то, что мы сами умеем нарисовать. Чужой HTML и скрипты в статью не
+// пролезут, даже если кто-то отправит запрос мимо интерфейса.
+
+export const JOURNAL_BUCKET = "journal";
+
+// Подпись поста, если конкретного автора не указали (решение David 04.10.2026).
+export const JOURNAL_SIGNATURE = "Команда FlyGuru";
+
+export type JournalStatus = "draft" | "published" | "hidden";
+
+export const JOURNAL_STATUS_LABEL: Record<JournalStatus, string> = {
+  draft: "Черновик",
+  published: "Опубликован",
+  hidden: "Скрыт",
+};
+
+export type JournalTextBlock = { type: "text"; text: string };
+export type JournalPhotoBlock = { type: "photo"; path: string; w: number; h: number };
+export type JournalBlock = JournalTextBlock | JournalPhotoBlock;
+
+// Пределы с запасом под длинную статью. Нужны не для красоты, а чтобы одним
+// запросом нельзя было положить в базу мегабайты мусора.
+export const TITLE_MAX = 200;
+export const TEXT_BLOCK_MAX = 20_000;
+export const BLOCKS_MAX = 100;
+const PHOTO_SIDE_MAX = 10_000;
+
+// Свой путь в бакете: <год>/<uuid>.<ext>. Любой другой — чужой файл, и
+// показывать его в посте нельзя (или он вовсе из другого бакета).
+const PHOTO_PATH_RE =
+  /^\d{4}\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/i;
+
+export function isJournalPhotoPath(path: unknown): path is string {
+  return typeof path === "string" && PHOTO_PATH_RE.test(path);
+}
+
+function photoSide(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 && n <= PHOTO_SIDE_MAX ? n : null;
+}
+
+// Разбор тела поста из базы или из формы. Неизвестные блоки и мусорные поля
+// отбрасываются молча: это не деньги, а вёрстка, и лучше показать пост без
+// одного кривого блока, чем уронить страницу. Пустые абзацы выкидываются —
+// на телефоне легко нажать «+ Текст» лишний раз.
+export function parseBody(raw: unknown): JournalBlock[] {
+  if (!Array.isArray(raw)) return [];
+  const blocks: JournalBlock[] = [];
+  for (const item of raw) {
+    if (blocks.length >= BLOCKS_MAX) break;
+    if (!item || typeof item !== "object") continue;
+    const block = item as Record<string, unknown>;
+    if (block.type === "text" && typeof block.text === "string") {
+      const text = normalizeText(block.text).slice(0, TEXT_BLOCK_MAX);
+      if (text) blocks.push({ type: "text", text });
+    } else if (block.type === "photo" && isJournalPhotoPath(block.path)) {
+      const w = photoSide(block.w);
+      const h = photoSide(block.h);
+      if (w && h) blocks.push({ type: "photo", path: block.path, w, h });
+    }
+  }
+  return blocks;
+}
+
+// Переводы строк Windows → \n, хвостовые пробелы строк долой, больше одной
+// пустой строки подряд не бывает. Сами абзацы сохраняются.
+export function normalizeText(text: string): string {
+  return text
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/\s+$/, ""))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// Текстовый блок → абзацы. Пустая строка разделяет абзацы, одиночный перенос
+// остаётся переносом внутри абзаца — так пишут и в Telegram.
+export function paragraphs(text: string): string[] {
+  return text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+export function coverPath(blocks: JournalBlock[]): string | null {
+  const photo = blocks.find((b): b is JournalPhotoBlock => b.type === "photo");
+  return photo?.path ?? null;
+}
+
+// Короткое описание поста: для карточки в журнале и для description страницы
+// (то, что поисковик показывает под заголовком). Берём начало текста и режем
+// по слову, чтобы не оборвать на полуслове.
+export function excerpt(blocks: JournalBlock[], max = 160): string {
+  const text = blocks
+    .filter((b): b is JournalTextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max - 1);
+  const lastSpace = cut.lastIndexOf(" ");
+  // По слову — если пробел нашёлся не слишком близко к началу; одно гигантское
+  // слово (ссылка) режем как есть.
+  const head = lastSpace >= max * 0.5 ? cut.slice(0, lastSpace) : cut;
+  return `${head.replace(/[\s.,;:!?—–-]+$/, "")}…`;
+}
+
+// ── Адрес поста ──────────────────────────────────────────────────────────────
+// Из русского заголовка — латиницей: «Как починить крыло» → kak-pochinit-krylo.
+// Латиница, а не кириллица в адресе: кириллическая ссылка в мессенджере
+// превращается в простыню %D0%9A%D0%B0…, и её боятся открывать.
+const TRANSLIT: Record<string, string> = {
+  а: "a", б: "b", в: "v", г: "g", д: "d", е: "e", ё: "e", ж: "zh", з: "z",
+  и: "i", й: "y", к: "k", л: "l", м: "m", н: "n", о: "o", п: "p", р: "r",
+  с: "s", т: "t", у: "u", ф: "f", х: "h", ц: "ts", ч: "ch", ш: "sh",
+  щ: "sch", ъ: "", ы: "y", ь: "", э: "e", ю: "yu", я: "ya",
+};
+
+export const SLUG_MAX = 80;
+
+export function slugify(title: string): string {
+  const latin = [...title.toLowerCase()]
+    .map((ch) => TRANSLIT[ch] ?? ch)
+    .join("")
+    // Вьетнамские и прочие диакритики: «đ» отдельно, остальное снимает NFKD.
+    .replace(/đ/g, "d")
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "");
+  const slug = latin
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, SLUG_MAX)
+    .replace(/-+$/g, "");
+  // Заголовок из одних эмодзи или иероглифов — адрес всё равно нужен.
+  return slug || "post";
+}
+
+// Занятый адрес → тот же с номером: kak-pochinit-krylo-2, -3…
+export function slugWithSuffix(base: string, n: number): string {
+  if (n <= 1) return base;
+  const suffix = `-${n}`;
+  return `${base.slice(0, SLUG_MAX - suffix.length).replace(/-+$/g, "")}${suffix}`;
+}
+
+// Изменился ли текст поста (заголовок или блоки). По нему ставится пометка
+// «изменено» у опубликованного поста; смена одной категории — не правка
+// текста, как и в Telegram пометку даёт только правка самого сообщения.
+export function contentChanged(
+  before: { title: string; body: unknown },
+  after: { title: string; body: JournalBlock[] },
+): boolean {
+  return (
+    before.title !== after.title ||
+    JSON.stringify(parseBody(before.body)) !== JSON.stringify(after.body)
+  );
+}
+
+// Публичная ссылка на фото в бакете. Собираем сами, без клиента Supabase:
+// функция нужна и серверу, и браузеру, а адрес у публичного бакета постоянный.
+export function journalPhotoUrl(path: string): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${JOURNAL_BUCKET}/${path}`;
+}

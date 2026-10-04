@@ -6,10 +6,15 @@ const port = 54321;
 const server = createServer((request, response) => {
   const url = new URL(request.url ?? "/", `http://${host}:${port}`);
 
-  // Public pages only read the services table. An empty successful response
-  // exercises the repository's checked-in fallback content without coupling
-  // browser CI to production data or credentials.
-  if (url.pathname === "/rest/v1/services") {
+  // Public pages read the services table and the journal (0064). An empty
+  // successful response exercises the repository's checked-in fallback
+  // content and an empty journal without coupling browser CI to production
+  // data or credentials.
+  if (
+    url.pathname === "/rest/v1/services" ||
+    url.pathname === "/rest/v1/journal_posts" ||
+    url.pathname === "/rest/v1/journal_categories"
+  ) {
     response.writeHead(200, { "content-type": "application/json" });
     response.end("[]");
     return;

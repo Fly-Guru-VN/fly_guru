@@ -51,6 +51,7 @@ const GROUPS: CabinetNavGroup[] = [
     items: [
       { href: "/admin/materials", label: "Материалы" },
       { href: "/admin/sources", label: "Источники" },
+      { href: "/admin/journal", label: "Журнал" },
     ],
   },
   {
