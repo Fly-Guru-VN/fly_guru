@@ -4,9 +4,9 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { Container } from "@/components/ui";
 import { IconArrowRight } from "@/components/icons";
-import { JournalPostBody } from "@/components/journal/JournalPostBody";
+import { JournalArticle } from "@/components/journal/JournalArticle";
 import { dayLong, vnDay } from "@/lib/dates";
-import { JOURNAL_SIGNATURE, excerpt } from "@/lib/journal";
+import { excerpt } from "@/lib/journal";
 import { getPublishedPost } from "@/lib/journalData";
 import { ogMeta } from "@/lib/og";
 import { SITE_URL } from "@/lib/site";
@@ -59,7 +59,6 @@ export default async function JournalPostPage({ params }: { params: Params }) {
   if (!post) notFound();
 
   const t = await getTranslations("Journal");
-  const author = post.authorName || JOURNAL_SIGNATURE;
 
   return (
     <article className="pb-16 pt-8 lg:pt-12">
@@ -76,49 +75,20 @@ export default async function JournalPostPage({ params }: { params: Params }) {
             {t("back")}
           </Link>
 
-          <div lang="ru">
-            <p className="mt-6 flex flex-wrap items-center gap-x-2 text-sm font-semibold text-muted">
-              {post.category && <span className="text-primary">{post.category}</span>}
-              <time dateTime={post.publishedAt}>{dayLong(vnDay(post.publishedAt))}</time>
-            </p>
-            <h1 className="mt-2 text-3xl font-extrabold leading-tight sm:text-4xl">
-              {post.title}
-            </h1>
-
-            <div className="mt-6">
-              <JournalPostBody blocks={post.body} />
-            </div>
-
-            {/* Подпись и служебные пометки — внизу, как в Telegram: сначала
-                читают сам пост, а кто и когда — потом. */}
-            <footer className="mt-10 space-y-1 border-t border-line pt-5 text-sm text-muted">
-              <p className="font-semibold text-ink">{author}</p>
-              {post.sourceName && (
-                <p>
-                  {t("source")}:{" "}
-                  {post.sourceUrl ? (
-                    <a
-                      href={post.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer nofollow"
-                      className="text-primary underline"
-                    >
-                      {post.sourceName}
-                    </a>
-                  ) : (
-                    post.sourceName
-                  )}
-                </p>
-              )}
-              {post.editedAt && (
-                <p>
-                  <time dateTime={post.editedAt}>
-                    {t("edited", { date: dayLong(vnDay(post.editedAt)) })}
-                  </time>
-                </p>
-              )}
-            </footer>
-          </div>
+          <JournalArticle
+            title={post.title}
+            category={post.category}
+            publishedAt={post.publishedAt}
+            body={post.body}
+            authorName={post.authorName}
+            sourceName={post.sourceName}
+            sourceUrl={post.sourceUrl}
+            sourceLabel={t("source")}
+            editedAt={post.editedAt}
+            editedText={
+              post.editedAt ? t("edited", { date: dayLong(vnDay(post.editedAt)) }) : null
+            }
+          />
         </div>
       </Container>
     </article>

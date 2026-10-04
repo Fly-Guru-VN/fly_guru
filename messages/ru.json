@@ -961,6 +961,7 @@
     "edited": "изменено {date}",
     "author": "Автор",
     "source": "Источник",
-    "readingLanguage": "Материал на русском языке"
+    "readingLanguage": "Материал на русском языке",
+    "all": "Все"
   }
 }

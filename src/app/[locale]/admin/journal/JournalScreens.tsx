@@ -14,6 +14,7 @@ import { JOURNAL_STATUS_LABEL, parseBody, type JournalStatus } from "@/lib/journ
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 import { JournalEditor, type EditorCategory } from "./JournalEditor";
+import { CategoryManager, PostCategorySelect } from "./JournalControls";
 
 const STATUS_CHIP: Record<JournalStatus, string> = {
   draft: "bg-line/60 text-ink",
@@ -26,17 +27,26 @@ interface ListRow {
   title: string;
   status: JournalStatus;
   updated_at: string;
-  category: { name: string } | null;
+  category_id: string | null;
 }
 
 export async function JournalListScreen({ base }: { base: string }) {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("journal_posts")
-    .select("id, title, status, updated_at, category:journal_categories(name)")
-    .order("updated_at", { ascending: false });
+  const [categories, { data, error }] = await Promise.all([
+    loadCategories(),
+    supabase
+      .from("journal_posts")
+      .select("id, title, status, updated_at, category_id")
+      .order("updated_at", { ascending: false }),
+  ]);
   failIfReadError(error, "не удалось прочитать журнал");
-  const posts = (data ?? []) as unknown as ListRow[];
+  const posts = (data ?? []) as ListRow[];
+
+  // Сколько постов в категории — справочнику, чтобы знать, можно ли удалять.
+  const postCounts: Record<string, number> = {};
+  for (const post of posts) {
+    if (post.category_id) postCounts[post.category_id] = (postCounts[post.category_id] ?? 0) + 1;
+  }
 
   return (
     <div>
@@ -65,28 +75,36 @@ export async function JournalListScreen({ base }: { base: string }) {
       ) : (
         <ul className="mt-4 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
           {posts.map((post) => (
-            <li key={post.id}>
-              <Link
-                href={`${base}/journal/${post.id}`}
-                className="flex items-start gap-3 px-4 py-3 hover:bg-line/30"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{post.title}</p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    {post.category?.name ?? "Без категории"} · изменён{" "}
-                    {vnEnteredLabel(post.updated_at)}
-                  </p>
-                </div>
+            <li key={post.id} className="px-4 py-3">
+              {/* Ссылка — только заголовок: выбор категории рядом не должен
+                  открывать пост при нажатии. */}
+              <div className="flex items-start gap-3">
+                <Link
+                  href={`${base}/journal/${post.id}`}
+                  className="min-w-0 flex-1 font-semibold hover:text-primary"
+                >
+                  {post.title}
+                </Link>
                 <span
                   className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${STATUS_CHIP[post.status]}`}
                 >
                   {JOURNAL_STATUS_LABEL[post.status]}
                 </span>
-              </Link>
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                <PostCategorySelect
+                  postId={post.id}
+                  categoryId={post.category_id}
+                  categories={categories}
+                />
+                <span>изменён {vnEnteredLabel(post.updated_at)}</span>
+              </div>
             </li>
           ))}
         </ul>
       )}
+
+      <CategoryManager categories={categories} postCounts={postCounts} />
     </div>
   );
 }
@@ -121,7 +139,9 @@ export async function JournalEditScreen({ base, id }: { base: string; id: string
     loadCategories(),
     supabase
       .from("journal_posts")
-      .select("id, slug, title, body, category_id, status, updated_at")
+      .select(
+        "id, slug, title, body, category_id, author_name, source_name, source_url, status, published_at, edited_at, updated_at",
+      )
       .eq("id", id)
       .maybeSingle(),
   ]);
@@ -141,7 +161,12 @@ export async function JournalEditScreen({ base, id }: { base: string; id: string
             title: data.title as string,
             body: parseBody(data.body),
             categoryId: (data.category_id as string | null) ?? null,
+            authorName: (data.author_name as string | null) ?? null,
+            sourceName: (data.source_name as string | null) ?? null,
+            sourceUrl: (data.source_url as string | null) ?? null,
             status: data.status as JournalStatus,
+            publishedAt: (data.published_at as string | null) ?? null,
+            editedAt: (data.edited_at as string | null) ?? null,
             updatedAt: data.updated_at as string,
           }}
         />

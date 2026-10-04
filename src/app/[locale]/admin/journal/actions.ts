@@ -8,11 +8,13 @@ import { getActiveAppUser, isOffice } from "@/lib/auth";
 import { checkPhoto, isUuid } from "@/lib/photos";
 import {
   JOURNAL_BUCKET,
+  SLUG_MAX,
   TITLE_MAX,
   contentChanged,
   coverPath,
   isJournalPhotoPath,
   parseBody,
+  safeHref,
   slugWithSuffix,
   slugify,
   type JournalStatus,
@@ -87,9 +89,47 @@ export interface SavePostInput {
   title: string;
   body: unknown;
   categoryId: string | null;
+  // «Дополнительно» в редакторе. Пусто — подпись «Команда FlyGuru».
+  authorName: string;
+  sourceName: string;
+  sourceUrl: string;
+  // Свой адрес поста — только если его правили руками. null — адрес
+  // собирается из заголовка, как раньше. После первой публикации игнорируется.
+  slug: string | null;
   // save — сохранить, не меняя статуса; publish — опубликовать (или вернуть
   // скрытый); hide — снять с публикации.
   intent: "save" | "publish" | "hide";
+}
+
+const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+function oneLine(value: unknown, max: number): string {
+  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+// Автор и источник: необязательные, но если источник указан ссылкой — ссылка
+// должна быть настоящей (https://…), иначе на сайте получилась бы битая.
+function extraFields(input: SavePostInput):
+  | { author_name: string | null; source_name: string | null; source_url: string | null }
+  | { error: string } {
+  const author = oneLine(input.authorName, 100);
+  let sourceName = oneLine(input.sourceName, 200);
+  const rawUrl = String(input.sourceUrl ?? "").trim();
+  let sourceUrl: string | null = null;
+  if (rawUrl) {
+    const href = safeHref(rawUrl);
+    if (!href || !/^https?:\/\//i.test(href)) {
+      return { error: "Ссылка на источник должна начинаться с https://" };
+    }
+    sourceUrl = href;
+    // Ссылку без названия подписываем доменом: «Источник: liftfoils.com».
+    if (!sourceName) sourceName = new URL(href).hostname.replace(/^www\./, "");
+  }
+  return {
+    author_name: author || null,
+    source_name: sourceName || null,
+    source_url: sourceUrl,
+  };
 }
 
 export type SavePostResult =
@@ -131,6 +171,12 @@ async function freeSlug(admin: Admin, base: string, ownId: string | null): Promi
   }
 }
 
+async function slugTaken(admin: Admin, slug: string, ownId: string | null): Promise<boolean> {
+  const { data, error } = await admin.from("journal_posts").select("id").eq("slug", slug);
+  if (error) throw new Error(`[journal] не удалось проверить адрес: ${error.message}`);
+  return (data ?? []).some((row) => row.id !== ownId);
+}
+
 export async function saveJournalPostAction(input: SavePostInput): Promise<SavePostResult> {
   const user = await requireOffice();
 
@@ -146,6 +192,17 @@ export async function saveJournalPostAction(input: SavePostInput): Promise<SaveP
   const categoryId = input.categoryId || null;
   if (categoryId && !isUuid(categoryId)) return { error: "Категория не найдена." };
 
+  const extra = extraFields(input);
+  if ("error" in extra) return { error: extra.error };
+
+  // Свой адрес — проверяем формат сразу, занятость — ниже, когда знаем id.
+  const wantedSlug = input.slug === null ? null : input.slug.trim();
+  if (wantedSlug !== null && (!SLUG_RE.test(wantedSlug) || wantedSlug.length > SLUG_MAX)) {
+    return {
+      error: `Адрес: только латиница, цифры и дефисы между ними, до ${SLUG_MAX} символов.`,
+    };
+  }
+
   const admin = createAdminClient();
   const now = new Date().toISOString();
   const fields = {
@@ -153,6 +210,7 @@ export async function saveJournalPostAction(input: SavePostInput): Promise<SaveP
     body,
     cover_path: coverPath(body),
     category_id: categoryId,
+    ...extra,
     updated_by: user.id,
     updated_at: now,
   };
@@ -161,7 +219,10 @@ export async function saveJournalPostAction(input: SavePostInput): Promise<SaveP
   if (!input.id) {
     if (input.intent === "hide") return { error: "Черновик и так не виден на сайте." };
     const status: JournalStatus = input.intent === "publish" ? "published" : "draft";
-    const base = slugify(title);
+    if (wantedSlug && (await slugTaken(admin, wantedSlug, null))) {
+      return { error: `Адрес «${wantedSlug}» уже занят другим постом.` };
+    }
+    const base = wantedSlug ?? slugify(title);
     // Два офисных сотрудника могут одновременно создать посты с одинаковым
     // заголовком: уникальность адреса держит база, мы лишь берём следующий
     // свободный номер и пробуем ещё раз.
@@ -206,12 +267,18 @@ export async function saveJournalPostAction(input: SavePostInput): Promise<SaveP
   }
 
   const everPublished = post.published_at !== null;
-  // Адрес следует за заголовком, пока пост ни разу не публиковался. После
-  // первой публикации он заморожен: ссылка уже могла уйти в чаты и поисковик.
-  const slug =
-    !everPublished && title !== post.title
-      ? await freeSlug(admin, slugify(title), post.id)
-      : post.slug;
+  // Адрес следует за заголовком (или за ручной правкой), пока пост ни разу не
+  // публиковался. После первой публикации он заморожен: ссылка уже могла уйти
+  // в чаты и поисковик.
+  let slug = post.slug;
+  if (!everPublished && wantedSlug) {
+    if (wantedSlug !== post.slug && (await slugTaken(admin, wantedSlug, post.id))) {
+      return { error: `Адрес «${wantedSlug}» уже занят другим постом.` };
+    }
+    slug = wantedSlug;
+  } else if (!everPublished && wantedSlug === null && title !== post.title) {
+    slug = await freeSlug(admin, slugify(title), post.id);
+  }
   // «Изменено» — только правка текста уже опубликованного поста.
   const editedAt =
     everPublished && contentChanged(post, { title, body }) ? now : post.edited_at;
@@ -276,5 +343,118 @@ export async function deleteJournalDraftAction(id: string): Promise<{ error: str
     if (removeError) console.error("[journal] фото черновика не удалены:", removeError.message);
   }
 
+  return { error: null };
+}
+
+// ── Категория поста прямо из списка ──────────────────────────────────────────
+// Смена категории — не правка текста: пометку «изменено» она не ставит.
+export async function setJournalPostCategoryAction(
+  postId: string,
+  categoryId: string | null,
+): Promise<{ error: string | null }> {
+  const user = await requireOffice();
+  if (!isUuid(postId)) return { error: "Пост не найден." };
+  if (categoryId && !isUuid(categoryId)) return { error: "Категория не найдена." };
+
+  const { error } = await createAdminClient()
+    .from("journal_posts")
+    .update({ category_id: categoryId || null, updated_by: user.id, updated_at: new Date().toISOString() })
+    .eq("id", postId);
+  if (error) return { error: `Не удалось сменить категорию: ${error.message}` };
+  refreshJournal();
+  return { error: null };
+}
+
+// ── Категории ────────────────────────────────────────────────────────────────
+// Справочник правят сами админ и СММщик. Категорию с постами не удаляют, а
+// убирают из списка выбора (hidden): посты не должны молча терять её. На сайте
+// у уже привязанных постов название остаётся.
+
+function categoryName(raw: string): string | { error: string } {
+  const name = String(raw ?? "").replace(/\s+/g, " ").trim();
+  if (!name) return { error: "Введите название категории." };
+  if (name.length > 60) return { error: "Название длиннее 60 символов." };
+  return name;
+}
+
+function categoryError(error: { code?: string; message: string }, name: string): string {
+  return error.code === "23505"
+    ? `Категория «${name}» уже есть.`
+    : `Не удалось сохранить категорию: ${error.message}`;
+}
+
+export async function createJournalCategoryAction(raw: string): Promise<{ error: string | null }> {
+  await requireOffice();
+  const name = categoryName(raw);
+  if (typeof name !== "string") return name;
+
+  const admin = createAdminClient();
+  // Новая — в конец списка.
+  const { data: last, error: readError } = await admin
+    .from("journal_categories")
+    .select("sort")
+    .order("sort", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (readError) return { error: `Не удалось прочитать категории: ${readError.message}` };
+
+  const { error } = await admin
+    .from("journal_categories")
+    .insert({ name, sort: ((last?.sort as number | undefined) ?? 0) + 10 });
+  if (error) return { error: categoryError(error, name) };
+  refreshJournal();
+  return { error: null };
+}
+
+export async function renameJournalCategoryAction(
+  id: string,
+  raw: string,
+): Promise<{ error: string | null }> {
+  await requireOffice();
+  if (!isUuid(id)) return { error: "Категория не найдена." };
+  const name = categoryName(raw);
+  if (typeof name !== "string") return name;
+
+  const { error } = await createAdminClient()
+    .from("journal_categories")
+    .update({ name })
+    .eq("id", id);
+  if (error) return { error: categoryError(error, name) };
+  refreshJournal();
+  return { error: null };
+}
+
+export async function setJournalCategoryHiddenAction(
+  id: string,
+  hidden: boolean,
+): Promise<{ error: string | null }> {
+  await requireOffice();
+  if (!isUuid(id)) return { error: "Категория не найдена." };
+  const { error } = await createAdminClient()
+    .from("journal_categories")
+    .update({ hidden: hidden === true })
+    .eq("id", id);
+  if (error) return { error: `Не удалось сохранить категорию: ${error.message}` };
+  refreshJournal();
+  return { error: null };
+}
+
+export async function deleteJournalCategoryAction(id: string): Promise<{ error: string | null }> {
+  await requireOffice();
+  if (!isUuid(id)) return { error: "Категория не найдена." };
+
+  const admin = createAdminClient();
+  const { count, error: countError } = await admin
+    .from("journal_posts")
+    .select("id", { count: "exact", head: true })
+    .eq("category_id", id);
+  if (countError) return { error: `Не удалось проверить посты: ${countError.message}` };
+  if ((count ?? 0) > 0) {
+    return { error: "В категории есть посты — её можно только убрать из списка." };
+  }
+
+  const { error } = await admin.from("journal_categories").delete().eq("id", id);
+  if (error) return { error: `Не удалось удалить категорию: ${error.message}` };
+  refreshJournal();
   return { error: null };
 }

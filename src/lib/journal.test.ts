@@ -5,9 +5,13 @@ import {
   contentChanged,
   coverPath,
   excerpt,
+  inlineSegments,
   isJournalPhotoPath,
   paragraphs,
   parseBody,
+  parseYouTube,
+  plainText,
+  safeHref,
   slugify,
   slugWithSuffix,
 } from "@/lib/journal";
@@ -135,4 +139,75 @@ test("пометку «изменено» даёт правка текста, а
     contentChanged({ title: "Т", body }, { title: "Т", body: [{ type: "text", text: "другой" }] }),
     true,
   );
+});
+
+test("заголовок, список, видео и подпись к фото разбираются", () => {
+  assert.deepEqual(
+    parseBody([
+      { type: "heading", text: "  Что  взять\nс собой " },
+      { type: "list", ordered: true, items: ["Купальник", " ", "Крем от\nсолнца"] },
+      { type: "list", items: [] },
+      { type: "photo", path: PHOTO, w: 10, h: 10, caption: " Крыло после ремонта " },
+      { type: "video", provider: "youtube", id: "dQw4w9WgXcQ", vertical: true },
+      { type: "video", provider: "youtube", id: "<script>" },
+      { type: "video", provider: "vimeo", id: "dQw4w9WgXcQ" },
+    ]),
+    [
+      { type: "heading", text: "Что взять с собой" },
+      { type: "list", ordered: true, items: ["Купальник", "Крем от солнца"] },
+      { type: "photo", path: PHOTO, w: 10, h: 10, caption: "Крыло после ремонта" },
+      { type: "video", provider: "youtube", id: "dQw4w9WgXcQ", vertical: true },
+    ],
+  );
+});
+
+test("ссылка в тексте: только http(s) и свои пути", () => {
+  assert.equal(safeHref("https://flyguru.pro/training"), "https://flyguru.pro/training");
+  assert.equal(safeHref("/training"), "/training");
+  assert.equal(safeHref("javascript:alert(1)"), null);
+  assert.equal(safeHref("JaVaScRiPt:alert(1)"), null);
+  assert.equal(safeHref("data:text/html,<b>"), null);
+  assert.equal(safeHref("//evil.example"), null);
+  assert.equal(safeHref("https://"), null);
+});
+
+test("разметка [текст](адрес) и голые адреса становятся ссылками", () => {
+  assert.deepEqual(inlineSegments("Запишитесь на [обучение](/training)."), [
+    { text: "Запишитесь на " },
+    { text: "обучение", href: "/training" },
+    { text: "." },
+  ]);
+  assert.deepEqual(inlineSegments("Видео: https://youtu.be/abc, смотрите!"), [
+    { text: "Видео: " },
+    { text: "https://youtu.be/abc", href: "https://youtu.be/abc" },
+    { text: ", смотрите!" },
+  ]);
+  // Опасный адрес — остаётся только текст ссылки.
+  assert.deepEqual(inlineSegments("[жми](javascript:alert(1))"), [
+    { text: "жми" },
+    { text: ")" },
+  ]);
+  assert.equal(plainText("См. [прайс](/prices) и https://flyguru.pro"), "См. прайс и https://flyguru.pro");
+});
+
+test("описание берёт абзацы и списки, без подзаголовков и разметки", () => {
+  const blocks = parseBody([
+    { type: "heading", text: "Заголовок раздела" },
+    { type: "text", text: "Смотрите [прайс](/prices)." },
+    { type: "list", items: ["раз", "два"] },
+  ]);
+  assert.equal(excerpt(blocks), "Смотрите прайс. раз два");
+});
+
+test("ссылки YouTube из приложения превращаются в id ролика", () => {
+  const id = "dQw4w9WgXcQ";
+  assert.deepEqual(parseYouTube(`https://www.youtube.com/watch?v=${id}&t=10`), { id, vertical: false });
+  assert.deepEqual(parseYouTube(`https://youtu.be/${id}?si=xyz`), { id, vertical: false });
+  assert.deepEqual(parseYouTube(`https://m.youtube.com/watch?v=${id}`), { id, vertical: false });
+  assert.deepEqual(parseYouTube(`https://youtube.com/shorts/${id}?feature=share`), { id, vertical: true });
+  assert.deepEqual(parseYouTube(`https://www.youtube.com/embed/${id}`), { id, vertical: false });
+  assert.equal(parseYouTube("https://vimeo.com/123"), null);
+  assert.equal(parseYouTube("не ссылка"), null);
+  assert.equal(parseYouTube(`javascript://youtube.com/watch?v=${id}`), null);
+  assert.equal(parseYouTube("https://www.youtube.com/watch?v=short"), null);
 });

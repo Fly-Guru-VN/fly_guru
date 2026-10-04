@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Container, Section } from "@/components/ui";
-import { JournalCard } from "@/components/journal/JournalCard";
+import { JournalFeed } from "@/components/journal/JournalFeed";
 import { getPublishedPosts } from "@/lib/journalData";
 import { ogMeta } from "@/lib/og";
 import { SITE_URL } from "@/lib/site";
@@ -73,11 +73,7 @@ export default async function JournalPage({
               {t("empty")}
             </p>
           ) : (
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {posts.map((post) => (
-                <JournalCard key={post.slug} post={post} />
-              ))}
-            </div>
+            <JournalFeed posts={posts} allLabel={t("all")} />
           )}
         </Container>
       </Section>

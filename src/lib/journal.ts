@@ -21,14 +21,40 @@ export const JOURNAL_STATUS_LABEL: Record<JournalStatus, string> = {
 };
 
 export type JournalTextBlock = { type: "text"; text: string };
-export type JournalPhotoBlock = { type: "photo"; path: string; w: number; h: number };
-export type JournalBlock = JournalTextBlock | JournalPhotoBlock;
+export type JournalHeadingBlock = { type: "heading"; text: string };
+export type JournalListBlock = { type: "list"; ordered: boolean; items: string[] };
+// caption — подпись под фото; она же alt для поисковика и экранных читалок.
+export type JournalPhotoBlock = {
+  type: "photo";
+  path: string;
+  w: number;
+  h: number;
+  caption?: string;
+};
+// Видео — только YouTube и только по ссылке: файл ролика в наш бакет не
+// грузим, это сотни мегабайт. vertical — Shorts, у них кадр 9:16.
+export type JournalVideoBlock = {
+  type: "video";
+  provider: "youtube";
+  id: string;
+  vertical: boolean;
+};
+export type JournalBlock =
+  | JournalTextBlock
+  | JournalHeadingBlock
+  | JournalListBlock
+  | JournalPhotoBlock
+  | JournalVideoBlock;
 
 // Пределы с запасом под длинную статью. Нужны не для красоты, а чтобы одним
 // запросом нельзя было положить в базу мегабайты мусора.
 export const TITLE_MAX = 200;
 export const TEXT_BLOCK_MAX = 20_000;
 export const BLOCKS_MAX = 100;
+export const HEADING_MAX = 200;
+export const CAPTION_MAX = 300;
+const LIST_ITEMS_MAX = 50;
+const LIST_ITEM_MAX = 2_000;
 const PHOTO_SIDE_MAX = 10_000;
 
 // Свой путь в бакете: <год>/<uuid>.<ext>. Любой другой — чужой файл, и
@@ -45,10 +71,19 @@ function photoSide(value: unknown): number | null {
   return Number.isInteger(n) && n > 0 && n <= PHOTO_SIDE_MAX ? n : null;
 }
 
+// Одна строка: переносы и повторные пробелы схлопываются (заголовок, подпись,
+// пункт списка не должны рваться на строки).
+function oneLine(value: unknown, max: number): string {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
+}
+
 // Разбор тела поста из базы или из формы. Неизвестные блоки и мусорные поля
 // отбрасываются молча: это не деньги, а вёрстка, и лучше показать пост без
 // одного кривого блока, чем уронить страницу. Пустые абзацы выкидываются —
 // на телефоне легко нажать «+ Текст» лишний раз.
+//
+// Порядок полей в собранных объектах постоянный: по JSON.stringify двух
+// разборов сравнивается, менялся ли текст (contentChanged).
 export function parseBody(raw: unknown): JournalBlock[] {
   if (!Array.isArray(raw)) return [];
   const blocks: JournalBlock[] = [];
@@ -59,10 +94,33 @@ export function parseBody(raw: unknown): JournalBlock[] {
     if (block.type === "text" && typeof block.text === "string") {
       const text = normalizeText(block.text).slice(0, TEXT_BLOCK_MAX);
       if (text) blocks.push({ type: "text", text });
+    } else if (block.type === "heading") {
+      const text = oneLine(block.text, HEADING_MAX);
+      if (text) blocks.push({ type: "heading", text });
+    } else if (block.type === "list" && Array.isArray(block.items)) {
+      const items = block.items
+        .map((i) => oneLine(i, LIST_ITEM_MAX))
+        .filter(Boolean)
+        .slice(0, LIST_ITEMS_MAX);
+      if (items.length) blocks.push({ type: "list", ordered: block.ordered === true, items });
     } else if (block.type === "photo" && isJournalPhotoPath(block.path)) {
       const w = photoSide(block.w);
       const h = photoSide(block.h);
-      if (w && h) blocks.push({ type: "photo", path: block.path, w, h });
+      const caption = oneLine(block.caption, CAPTION_MAX);
+      if (w && h) {
+        blocks.push(
+          caption
+            ? { type: "photo", path: block.path, w, h, caption }
+            : { type: "photo", path: block.path, w, h },
+        );
+      }
+    } else if (
+      block.type === "video" &&
+      block.provider === "youtube" &&
+      typeof block.id === "string" &&
+      YOUTUBE_ID_RE.test(block.id)
+    ) {
+      blocks.push({ type: "video", provider: "youtube", id: block.id, vertical: block.vertical === true });
     }
   }
   return blocks;
@@ -89,18 +147,98 @@ export function paragraphs(text: string): string[] {
     .filter(Boolean);
 }
 
+// ── Ссылки внутри текста ─────────────────────────────────────────────────────
+// Пишутся как [текст](адрес) — кнопка «Ссылка» в редакторе вставляет их сама.
+// Голый адрес https://… тоже становится ссылкой: с телефона ссылку чаще всего
+// просто вставляют в текст.
+//
+// Адрес — только https?:// или свой путь вида /training. javascript:, data: и
+// прочее молча превращаются в обычный текст: ссылка не должна уметь запустить
+// скрипт у читателя.
+export interface InlineSegment {
+  text: string;
+  href?: string;
+}
+
+export function safeHref(raw: string): string | null {
+  const href = raw.trim();
+  if (/^https?:\/\/[^\s/$.?#][^\s]*$/i.test(href)) return href;
+  if (/^\/(?!\/)[^\s]*$/.test(href)) return href;
+  return null;
+}
+
+const INLINE_RE =
+  /\[([^\]\n]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s<>()]*[^\s<>().,;:!?»"'])/g;
+
+export function inlineSegments(text: string): InlineSegment[] {
+  const out: InlineSegment[] = [];
+  let last = 0;
+  for (const m of text.matchAll(INLINE_RE)) {
+    const at = m.index ?? 0;
+    if (at > last) out.push({ text: text.slice(last, at) });
+    if (m[1] !== undefined) {
+      const href = safeHref(m[2]);
+      out.push(href ? { text: m[1], href } : { text: m[1] });
+    } else {
+      out.push({ text: m[3], href: m[3] });
+    }
+    last = at + m[0].length;
+  }
+  if (last < text.length) out.push({ text: text.slice(last) });
+  return out;
+}
+
+// Текст без разметки ссылок — для описания поста и подсчётов.
+export function plainText(text: string): string {
+  return inlineSegments(text)
+    .map((s) => s.text)
+    .join("");
+}
+
+// ── Видео ────────────────────────────────────────────────────────────────────
+const YOUTUBE_ID_RE = /^[A-Za-z0-9_-]{11}$/;
+
+// Ссылка, которую человек копирует из приложения YouTube, → id ролика.
+// Понимает youtube.com/watch?v=…, youtu.be/…, /shorts/…, /embed/…, /live/…
+export function parseYouTube(url: string): { id: string; vertical: boolean } | null {
+  let u: URL;
+  try {
+    u = new URL(url.trim());
+  } catch {
+    return null;
+  }
+  if (!/^https?:$/.test(u.protocol)) return null;
+  const host = u.hostname.replace(/^(?:www|m|music)\./, "");
+  let id: string | null = null;
+  let vertical = false;
+  if (host === "youtu.be") {
+    id = u.pathname.slice(1).split("/")[0] ?? null;
+  } else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    if (u.pathname === "/watch") {
+      id = u.searchParams.get("v");
+    } else {
+      const m = u.pathname.match(/^\/(shorts|embed|live)\/([^/]+)/);
+      if (m) {
+        id = m[2];
+        vertical = m[1] === "shorts";
+      }
+    }
+  }
+  return id && YOUTUBE_ID_RE.test(id) ? { id, vertical } : null;
+}
+
 export function coverPath(blocks: JournalBlock[]): string | null {
   const photo = blocks.find((b): b is JournalPhotoBlock => b.type === "photo");
   return photo?.path ?? null;
 }
 
 // Короткое описание поста: для карточки в журнале и для description страницы
-// (то, что поисковик показывает под заголовком). Берём начало текста и режем
-// по слову, чтобы не оборвать на полуслове.
+// (то, что поисковик показывает под заголовком). Берём начало текста — абзацы
+// и пункты списков, без подзаголовков — и режем по слову.
 export function excerpt(blocks: JournalBlock[], max = 160): string {
   const text = blocks
-    .filter((b): b is JournalTextBlock => b.type === "text")
-    .map((b) => b.text)
+    .flatMap((b) => (b.type === "text" ? [b.text] : b.type === "list" ? b.items : []))
+    .map(plainText)
     .join(" ")
     .replace(/\s+/g, " ")
     .trim();
