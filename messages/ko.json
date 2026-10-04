@@ -5,6 +5,7 @@
     "club": "클럽",
     "shop": "스토어",
     "prices": "요금",
+    "journal": "매거진",
     "reviews": "후기",
     "contacts": "오시는 길",
     "sections": "사이트 메뉴"
@@ -948,5 +949,22 @@
   "Meta": {
     "title": "나트랑 eFoil 강습 — FlyGuru 스쿨",
     "description": "나트랑 Maryna Beach Club에서 즐기는 eFoil 강습과 탠덤. 수강생의 90%가 첫 수업에서 탑니다."
+  },
+  "Journal": {
+    "metaTitle": "FlyGuru 매거진 — eFoil 아티클과 소식",
+    "metaDescription": "나트랑 FlyGuru eFoil 스쿨의 아티클, 가이드, 소식: 강습, 장비 관리, 이벤트, 수강생 이야기.",
+    "eyebrow": "매거진",
+    "title": "FlyGuru 매거진",
+    "subtitle": "나트랑 eFoil 스쿨의 아티클, 가이드, 소식과 이야기.",
+    "empty": "첫 번째 글이 곧 올라옵니다.",
+    "back": "전체 글",
+    "readingLanguage": "글은 러시아어로 작성되어 있습니다. 브라우저 번역 기능을 이용해 주세요.",
+    "all": "전체",
+    "related": "함께 읽기",
+    "ctaTitle": "직접 타 보고 싶으신가요?",
+    "ctaText": "강사와 함께하는 강습을 예약하세요. 신청을 남겨 주시면 연락드립니다.",
+    "ctaBook": "예약하기",
+    "ctaTraining": "강습 안내",
+    "ogTitle": "eFoil 아티클과 소식"
   }
 }

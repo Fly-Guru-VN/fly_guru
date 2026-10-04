@@ -33,7 +33,7 @@ export async function generateMetadata({
     // обвязке; canonical говорит поисковику не считать её отдельной страницей.
     // Языковых alternates нет: переводов пока не существует.
     alternates: { canonical: `${SITE_URL}/journal` },
-    ...ogMeta({ locale, title, description }),
+    ...ogMeta({ locale, title, description, page: "journal" }),
   };
 }
 

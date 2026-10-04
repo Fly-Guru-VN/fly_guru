@@ -137,3 +137,42 @@ export function priceListSchema(
     })),
   };
 }
+
+// Разметка поста журнала (0064): «это статья, вот заголовок, даты, автор и
+// картинка». Google по ней понимает, что страница — публикация, и может
+// показать дату и картинку в выдаче.
+//
+// Автор: если в посте указан человек — Person, иначе подпись «Команда
+// FlyGuru», то есть сама школа. Издатель — всегда школа. Всё перечисленное
+// совпадает с тем, что посетитель видит на странице поста.
+export function journalPostSchema(post: {
+  url: string;
+  title: string;
+  description: string;
+  image: string;
+  publishedAt: string;
+  modifiedAt: string;
+  authorName: string | null;
+}) {
+  const school = {
+    "@type": "Organization",
+    name: "FlyGuru",
+    url: SITE_URL,
+    logo: { "@type": "ImageObject", url: `${SITE_URL}/icon.png` },
+  };
+  return {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    mainEntityOfPage: post.url,
+    url: post.url,
+    // Google обрезает заголовок статьи в разметке после 110 символов.
+    headline: post.title.length > 110 ? `${post.title.slice(0, 109)}…` : post.title,
+    description: post.description,
+    image: [post.image],
+    datePublished: post.publishedAt,
+    dateModified: post.modifiedAt,
+    inLanguage: "ru",
+    author: post.authorName ? { "@type": "Person", name: post.authorName } : school,
+    publisher: school,
+  };
+}

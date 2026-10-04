@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { Link, usePathname } from "@/i18n/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useBooking } from "./BookingProvider";
-import { NAV_LINKS } from "./nav";
+import { DESKTOP_MORE, NAV_LINKS } from "./nav";
 import { IconClose, IconMenu } from "./icons";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 import { SlidingHighlight } from "./SlidingHighlight";
@@ -22,6 +22,9 @@ export function SiteHeader() {
   const t = useTranslations("Header");
   const tNav = useTranslations("Nav");
   const [open, setOpen] = useState(false);
+  // Меню «☰» на ПК: Отзывы и вход в кабинет (см. DESKTOP_MORE в nav.ts).
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
   const { open: openBooking } = useBooking();
   // Куда ведёт кнопка кабинета: null = не залогинен (показываем «Вход»).
   const [cabinetHref, setCabinetHref] = useState<string | null>(null);
@@ -87,8 +90,26 @@ export function SiteHeader() {
     };
   }, [pathname]);
 
+  // Меню «☰» на ПК закрывается кликом мимо него и клавишей Esc — как любое
+  // выпадающее меню. Переход на другую страницу закрывает его в onClick пункта.
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onPointer = (e: PointerEvent) => {
+      if (!moreRef.current?.contains(e.target as Node)) setMoreOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [moreOpen]);
+
   const authHref = cabinetHref ?? "/login";
-  const authLabel = cabinetHref ? t("cabinet") : t("login");
+  const authLabel = cabinetHref ? t("myCabinet") : t("loginToCabinet");
 
   const countBubble = activeCount > 0 && (
     <span className="absolute -right-1.5 -top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white ring-2 ring-primary-strong">
@@ -100,6 +121,8 @@ export function SiteHeader() {
   // поэтому сравниваем напрямую. Раньше активный пункт не выделялся вообще —
   // на цветной шапке это стало заметно сразу.
   const isCurrent = (href: string) => path === href || path.startsWith(`${href}/`);
+  const desktopLinks = NAV_LINKS.filter((l) => !DESKTOP_MORE.includes(l.href));
+  const moreLinks = NAV_LINKS.filter((l) => DESKTOP_MORE.includes(l.href));
 
   // Пункты меню проявляются каскадом вслед за раскрытием — так это читается как
   // одно движение, а не как список, возникший разом. Задержка только на
@@ -165,14 +188,17 @@ export function SiteHeader() {
             переехал ровно на эту величину. Замерено заново: меню упирается в
             планетку до 1042 px, зазор появляется дальше — на 1080 между ними
             38 px воздуха, как было до планетки. */}
+        {/* 04.10.2026: в ряду семь разделов с «Журналом», а «Отзывы» и вход в
+            кабинет переехали в меню «☰» справа (DESKTOP_MORE). Ряд от этого
+            стал уже, а не шире: кнопка-значок меньше пилюли «Вход». */}
         <nav className="hidden items-center gap-1 min-[1080px]:flex">
           <SlidingHighlight
-            activeKey={NAV_LINKS.find((l) => isCurrent(l.href))?.href ?? null}
+            activeKey={desktopLinks.find((l) => isCurrent(l.href))?.href ?? null}
             pillClassName="bg-white/20"
             followHover
             className="flex items-center gap-1"
           >
-            {NAV_LINKS.map((l) => (
+            {desktopLinks.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
@@ -187,13 +213,60 @@ export function SiteHeader() {
               </Link>
             ))}
           </SlidingHighlight>
-          <Link
-            href={authHref}
-            className="relative ml-2 rounded-full border border-white/40 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/15"
-          >
-            {authLabel}
-            {countBubble}
-          </Link>
+          <div ref={moreRef} className="relative ml-2">
+            <button
+              type="button"
+              onClick={() => setMoreOpen((v) => !v)}
+              aria-label={t("menu")}
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+              aria-controls="desktop-more-menu"
+              className={`relative inline-flex h-10 w-10 items-center justify-center rounded-xl text-white transition-colors hover:bg-white/25 active:scale-95 ${
+                moreOpen || moreLinks.some((l) => isCurrent(l.href)) ? "bg-white/25" : "bg-white/15"
+              }`}
+            >
+              <IconMenu className="h-5 w-5" />
+              {countBubble}
+            </button>
+            {moreOpen && (
+              <div
+                id="desktop-more-menu"
+                role="menu"
+                className="absolute right-0 top-full mt-2 w-56 rounded-2xl bg-white p-2 text-ink shadow-[0_18px_40px_-12px_rgba(15,34,51,0.45)]"
+              >
+                {moreLinks.map((l) => (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      goTo(l.href);
+                    }}
+                    aria-current={isCurrent(l.href) ? "page" : undefined}
+                    className={`block rounded-xl px-4 py-2.5 text-sm font-semibold ${
+                      isCurrent(l.href) ? "bg-primary/10 text-primary-strong" : "hover:bg-surface-2"
+                    }`}
+                  >
+                    {tNav(l.key)}
+                  </Link>
+                ))}
+                <Link
+                  href={authHref}
+                  role="menuitem"
+                  onClick={() => setMoreOpen(false)}
+                  className="mt-1 flex items-center justify-between rounded-xl border-t border-line px-4 py-2.5 text-sm font-semibold hover:bg-surface-2"
+                >
+                  {authLabel}
+                  {activeCount > 0 && (
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
+                      {activeCount}
+                    </span>
+                  )}
+                </Link>
+              </div>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => openBooking({ place: "header" })}

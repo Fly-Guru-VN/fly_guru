@@ -3,9 +3,12 @@
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveAppUser, isOffice } from "@/lib/auth";
 import { checkPhoto, isUuid } from "@/lib/photos";
+import { pingIndexNow } from "@/lib/indexNow";
+import { SITE_URL } from "@/lib/site";
 import {
   JOURNAL_BUCKET,
   SLUG_MAX,
@@ -42,6 +45,13 @@ async function requireOffice() {
 function refreshJournal() {
   revalidatePath("/", "layout");
   revalidatePath("/sitemap.xml");
+}
+
+// Пост появился, изменился или пропал с сайта — сообщаем Bing и Яндексу
+// (lib/indexNow). После ответа, а не до: человеку в кабинете незачем ждать
+// чужой сервер, а к этому моменту кэш страниц уже сброшен.
+function announce(slug: string) {
+  after(() => pingIndexNow([`${SITE_URL}/journal/${slug}`, `${SITE_URL}/journal`]));
 }
 
 // ── Фото ─────────────────────────────────────────────────────────────────────
@@ -241,6 +251,7 @@ export async function saveJournalPostAction(input: SavePostInput): Promise<SaveP
         .single();
       if (!error) {
         refreshJournal();
+        if (status === "published") announce(slug);
         return { id: data.id as string, slug, status, savedAt: now };
       }
       if (error.code !== "23505") return { error: `Не удалось сохранить: ${error.message}` };
@@ -303,6 +314,9 @@ export async function saveJournalPostAction(input: SavePostInput): Promise<SaveP
   }
 
   refreshJournal();
+  // Черновик поисковику неинтересен; опубликованный, правленый или только что
+  // скрытый (адрес теперь 404) — да.
+  if (status === "published" || post.status === "published") announce(slug);
   return { id: post.id, slug, status, savedAt: now };
 }
 

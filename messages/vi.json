@@ -5,6 +5,7 @@
     "club": "Câu lạc bộ",
     "shop": "Cửa hàng",
     "prices": "Bảng giá",
+    "journal": "Tạp chí",
     "reviews": "Đánh giá",
     "contacts": "Liên hệ",
     "sections": "Các mục của trang"
@@ -948,5 +949,22 @@
   "Meta": {
     "title": "Học lái eFoil tại Nha Trang — trường FlyGuru",
     "description": "Học lái và bay đôi eFoil tại Nha Trang, Maryna Beach Club. 90% học viên lái được ngay buổi đầu tiên."
+  },
+  "Journal": {
+    "metaTitle": "Tạp chí FlyGuru — bài viết và tin tức về eFoil",
+    "metaDescription": "Bài viết, hướng dẫn và tin tức của trường eFoil FlyGuru tại Nha Trang: học lái, bảo dưỡng thiết bị, sự kiện và câu chuyện của học viên.",
+    "eyebrow": "Tạp chí",
+    "title": "Tạp chí FlyGuru",
+    "subtitle": "Bài viết, hướng dẫn, tin tức và câu chuyện từ trường eFoil của chúng tôi tại Nha Trang.",
+    "empty": "Những bài viết đầu tiên sẽ sớm xuất hiện.",
+    "back": "Tất cả bài viết",
+    "readingLanguage": "Bài viết bằng tiếng Nga — trình duyệt có thể tự động dịch.",
+    "all": "Tất cả",
+    "related": "Đọc thêm",
+    "ctaTitle": "Bạn muốn tự mình thử?",
+    "ctaText": "Đặt buổi học với huấn luyện viên: để lại yêu cầu, chúng tôi sẽ liên hệ với bạn.",
+    "ctaBook": "Đặt lịch",
+    "ctaTraining": "Về khóa học",
+    "ogTitle": "Bài viết và tin tức về eFoil"
   }
 }

@@ -105,3 +105,17 @@ test("журнал: несуществующий пост отдаёт 404, а �
   });
   expect(response?.status()).toBe(404);
 });
+
+test("шапка на ПК: «Журнал» в ряду, «Отзывы» и вход — в меню «☰»", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  const header = page.locator("header");
+  await expect(header.locator('nav a[href="/journal"]:visible')).toHaveCount(1);
+  await expect(header.locator('nav a[href="/reviews"]:visible')).toHaveCount(0);
+  await header.locator('button[aria-controls="desktop-more-menu"]').click();
+  const menu = header.locator("#desktop-more-menu");
+  await expect(menu.locator('a[href="/reviews"]')).toBeVisible();
+  await expect(menu.locator('a[href="/login"]')).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+});

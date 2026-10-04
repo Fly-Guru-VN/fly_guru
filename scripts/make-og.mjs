@@ -18,7 +18,8 @@
 // нет, поэтому для китайского и корейского следом в списке Noto Sans SC/KR.
 //
 // Запуск (tsx — чтобы прочитать справочник магазина на TypeScript):
-//   npx tsx scripts/make-og.mjs
+//   npx tsx scripts/make-og.mjs            — все картинки
+//   npx tsx scripts/make-og.mjs journal    — только один раздел
 // Результат: public/og/<язык>.jpg, public/og/<раздел>/<язык>.jpg,
 // public/og/product/<товар>.jpg. Пути читает src/lib/og.ts.
 import { chromium } from "playwright";
@@ -87,6 +88,12 @@ const PAGES = [
     slug: "contacts",
     title: (m) => [m.Contacts.title],
     photo: "public/media/video/hero-loop-poster.jpg",
+  },
+  {
+    slug: "journal",
+    title: (m) => [m.Journal.ogTitle],
+    photo: "public/media/photo/ekskursiya.webp",
+    pos: "65% 60%",
   },
   {
     slug: "shop",
@@ -265,13 +272,17 @@ async function shoot(html, out) {
   console.log(`${path.relative(root, out)} — ${(fs.statSync(out).size / 1024).toFixed(0)} КБ`);
 }
 
-for (const p of PAGES) {
+// Один раздел: npx tsx scripts/make-og.mjs journal — перерисовать только его,
+// не трогая остальные картинки (иначе каждый прогон давал бы diff на десятки
+// файлов). Без аргумента — всё, включая товары.
+const only = process.argv[2];
+for (const p of only ? PAGES.filter((x) => x.slug === only) : PAGES) {
   for (const locale of LOCALES) {
     const dir = p.slug ? path.join(OUT_DIR, p.slug) : OUT_DIR;
     await shoot(pageHtml(p, locale), path.join(dir, `${locale}.jpg`));
   }
 }
-for (const p of shopProducts) {
+for (const p of only ? [] : shopProducts) {
   await shoot(productHtml(p), path.join(OUT_DIR, "product", `${p.id}.jpg`));
 }
 

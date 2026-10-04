@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createPublicClient } from "@/lib/supabase/public";
 import { parseBody, type JournalBlock } from "@/lib/journal";
 
@@ -58,7 +59,9 @@ interface PostRow {
 const POST_COLUMNS =
   "slug, title, body, cover_path, category:journal_categories(name), author_name, source_name, source_url, published_at, edited_at";
 
-export async function getPublishedPosts(): Promise<JournalCard[]> {
+// cache(): метаданные и сама страница поста (плюс «Читайте также») читают одно
+// и то же в рамках одного рендера — без него это два-три запроса в базу.
+export const getPublishedPosts = cache(async (): Promise<JournalCard[]> => {
   const { data, error } = await createPublicClient()
     .from("journal_posts")
     .select(POST_COLUMNS)
@@ -76,9 +79,9 @@ export async function getPublishedPosts(): Promise<JournalCard[]> {
     // строку, чтобы длину выбирала сама вёрстка.
     excerptSource: parseBody(row.body),
   }));
-}
+});
 
-export async function getPublishedPost(slug: string): Promise<JournalPost | null> {
+export const getPublishedPost = cache(async (slug: string): Promise<JournalPost | null> => {
   const { data, error } = await createPublicClient()
     .from("journal_posts")
     .select(POST_COLUMNS)
@@ -101,7 +104,7 @@ export async function getPublishedPost(slug: string): Promise<JournalPost | null
     publishedAt: row.published_at,
     editedAt: row.edited_at,
   };
-}
+});
 
 // Для sitemap.xml: адрес и честная дата последней правки.
 export async function getSitemapPosts(): Promise<{ slug: string; lastModified: string }[]> {

@@ -5,6 +5,7 @@
     "club": "Club",
     "shop": "Tienda",
     "prices": "Precios",
+    "journal": "Revista",
     "reviews": "Opiniones",
     "contacts": "Contacto",
     "sections": "Secciones del sitio"
@@ -948,5 +949,22 @@
   "Meta": {
     "title": "Clases de eFoil en Nha Trang — escuela FlyGuru",
     "description": "Clases de eFoil y paseos en tándem en Nha Trang, Maryna Beach Club. El 90% de los alumnos vuela ya en la primera clase."
+  },
+  "Journal": {
+    "metaTitle": "Revista FlyGuru — artículos y noticias sobre eFoil",
+    "metaDescription": "Artículos, guías y noticias de la escuela de eFoil FlyGuru en Nha Trang: clases, cuidado del equipo, eventos e historias de alumnos.",
+    "eyebrow": "Revista",
+    "title": "Revista FlyGuru",
+    "subtitle": "Artículos, guías, noticias e historias de nuestra escuela de eFoil en Nha Trang.",
+    "empty": "Pronto publicaremos los primeros artículos.",
+    "back": "Todos los artículos",
+    "readingLanguage": "Los artículos están en ruso: tu navegador puede traducirlos.",
+    "all": "Todos",
+    "related": "Lee también",
+    "ctaTitle": "¿Quieres probarlo tú mismo?",
+    "ctaText": "Reserva una clase con instructor: deja tu solicitud y te contactaremos.",
+    "ctaBook": "Reservar",
+    "ctaTraining": "Sobre las clases",
+    "ogTitle": "Artículos y noticias sobre eFoil"
   }
 }

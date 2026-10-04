@@ -5,6 +5,7 @@
     "club": "俱乐部",
     "shop": "商店",
     "prices": "价格",
+    "journal": "杂志",
     "reviews": "评价",
     "contacts": "联系我们",
     "sections": "网站栏目"
@@ -948,5 +949,22 @@
   "Meta": {
     "title": "芽庄电动水翼板教学 —— FlyGuru 学校",
     "description": "在芽庄 Maryna Beach Club 学习电动水翼板、体验双人飞行。90% 的学员第一节课就能骑起来。"
+  },
+  "Journal": {
+    "metaTitle": "FlyGuru 杂志 —— 电动水翼板文章与资讯",
+    "metaDescription": "芽庄 FlyGuru 电动水翼板学校的文章、指南与资讯：教学、设备保养、活动和学员故事。",
+    "eyebrow": "杂志",
+    "title": "FlyGuru 杂志",
+    "subtitle": "来自芽庄电动水翼板学校的文章、指南、资讯和故事。",
+    "empty": "第一批文章即将上线。",
+    "back": "全部文章",
+    "readingLanguage": "文章为俄语，可使用浏览器自动翻译。",
+    "all": "全部",
+    "related": "相关阅读",
+    "ctaTitle": "想亲自体验吗？",
+    "ctaText": "预约教练课程：留下申请，我们会联系您。",
+    "ctaBook": "立即预约",
+    "ctaTraining": "了解课程",
+    "ogTitle": "电动水翼板文章与资讯"
   }
 }
