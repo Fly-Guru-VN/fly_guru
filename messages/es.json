@@ -113,6 +113,11 @@
       "note": "En pareja — 3.000.000 ₫ por persona",
       "blurb": "Un vuelo hasta la isla de las Tortugas y tu primera experiencia en mar abierto. Una salida corta para coger soltura."
     },
+    "excursion-kid": {
+      "name": "Excursión infantil a la isla de las Tortugas",
+      "note": "Niños de 4 a 10 años, hasta 40 kg. El adulto acompañante debe manejar el e-foil con soltura.",
+      "blurb": "Tu hijo vuela hasta la isla en tándem con un instructor y tú vas a su lado en tu propia tabla."
+    },
     "safari": {
       "name": "E-Foil Safari",
       "durationLabel": "5 horas",

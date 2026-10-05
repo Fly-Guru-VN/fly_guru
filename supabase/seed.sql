@@ -19,6 +19,7 @@ values
   ('Полёт в тандеме (взрослый)',        10,   1000000, 'tandem',     'tandem-adult',        true),
   ('Полёт в тандеме (до 14 лет)',       10,   500000,  'tandem',     'tandem-kid',          true),
   ('Экскурсия с инструктором',          120,  3500000, 'tour',       'excursion',           true),
+  ('Детская экскурсия на остров Черепахи', 120, 2500000, 'tour',     'excursion-kid',       true),
   ('E-Foil Safari',                     null, 6000000, 'tour',       'safari',              true),
   ('Самостоятельное катание',           30,   1000000, 'rental',     'rental',              true),
   ('Абонемент 300 минут',               300,  6000000, 'subscription', 'subscription',       true),

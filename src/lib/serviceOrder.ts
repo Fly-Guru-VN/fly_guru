@@ -36,6 +36,7 @@ const CODE_ORDER: string[] = [
   "rental",
   // Выезды
   "excursion",
+  "excursion-kid",
   "safari",
   // Абонемент
   "subscription",

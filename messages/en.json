@@ -113,6 +113,11 @@
       "note": "For two — 3,000,000 ₫ per person",
       "blurb": "A flight to Turtle Island and your first taste of the open sea. A short trip to build up experience."
     },
+    "excursion-kid": {
+      "name": "Kids' excursion to Turtle Island",
+      "note": "Child aged 4–10, up to 40 kg. The accompanying adult must be a confident e-foil rider.",
+      "blurb": "Your child rides to the island in tandem with an instructor while you fly alongside on your own board."
+    },
     "safari": {
       "name": "E-Foil Safari",
       "durationLabel": "5 hours",

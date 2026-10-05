@@ -97,6 +97,17 @@ export const services: Service[] = [
     image: "/media/photo/prices/excursion.webp",
   },
   {
+    // Просьба руководителя 05.10.2026: ребёнок 4–10 лет едет в тандеме с
+    // инструктором, взрослый — рядом на своей доске. Своего кадра нет —
+    // стоит иллюстрация детского базового обучения.
+    id: "excursion-kid",
+    durationMin: 120,
+    price: 2_500_000,
+    category: "tour",
+    membersOnly: true,
+    image: "/media/photo/prices/training-kid.webp",
+  },
+  {
     id: "safari",
     durationMin: null,
     price: 6_000_000,

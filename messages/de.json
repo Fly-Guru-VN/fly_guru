@@ -113,6 +113,11 @@
       "note": "Zu zweit — 3.000.000 ₫ pro Person",
       "blurb": "Ein Flug zur Schildkröteninsel und die erste Erfahrung auf offener See. Eine kurze Tour, um Sicherheit zu gewinnen."
     },
+    "excursion-kid": {
+      "name": "Kinder-Tour zur Schildkröteninsel",
+      "note": "Kinder von 4–10 Jahren, bis 40 kg. Die erwachsene Begleitperson muss sicher E-Foil fahren können.",
+      "blurb": "Ihr Kind fliegt im Tandem mit einem Trainer zur Insel, Sie fahren auf Ihrem eigenen Board nebenher."
+    },
     "safari": {
       "name": "E-Foil-Safari",
       "durationLabel": "5 Stunden",

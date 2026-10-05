@@ -113,6 +113,11 @@
       "note": "Đi hai người — 3.000.000 ₫ mỗi người",
       "blurb": "Bay tới đảo Rùa, lần đầu ra biển khơi. Một chuyến ngắn để tích lũy kinh nghiệm."
     },
+    "excursion-kid": {
+      "name": "Tour đảo Rùa cho trẻ em",
+      "note": "Trẻ từ 4–10 tuổi, nặng tối đa 40 kg. Người lớn đi kèm phải tự tin lái e-foil.",
+      "blurb": "Bé bay ra đảo cùng huấn luyện viên trên một ván, còn bạn đi bên cạnh trên ván của mình."
+    },
     "safari": {
       "name": "E-Foil Safari",
       "durationLabel": "5 giờ",
