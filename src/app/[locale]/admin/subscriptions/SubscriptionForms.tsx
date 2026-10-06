@@ -12,6 +12,10 @@ import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { Spinner } from "@/components/Spinner";
 import { RIDERS_MAX } from "@/lib/riders";
+import {
+  MEMBER_SUBSCRIPTION_PRICE,
+  SUBSCRIPTION_PRICE,
+} from "@/lib/subscriptionPrice";
 
 // Клиентские кусочки страницы абонементов: две формы с ошибками без
 // перезагрузки (useActionState). Кнопка с confirm() — в ../ConfirmSubmit.
@@ -22,13 +26,16 @@ export interface Option {
 }
 export interface ClientOption extends Option {
   phone: string | null;
+  member?: boolean; // член клуба — абонемент по умолчанию 5 млн
 }
+
+const vnd = (n: number) => new Intl.NumberFormat("ru-RU").format(n);
 
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary";
 
 // Продажа абонемента админом: клиент из списка или новый, продавец, цена
-// (пусто = 6 млн; своя цена — только у босса), дата продажи, отметка оплаты.
+// (пусто = 6 млн, члену клуба 5 млн; своя цена — только у босса), дата продажи, отметка оплаты.
 // Префилл из заявки на абонемент: контакты клиента + id заявки, которую
 // продажа должна закрыть. Если у заявки уже привязан clientId — используем его.
 export interface SubscriptionPrefill {
@@ -61,6 +68,7 @@ export function SellSubscriptionForm({
     error: null,
   });
   const [clientId, setClientId] = useState(prefill?.clientId ?? "");
+  const member = clients.find((c) => c.id === clientId)?.member === true;
   const [sellerId, setSellerId] = useState(staff[0]?.id ?? "");
   // Способ оплаты спрашиваем только когда деньги уже получены: при продаже
   // «в долг» он ещё неизвестен, и заставлять выбирать наугад — врать отчёту.
@@ -86,10 +94,16 @@ export function SellSubscriptionForm({
             <option key={c.id} value={c.id}>
               {c.name}
               {c.phone ? ` · ${c.phone}` : ""}
+              {c.member ? " · клуб" : ""}
             </option>
           ))}
         </select>
       </label>
+      {member && (
+        <p className="rounded-xl bg-primary/10 px-3 py-2 text-sm text-primary">
+          Член клуба — абонемент за {vnd(MEMBER_SUBSCRIPTION_PRICE)} ₫.
+        </p>
+      )}
 
       {clientId === "" && (
         <>
@@ -161,7 +175,7 @@ export function SellSubscriptionForm({
               type="text"
               name="price"
               inputMode="numeric"
-              placeholder="по умолчанию 6 000 000"
+              placeholder={`по умолчанию ${vnd(member ? MEMBER_SUBSCRIPTION_PRICE : SUBSCRIPTION_PRICE)}`}
               className={`mt-1 ${inputClass}`}
             />
           </label>

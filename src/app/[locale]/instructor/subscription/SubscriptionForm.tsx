@@ -6,6 +6,12 @@ import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { Spinner } from "@/components/Spinner";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { recordDateBounds } from "@/lib/recordDate";
+import {
+  MEMBER_SUBSCRIPTION_PRICE,
+  SUBSCRIPTION_PRICE,
+} from "@/lib/subscriptionPrice";
+
+const vnd = (n: number) => new Intl.NumberFormat("ru-RU").format(n);
 
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
@@ -50,7 +56,7 @@ export function SubscriptionForm({
   prefill?: SubscriptionPrefill;
   paymentMethods: { id: string; name: string }[];
   today: string; // «сегодня» по Нячангу — приходит с сервера, не с часов телефона
-  defaultPrice: number | null; // цена из прайса; пусто — база поставит свою
+  defaultPrice: number | null; // цена из прайса — подсказка в поле цены
   /** Свою цену ставят только начальник и David; инструктору — всегда по прайсу. */
   canSetPrice: boolean;
 }) {
@@ -137,9 +143,9 @@ export function SubscriptionForm({
             name="price"
             type="text"
             inputMode="numeric"
-            defaultValue={
-              defaultPrice ? new Intl.NumberFormat("ru-RU").format(defaultPrice) : ""
-            }
+            // Не предзаполняем: пустое поле = цена по правилу (члену клуба
+            // 5 млн), а вписанные 6 млн перебили бы его.
+            placeholder={`пусто — ${vnd(defaultPrice ?? SUBSCRIPTION_PRICE)}, члену клуба ${vnd(MEMBER_SUBSCRIPTION_PRICE)}`}
             className={inputClass}
           />
         </div>

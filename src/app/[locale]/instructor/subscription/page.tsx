@@ -10,6 +10,7 @@ import { loadPaymentClaims } from "@/lib/subscriptions";
 import { vnToday } from "@/lib/dates";
 import { SubscriptionForm, type SubscriptionPrefill } from "./SubscriptionForm";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { MEMBER_SUBSCRIPTION_PRICE } from "@/lib/subscriptionPrice";
 
 // Продажа абонемента: 300 минут / 6 млн ₫, минуты живут 3 месяца.
 // Создаёт subscription (sold_by = инструктор). Членом клуба клиент при этом
@@ -119,7 +120,7 @@ export default async function SubscriptionPage({
     <div>
       <PageHeader
         title="Продать абонемент"
-        hint={`${sub.durationMin} минут за ${formatVnd(sub.price)}, действуют 3 месяца. 15% после оплаты идут в общий котёл — кто бы ни продал.`}
+        hint={`${sub.durationMin} минут за ${formatVnd(sub.price)} (члену клуба — ${formatVnd(MEMBER_SUBSCRIPTION_PRICE)}, узнаем по телефону), действуют 3 месяца. 15% после оплаты идут в общий котёл — кто бы ни продал.`}
       />
       {prefill && (
         <p className="mt-3 rounded-xl bg-primary/10 px-3 py-2 text-sm text-primary">

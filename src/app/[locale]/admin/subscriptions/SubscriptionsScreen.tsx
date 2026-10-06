@@ -468,7 +468,7 @@ export async function SubscriptionsScreen({
     subsQuery = subsQuery.eq("status", "active");
   }
 
-  const [subsRes, clientsRes, staffRes, paymentMethods, hidden] = await Promise.all([
+  const [subsRes, clientsRes, staffRes, paymentMethods, hidden, membersRes] = await Promise.all([
     subsQuery,
     // Полный список клиентов постранично (lib/clients): .limit(1000) молча
     // обрезал бы выпадающий список — клиента просто не было бы в выборе.
@@ -479,6 +479,9 @@ export async function SubscriptionsScreen({
     loadSessionStaff(supabase),
     getActiveDict(supabase, "payment_methods"),
     hiddenStaffIds(supabase), // уволенных в «кто продал» не предлагаем (0036)
+    // Члены клуба — пометка в списке и цена 5 млн по умолчанию. Это подсказка
+    // для формы: саму цену сервер всё равно решает по базе.
+    supabase.from("memberships").select("client_id"),
   ]);
 
   const subs = (subsRes.data ?? []) as unknown as SubRow[];
@@ -530,9 +533,12 @@ export async function SubscriptionsScreen({
   const viewerIsBoss = viewer ? isAdminLike(viewer.role) : false;
 
   // По алфавиту — см. комментарий в admin/members: загрузчик отдаёт по id.
-  const clients = [...clientsRes.rows].sort((a, b) =>
-    a.name.localeCompare(b.name, "ru"),
+  const memberIds = new Set(
+    (membersRes.data ?? []).map((m) => m.client_id as string),
   );
+  const clients = [...clientsRes.rows]
+    .sort((a, b) => a.name.localeCompare(b.name, "ru"))
+    .map((c) => ({ ...c, member: memberIds.has(c.id) }));
 
   // Балансы и история — двумя батч-запросами на весь список сразу.
   const [usedRes, adjRes] = ids.length

@@ -43,8 +43,10 @@ import { loadAllClients } from "@/lib/clients";
 import {
   addFriendBonusMinutes,
   grantReferralReward,
+  isClubMember,
   memberReferrerFor,
 } from "@/lib/referrals";
+import { subscriptionPriceFor } from "@/lib/subscriptionPrice";
 import {
   BONUS_SERVICE_CODE,
   FRIEND_BONUS_NOTE,
@@ -942,7 +944,8 @@ async function recalcSubscriptionStatus(
 }
 
 // Продажа от админа: как у инструктора, но продавца выбираем и дату можно
-// поставить прошлую. Цена по умолчанию — 6 000 000 ₫. 15% с любого абонемента,
+// поставить прошлую. Цена по умолчанию — 6 000 000 ₫, члену клуба 5 000 000 ₫
+// (lib/subscriptionPrice). 15% с любого абонемента,
 // кто бы его ни продал, уходят в общий котёл сменщиков дня оплаты (lib/salary);
 // продавец нужен для справки «сам продал» и истории.
 export async function adminSellSubscriptionAction(
@@ -965,8 +968,8 @@ export async function adminSellSubscriptionAction(
   const priceRaw = isAdminLike(user.role)
     ? String(formData.get("price") ?? "").trim()
     : "";
-  const price = priceRaw ? parseVnd(priceRaw) : 6_000_000;
-  if (price === null || price <= 0) {
+  const customPrice = priceRaw ? parseVnd(priceRaw) : null;
+  if (priceRaw && (customPrice === null || customPrice <= 0)) {
     return { error: "Цена — число в донгах, например 6 000 000." };
   }
 
@@ -1009,6 +1012,11 @@ export async function adminSellSubscriptionAction(
   const clientRes = await resolveClient(supabase, user.id, formData, soldAt, memberReferrerId);
   if ("error" in clientRes) return clientRes;
   const clientId = clientRes.id;
+  // Цену без ручной правки ставит членство: клиенту из клуба — 5 млн. Смотрим
+  // уже по найденному клиенту, а не по выбору в форме: «новый клиент» с
+  // телефоном члена клуба — тот же человек.
+  const price =
+    customPrice ?? subscriptionPriceFor(await isClubMember(createAdminClient(), clientId));
 
   // Минуты живут 3 месяца С ДАТЫ ПРОДАЖИ (в т.ч. прошлой). paid_at — только
   // при полученной оплате: от месяца оплаты зависят выручка и комиссия.

@@ -40,9 +40,11 @@ import { loadAllClients } from "@/lib/clients";
 import {
   addFriendBonusMinutes,
   grantReferralReward,
+  isClubMember,
   memberReferrerFor,
   writeOffBonusMinutes,
 } from "@/lib/referrals";
+import { subscriptionPriceFor } from "@/lib/subscriptionPrice";
 import {
   BONUS_SERVICE_CODE,
   FRIEND_BONUS_MINUTES,
@@ -733,8 +735,11 @@ export async function sellSubscriptionAction(
   if ("error" in clientResult) return { error: clientResult.error };
   const clientId = clientResult.id;
 
-  // total_minutes (300) и price (6 млн) заданы default'ами в схеме; свою цену
-  // пишем, только если её поставил босс (см. выше).
+  // total_minutes (300) задан default'ом в схеме. Цену без ручной правки босса
+  // ставит членство: 6 млн, члену клуба 5 млн (lib/subscriptionPrice).
+  // Клиента нашли по телефону выше — так член клуба узнаётся и у инструктора.
+  const finalPrice =
+    price ?? subscriptionPriceFor(await isClubMember(createAdminClient(), clientId));
   // Минуты живут 3 месяца с продажи. paid_at пишем только при полученной
   // оплате — от него зависит комиссия инструктора (см. 0002).
   //
@@ -742,8 +747,8 @@ export async function sellSubscriptionAction(
   // проверяла только «sold_by — это я», а цену, минуты и отметку оплаты в
   // новой строке не ограничивала: запросом мимо интерфейса инструктор мог
   // завести себе оплаченный абонемент на любую сумму — и накачать этим общий
-  // котёл 15%. Здесь цену и минуты по-прежнему ставит база (default'ы) — кроме
-  // цены от босса, — а sold_by берётся из сессии, а не из формы.
+  // котёл 15%. Здесь минуты ставит база (default), цену — сервер (правило
+  // членства или цена от босса), а sold_by берётся из сессии, а не из формы.
   const admin = createAdminClient();
 
   // Заявку занимаем ДО создания абонемента — одним запросом с условием «если
@@ -764,7 +769,7 @@ export async function sellSubscriptionAction(
   const row = {
     client_id: clientId,
     sold_by: user.id,
-    ...(price !== null ? { price } : {}),
+    price: finalPrice,
     sold_at: soldAt,
     // Минуты живут 3 месяца ОТ ДАТЫ ПРОДАЖИ — в том числе вчерашней.
     expires_at: subscriptionExpiry(new Date(soldAt)).toISOString(),
