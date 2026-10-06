@@ -11,6 +11,8 @@ import { ChannelField } from "@/components/cabinet/ChannelField";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { recordDateBounds } from "@/lib/recordDate";
 import { Spinner } from "@/components/Spinner";
+import { TourFields } from "@/components/cabinet/TourFields";
+import { isTour } from "@/lib/tours";
 
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-4 py-3 text-base outline-none focus:border-primary focus:ring-2 focus:ring-primary/20";
@@ -39,7 +41,13 @@ export interface RecordPrefill {
 interface RecordFormProps {
   // code — по нему видно, есть ли на услуге агентская скидка и какая;
   // price — чтобы посчитать процентную скидку в донгах.
-  services: { id: string; name: string; code?: string | null; price?: number | null }[];
+  services: {
+    id: string;
+    name: string;
+    code?: string | null;
+    price?: number | null;
+    category?: string | null;
+  }[];
   today: string; // 'YYYY-MM-DD' по Вьетнаму — с сервера, чтобы не зависеть от часов телефона
   paymentMethods: { id: string; name: string }[];
   channels: string[]; // справочник каналов записи (0041)
@@ -77,6 +85,9 @@ export function RecordForm({
   // «Бонусные минуты» (0063): клиент катается за минуты от приглашённых
   // друзей. Чека нет — вместо оплаты, города и канала спрашиваем минуты.
   const isBonus = chosen?.code === BONUS_SERVICE_CODE;
+  // Экскурсия или сафари: сколько человек и кто ещё ехал (lib/tours).
+  const tour = isTour(chosen?.category);
+  const [people, setPeople] = useState(1);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -222,6 +233,17 @@ export function RecordForm({
           selectedId={prefill?.paymentMethodId}
           selectedName={prefill?.paymentMethodName}
           className={inputClass}
+        />
+      )}
+
+      {tour && (
+        <TourFields
+          code={chosen?.code}
+          listPrice={Number(chosen?.price ?? 0)}
+          people={people}
+          onPeopleChange={setPeople}
+          inputClass={inputClass}
+          labelClass="block text-sm font-medium"
         />
       )}
 

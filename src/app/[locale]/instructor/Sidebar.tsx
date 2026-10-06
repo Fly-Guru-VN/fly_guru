@@ -32,6 +32,7 @@ const GROUPS: CabinetNavGroup[] = [
       { href: "/instructor/clients", label: "Клиенты" },
       { href: "/instructor/calendar", label: "Календарь" },
       { href: "/instructor/subscription", label: "Абонемент" },
+      { href: "/instructor/tours", label: "Экскурсии и сафари" },
       { href: "/instructor/writeoff", label: "Списание" },
     ],
   },

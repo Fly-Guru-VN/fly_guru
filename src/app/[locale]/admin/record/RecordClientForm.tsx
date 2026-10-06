@@ -8,6 +8,8 @@ import { ChannelField } from "@/components/cabinet/ChannelField";
 import { vnd } from "@/lib/stats";
 import { agentDiscountFor, DEFAULT_AGENT_PLAN, type AgentPlan } from "@/lib/agentTerms";
 import { Spinner } from "@/components/Spinner";
+import { TourFields } from "@/components/cabinet/TourFields";
+import { isTour, tourTotal } from "@/lib/tours";
 
 // Админская «Запись клиента». Отдельная форма (а не форма сессий), потому что
 // инструктор по умолчанию — сам админ (он записывает и иногда сам катает), плюс
@@ -20,6 +22,7 @@ interface Option {
 interface ServiceOption extends Option {
   price: number;
   code?: string | null; // по нему считается размер агентской скидки
+  category?: string | null; // тур (экскурсия, сафари) — свои поля и цена
 }
 
 export interface RecordPrefill {
@@ -73,7 +76,12 @@ export function RecordClientForm({
     prefill?.serviceId ?? services[0]?.id ?? "",
   );
   const service = services.find((s) => s.id === serviceId);
-  const price = service?.price ?? 0;
+  // Тур: число людей и участники (lib/tours). Цена по прайсу — за всех.
+  const tour = isTour(service?.category);
+  const [people, setPeople] = useState(1);
+  const price = tour
+    ? tourTotal(service?.code, service?.price ?? 0, people)
+    : (service?.price ?? 0);
   // Сколько снимет агентская скидка с ВЫБРАННОЙ сейчас услуги. Размер зависит
   // от тарифа агента: фикс (100 000 ₫ с базового, 200 000 ₫ с парного) или
   // процент от цены. С остальных услуг — ничего.
@@ -250,6 +258,16 @@ export function RecordClientForm({
           />
         </label>
       </div>
+
+      {tour && (
+        <TourFields
+          code={service?.code}
+          listPrice={service?.price ?? 0}
+          people={people}
+          onPeopleChange={setPeople}
+          inputClass={inputClass}
+        />
+      )}
 
       <label className="block text-xs text-muted">
         Примечание

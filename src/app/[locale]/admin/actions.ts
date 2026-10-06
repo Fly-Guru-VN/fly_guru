@@ -47,6 +47,8 @@ import {
   memberReferrerFor,
 } from "@/lib/referrals";
 import { subscriptionPriceFor } from "@/lib/subscriptionPrice";
+import { isTour, parsePeople, tourTotal, TOURS_MAX_PEOPLE } from "@/lib/tours";
+import { linkParticipants, readParticipants } from "@/lib/tourParticipants";
 import {
   BONUS_SERVICE_CODE,
   FRIEND_BONUS_NOTE,
@@ -621,6 +623,16 @@ export async function createSessionAction(
     };
   }
 
+  // Экскурсия или сафари (lib/tours): сколько человек и кто ещё ехал. Читаем
+  // до создания клиента — отказ ниже не должен оставить клиента-сироту.
+  const isTourService = isTour(service.category as string | null);
+  const people = isTourService ? parsePeople(formData.get("people")) : 1;
+  if (people === null) {
+    return { error: `Сколько человек — целое число от 1 до ${TOURS_MAX_PEOPLE}.` };
+  }
+  const participants = isTourService ? readParticipants(formData) : { rows: [] };
+  if ("error" in participants) return participants;
+
   // Город и канал записи спрашивает «Записать клиента»; форма сессий их не
   // шлёт (там вносят прошлое, где канала уже не вспомнить) — поэтому проверяем
   // только те поля, что реально пришли с формой.
@@ -662,14 +674,17 @@ export async function createSessionAction(
   // Пустая сумма = по прайсу (минус агентская скидка, если она положена);
   // введённая вручную — важнее (админ решает: скидки, брони, доплаты).
   const amountRaw = String(formData.get("amount") ?? "").trim();
+  // У тура по прайсу — цена с человека × людей (экскурсия от двух — по 3 млн).
   const amount: number | null = amountRaw
     ? parseVnd(amountRaw)
-    : applyRefDiscount(
-        Number(service.price ?? 0),
-        service.code as string | null,
-        rewarded,
-        plan,
-      );
+    : isTourService
+      ? tourTotal(service.code as string | null, Number(service.price ?? 0), people)
+      : applyRefDiscount(
+          Number(service.price ?? 0),
+          service.code as string | null,
+          rewarded,
+          plan,
+        );
   if (amount === null) return { error: "Сумма — число в донгах, например 1 500 000." };
 
   // Сколько школа платит агенту за такую запись: на стандартном тарифе
@@ -739,6 +754,8 @@ export async function createSessionAction(
     channel,
     // Пусто = платили в день занятия (0042).
     ...(paidOn ? { paid_on: paidOn } : {}),
+    // Число людей пишем только туру: у занятий оно всегда 1 (default в 0066).
+    ...(isTourService ? { people } : {}),
     note:
       [friendBonus ? FRIEND_BONUS_NOTE : "", String(formData.get("note") ?? "").trim()]
         .filter(Boolean)
@@ -760,6 +777,20 @@ export async function createSessionAction(
   // заявки, закрытые в никуда, перестают теряться.
   if (bookingId && session) {
     await linkBookingResult(supabase, bookingId, { session_id: session.id as string });
+  }
+
+  // Остальные участники тура — по телефону: есть в базе — берём, нет — заводим.
+  if (isTourService && session && participants.rows.length > 0) {
+    const ids: string[] = [];
+    for (const p of participants.rows) {
+      const fd = new FormData();
+      fd.set("newName", p.name);
+      fd.set("newPhone", p.phone);
+      const res = await resolveClient(supabase, user.id, fd, dayToIso(date));
+      if ("error" in res) console.error("[admin] tour participant:", res.error);
+      else ids.push(res.id);
+    }
+    await linkParticipants(supabase, session.id as string, clientId, ids);
   }
 
   // Награда агенту (за первое базовое обучение клиента) и закрытие заявки:
@@ -792,10 +823,14 @@ export async function createSessionAction(
   // чужое прошлое, и смена там означала бы неправду. Роль admin здесь точная,
   // а не isAdminLike: правило David'а — про начальника, разработчик по-прежнему
   // босс без смен и долей (staff → DAY_SHARE_BOSS_ROLES).
+  //
+  // Кроме тура: он в дележ дня не идёт (lib/tours), а открытая смена босса
+  // урезала бы напарнику долю с ОБЫЧНЫХ занятий этого дня вдвое.
   if (
     user.role === "admin" &&
     instructorId === user.id &&
-    formData.get("autoShift") === "1"
+    formData.get("autoShift") === "1" &&
+    !isTourService
   ) {
     await openBossShift(supabase, user.id, date);
   }
@@ -803,7 +838,8 @@ export async function createSessionAction(
 
   // Сессия влияет на выручку, статистику и ЗП — перерисовываем всё.
   revalidatePath("/", "layout");
-  officeRedirect(user, "/sessions");
+  // Тур — во вкладку «Экскурсии и сафари» (она есть только в админке).
+  officeRedirect(user, isTourService && isAdminLike(user.role) ? "/tours" : "/sessions");
 }
 
 // Правка сессии: дата / сумма / услуга / инструктор. Минуты списаний здесь
@@ -839,6 +875,12 @@ export async function updateSessionAction(formData: FormData) {
     const paidOn = String(formData.get("paidOn") ?? "").trim();
     if (!paidOn || DAY_RE.test(paidOn)) patch.paid_on = paidOn || null;
   }
+  // Число людей (0066) шлёт только форма тура. Сумму оно само не меняет:
+  // её админ правит рядом, тем же сохранением.
+  if (formData.has("people")) {
+    const people = parsePeople(formData.get("people"));
+    if (people !== null) patch.people = people;
+  }
 
   const supabase = await officeClient(user);
   const serviceId = String(formData.get("serviceId") ?? "");
@@ -857,6 +899,65 @@ export async function updateSessionAction(formData: FormData) {
   if (Object.keys(patch).length === 0) return;
   const { error } = await supabase.from("sessions").update(patch).eq("id", id);
   failIfError(error, "не удалось сохранить сессию");
+  revalidatePath("/", "layout");
+}
+
+// Участник тура (0066): добавить по телефону — найдём в базе или заведём — и
+// убрать. Только начальник и David: у инструктора свой список ограничен, а
+// СММщик туры правит через «Сессии».
+export async function addTourParticipantAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireAdmin();
+  const sessionId = String(formData.get("sessionId") ?? "");
+  if (!sessionId) return { error: "Тур не найден." };
+  const parsed = readParticipants(formData);
+  if ("error" in parsed) return parsed;
+  if (parsed.rows.length === 0) return { error: "Впишите имя и телефон участника." };
+
+  const supabase = await createClient();
+  const { data: session } = await supabase
+    .from("sessions")
+    .select("id, client_id, date, service:services(category)")
+    .eq("id", sessionId)
+    .maybeSingle();
+  if (!session) return { error: "Тур не найден." };
+  if (!isTour((session.service as unknown as { category: string } | null)?.category)) {
+    return { error: "Участников добавляют только к экскурсии или сафари." };
+  }
+
+  const fd = new FormData();
+  fd.set("newName", parsed.rows[0].name);
+  fd.set("newPhone", parsed.rows[0].phone);
+  const res = await resolveClient(supabase, user.id, fd, dayToIso(session.date as string));
+  if ("error" in res) return res;
+  if (res.id === session.client_id) {
+    return { error: "Это контактное лицо тура — оно уже записано." };
+  }
+  const { error } = await supabase
+    .from("session_participants")
+    .upsert(
+      { session_id: sessionId, client_id: res.id },
+      { onConflict: "session_id,client_id", ignoreDuplicates: true },
+    );
+  if (error) return { error: `Не удалось добавить участника: ${error.message}` };
+  revalidatePath("/", "layout");
+  return { error: null };
+}
+
+export async function removeTourParticipantAction(formData: FormData) {
+  await requireAdmin();
+  const sessionId = String(formData.get("sessionId") ?? "");
+  const clientId = String(formData.get("clientId") ?? "");
+  if (!sessionId || !clientId) return;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("session_participants")
+    .delete()
+    .eq("session_id", sessionId)
+    .eq("client_id", clientId);
+  failIfError(error, "не удалось убрать участника");
   revalidatePath("/", "layout");
 }
 

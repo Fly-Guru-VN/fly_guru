@@ -45,6 +45,8 @@ import {
   writeOffBonusMinutes,
 } from "@/lib/referrals";
 import { subscriptionPriceFor } from "@/lib/subscriptionPrice";
+import { isTour, parsePeople, tourTotal, TOURS_MAX_PEOPLE } from "@/lib/tours";
+import { linkParticipants, readParticipants } from "@/lib/tourParticipants";
 import {
   BONUS_SERVICE_CODE,
   FRIEND_BONUS_MINUTES,
@@ -386,6 +388,16 @@ export async function recordClientAction(
     return recordBonusMinutes(user, formData, { name, phone, date, bookingId, bookingBefore });
   }
 
+  // Экскурсия или сафари (lib/tours): сколько человек и кто ещё ехал. Цену
+  // считает сервер: по прайсу с человека, взрослая экскурсия от двух — по 3 млн.
+  const isTourService = isTour(service.category as string | null);
+  const people = isTourService ? parsePeople(formData.get("people")) : 1;
+  if (people === null) {
+    return { error: `Сколько человек — целое число от 1 до ${TOURS_MAX_PEOPLE}.` };
+  }
+  const participants = isTourService ? readParticipants(formData) : { rows: [] };
+  if ("error" in participants) return participants;
+
   // Резолвим реф-код → агент. Реф-коды и награды для членов клуба в текущей
   // модели не реализованы.
   // commission_fixed из карточки агента больше не читаем: с 16.08.2026 размер
@@ -451,7 +463,9 @@ export async function recordClientAction(
     plan,
   });
 
-  const price = Number(service.price ?? 0);
+  const price = isTourService
+    ? tourTotal(service.code as string | null, Number(service.price ?? 0), people)
+    : Number(service.price ?? 0);
   const amount = applyRefDiscount(price, service.code as string | null, rewarded, plan);
   // Сколько школа платит агенту за такую запись: на стандартном тарифе
   // 200 000 ₫ за базовое и 300 000 ₫ за парное, на процентном — доля от чека
@@ -494,6 +508,8 @@ export async function recordClientAction(
       // Как человек записался на это занятие (0034): заявки у записи с пляжа
       // нет, и канал терялся бы совсем.
       channel,
+      // Число людей — только у тура (0066); у занятий default 1.
+      ...(isTourService ? { people } : {}),
       note: sessionNote,
       created_by: user.id,
     })
@@ -511,6 +527,21 @@ export async function recordClientAction(
   // услуга, дата, сумма», а закрытые «в никуда» заявки не теряются.
   if (bookingId && session) {
     await linkBookingResult(createAdminClient(), bookingId, { session_id: session.id as string });
+  }
+
+  // Остальные участники тура — по телефону: есть в базе — берём, нет — заводим.
+  if (isTourService && session && participants.rows.length > 0) {
+    const ids: string[] = [];
+    for (const p of participants.rows) {
+      const res = await findOrCreateClient(supabase, user, {
+        name: p.name,
+        phone: p.phone,
+        source: "offline",
+      });
+      if ("error" in res) console.error("[instructor] tour participant:", res.error);
+      else ids.push(res.id);
+    }
+    await linkParticipants(createAdminClient(), session.id as string, clientId, ids);
   }
 
   // Награда агенту — за первое базовое обучение приведённого клиента. Занятие
