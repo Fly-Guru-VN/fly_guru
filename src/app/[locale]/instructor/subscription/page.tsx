@@ -3,6 +3,7 @@ import { formatVnd } from "@/content/services";
 import { getSiteServices, pickService } from "@/lib/services";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
+import { getActiveAppUser, isAdminLike } from "@/lib/auth";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 import { PaidBadge } from "@/components/cabinet/PaidBadge";
 import { loadPaymentClaims } from "@/lib/subscriptions";
@@ -22,6 +23,8 @@ export default async function SubscriptionPage({
   const { booking: bookingId } = await searchParams;
   const sub = pickService(await getSiteServices(), "subscription");
   const paymentMethods = await getActiveDict(await createClient(), "payment_methods");
+  const viewer = await getActiveAppUser();
+  const canSetPrice = viewer ? isAdminLike(viewer.role) : false;
 
   // Пришли из заявки на абонемент («Продать абонемент» в списке записей):
   // тянем контакты клиента, чтобы форма открылась заполненной, а продажа
@@ -116,7 +119,7 @@ export default async function SubscriptionPage({
     <div>
       <PageHeader
         title="Продать абонемент"
-        hint={`${sub.durationMin} минут за ${formatVnd(sub.price)}, действуют 3 месяца. 15% после оплаты идут в общий котёл.`}
+        hint={`${sub.durationMin} минут за ${formatVnd(sub.price)}, действуют 3 месяца. 15% после оплаты идут в общий котёл — кто бы ни продал.`}
       />
       {prefill && (
         <p className="mt-3 rounded-xl bg-primary/10 px-3 py-2 text-sm text-primary">
@@ -128,6 +131,8 @@ export default async function SubscriptionPage({
           prefill={prefill}
           paymentMethods={paymentMethods}
           today={vnToday()}
+          defaultPrice={sub.price}
+          canSetPrice={canSetPrice}
         />
       </div>
       <p className="mt-4 text-xs text-muted">

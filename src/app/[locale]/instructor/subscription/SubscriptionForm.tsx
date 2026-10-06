@@ -44,10 +44,15 @@ export function SubscriptionForm({
   prefill,
   paymentMethods,
   today,
+  defaultPrice,
+  canSetPrice,
 }: {
   prefill?: SubscriptionPrefill;
   paymentMethods: { id: string; name: string }[];
   today: string; // «сегодня» по Нячангу — приходит с сервера, не с часов телефона
+  defaultPrice: number | null; // цена из прайса; пусто — база поставит свою
+  /** Свою цену ставят только начальник и David; инструктору — всегда по прайсу. */
+  canSetPrice: boolean;
 }) {
   const bounds = recordDateBounds(today);
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
@@ -119,6 +124,26 @@ export function SubscriptionForm({
           className={`${NATIVE_PICKER} ${inputClass}`}
         />
       </div>
+
+      {/* Цена — только у босса: начальник иногда отдаёт абонемент за 5 млн.
+          Сервер у инструктора это поле всё равно не читает. */}
+      {canSetPrice && (
+        <div>
+          <label htmlFor="price" className="mb-1 block text-sm font-medium">
+            Цена, ₫
+          </label>
+          <input
+            id="price"
+            name="price"
+            type="text"
+            inputMode="numeric"
+            defaultValue={
+              defaultPrice ? new Intl.NumberFormat("ru-RU").format(defaultPrice) : ""
+            }
+            className={inputClass}
+          />
+        </div>
+      )}
 
       {/* Оплата. Первый вариант — типовой (деньги на месте), поэтому выбран по
           умолчанию. «Принял админ» и «под вопросом» оплату НЕ отмечают: до

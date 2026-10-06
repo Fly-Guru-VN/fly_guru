@@ -942,9 +942,9 @@ async function recalcSubscriptionStatus(
 }
 
 // Продажа от админа: как у инструктора, но продавца выбираем и дату можно
-// поставить прошлую. Цена по умолчанию — 6 000 000 ₫. Продавец важен для ЗП:
-// абонемент, проданный инструктором, кидает 15% в общий котёл (делится поровну
-// между всеми инструкторами), а проданный админом — не кидает, это его прибыль.
+// поставить прошлую. Цена по умолчанию — 6 000 000 ₫. 15% с любого абонемента,
+// кто бы его ни продал, уходят в общий котёл сменщиков дня оплаты (lib/salary);
+// продавец нужен для справки «сам продал» и истории.
 export async function adminSellSubscriptionAction(
   _prev: ActionState,
   formData: FormData,
@@ -959,9 +959,16 @@ export async function adminSellSubscriptionAction(
   if (!DAY_RE.test(soldDay)) return { error: "Укажите дату продажи." };
   const soldAt = dayToIso(soldDay);
 
-  const priceRaw = String(formData.get("price") ?? "").trim();
+  // Свою цену (скидка, «отдал за 5 млн») ставят только начальник и David —
+  // решение от 06.10.2026. У СММщика поля в форме нет, а пришедшее запросом
+  // мимо интерфейса не читаем: от цены зависят выручка и котёл 15%.
+  const priceRaw = isAdminLike(user.role)
+    ? String(formData.get("price") ?? "").trim()
+    : "";
   const price = priceRaw ? parseVnd(priceRaw) : 6_000_000;
-  if (price === null) return { error: "Цена — число в донгах, например 6 000 000." };
+  if (price === null || price <= 0) {
+    return { error: "Цена — число в донгах, например 6 000 000." };
+  }
 
   // Уже проведённую заявку вторично не оформляем — та же защита, что в
   // createSessionAction. Без неё повторный сабмит (кнопка «Назад», зависшая
@@ -1039,9 +1046,6 @@ export async function adminSellSubscriptionAction(
     }
   }
 
-  // «15% в общий котёл» (0048): галочка стоит только у продажи босса — у
-  // полевого состава котёл считается по факту продажи, и флаг ни на что не
-  // влияет. Пишем как есть: разбираться, чья это продажа, — дело lib/salary.
   const row = {
     client_id: clientId,
     sold_by: sellerId,
@@ -1050,7 +1054,6 @@ export async function adminSellSubscriptionAction(
     expires_at: subscriptionExpiry(new Date(soldAt)).toISOString(),
     paid_at: paidAt,
     payment_method_id: paymentMethodId,
-    pool_share: formData.get("poolShare") === "on",
   };
   // payment_method_id (0025) в боевой базе есть. Повтор вставки без него убран
   // 16.08.2026: абонемент сохранялся без способа оплаты, и в кассе появлялась
@@ -1132,26 +1135,35 @@ export async function togglePaidAction(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
-// Тумблер «в общий котёл» (0048). Продажа босса (админ, dev, механик) обычно
-// остаётся школе, но её можно отдать в котёл: 15% уйдут сменщикам того дня,
-// когда абонемент ОПЛАЧЕН, — по тем же правилам, что инструкторская продажа.
-// Кнопка нужна для уже внесённых абонементов: без неё пришлось бы удалять
-// продажу и заводить заново с галочкой.
-//
-// На продажах полевого состава кнопки нет: у них котёл считается всегда, и
-// флаг там просто не читается (см. lib/salary → getSubsShares).
-export async function toggleSubsPoolAction(formData: FormData) {
-  const user = await requireOffice();
+// Цена уже внесённого абонемента (решение David от 06.10.2026): начальник
+// иногда отдаёт абонемент за 5 млн вместо 6, а узнают об этом уже после
+// продажи. Править может только босс (админ, dev) — СММщику и инструктору
+// кнопки нет, и запрос мимо интерфейса тоже отбивается requireAdmin. Выручка,
+// 35% Marina и котёл 15% считаются от price на лету, поэтому пересчитываются
+// сами — хранить готовые суммы негде.
+export async function updateSubscriptionPriceAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireAdmin();
   const id = String(formData.get("id") ?? "");
-  if (!id) return;
+  if (!id) return { error: "Абонемент не найден." };
+  const price = parseVnd(formData.get("price"));
+  if (price === null || price <= 0) {
+    return { error: "Цена — число в донгах, например 5 000 000." };
+  }
 
-  const supabase = await officeClient(user);
-  const { error } = await supabase
+  const supabase = await createClient();
+  const { data, error } = await supabase
     .from("subscriptions")
-    .update({ pool_share: formData.get("set") === "1" })
-    .eq("id", id);
-  failIfError(error, "не удалось изменить долю котла");
+    .update({ price })
+    .eq("id", id)
+    .select("id");
+  if (error) return { error: `Не удалось сохранить цену: ${error.message}` };
+  if (!data?.length) return { error: "Абонемент не найден." };
+
   revalidatePath("/", "layout");
+  return { error: null };
 }
 
 // Ручная корректировка минут: только с комментарием (почему), пишется в лог
@@ -1202,10 +1214,9 @@ export async function writeOffMinutesAction(
 }
 
 // Продление действующего абонемента на 3 месяца за 1 000 000 ₫ (0062). Цена
-// и срок зашиты в lib/subscriptionExtensions и в SQL, из формы приходят только
-// способ оплаты и галочка котла. Проверки «не сгорел ли» и блокировка строки —
-// в extend_subscription: двойной клик второй раз не продлит по старому сроку.
-// Галочку котла база учитывает только у босса (0048).
+// и срок зашиты в lib/subscriptionExtensions и в SQL, из формы приходит только
+// способ оплаты. Проверки «не сгорел ли» и блокировка строки — в
+// extend_subscription: двойной клик второй раз не продлит по старому сроку.
 export async function extendSubscriptionAction(
   _prev: ActionState,
   formData: FormData,
@@ -1221,7 +1232,6 @@ export async function extendSubscriptionAction(
     subscriptionId: subId,
     paymentMethodId,
     actorId: user.id,
-    poolShare: formData.get("poolShare") === "on",
   });
   if (result.error !== null) return { error: result.error };
 

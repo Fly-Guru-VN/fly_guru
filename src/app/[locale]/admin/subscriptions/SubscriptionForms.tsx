@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import {
   adminSellSubscriptionAction,
   extendSubscriptionAction,
+  updateSubscriptionPriceAction,
   writeOffMinutesAction,
 } from "../actions";
 import { EXTENSION_MONTHS, EXTENSION_PRICE } from "@/lib/subscriptionExtensions";
@@ -18,11 +19,6 @@ import { RIDERS_MAX } from "@/lib/riders";
 export interface Option {
   id: string;
   name: string;
-  // Полевой состав (инструктор, СММщик) — у них 15% с продажи уходят в общий
-  // котёл сами. У босса (админ, dev, механик) продажа остаётся школе, пока не
-  // поставят галочку «в общий котёл» (0048). Роль сюда не тащим: кто «полевой»,
-  // решает lib/staff → inShiftCrew, и знать это должен сервер, а не форма.
-  crew?: boolean;
 }
 export interface ClientOption extends Option {
   phone: string | null;
@@ -31,8 +27,8 @@ export interface ClientOption extends Option {
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary";
 
-// Продажа абонемента админом: клиент из списка или новый, продавец (его
-// комиссия), цена (пусто = 6 млн по умолчанию), дата продажи, отметка оплаты.
+// Продажа абонемента админом: клиент из списка или новый, продавец, цена
+// (пусто = 6 млн; своя цена — только у босса), дата продажи, отметка оплаты.
 // Префилл из заявки на абонемент: контакты клиента + id заявки, которую
 // продажа должна закрыть. Если у заявки уже привязан clientId — используем его.
 export interface SubscriptionPrefill {
@@ -51,21 +47,21 @@ export function SellSubscriptionForm({
   today,
   paymentMethods,
   prefill,
+  canSetPrice,
 }: {
   clients: ClientOption[];
   staff: Option[];
   today: string;
   paymentMethods: Option[];
   prefill?: SubscriptionPrefill;
+  /** Начальник и David могут вписать свою цену; СММщику — всегда 6 млн. */
+  canSetPrice: boolean;
 }) {
   const [state, formAction, pending] = useActionState(adminSellSubscriptionAction, {
     error: null,
   });
   const [clientId, setClientId] = useState(prefill?.clientId ?? "");
-  // Кто продал: от этого зависит, спрашивать ли про котёл. У инструктора и
-  // СММщика вопроса нет — 15% уходят ребятам по факту продажи.
   const [sellerId, setSellerId] = useState(staff[0]?.id ?? "");
-  const sellerIsBoss = staff.find((u) => u.id === sellerId)?.crew === false;
   // Способ оплаты спрашиваем только когда деньги уже получены: при продаже
   // «в долг» он ещё неизвестен, и заставлять выбирать наугад — врать отчёту.
   const [paid, setPaid] = useState(false);
@@ -157,38 +153,19 @@ export function SellSubscriptionForm({
         </label>
       </div>
 
-      {/* Продажа босса: по умолчанию она остаётся школе, но её можно отдать
-          ребятам — тогда 15% делятся между теми, кто был на смене в день
-          ОПЛАТЫ, ровно как инструкторская продажа (0048). У полевого состава
-          галочки нет: там котёл считается всегда, и спрашивать нечего. */}
-      {sellerIsBoss && (
-        <label className="flex items-start gap-2 rounded-xl border border-line bg-bg px-3 py-2 text-sm">
-          <input
-            type="checkbox"
-            name="poolShare"
-            className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-          />
-          <span>
-            15% в общий котёл
-            <span className="block text-xs text-muted">
-              Продажу делят сменщики дня оплаты. Без галочки эти деньги остаются
-              школе.
-            </span>
-          </span>
-        </label>
-      )}
-
       <div className="flex items-end gap-3">
-        <label className="flex-1 text-xs text-muted">
-          Цена, ₫
-          <input
-            type="text"
-            name="price"
-            inputMode="numeric"
-            placeholder="по умолчанию 6 000 000"
-            className={`mt-1 ${inputClass}`}
-          />
-        </label>
+        {canSetPrice && (
+          <label className="flex-1 text-xs text-muted">
+            Цена, ₫
+            <input
+              type="text"
+              name="price"
+              inputMode="numeric"
+              placeholder="по умолчанию 6 000 000"
+              className={`mt-1 ${inputClass}`}
+            />
+          </label>
+        )}
         <label className="flex items-center gap-2 pb-2 text-sm">
           <input
             type="checkbox"
@@ -360,19 +337,69 @@ export function WriteOffMinutesForm({
   );
 }
 
+// Правка цены уже внесённого абонемента — только у босса (админ, dev). Начальник
+// иногда отдаёт абонемент за 5 млн, а внесли его по умолчанию за 6. confirm():
+// цена сразу меняет выручку и котёл 15% за день оплаты.
+export function EditPriceForm({
+  subscriptionId,
+  price,
+}: {
+  subscriptionId: string;
+  price: number;
+}) {
+  const [state, formAction, pending] = useActionState(updateSubscriptionPriceAction, {
+    error: null,
+  });
+
+  return (
+    <form
+      action={formAction}
+      onSubmit={(e) => {
+        if (!confirm("Изменить цену абонемента? Выручка и котёл 15% пересчитаются.")) {
+          e.preventDefault();
+        }
+      }}
+      className="mt-3 space-y-2"
+    >
+      <input type="hidden" name="id" value={subscriptionId} />
+      <div className="flex items-end gap-2 sm:max-w-xs">
+        <label className="min-w-0 flex-1 text-xs text-muted">
+          Цена, ₫
+          {/* key: после сохранения поле подхватывает новую цену с сервера. */}
+          <input
+            key={price}
+            type="text"
+            name="price"
+            inputMode="numeric"
+            required
+            defaultValue={new Intl.NumberFormat("ru-RU").format(price)}
+            className={`mt-1 ${inputClass}`}
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={pending}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-line px-4 py-2 text-xs font-semibold text-primary transition-colors hover:border-primary disabled:opacity-60"
+        >
+          {pending && <Spinner />}
+          {pending ? "Сохраняем…" : "Сохранить цену"}
+        </button>
+      </div>
+      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+    </form>
+  );
+}
+
 // Продление действующего абонемента за доплату (0062). Цена и срок зашиты —
-// в форме только способ оплаты и, у босса, галочка котла. confirm() перед
+// в форме только способ оплаты. confirm() перед
 // отправкой: продление сразу попадает в выручку, и случайный клик означал бы
 // лишний миллион в кассе.
 export function ExtendSubscriptionForm({
   subscriptionId,
   paymentMethods,
-  viewerIsBoss,
 }: {
   subscriptionId: string;
   paymentMethods: Option[];
-  /** Продлевает босс — спрашиваем про общий котёл (0048). */
-  viewerIsBoss: boolean;
 }) {
   const [state, formAction, pending] = useActionState(extendSubscriptionAction, {
     error: null,
@@ -410,22 +437,6 @@ export function ExtendSubscriptionForm({
           ))}
         </select>
       </label>
-      {viewerIsBoss && (
-        <label className="flex items-start gap-2 rounded-xl border border-line bg-bg px-3 py-2 text-sm">
-          <input
-            type="checkbox"
-            name="poolShare"
-            className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
-          />
-          <span>
-            15% в общий котёл
-            <span className="block text-xs text-muted">
-              Продление делят сменщики сегодняшнего дня. Без галочки эти деньги
-              остаются школе.
-            </span>
-          </span>
-        </label>
-      )}
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
       <button
         type="submit"

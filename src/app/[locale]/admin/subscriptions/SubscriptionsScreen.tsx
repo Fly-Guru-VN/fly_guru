@@ -8,7 +8,6 @@ import {
   cancelSubscriptionAction,
   deleteSubscriptionAction,
   togglePaidAction,
-  toggleSubsPoolAction,
 } from "../actions";
 import { ConfirmSubmit } from "../ConfirmSubmit";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
@@ -16,9 +15,10 @@ import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
 import { loadPaymentClaims, type ClaimInfo } from "@/lib/subscriptions";
 import { PAYMENT_CLAIM_BADGE, PAYMENT_CLAIM_TEXT } from "@/lib/paymentClaim";
-import { hiddenStaffIds, inShiftCrew, loadSessionStaff } from "@/lib/staff";
-import { getActiveAppUser, isAdminLike, type AppRole } from "@/lib/auth";
+import { hiddenStaffIds, loadSessionStaff } from "@/lib/staff";
+import { getActiveAppUser, isAdminLike } from "@/lib/auth";
 import {
+  EditPriceForm,
   ExtendSubscriptionForm,
   SellSubscriptionForm,
   WriteOffMinutesForm,
@@ -39,9 +39,8 @@ interface SubRow {
   expires_at: string | null;
   status: string;
   paid_at: string | null;
-  pool_share: boolean | null; // продажу босса всё равно делят в котёл (0048)
   clients: { name: string } | null;
-  seller: { name: string; role: AppRole } | null;
+  seller: { name: string } | null;
 }
 
 // Одна строка истории минут. Раньше здесь лежал готовый текст одной строкой —
@@ -93,7 +92,7 @@ function SubscriptionCard({
   claim?: ClaimInfo;
   // Продления за доплату (0062), от старых к новым.
   extensions: ExtensionItem[];
-  // Смотрит босс — в форме продления спрашиваем про общий котёл (0048).
+  // Смотрит босс (админ, dev) — ему можно править цену абонемента.
   viewerIsBoss: boolean;
 }) {
   // Отменённый — продажа не состоялась (п.13). Проверяем первым: у него могли
@@ -108,13 +107,6 @@ function SubscriptionCard({
 
   // Заявление живо, только пока оплата не отмечена: подтвердил — вопрос закрыт.
   const pendingClaim = !cancelled && !s.paid_at && claim ? claim : null;
-
-  // Продал босс (админ, dev, механик) — 15% по умолчанию остаются школе, но их
-  // можно отдать в общий котёл (0048). У полевого состава котёл считается сам,
-  // и тумблер там не нужен. Продавца может не быть вовсе (уволенный удалён из
-  // users) — тогда и решать нечего.
-  const sellerIsBoss = s.seller ? !inShiftCrew(s.seller.role) : false;
-  const inPool = Boolean(s.pool_share);
 
   // Остаток — главная цифра карточки: инструктор ищет глазами именно её,
   // поэтому она идёт рядом с именем и размером с него (пачка №10, пак 4).
@@ -195,41 +187,10 @@ function SubscriptionCard({
           </p>
         ))}
 
-        {/* Продажа босса: делим её с ребятами или оставляем школе. 15% уходят
-            сменщикам того дня, когда абонемент ОПЛАЧЕН, — то же правило, что у
-            инструкторской продажи (0048). У отменённого выбора нет: денег нет. */}
-        {!cancelled && sellerIsBoss && (
-          <form
-            action={toggleSubsPoolAction}
-            className="mt-2 flex flex-wrap items-center gap-2"
-          >
-            <input type="hidden" name="id" value={s.id} />
-            <input type="hidden" name="set" value={inPool ? "0" : "1"} />
-            <span
-              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                inPool
-                  ? "bg-primary/10 text-primary"
-                  : "bg-surface-2 text-muted"
-              }`}
-            >
-              {inPool ? "15% в общем котле" : "15% остаются школе"}
-            </span>
-            {inPool ? (
-              <ConfirmSubmit
-                message="Убрать абонемент из котла? Доля за него пропадёт из ЗП сменщиков того дня, когда его оплатили."
-                className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-red-500 hover:text-red-500"
-              >
-                Убрать из котла
-              </ConfirmSubmit>
-            ) : (
-              <button
-                type="submit"
-                className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-primary transition-colors hover:border-primary"
-              >
-                Отправить 15% в котёл
-              </button>
-            )}
-          </form>
+        {/* Своя цена (скидка) — правит только босс: от неё зависят выручка
+            и котёл 15%. У отменённого править нечего — денег нет. */}
+        {!cancelled && viewerIsBoss && (
+          <EditPriceForm subscriptionId={s.id} price={s.price} />
         )}
 
         {/* Чем заплатили — той же плашкой, что в ленте заявок, чтобы способ
@@ -355,7 +316,6 @@ function SubscriptionCard({
             <ExtendSubscriptionForm
               subscriptionId={s.id}
               paymentMethods={paymentMethods}
-              viewerIsBoss={viewerIsBoss}
             />
           </div>
         )}
@@ -489,7 +449,7 @@ export async function SubscriptionsScreen({
   let subsQuery = supabase
     .from("subscriptions")
     .select(
-      "id, total_minutes, price, sold_at, expires_at, status, paid_at, pool_share, clients(name), seller:users!sold_by(name, role)",
+      "id, total_minutes, price, sold_at, expires_at, status, paid_at, clients(name), seller:users!sold_by(name)",
     )
     .order("sold_at", { ascending: false })
     .limit(100);
@@ -522,12 +482,9 @@ export async function SubscriptionsScreen({
   ]);
 
   const subs = (subsRes.data ?? []) as unknown as SubRow[];
-  // crew — «полевой ли продавец»: форма по нему решает, спрашивать ли про
-  // общий котёл (0048). Роль в клиентский компонент не отдаём: кто «полевой»,
-  // знает lib/staff, и пусть знает в одном месте.
   const staff = staffRes
     .filter((u) => !hidden.has(u.id))
-    .map((u) => ({ id: u.id, name: u.name, crew: inShiftCrew(u.role) }));
+    .map((u) => ({ id: u.id, name: u.name }));
   const ids = subs.map((s) => s.id);
 
   // Заявления об оплате (0032): «деньги принял админ», «с оплатой непонятно».
@@ -707,6 +664,7 @@ export async function SubscriptionsScreen({
               today={today}
               paymentMethods={paymentMethods}
               prefill={bookingPrefill}
+              canSetPrice={viewerIsBoss}
             />
           </div>
         </details>

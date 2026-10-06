@@ -420,28 +420,17 @@ test("абонемент делится по составу штата на де
   assert.equal(shares.sharedCount.get("a"), 2);
 });
 
-test("абонемент, проданный админом, в котёл инструкторов не идёт", async () => {
-  const db = fakeDb({
-    subscriptions: [
-      { price: 6_000_000, paid_at: "2026-08-04T03:00:00Z", sold_by: "boss" },
-    ],
-  });
-
-  const shares = await getSubsShares(db, vnPeriod("2026-08-01", "2026-08-10"), [staff("a")]);
-  assert.equal(shares.pool, 0);
-  assert.equal(shares.shares.size, 0);
-});
-
-test("абонемент админа с галочкой «в общий котёл» делят инструкторы", async () => {
-  // 0048: продажу босса можно отдать ребятам. Делится она как инструкторская —
-  // между теми, кто был в штате в день ОПЛАТЫ, а сам босс доли не получает.
+test("абонемент, проданный админом, делят инструкторы и без галочки", async () => {
+  // С 06.10.2026 в котёл идёт любой оплаченный абонемент: делится он как
+  // инструкторский — между теми, кто был в штате в день ОПЛАТЫ, а сам босс
+  // доли не получает. Старый флаг pool_share расчёт больше не читает.
   const db = fakeDb({
     subscriptions: [
       {
         price: 6_000_000,
         paid_at: "2026-08-04T03:00:00Z",
         sold_by: "boss",
-        pool_share: true,
+        pool_share: false,
       },
     ],
   });
@@ -459,6 +448,21 @@ test("абонемент админа с галочкой «в общий кот
   assert.equal(shares.sharedCount.get("a"), 1);
   assert.equal(shares.sharedCount.get("b"), 1);
   assert.equal(shares.sharedCount.get("boss"), undefined);
+});
+
+test("абонемент босса в день, когда в штате никого, не делится", async () => {
+  // Делить не с кем — деньги остаются школе, а не уходят боссу долей котла.
+  const db = fakeDb({
+    subscriptions: [
+      { price: 5_000_000, paid_at: "2026-08-04T03:00:00Z", sold_by: "boss" },
+    ],
+  });
+
+  const shares = await getSubsShares(db, vnPeriod("2026-08-01", "2026-08-10"), [
+    staff("a", { leftAt: "2026-08-01" }),
+  ]);
+  assert.equal(shares.pool, 0);
+  assert.equal(shares.shares.size, 0);
 });
 
 // ── Выходы: 200 000 ₫ за каждый зачтённый ────────────────────────────────────

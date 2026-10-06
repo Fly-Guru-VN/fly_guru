@@ -28,7 +28,7 @@ type Client =
  * Оплаченные в периоде абонементы и продления одним списком.
  *
  * `columns` — общие для обеих таблиц колонки (price, paid_at, sold_by,
- * pool_share, payment_methods(name)). У строк продления стоит
+ * payment_methods(name)). У строк продления стоит
  * `extension: true`: справке «сам продал N абонементов» продление не
  * абонемент, а в деньгах разницы нет.
  */
@@ -66,7 +66,6 @@ export async function extendSubscription(
     subscriptionId: string;
     paymentMethodId: string;
     actorId: string;
-    poolShare: boolean;
   },
 ): Promise<{ expiresAt: string; error: null } | { error: string }> {
   const { data, error } = await admin.rpc("extend_subscription", {
@@ -74,7 +73,6 @@ export async function extendSubscription(
     p_price: EXTENSION_PRICE,
     p_payment_method_id: input.paymentMethodId,
     p_actor_id: input.actorId,
-    p_pool_share: input.poolShare,
   });
   if (error) return { error: `Не удалось продлить: ${error.message}` };
   if (typeof data !== "string") {

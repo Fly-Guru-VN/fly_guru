@@ -671,6 +671,20 @@ export async function sellSubscriptionAction(
   if (!name || !phone) return { error: "Заполните имя и телефон." };
   if (paid && !paymentMethodId) return { error: "Укажите формат оплаты." };
 
+  // Своя цена — только у начальника и David (решение от 06.10.2026): начальник
+  // иногда отдаёт абонемент за 5 млн. У инструктора поля нет, и пришедшее
+  // запросом мимо интерфейса не читаем — цену ему по-прежнему ставит база.
+  let price: number | null = null;
+  if (isAdminLike(user.role)) {
+    const priceRaw = String(formData.get("price") ?? "").trim();
+    if (priceRaw) {
+      price = parseVnd(priceRaw);
+      if (price === null || price <= 0) {
+        return { error: "Цена — число в донгах, например 5 000 000." };
+      }
+    }
+  }
+
   // Дата продажи (пачка №25, п.3). Раньше абонемент всегда писался «сейчас», и
   // вчерашняя продажа уезжала не в тот день — а от даты оплаты зависят выручка
   // месяца и котёл 15%. Коридор тот же, что у занятий: ±7 дней (lib/recordDate),
@@ -719,7 +733,8 @@ export async function sellSubscriptionAction(
   if ("error" in clientResult) return { error: clientResult.error };
   const clientId = clientResult.id;
 
-  // total_minutes (300) и price (6 млн) заданы default'ами в схеме.
+  // total_minutes (300) и price (6 млн) заданы default'ами в схеме; свою цену
+  // пишем, только если её поставил босс (см. выше).
   // Минуты живут 3 месяца с продажи. paid_at пишем только при полученной
   // оплате — от него зависит комиссия инструктора (см. 0002).
   //
@@ -727,8 +742,8 @@ export async function sellSubscriptionAction(
   // проверяла только «sold_by — это я», а цену, минуты и отметку оплаты в
   // новой строке не ограничивала: запросом мимо интерфейса инструктор мог
   // завести себе оплаченный абонемент на любую сумму — и накачать этим общий
-  // котёл 15%. Здесь цену и минуты по-прежнему ставит база (default'ы),
-  // sold_by берётся из сессии, а не из формы.
+  // котёл 15%. Здесь цену и минуты по-прежнему ставит база (default'ы) — кроме
+  // цены от босса, — а sold_by берётся из сессии, а не из формы.
   const admin = createAdminClient();
 
   // Заявку занимаем ДО создания абонемента — одним запросом с условием «если
@@ -749,6 +764,7 @@ export async function sellSubscriptionAction(
   const row = {
     client_id: clientId,
     sold_by: user.id,
+    ...(price !== null ? { price } : {}),
     sold_at: soldAt,
     // Минуты живут 3 месяца ОТ ДАТЫ ПРОДАЖИ — в том числе вчерашней.
     expires_at: subscriptionExpiry(new Date(soldAt)).toISOString(),
@@ -891,7 +907,6 @@ export async function extendSubscriptionAction(
     subscriptionId: sub.id,
     paymentMethodId,
     actorId: user.id,
-    poolShare: false,
   });
   if (result.error !== null) return { error: result.error };
 
