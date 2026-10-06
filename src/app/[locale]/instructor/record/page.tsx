@@ -167,6 +167,15 @@ export default async function RecordPage({
                   ? " · смен на день нет, считаем с ваших чеков"
                   : ""}
             </p>
+            {todayStats.toursCount > 0 && (
+              <p>
+                Экскурсии и сафари:{" "}
+                <span className="font-bold text-ink">
+                  {vnd(todayStats.salaryFromTours)}
+                </span>
+                {` · выездов ${todayStats.toursCount}`}
+              </p>
+            )}
 
             {/* Выход отдельной строкой: 200 000 ₫ попадают в сумму только после
                 закрытия смены, и без объяснения цифра выглядит заниженной. */}

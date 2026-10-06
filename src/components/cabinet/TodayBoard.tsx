@@ -134,6 +134,9 @@ export function TodayBoard({
             )}
           </p>
           <p>Абонементы — моя доля котла за день: {money(parts.subs)}</p>
+          {parts.tours > 0 && (
+            <p>Экскурсии и сафари — за выезды: {money(parts.tours)}</p>
+          )}
         </div>
 
         {/* Строка выхода: единственное место, где видно, что деньги зависят от
@@ -191,7 +194,7 @@ export function TodayBoard({
         <Row
           label="Марине"
           value={money(report.marina)}
-          hint={`${Math.round(MARINA_RATE * 100)}% с выручки без комиссий агентов`}
+          hint={`${Math.round(MARINA_RATE * 100)}% с выручки без комиссий агентов и туров`}
           strong
           tone="primary"
         />

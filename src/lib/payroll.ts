@@ -465,6 +465,20 @@ async function getClosedCrmMonths(
   return closed.map((month, i) => ({ month, payout: payouts[i] }));
 }
 
+// Строка «Экскурсии и сафари» — только тем, кто в периоде возил туры: у
+// остальных она была бы вечным нулём (фикс за выезд, lib/tours).
+function tourDetail(s: { salaryFromTours: number; toursCount: number }) {
+  return s.toursCount > 0
+    ? [
+        {
+          label: `Экскурсии и сафари · выездов ${s.toursCount}`,
+          value: s.salaryFromTours,
+          hint: "фикс за выезд: экскурсия 1 млн, сафари 1,5 млн",
+        },
+      ]
+    : [];
+}
+
 export async function getMonthlyPayroll(
   supabase: Supabase,
   range: StatsRange,
@@ -615,6 +629,7 @@ export async function getMonthlyPayroll(
             value: s.salaryFromSubs,
             hint: `продал сам: ${s.paidSubsCount}`,
           },
+          ...tourDetail(s),
         ],
       };
     }),
@@ -709,6 +724,7 @@ export async function getMonthlyPayroll(
                 value: s.salaryFromSubs,
                 hint: `продал сам: ${s.paidSubsCount} · только за дни, когда открыл смену`,
               },
+              ...tourDetail(s),
             ]
           : []),
       ],

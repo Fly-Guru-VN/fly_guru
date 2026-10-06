@@ -193,6 +193,12 @@ export default async function StatsPage({
         <p className="mt-1 text-3xl font-bold text-primary">{vnd(stats.salary)}</p>
         <div className="mt-3 space-y-1 text-sm text-muted">
           <p>15% с занятий — моя доля: {vnd(stats.salaryFromSessions)}</p>
+          {stats.toursCount > 0 && (
+            <p>
+              Экскурсии и сафари ({stats.toursCount} выезд.):{" "}
+              {vnd(stats.salaryFromTours)}
+            </p>
+          )}
           <p>
             Выходы ({stats.shiftsCount} × {vnd(SHIFT_PAY)}):{" "}
             {vnd(stats.salaryFromShifts)}

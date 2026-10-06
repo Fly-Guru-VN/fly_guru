@@ -1,6 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
-import { getSessionShare, getShiftPay, getSubsShares } from "@/lib/salary";
+import { getSessionShare, getShiftPay, getSubsShares, getTourPay } from "@/lib/salary";
+import { isTour } from "@/lib/tours";
 import { employedSpan, loadDayShareBosses, loadShiftCrew, type StaffMember } from "@/lib/staff";
 import { vnPeriod, vnShiftDays } from "@/lib/dates";
 import { loadAllSessions } from "@/lib/sessions";
@@ -20,6 +21,8 @@ import { loadPaidSubscriptionMoney } from "@/lib/subscriptionExtensions";
 // Вычитается ровно две вещи: доля площадки и то, что физически ушло.
 //  • Marina Beach — 35% с выручки (сессии + оплаченные абонементы). Она
 //    вычитается сразу и всегда: эти деньги нашими не были ни секунды.
+//    Кроме туров: с экскурсий и сафари ей не идёт ничего (решение начальника
+//    от 06.10.2026, lib/tours) — см. marinaBase.
 //
 // БАЗА ПРОЦЕНТОВ = ВЫРУЧКА МИНУС КОМИССИИ АГЕНТОВ (решение David от
 // 16.08.2026). Комиссию агента школа отдаёт первой, а уже с остатка считаются
@@ -61,6 +64,21 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 interface SessionMoneyRow {
   amount: number | null;
   agent_commission: number | null;
+}
+
+interface SessionMoneyRowWithService extends SessionMoneyRow {
+  service: { category: string | null } | null;
+}
+
+/**
+ * База доли Marina: база процентов без туров. С экскурсий и сафари площадке
+ * не идёт ничего (lib/tours); 2% CRM и всё прочее считаются с полной базы.
+ */
+export function marinaBase(
+  rows: SessionMoneyRowWithService[],
+  paidSubsRevenue: number,
+): number {
+  return netSessionsBase(rows.filter((r) => !isTour(r.service?.category))) + paidSubsRevenue;
 }
 
 /**
@@ -167,7 +185,8 @@ export interface Finance {
   paidSubsRevenue: number; // абонементы, оплаченные в периоде
   revenue: number; // сумма выручки — «пришло»
   percentBase: number; // выручка минус комиссии агентов — с неё считаются доли
-  marina: number; // 35% с percentBase — доля площадки, всегда вычитается
+  toursRevenue: number; // из неё туры (без комиссий) — Marina с них не берёт
+  marina: number; // 35% с percentBase без туров — доля площадки, всегда вычитается
   paidStaff: number; // выдано штату за период (salary_payouts)
   paidAgents: number; // выдано агентам за период (agent_payouts)
   manualExpenses: ExpenseRow[]; // ручные траты за период (по убыванию суммы)
@@ -181,6 +200,7 @@ export interface Finance {
   instructorSessionPay: number; // 15% с чеков сессий инструкторов
   instructorShiftPay: number; // 200 000 ₫ × зачтённые выходы инструкторов
   instructorSubsPay: number; // 15% с абонементов, проданных инструкторами
+  instructorTourPay: number; // фикс за выезды на экскурсию/сафари (lib/tours)
   instructorShifts: number; // сколько выходов оплачиваем
   instructorShiftsUnpaid: number; // выходы, срезанные регламентом (справка)
   instructorPaidOut: number; // из этой ЗП уже отдано на руки
@@ -287,11 +307,11 @@ export async function getFinance(
   // У занятия без paid_on обе даты совпадают, и наборы одинаковы — как раньше.
   const [moneySessions, workSessions, subs, expensesRes, staff, bosses] =
     await Promise.all([
-      loadAllSessions<SessionMoneyRow>(supabase, "amount, agent_commission", {
-        fromDay: range.fromDay,
-        toDay: range.toDay,
-        by: "money",
-      }),
+      loadAllSessions<SessionMoneyRowWithService>(
+        supabase,
+        "amount, agent_commission, service:services(category)",
+        { fromDay: range.fromDay, toDay: range.toDay, by: "money" },
+      ),
       loadAllSessions<SessionWorkRow>(
         supabase,
         "amount, agent_commission, instructor_id",
@@ -333,12 +353,13 @@ export async function getFinance(
   // Начисление и выдача — разные события: в расчёт прибыли ЗП уходит сразу, а
   // деньги на руки отдают раз в неделю и не всегда всем сразу. Список
   // инструкторов нужен ей фильтром, поэтому запрос ждёт staff.
-  const [shiftPay, subsShares, instructorPaidOut, sessionShare] =
+  const [shiftPay, subsShares, instructorPaidOut, sessionShare, tourPay] =
     await Promise.all([
       getShiftPay(supabase, range, crewIds),
       getSubsShares(supabase, range, staff),
       loadPaidOut(supabase, range, crewIds),
       getSessionShare(supabase, range, crewIds, bossIds),
+      getTourPay(supabase, range, crewIds),
     ]);
 
   const sessionsRevenue = moneySessions.rows.reduce(
@@ -366,7 +387,8 @@ export async function getFinance(
     instructorShiftPay += info.amount;
   }
 
-  const marina = percentBase * MARINA_RATE;
+  const baseForMarina = marinaBase(moneySessions.rows, paidSubsRevenue);
+  const marina = baseForMarina * MARINA_RATE;
   // 15% с занятий — не «база × 15%», а СУММА готовых долей полевого состава из
   // дележа дня. Разница появилась вместе с выходами начальника: его чеки в базу
   // дня входят, но его доля никому не выплачивается и остаётся в кассе.
@@ -378,7 +400,11 @@ export async function getFinance(
   );
   // Котёл целиком (кому сколько досталось — дело lib/salary): школе важна сумма.
   const instructorSubsPay = subsShares.pool;
-  const instructorPay = instructorSessionPay + instructorShiftPay + instructorSubsPay;
+  // Фикс за туры — по дню выезда, как и остальная плата за работу.
+  let instructorTourPay = 0;
+  for (const info of tourPay.values()) instructorTourPay += info.amount;
+  const instructorPay =
+    instructorSessionPay + instructorShiftPay + instructorSubsPay + instructorTourPay;
   const crmCut = percentBase * CRM_RATE;
   const crmEach = crmCut / 2;
 
@@ -415,6 +441,7 @@ export async function getFinance(
     paidSubsRevenue,
     revenue,
     percentBase,
+    toursRevenue: percentBase - baseForMarina,
     marina,
     paidStaff: outStaff,
     paidAgents: outAgents,
@@ -428,6 +455,7 @@ export async function getFinance(
     instructorSessionPay,
     instructorShiftPay,
     instructorSubsPay,
+    instructorTourPay,
     instructorShifts,
     instructorShiftsUnpaid,
     instructorPaidOut,

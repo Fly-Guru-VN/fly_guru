@@ -5,6 +5,7 @@ import { failIfReadError } from "@/lib/dbError";
 import { loadPaidSubscriptionMoney } from "@/lib/subscriptionExtensions";
 import { closeStatus, openStatus } from "@/lib/shiftRules";
 import { staffOn, type StaffMember } from "@/lib/staff";
+import { isTour, tourPayFor } from "@/lib/tours";
 
 // Как школа платит за работу на пляже (пачка правок №9, пак 2 — новые правила
 // от 2026-07-24).
@@ -30,6 +31,8 @@ import { staffOn, type StaffMember } from "@/lib/staff";
 //    паре оформлял записи на себя, забирал долю напарника.
 //  • доля абонементного котла — с 08.08.2026 делится ПО ДАТЕ ОПЛАТЫ каждого
 //    абонемента, а не по всему периоду сразу (см. getSubsShares ниже).
+//  • с 06.10.2026 четвёртое: фикс за выезд на экскурсию или сафари тому, кто
+//    вёз (getTourPay, правила в lib/tours). В дележ 15% туры не идут.
 //
 // Кто «на смене» для дележа (правка от 28.07.2026). Раньше считалась любая
 // строка shifts — то есть назначенная админом смена давала долю, даже если
@@ -221,6 +224,7 @@ interface SessionRow {
   amount: number | null;
   agent_commission: number | null;
   instructor_id: string | null;
+  service: { category: string | null; code: string | null } | null;
 }
 
 // ── Начальник на пляже (решение David от 04.09.2026) ────────────────────────
@@ -292,7 +296,7 @@ export async function getSessionShare(
   const [sessionsRes, shifts] = await Promise.all([
     client
       .from("sessions")
-      .select("date, amount, agent_commission, instructor_id")
+      .select("date, amount, agent_commission, instructor_id, service:services(category, code)")
       .gte("date", range.fromDay)
       .lt("date", range.toDay),
     loadShifts(client, range),
@@ -313,6 +317,9 @@ export async function getSessionShare(
   for (const s of sessions) {
     const id = s.instructor_id;
     if (!id || !worksThatDay(id, s.date)) continue;
+    // Тур в дележ дня не идёт: за него фикс тому, кто вёз (getTourPay), а
+    // если вёз начальник — никому (lib/tours).
+    if (isTour(s.service?.category)) continue;
     const net = Math.max(
       0,
       Number(s.amount ?? 0) - Number(s.agent_commission ?? 0),
@@ -370,6 +377,47 @@ export async function getSessionShare(
     }
   }
 
+  return result;
+}
+
+export interface TourPayInfo {
+  amount: number; // фикс за все выезды периода
+  count: number; // сколько выездов
+  byDay: Map<string, number>; // amount по дням — карточка раскладывает ЗП по неделям
+}
+
+// Фикс за туры (решение начальника от 06.10.2026, см. lib/tours): тот, кто
+// ВЁЗ (instructor_id сессии-тура), получает за выезд 1 000 000 ₫ за экскурсию
+// и 1 500 000 ₫ за сафари. Смена для этого не нужна: тур — отдельная работа.
+// Платим только полевому составу (crewIds): тур начальника сотрудникам не
+// даёт ничего, механику — тоже, у него оклад.
+export async function getTourPay(
+  client: Supabase,
+  range: StatsRange,
+  crewIds: string[],
+): Promise<Map<string, TourPayInfo>> {
+  const { data, error } = await client
+    .from("sessions")
+    .select("date, instructor_id, service:services(category, code)")
+    .gte("date", range.fromDay)
+    .lt("date", range.toDay);
+  failIfReadError(error, "не удалось прочитать туры для расчёта зарплаты");
+
+  const allowed = new Set(crewIds);
+  const result = new Map<string, TourPayInfo>();
+  for (const s of (data ?? []) as unknown as Omit<
+    SessionRow,
+    "amount" | "agent_commission"
+  >[]) {
+    const id = s.instructor_id;
+    if (!id || !allowed.has(id) || !isTour(s.service?.category)) continue;
+    const pay = tourPayFor(s.service?.code);
+    const entry = result.get(id) ?? { amount: 0, count: 0, byDay: new Map() };
+    entry.amount += pay;
+    entry.count += 1;
+    entry.byDay.set(s.date, (entry.byDay.get(s.date) ?? 0) + pay);
+    result.set(id, entry);
+  }
   return result;
 }
 

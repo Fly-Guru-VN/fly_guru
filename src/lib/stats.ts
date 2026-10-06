@@ -4,12 +4,14 @@ import {
   SHIFT_PAY,
   SUBS_RATE,
   getSessionShare,
+  getTourPay,
   getShiftPay,
   getSubsShares,
   type SessionShare,
   type ShiftPayInfo,
   type ShiftPayRow,
   type SubsShares,
+  type TourPayInfo,
 } from "@/lib/salary";
 import {
   activeStaff,
@@ -78,6 +80,8 @@ export interface InstructorStats {
   salaryFromSessions: number; // моя доля 15% после дележа по сменам дня
   salaryFromShifts: number; // 200 000 ₫ × зачтённые выходы
   salaryFromSubs: number; // моя доля котла (не зависит от того, кто продал)
+  salaryFromTours: number; // фикс за выезды на экскурсию/сафари (lib/tours)
+  toursCount: number; // сколько выездов
   shiftsCount: number; // выходы, за которые заплатят
   shiftsUnpaidCount: number; // выходы, срезанные регламентом или админом
   shiftsPlannedCount: number; // смены графика, которые ещё не отработаны
@@ -120,6 +124,7 @@ export interface PayInputs {
   subsShares: SubsShares;
   shiftPay: Map<string, ShiftPayInfo>;
   sessionShare: Map<string, SessionShare>;
+  tourPay: Map<string, TourPayInfo>;
 }
 
 // Экран, которому нужна ЗП сразу нескольких человек (/admin/payroll), читает
@@ -147,28 +152,39 @@ export async function loadPayInputs(
 
   // Выходы и дележ 15% — через payClient: обе величины считаются по ВСЕМ
   // сменам и сессиям дня, а не только по своим (см. lib/salary).
-  const [subsShares, shiftPay, sessionShare] = await Promise.all([
+  // Туры — тоже через payClient: инструктору RLS отдаёт только свои сессии,
+  // а этого здесь и хватит, но клиент держим один на всю ЗП.
+  const [subsShares, shiftPay, sessionShare, tourPay] = await Promise.all([
     getSubsShares(supabase, range, staff),
     getShiftPay(payClient, range, crewIds),
     getSessionShare(payClient, range, crewIds, bossIds),
+    getTourPay(payClient, range, crewIds),
   ]);
 
-  return { staff, bosses, subsShares, shiftPay, sessionShare };
+  return { staff, bosses, subsShares, shiftPay, sessionShare, tourPay };
 }
 
-/** Три слагаемых ЗП одного инструктора из общих частей — без запросов. */
+/** Слагаемые ЗП одного инструктора из общих частей — без запросов. */
 export function salaryFrom(
   inputs: PayInputs,
   instructorId: string,
-): { fromSessions: number; fromShifts: number; fromSubs: number; total: number } {
+): {
+  fromSessions: number;
+  fromShifts: number;
+  fromSubs: number;
+  fromTours: number;
+  total: number;
+} {
   const fromSessions = inputs.sessionShare.get(instructorId)?.amount ?? 0;
   const fromShifts = inputs.shiftPay.get(instructorId)?.amount ?? 0;
   const fromSubs = inputs.subsShares.shares.get(instructorId) ?? 0;
+  const fromTours = inputs.tourPay.get(instructorId)?.amount ?? 0;
   return {
     fromSessions,
     fromShifts,
     fromSubs,
-    total: fromSessions + fromShifts + fromSubs,
+    fromTours,
+    total: fromSessions + fromShifts + fromSubs + fromTours,
   };
 }
 
@@ -188,6 +204,7 @@ export function salaryByDay(
   add(inputs.sessionShare.get(instructorId)?.byDay);
   add(inputs.shiftPay.get(instructorId)?.byDay);
   add(inputs.subsShares.sharesByDay.get(instructorId));
+  add(inputs.tourPay.get(instructorId)?.byDay);
   return days;
 }
 
@@ -260,7 +277,7 @@ export async function getInstructorStats(
     supabase.from("subscriptions").select("price, paid_at").eq("sold_by", instructorId),
     inputs ?? loadPayInputs(supabase, range, payClient),
   ]);
-  const { staff, subsShares, shiftPay, sessionShare } = pay;
+  const { staff, subsShares, shiftPay, sessionShare, tourPay } = pay;
 
   const myShifts = shiftPay.get(instructorId) ?? {
     paidCount: 0,
@@ -295,6 +312,8 @@ export async function getInstructorStats(
   // Доля котла — сумма долей по каждому абонементу: она зависит от того, кто был
   // в штате в день его оплаты, а не от простого деления на «сколько нас сейчас».
   const salaryFromSubs = isCrew ? (subsShares.shares.get(instructorId) ?? 0) : 0;
+  const myTours = isCrew ? tourPay.get(instructorId) : undefined;
+  const salaryFromTours = myTours?.amount ?? 0;
 
   return {
     clientsCount: byClient.size,
@@ -302,10 +321,12 @@ export async function getInstructorStats(
     revenue,
     avgCheck: paidSessions.length ? revenue / paidSessions.length : 0,
     minutesWrittenOff,
-    salary: salaryFromSessions + salaryFromShifts + salaryFromSubs,
+    salary: salaryFromSessions + salaryFromShifts + salaryFromSubs + salaryFromTours,
     salaryFromSessions,
     salaryFromShifts,
     salaryFromSubs,
+    salaryFromTours,
+    toursCount: myTours?.count ?? 0,
     shiftsCount: myShifts.paidCount,
     shiftsUnpaidCount: myShifts.unpaidCount,
     shiftsPlannedCount: myShifts.plannedCount,

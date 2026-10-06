@@ -102,7 +102,7 @@ export default async function AdminExpensesPage({
         <div className="mt-3 space-y-1">
           <Row
             label="Marina Beach"
-            hint="35% выручки без комиссий агентов"
+            hint="35% выручки без комиссий агентов и без экскурсий/сафари"
             value={vnd(fin.marina)}
           />
           <Row

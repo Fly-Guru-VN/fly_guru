@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { getCrmPayout, getFinance } from "@/lib/finance";
-import { getSessionShare, getSubsShares } from "@/lib/salary";
+import { getSessionShare, getSubsShares, getTourPay } from "@/lib/salary";
 import { getDayPayments } from "@/lib/payments";
 import { getMonthlyPayroll, getPayoutHistory } from "@/lib/payroll";
 import { vnPeriod } from "@/lib/dates";
@@ -34,6 +34,7 @@ function fakeDb(failingTable?: string, secondPage = false): Db {
 const cases: [string, (db: Db) => Promise<unknown>, string[]][] = [
   ["доля CRM", (db) => getCrmPayout(db, range), ["sessions", "subscriptions", "subscription_extensions"]],
   ["зарплата занятий", (db) => getSessionShare(db, range, ["staff"]), ["sessions", "shifts"]],
+  ["фикс за туры", (db) => getTourPay(db, range, ["staff"]), ["sessions"]],
   ["котёл абонементов", (db) => getSubsShares(db, range, []), ["subscriptions", "subscription_extensions", "shifts"]],
   ["финансы школы", (db) => getFinance(db, range), ["sessions", "subscriptions", "subscription_extensions", "expenses", "users", "shifts", "salary_payouts", "agent_payouts"]],
   ["оплаты дня", (db) => getDayPayments(db, range.fromDay), ["sessions", "subscriptions", "subscription_extensions"]],

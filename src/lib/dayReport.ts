@@ -4,10 +4,12 @@ import { MARINA_RATE, netSessionsBase } from "@/lib/finance";
 import { loadDayShareBosses, loadShiftCrew } from "@/lib/staff";
 import { failIfReadError } from "@/lib/dbError";
 import { loadPaidSubscriptionMoney } from "@/lib/subscriptionExtensions";
+import { isTour } from "@/lib/tours";
 import {
   BOSS_DAY_SHARE_FROM,
   getSessionShare,
   getShiftPay,
+  getTourPay,
   getSubsShares,
   shiftPayStatus,
   type ShiftPayStatus,
@@ -108,6 +110,7 @@ export interface MySalaryParts {
   sessions: number; // моя доля 15% с занятий дня
   shift: number; // 200 000 ₫, если выход уже зачтён
   subs: number; // моя доля абонементного котла за день
+  tours: number; // фикс за выезды на экскурсию/сафари за день (lib/tours)
 }
 
 export interface DayReport {
@@ -238,8 +241,11 @@ export async function getDayReport(
   const revenue = sessionsRevenue + subsRevenue;
   // 35% Марине считаются с выручки за вычетом комиссий агентов — той же базы,
   // что и 15% инструкторам и 2% CRM (см. lib/finance). Абонементы входят
-  // целиком: агентов в них не бывает.
-  const marina = (netSessionsBase(sessions) + subsRevenue) * MARINA_RATE;
+  // целиком: агентов в них не бывает. Туры (экскурсии, сафари) — мимо Марины,
+  // с них ей не идёт ничего (lib/tours).
+  const marina =
+    (netSessionsBase(sessions.filter((s) => !isTour(s.services?.category))) + subsRevenue) *
+    MARINA_RATE;
 
   // ЗП за день — теми же тремя слагаемыми, что в кабинете и в «Расчёте месяца»
   // (lib/salary + котёл абонементов). Считаем один раз на всех, а не вызовом
@@ -250,10 +256,11 @@ export async function getDayReport(
   // выходы должны считаться), и делёж на них размывал бы долю работающих.
   // Заодно цифра дня сходится с «Статистикой» и «Расчётом месяца» — они берут
   // ту же функцию.
-  const [shiftPay, sessionShare, subsShares] = await Promise.all([
+  const [shiftPay, sessionShare, subsShares, tourPay] = await Promise.all([
     getShiftPay(admin, range, crewIds),
     getSessionShare(admin, range, crewIds, bossIds),
     getSubsShares(admin, range, staff),
+    getTourPay(admin, range, crewIds),
   ]);
 
   const crewSet = new Set([...crewIds, ...bossIds]);
@@ -277,12 +284,19 @@ export async function getDayReport(
         ? 0
         : (sessionShare.get(s.instructor_id)?.amount ?? 0) +
           (shiftPay.get(s.instructor_id)?.amount ?? 0) +
-          (subsShares.shares.get(s.instructor_id) ?? 0),
+          (subsShares.shares.get(s.instructor_id) ?? 0) +
+          (tourPay.get(s.instructor_id)?.amount ?? 0),
       shiftOpen: !s.closed_at,
     }))
     .sort((a, b) => b.salary - a.salary);
 
-  const crewSalary = crew.reduce((s, m) => s + m.salary, 0);
+  // Фикс за тур положен и тому, кто смену в этот день не открывал (вёз тур и
+  // ушёл): в составе дня его нет, но из кассы эти деньги уйдут — добавляем.
+  const inCrew = new Set(crew.map((m) => m.id));
+  const offShiftTours = [...tourPay]
+    .filter(([id]) => !inCrew.has(id))
+    .reduce((sum, [, info]) => sum + info.amount, 0);
+  const crewSalary = crew.reduce((s, m) => s + m.salary, 0) + offShiftTours;
 
   // Моя ЗП берётся не из crew, а из тех же слагаемых напрямую: на живом экране
   // «Сегодня» человек может ещё не открыть смену (в crew его нет), но доля 15%
@@ -291,9 +305,10 @@ export async function getDayReport(
     sessions: sessionShare.get(meId)?.amount ?? 0,
     shift: shiftPay.get(meId)?.amount ?? 0,
     subs: subsShares.shares.get(meId) ?? 0,
+    tours: tourPay.get(meId)?.amount ?? 0,
   };
   const mySalary =
-    mySalaryParts.sessions + mySalaryParts.shift + mySalaryParts.subs;
+    mySalaryParts.sessions + mySalaryParts.shift + mySalaryParts.subs + mySalaryParts.tours;
 
   const mine = shifts.find((s) => s.instructor_id === meId);
   const myShift: MyShift = {

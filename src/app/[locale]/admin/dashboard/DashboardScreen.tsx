@@ -572,7 +572,7 @@ export async function DashboardScreen({
               <span className="font-semibold text-ink">{vnd(fin.revenue)}</span>
             </p>
             <p className="flex items-baseline justify-between gap-2">
-              <span>Marina Beach · 35%</span>
+              <span>Marina Beach · 35% без туров</span>
               <span className="font-semibold text-ink">−{vnd(fin.marina)}</span>
             </p>
             <p className="flex items-baseline justify-between gap-2">

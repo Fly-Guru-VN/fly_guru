@@ -302,6 +302,12 @@ export default async function InstructorCardPage({
               }
               value={stats.salaryFromSubs}
             />
+            {stats.toursCount > 0 && (
+              <DetailLine
+                label={`Экскурсии и сафари · выездов ${stats.toursCount}`}
+                value={stats.salaryFromTours}
+              />
+            )}
             <DetailLine label="Итого" value={stats.salary} strong />
           </div>
         </div>

@@ -179,6 +179,16 @@ export default async function SmmSalaryPage({
                 {vnd(shiftStats.salaryFromSubs)}
               </p>
             </div>
+            {shiftStats.toursCount > 0 && (
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="text-muted">
+                  Экскурсии и сафари · выездов {shiftStats.toursCount}
+                </p>
+                <p className="shrink-0 font-semibold">
+                  {vnd(shiftStats.salaryFromTours)}
+                </p>
+              </div>
+            )}
           </div>
           <p className="mt-3 text-xs text-muted">
             Это начислено, а не выдано: деньги приходят вместе с фиксом, когда
