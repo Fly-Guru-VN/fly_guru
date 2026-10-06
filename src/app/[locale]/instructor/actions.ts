@@ -1099,15 +1099,23 @@ export async function updateMySessionAction(formData: FormData) {
   const admin = createAdminClient();
   const { data: session } = await admin
     .from("sessions")
-    .select("id, instructor_id, subscription_id")
+    .select("id, instructor_id, subscription_id, service:services(category)")
     .eq("id", id)
     .maybeSingle();
   if (!session) throw new Error("сессия не найдена");
   // Админ (и разработчик — те же права) ходит в кабинет как суперюзер
   // (см. requireRole) — ему любую.
-  if (!isAdminLike(user.role) && session.instructor_id !== user.id) {
+  const boss = isAdminLike(user.role);
+  if (!boss && session.instructor_id !== user.id) {
     throw new Error("это не ваша сессия");
   }
+  // Тур: фикс за выезд от суммы не зависит (lib/tours). Сумму и услугу тура
+  // правит только админ — иначе «записал тур, обнулил чек» оставляло бы
+  // водителю 1–1,5 млн без выручки, а обычное занятие, переделанное в сафари,
+  // давало бы фикс за выезд, которого не было.
+  const tourLocked =
+    !boss &&
+    isTour((session.service as unknown as { category: string } | null)?.category);
 
   const patch: Record<string, unknown> = {};
   const date = String(formData.get("date") ?? "").trim();
@@ -1122,10 +1130,10 @@ export async function updateMySessionAction(formData: FormData) {
   // способ оплаты у неё править нечем, а минуты правит админ корректировкой.
   if (!session.subscription_id) {
     const amount = parseVnd(formData.get("amount"));
-    if (amount !== null) patch.amount = amount;
+    if (amount !== null && !tourLocked) patch.amount = amount;
 
     const serviceId = String(formData.get("serviceId") ?? "");
-    if (serviceId) {
+    if (serviceId && !tourLocked) {
       // Сессию нельзя переделать в абонемент: у него своя форма с минутами.
       const { data: svc } = await admin
         .from("services")
@@ -1133,7 +1141,13 @@ export async function updateMySessionAction(formData: FormData) {
         .eq("id", serviceId)
         .maybeSingle();
       // И в «Бонусные минуты» (0063) тоже: так остаток ушёл бы в минус без проверки.
-      if (svc && svc.category !== "subscription" && svc.code !== BONUS_SERVICE_CODE) {
+      // В тур — тоже только админ (см. tourLocked выше).
+      if (
+        svc &&
+        svc.category !== "subscription" &&
+        svc.code !== BONUS_SERVICE_CODE &&
+        (boss || !isTour(svc.category as string | null))
+      ) {
         patch.service_id = serviceId;
       }
     }

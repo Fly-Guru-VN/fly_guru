@@ -11,6 +11,7 @@ import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
 import { updateMySessionAction } from "../actions";
 import { sortServicesByType } from "@/lib/serviceOrder";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { isTour } from "@/lib/tours";
 
 // «Сессии» инструктора (пачка №9, пак 1). Инструктор оформляет записи весь
 // день и до сих пор не видел, что именно записалось: список был только у
@@ -36,7 +37,7 @@ interface SessionRow {
   note: string | null;
   created_at: string;
   clients: { name: string } | null;
-  services: { name: string } | null;
+  services: { name: string; category: string | null } | null;
   instructor: { name: string } | null;
   payment: { name: string } | null;
 }
@@ -59,13 +60,19 @@ function SessionCard({
   services,
   paymentMethods,
   canEdit,
+  isAdmin,
 }: {
   s: SessionRow;
-  services: { id: string; name: string }[];
+  services: { id: string; name: string; category: string | null }[];
   paymentMethods: { id: string; name: string }[];
   canEdit: boolean;
+  isAdmin: boolean;
 }) {
   const isWriteoff = s.subscription_id !== null;
+  // Сумму и услугу тура правит только админ, и в тур занятие переделывает
+  // тоже он — так же решает сервер (updateMySessionAction).
+  const tourLocked = !isAdmin && isTour(s.services?.category);
+  const serviceOptions = isAdmin ? services : services.filter((sv) => !isTour(sv.category));
 
   return (
     <details className="group rounded-2xl border border-line bg-surface">
@@ -151,7 +158,7 @@ function SessionCard({
                 className={`mt-1 ${NATIVE_PICKER} ${inputClass}`}
               />
             </label>
-            {!isWriteoff && (
+            {!isWriteoff && !tourLocked && (
               <>
                 <label className="text-xs text-muted">
                   Услуга
@@ -163,7 +170,7 @@ function SessionCard({
                     className={`mt-1 ${inputClass}`}
                   >
                     <option value="">— не менять</option>
-                    {services.map((sv) => (
+                    {serviceOptions.map((sv) => (
                       <option key={sv.id} value={sv.id}>
                         {sv.name}
                       </option>
@@ -218,6 +225,11 @@ function SessionCard({
               className={`mt-1 ${inputClass}`}
             />
           </label>
+          {tourLocked && (
+            <p className="mt-2 text-xs text-muted">
+              Сумму и услугу тура правит админ во вкладке «Экскурсии и сафари».
+            </p>
+          )}
           {isWriteoff && (
             <p className="mt-2 text-xs text-muted">
               Списание {s.minutes_used ?? 0} мин с абонемента. Минуты правит админ
@@ -267,7 +279,7 @@ export default async function InstructorSessionsPage({
     createAdminClient()
       .from("sessions")
       .select(
-        "id, date, amount, minutes_used, subscription_id, service_id, instructor_id, payment_method_id, channel, note, created_at, clients(name), services(name), instructor:users!instructor_id(name), payment:payment_methods(name)",
+        "id, date, amount, minutes_used, subscription_id, service_id, instructor_id, payment_method_id, channel, note, created_at, clients(name), services(name, category), instructor:users!instructor_id(name), payment:payment_methods(name)",
       )
       .gte("date", range.fromDay)
       .lt("date", range.toDay)
@@ -371,6 +383,7 @@ export default async function InstructorSessionsPage({
             services={services}
             paymentMethods={paymentMethods}
             canEdit={isAdmin || s.instructor_id === user.id}
+            isAdmin={isAdmin}
           />
         ))}
       </div>
