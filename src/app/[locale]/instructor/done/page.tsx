@@ -82,7 +82,7 @@ export default async function DonePage({
   } else if (p.type === "extend") {
     title = "Абонемент продлён";
     details = [
-      `${p.name ?? "Клиент"} — +3 месяца`,
+      `${p.name ?? "Клиент"} — +3 месяца и +30 минут`,
       p.until
         ? `Действует до ${p.until.split("-").reverse().join(".")}`
         : "Новый срок — в карточке абонемента.",

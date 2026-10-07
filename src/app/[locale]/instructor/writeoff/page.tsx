@@ -118,8 +118,8 @@ export default async function WriteOffPage({
               <div className="mt-8 rounded-2xl border border-line bg-surface p-4">
                 <p className="font-semibold">Продлить срок</p>
                 <p className="mt-1 text-sm text-muted">
-                  Клиент доплачивает — абонемент действует ещё 3 месяца, остаток
-                  минут сохраняется.
+                  Клиент доплачивает — абонемент действует ещё 3 месяца, к остатку
+                  минут добавляется 30 бонусных.
                 </p>
                 <div className="mt-4">
                   <ExtendForm

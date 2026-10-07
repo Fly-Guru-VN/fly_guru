@@ -7,7 +7,11 @@ import {
   updateSubscriptionPriceAction,
   writeOffMinutesAction,
 } from "../actions";
-import { EXTENSION_MONTHS, EXTENSION_PRICE } from "@/lib/subscriptionExtensions";
+import {
+  EXTENSION_BONUS_MINUTES,
+  EXTENSION_MONTHS,
+  EXTENSION_PRICE,
+} from "@/lib/subscriptionExtensions";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { Spinner } from "@/components/Spinner";
@@ -424,7 +428,7 @@ export function ExtendSubscriptionForm({
     <form
       action={formAction}
       onSubmit={(e) => {
-        if (!confirm(`Продлить абонемент на ${EXTENSION_MONTHS} месяца за ${price} ₫? Деньги сразу попадут в выручку.`)) {
+        if (!confirm(`Продлить абонемент на ${EXTENSION_MONTHS} месяца за ${price} ₫? Клиенту добавится ${EXTENSION_BONUS_MINUTES} минут. Деньги сразу попадут в выручку.`)) {
           e.preventDefault();
         }
       }}
@@ -458,7 +462,7 @@ export function ExtendSubscriptionForm({
         className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
       >
         {pending && <Spinner />}
-        {pending ? "Продлеваем…" : `Продлить на ${EXTENSION_MONTHS} месяца — ${price} ₫`}
+        {pending ? "Продлеваем…" : `Продлить за ${price} ₫`}
       </button>
     </form>
   );

@@ -2,7 +2,11 @@
 
 import { useActionState } from "react";
 import { extendSubscriptionAction, type ActionState } from "../actions";
-import { EXTENSION_MONTHS, EXTENSION_PRICE } from "@/lib/subscriptionExtensions";
+import {
+  EXTENSION_BONUS_MINUTES,
+  EXTENSION_MONTHS,
+  EXTENSION_PRICE,
+} from "@/lib/subscriptionExtensions";
 import {
   PaymentMethodField,
   type PaymentMethodOption,
@@ -34,7 +38,7 @@ export function ExtendForm({
     <form
       action={formAction}
       onSubmit={(e) => {
-        if (!confirm(`Продлить абонемент на ${EXTENSION_MONTHS} месяца за ${price} ₫? Деньги от клиента должны быть уже у вас.`)) {
+        if (!confirm(`Продлить абонемент на ${EXTENSION_MONTHS} месяца за ${price} ₫? Клиенту добавится ${EXTENSION_BONUS_MINUTES} минут. Деньги от клиента должны быть уже у вас.`)) {
           e.preventDefault();
         }
       }}
@@ -50,7 +54,7 @@ export function ExtendForm({
         className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-primary px-7 py-4 text-base font-semibold text-primary transition-colors hover:bg-primary/5 disabled:opacity-60"
       >
         {pending && <Spinner />}
-        {pending ? "Продлеваем…" : `Продлить на ${EXTENSION_MONTHS} месяца — ${price} ₫`}
+        {pending ? "Продлеваем…" : `Продлить на ${EXTENSION_MONTHS} месяца +${EXTENSION_BONUS_MINUTES} мин — ${price} ₫`}
       </button>
     </form>
   );
