@@ -26,6 +26,12 @@ import {
 } from "./SubscriptionForms";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
+import {
+  EXTENSION_BONUS_MINUTES,
+  EXTENSION_BONUS_NOTE,
+  EXTENSION_MONTHS,
+  EXTENSION_PRICE,
+} from "@/lib/subscriptionExtensions";
 
 // Абонементы: остаток минут (всего + корректировки − списания), отметка
 // оплаты (главный финансовый рубильник: без paid_at абонемент не входит
@@ -47,23 +53,51 @@ interface SubRow {
 // и вся история выглядела серым абзацем, неотличимым от пояснений вокруг
 // (жалоба начальника от 25.08.2026). Теперь части разложены по полям, и
 // карточка рисует их таблицей: слева день и кто, справа минуты цветом.
+// Продления (0062) лежат в той же истории: срок двигается, минут не меняет.
 interface HistoryItem {
   at: string;
-  kind: "use" | "adjust";
-  /** Изменение остатка: минус — минуты ушли (прокат или ручной минус), плюс — вернули. */
+  kind: "use" | "adjust" | "extend";
+  /** Изменение остатка: минус — минуты ушли (прокат или ручной минус), плюс — вернули. У продления 0. */
   minutes: number;
   who: string;
   comment?: string | null;
-}
-
-interface ExtensionItem {
-  paid_at: string;
-  price: number;
-  who: string;
+  /** Сколько заплатили за продление. */
+  price?: number;
 }
 
 const inputClass =
   "w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary";
+
+const dangerButton =
+  "rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-red-500 hover:text-red-500";
+
+// Плитка сводки: подпись мелкими заглавными, под ней значение.
+function Tile({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0 rounded-xl bg-surface-2/60 p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</p>
+      <div className="mt-1">{children}</div>
+    </div>
+  );
+}
+
+// Колонка действия: рамка и заголовок — чтобы было видно, какая форма за что.
+function Panel({
+  title,
+  className = "",
+  children,
+}: {
+  title: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={`min-w-0 rounded-xl border border-line p-3 ${className}`}>
+      <h3 className="text-xs font-bold uppercase tracking-wide text-muted">{title}</h3>
+      <div className="mt-2">{children}</div>
+    </section>
+  );
+}
 
 function SubscriptionCard({
   s,
@@ -74,7 +108,6 @@ function SubscriptionCard({
   paymentName,
   paymentMethods,
   claim,
-  extensions,
   viewerIsBoss,
 }: {
   s: SubRow;
@@ -90,8 +123,6 @@ function SubscriptionCard({
   paymentMethods: { id: string; name: string }[];
   // Заявление инструктора об оплате (0032), если он его оставил.
   claim?: ClaimInfo;
-  // Продления за доплату (0062), от старых к новым.
-  extensions: ExtensionItem[];
   // Смотрит босс (админ, dev) — ему можно править цену абонемента.
   viewerIsBoss: boolean;
 }) {
@@ -107,6 +138,12 @@ function SubscriptionCard({
 
   // Заявление живо, только пока оплата не отмечена: подтвердил — вопрос закрыт.
   const pendingClaim = !cancelled && !s.paid_at && claim ? claim : null;
+
+  // «Из скольких»: абонемент + бонусы и старые корректировки (они в истории).
+  const granted =
+    s.total_minutes +
+    history.reduce((n, h) => n + (h.kind === "adjust" ? h.minutes : 0), 0);
+  const extensionCount = history.filter((h) => h.kind === "extend").length;
 
   // Остаток — главная цифра карточки: инструктор ищет глазами именно её,
   // поэтому она идёт рядом с именем и размером с него (пачка №10, пак 4).
@@ -173,236 +210,278 @@ function SubscriptionCard({
         </span>
       </summary>
 
-      <div className="border-t border-line/70 p-4 pt-3">
-        <p className="text-sm text-muted">Истекает {momentDay(s.expires_at)}</p>
-        {/* Цена и продавец из шапки: в списке они не нужны (остаток важнее),
-            но потерять их нельзя — по продавцу считается доля котла. */}
-        <p className="mt-0.5 text-xs text-muted">
-          Продан {momentDay(s.sold_at)} · {vnd(s.price)} · продал{" "}
-          {s.seller?.name ?? "—"} · {left} мин из {s.total_minutes}
-        </p>
-        {extensions.map((e, i) => (
-          <p key={i} className="mt-0.5 text-xs text-muted">
-            Продлён {momentDay(e.paid_at)} · {vnd(e.price)} · продлил {e.who}
-          </p>
-        ))}
-
-        {/* Своя цена (скидка) — правит только босс: от неё зависят выручка
-            и котёл 15%. У отменённого править нечего — денег нет. */}
-        {!cancelled && viewerIsBoss && (
-          <EditPriceForm subscriptionId={s.id} price={s.price} />
-        )}
-
-        {/* Чем заплатили — той же плашкой, что в ленте заявок, чтобы способ
-            оплаты выглядел одинаково везде. */}
-        {!cancelled &&
-          (paymentName ? (
-            <p className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-600">
-              <span aria-hidden>💵</span>
-              Оплата: {paymentName}
+      {/* Тело карточки — по смыслу, а не потоком (просьба David от 07.10.2026:
+          «всё в разброс, ничего не понятно»). Сверху сводка из четырёх плиток,
+          под ней три подписанные колонки: что можно сделать с минутами, со
+          сроком, и что с абонементом уже было. Необратимые кнопки — отдельной
+          полосой в самом низу. На телефоне те же блоки идут друг под другом. */}
+      <div className="space-y-3 border-t border-line/70 p-4">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <Tile label="Остаток">
+            <p className={`font-bold ${statusLabel.cls}`}>
+              {left} из {granted} мин
             </p>
-          ) : (
-            // Деньги получены, а чем — не записано. Показываем жёлтым, как в
-            // заявках и сессиях: пустое место читалось бы как «поля нет».
-            s.paid_at && (
-              <p className="mt-2 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-bold text-amber-600">
-                <span aria-hidden>💵</span>
-                Оплата: не указана
+            {granted !== s.total_minutes && (
+              <p className="text-xs text-muted">
+                {s.total_minutes} по абонементу {granted > s.total_minutes ? "+" : "−"}
+                {Math.abs(granted - s.total_minutes)} бонусами и правками
               </p>
-            )
-          ))}
-
-        {/* Заявление инструктора об оплате (0032, пачка №10, п.5): деньги, по
-            его словам, школа уже получила мимо CRM. Ставим прямо над кнопкой
-            «Отметить оплату» — это и есть подтверждение. */}
-        {pendingClaim && (
-          <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
-            <p className="font-bold">{PAYMENT_CLAIM_BADGE[pendingClaim.claim]}</p>
-            <p className="mt-1 text-xs">{PAYMENT_CLAIM_TEXT[pendingClaim.claim]}</p>
-            {pendingClaim.note && (
-              <p className="mt-1 text-xs">Пометка: «{pendingClaim.note}»</p>
             )}
-            <p className="mt-1 text-xs opacity-80">
-              {pendingClaim.by ?? "Инструктор"}
-              {pendingClaim.at ? `, ${momentDay(pendingClaim.at)}` : ""}
+          </Tile>
+          <Tile label="Действует до">
+            <p className="font-bold">{momentDay(s.expires_at)}</p>
+            <p className="text-xs text-muted">
+              продан {momentDay(s.sold_at)}
+              {extensionCount > 0 && ` · продлений: ${extensionCount}`}
             </p>
-          </div>
-        )}
+          </Tile>
+          <Tile label="Цена">
+            <p className="font-bold">{vnd(s.price)}</p>
+            {/* Продавец нужен: по нему считается доля котла. */}
+            <p className="text-xs text-muted">продал {s.seller?.name ?? "—"}</p>
+            {/* Своя цена (скидка) — правит только босс: от неё зависят выручка
+                и котёл 15%. У отменённого править нечего — денег нет. */}
+            {!cancelled && viewerIsBoss && (
+              <details className="mt-1">
+                <summary className="cursor-pointer text-xs font-semibold text-primary">
+                  Изменить цену
+                </summary>
+                <EditPriceForm subscriptionId={s.id} price={s.price} />
+              </details>
+            )}
+          </Tile>
+          <Tile label="Оплата">
+            {cancelled ? (
+              <p className="font-bold text-muted">Отменён</p>
+            ) : s.paid_at ? (
+              <>
+                <p className="font-bold text-emerald-600">
+                  ✓ {momentDay(s.paid_at)}
+                </p>
+                {/* Деньги получены, а чем — не записано: жёлтым, как в
+                    заявках и сессиях, иначе пустое место читалось бы как
+                    «поля нет». */}
+                <p className={`text-xs ${paymentName ? "text-muted" : "font-semibold text-amber-600"}`}>
+                  {paymentName ?? "способ не указан"}
+                </p>
+              </>
+            ) : (
+              <p className="font-bold text-amber-600">
+                {pendingClaim ? PAYMENT_CLAIM_BADGE[pendingClaim.claim] : "Ожидает оплаты"}
+              </p>
+            )}
+          </Tile>
+        </div>
 
-        {/* Отметка оплаты. У отменённого её нет: пока он в отменённых, деньги
-            не должны попадать ни в выручку, ни в комиссию продавца. */}
-        {!cancelled && (
-        <form action={togglePaidAction} className="mt-3">
-          <input type="hidden" name="id" value={s.id} />
-          {s.paid_at ? (
-            <>
-              <input type="hidden" name="set" value="0" />
-              <ConfirmSubmit
-                message="Снять отметку оплаты? Абонемент выпадет из выручки и комиссии за месяц оплаты."
-                className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-red-500 hover:text-red-500"
-              >
-                Снять отметку оплаты
-              </ConfirmSubmit>
-            </>
-          ) : (
-            // Сетка вместо flex-wrap с фиксированными w-40: нативный
-            // датапикер на iOS держит свою ширину и налезал на «Формат
-            // оплаты». min-w-0 + NATIVE_PICKER — та же схема, что в
-            // «Сессиях» и «Статистике».
-            <div>
-              <input type="hidden" name="set" value="1" />
-              <div className="grid grid-cols-2 items-end gap-2 sm:max-w-md">
-                <label className="min-w-0 text-xs text-muted">
-                  Дата оплаты
-                  <input
-                    type="date"
-                    name="paidDate"
-                    defaultValue={today}
-                    max={today}
-                    className={`mt-1 ${NATIVE_PICKER} ${inputClass}`}
-                  />
-                </label>
-                {/* Спрашиваем и чем заплатили: раньше кнопка ставила только
-                    дату, и абонемент, оплаченный задним числом, навсегда
-                    оставался без способа оплаты — дозаполнить его было негде. */}
-                <label className="min-w-0 text-xs text-muted">
-                  Формат оплаты
-                  <select
-                    name="paymentMethodId"
-                    defaultValue={paymentMethods[0]?.id ?? ""}
-                    className={`mt-1 ${inputClass}`}
-                  >
-                    <option value="">— не указан —</option>
-                    {paymentMethods.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+        {/* Отметка оплаты — отдельной жёлтой полосой во всю ширину, пока
+            оплаты нет: без неё абонемент не входит ни в выручку, ни в
+            комиссию, это первое, что нужно сделать. Снять отметку — внизу,
+            рядом с отменой. У отменённого отметки нет по определению. */}
+        {!cancelled && !s.paid_at && (
+          <form
+            action={togglePaidAction}
+            className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3"
+          >
+            <input type="hidden" name="id" value={s.id} />
+            <input type="hidden" name="set" value="1" />
+            <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
+              Отметить оплату
+            </p>
+            {/* Заявление инструктора об оплате (0032): деньги, по его словам,
+                школа уже получила мимо CRM. Отметка ниже и есть подтверждение. */}
+            {pendingClaim && (
+              <div className="mt-1 text-xs text-amber-700">
+                <p>{PAYMENT_CLAIM_TEXT[pendingClaim.claim]}</p>
+                {pendingClaim.note && <p className="mt-0.5">Пометка: «{pendingClaim.note}»</p>}
+                <p className="mt-0.5 opacity-80">
+                  {pendingClaim.by ?? "Инструктор"}
+                  {pendingClaim.at ? `, ${momentDay(pendingClaim.at)}` : ""}
+                </p>
               </div>
+            )}
+            {/* Сетка, а не flex с фиксированной шириной: нативный датапикер
+                на iOS держит свою ширину и налезал на «Формат оплаты». */}
+            <div className="mt-2 grid grid-cols-2 items-end gap-2 sm:max-w-xl sm:grid-cols-[1fr_1fr_auto]">
+              <label className="min-w-0 text-xs text-muted">
+                Дата оплаты
+                <input
+                  type="date"
+                  name="paidDate"
+                  defaultValue={today}
+                  max={today}
+                  className={`mt-1 ${NATIVE_PICKER} ${inputClass}`}
+                />
+              </label>
+              {/* Спрашиваем и чем заплатили: иначе абонемент, оплаченный
+                  задним числом, навсегда остаётся без способа оплаты. */}
+              <label className="min-w-0 text-xs text-muted">
+                Формат оплаты
+                <select
+                  name="paymentMethodId"
+                  defaultValue={paymentMethods[0]?.id ?? ""}
+                  className={`mt-1 ${inputClass}`}
+                >
+                  <option value="">— не указан —</option>
+                  {paymentMethods.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button
                 type="submit"
-                className="mt-3 rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
+                className="col-span-2 justify-self-start rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700 sm:col-span-1"
               >
                 Отметить оплату
               </button>
             </div>
+          </form>
+        )}
+
+        <div className="grid gap-3 lg:grid-cols-3">
+          {/* Прокат: минуты откатаны — уходят сессией в ленту того дня (п.6).
+              Формы корректировки минут здесь нет намеренно (пачка №10, пак 4):
+              корректировки не попадают в «Сессии». */}
+          {!cancelled && (
+            <Panel title="Списать минуты">
+              <WriteOffMinutesForm
+                subscriptionId={s.id}
+                staff={staff}
+                today={today}
+              />
+            </Panel>
           )}
-        </form>
-        )}
 
-        {/* Прокат: минуты откатаны — уходят сессией в ленту того дня (п.6) */}
-        {!cancelled && (
-          <div className="mt-4 border-t border-line/70 pt-3">
-            <p className="text-xs font-semibold text-muted">
-              Клиент откатал минуты
-            </p>
-            <WriteOffMinutesForm
-              subscriptionId={s.id}
-              staff={staff}
-              today={today}
-            />
-          </div>
-        )}
+          {/* Продление за доплату (0062) + бонус минут (0068): только
+              действующий — сгоревший, откатанный и отменённый продлить нельзя
+              (решение от 22.09.2026). Колонку не прячем, а объясняем, почему
+              кнопки нет: пустое место читалось бы как «продление сломалось». */}
+          {!cancelled && (
+            <Panel title="Продлить срок">
+              {!expired && s.status === "active" ? (
+                <>
+                  <p className="text-xs text-muted">
+                    Клиент доплачивает {vnd(EXTENSION_PRICE)} — срок +{EXTENSION_MONTHS}{" "}
+                    месяца, к остатку +{EXTENSION_BONUS_MINUTES} минут.
+                  </p>
+                  <ExtendSubscriptionForm
+                    subscriptionId={s.id}
+                    paymentMethods={paymentMethods}
+                  />
+                </>
+              ) : (
+                <p className="text-sm text-muted">
+                  Продлить можно только действующий абонемент — этот{" "}
+                  {expired ? "уже истёк" : "уже откатан"}.
+                </p>
+              )}
+            </Panel>
+          )}
 
-        {/* Продление за доплату (0062): только действующий — сгоревший,
-            откатанный и отменённый продлить нельзя (решение от 22.09.2026). */}
-        {!cancelled && !expired && s.status === "active" && (
-          <div className="mt-4 border-t border-line/70 pt-3">
-            <p className="text-xs font-semibold text-muted">
-              Продлить срок за доплату
-            </p>
-            <ExtendSubscriptionForm
-              subscriptionId={s.id}
-              paymentMethods={paymentMethods}
-            />
-          </div>
-        )}
-
-        {/* Формы корректировки минут здесь больше нет (пачка №10, пак 4).
-            Она стояла рядом со списанием и выглядела как второй способ списать
-            минуты — админ так и делал, а корректировки в «Сессии» не попадают:
-            клиент откатал, а в ленте дня его нет (это и был баг №6 пачки №6).
-            Старые корректировки никуда не делись — они в истории ниже и в
-            остатке минут. */}
-
-        {/* История: списания + корректировки. Отдельной карточкой в рамке, а
-            не серым списком в общем потоке: это единственное место, где видно,
-            КУДА ушли минуты, и раньше его просто не замечали — 11-й кегль тем
-            же серым, что и пояснения рядом. Минуты стоят справа колонкой и
-            цветом: красное — ушло, синее — вернули. */}
-        {history.length > 0 && (
-          <div className="mt-4 rounded-xl border border-line bg-surface-2/60 p-3">
-            <p className="text-sm font-bold">
-              История минут{" "}
-              <span className="font-normal text-muted">· {history.length}</span>
-            </p>
-            <ul className="mt-1 divide-y divide-line/70">
-              {history.map((h, i) => (
-                <li key={i} className="flex items-baseline justify-between gap-3 py-2">
-                  <span className="min-w-0 text-sm">
-                    <span className="font-semibold">{momentDay(h.at)}</span>
-                    <span className="text-muted">
-                      {" "}
-                      · {h.kind === "use" ? "прокат" : "корректировка"} — {h.who}
-                    </span>
-                    {h.comment && (
-                      <span className="mt-0.5 block text-xs text-muted">
-                        «{h.comment}»
+          {/* История: прокаты, продления, бонусы и старые корректировки. Это
+              единственное место, где видно, КУДА ушли минуты: минуты стоят
+              справа колонкой и цветом — красное ушло, синее добавилось. */}
+          <Panel
+            title={`История${history.length ? ` · ${history.length}` : ""}`}
+            className={cancelled ? "lg:col-span-3" : ""}
+          >
+            {history.length === 0 ? (
+              <p className="text-sm text-muted">Пока ничего не списано.</p>
+            ) : (
+              <ul className="-my-1 max-h-80 divide-y divide-line/70 overflow-y-auto">
+                {history.map((h, i) => {
+                  const bonus = h.kind === "adjust" && h.comment === EXTENSION_BONUS_NOTE;
+                  const label =
+                    h.kind === "use"
+                      ? "прокат"
+                      : h.kind === "extend"
+                        ? "продление"
+                        : bonus
+                          ? "бонус за продление"
+                          : "корректировка";
+                  return (
+                    <li key={i} className="flex items-baseline justify-between gap-3 py-2">
+                      <span className="min-w-0 text-sm">
+                        <span className="font-semibold">{momentDay(h.at)}</span>
+                        <span className="text-muted">
+                          {" "}
+                          · {label} — {h.who}
+                        </span>
+                        {h.kind === "extend" && h.price !== undefined && (
+                          <span className="mt-0.5 block text-xs text-muted">
+                            оплачено {vnd(h.price)}
+                          </span>
+                        )}
+                        {h.comment && !bonus && (
+                          <span className="mt-0.5 block text-xs text-muted">
+                            «{h.comment}»
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                  <span
-                    className={`shrink-0 whitespace-nowrap font-bold tabular-nums ${
-                      h.minutes > 0 ? "text-primary" : "text-red-600"
-                    }`}
-                  >
-                    {h.minutes > 0 ? "+" : "−"}
-                    {Math.abs(h.minutes)} мин
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+                      <span
+                        className={`shrink-0 whitespace-nowrap font-bold tabular-nums ${
+                          h.kind === "extend" || h.minutes > 0 ? "text-primary" : "text-red-600"
+                        }`}
+                      >
+                        {h.kind === "extend"
+                          ? `+${EXTENSION_MONTHS} мес`
+                          : `${h.minutes > 0 ? "+" : "−"}${Math.abs(h.minutes)} мин`}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Panel>
+        </div>
 
-        {/* Отмена — мягкая альтернатива удалению: карточка и история остаются,
-            абонемент уходит во вкладку «Отменённые» (п.13). */}
-        <form action={cancelSubscriptionAction} className="mt-4 border-t border-line/70 pt-3">
-          <input type="hidden" name="id" value={s.id} />
-          {cancelled ? (
-            <>
+        {/* Кнопки, которые меняют деньги или убирают абонемент, — отдельно,
+            внизу и серыми: их нажимают редко и с подтверждением. */}
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line/70 pt-3">
+          {!cancelled && s.paid_at && (
+            <form action={togglePaidAction}>
+              <input type="hidden" name="id" value={s.id} />
               <input type="hidden" name="set" value="0" />
+              <ConfirmSubmit
+                message="Снять отметку оплаты? Абонемент выпадет из выручки и комиссии за месяц оплаты."
+                className={dangerButton}
+              >
+                Снять отметку оплаты
+              </ConfirmSubmit>
+            </form>
+          )}
+          {/* Отмена — мягкая альтернатива удалению: карточка и история
+              остаются, абонемент уходит во вкладку «Отменённые» (п.13). */}
+          <form action={cancelSubscriptionAction}>
+            <input type="hidden" name="id" value={s.id} />
+            <input type="hidden" name="set" value={cancelled ? "0" : "1"} />
+            {cancelled ? (
               <ConfirmSubmit
                 message="Вернуть абонемент из отменённых? Статус пересчитается по остатку минут и сроку, а отметку оплаты нужно будет поставить заново."
                 className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
               >
                 Вернуть в активные
               </ConfirmSubmit>
-            </>
-          ) : (
-            <>
-              <input type="hidden" name="set" value="1" />
+            ) : (
               <ConfirmSubmit
                 message="Отменить абонемент? Он уйдёт во вкладку «Отменённые», отметка оплаты снимется — из выручки и комиссии продавца он выпадет. Списания и корректировки останутся."
-                className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-red-500 hover:text-red-500"
+                className={dangerButton}
               >
                 Отменить абонемент
               </ConfirmSubmit>
-            </>
-          )}
-        </form>
-
-        <form action={deleteSubscriptionAction} className="mt-3">
-          <input type="hidden" name="id" value={s.id} />
-          <ConfirmSubmit
-            message="Удалить абонемент? Его списания и корректировки удалятся безвозвратно, выручка и комиссия за месяц оплаты пересчитаются. Членство клиента останется."
-            className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-red-500 hover:text-red-500"
-          >
-            Удалить абонемент
-          </ConfirmSubmit>
-        </form>
+            )}
+          </form>
+          <form action={deleteSubscriptionAction}>
+            <input type="hidden" name="id" value={s.id} />
+            <ConfirmSubmit
+              message="Удалить абонемент? Его списания и корректировки удалятся безвозвратно, выручка и комиссия за месяц оплаты пересчитаются. Членство клиента останется."
+              className={dangerButton}
+            >
+              Удалить абонемент
+            </ConfirmSubmit>
+          </form>
+        </div>
       </div>
     </details>
   );
@@ -509,26 +588,6 @@ export async function SubscriptionsScreen({
     }
   }
 
-  // Продления (0062) — строкой под ценой: когда, за сколько и кто продлил.
-  // Мягко, как способ оплаты выше: это справка в карточке, а деньги продлений
-  // считают денежные экраны через lib/subscriptionExtensions.
-  const extensionsBySub = new Map<string, ExtensionItem[]>();
-  if (ids.length) {
-    const { data: extRows } = await supabase
-      .from("subscription_extensions")
-      .select("subscription_id, paid_at, price, seller:users!sold_by(name)")
-      .in("subscription_id", ids)
-      .order("paid_at", { ascending: true });
-    for (const r of extRows ?? []) {
-      const list = extensionsBySub.get(r.subscription_id as string) ?? [];
-      list.push({
-        paid_at: r.paid_at as string,
-        price: Number(r.price ?? 0),
-        who: (r.seller as unknown as { name: string } | null)?.name ?? "—",
-      });
-      extensionsBySub.set(r.subscription_id as string, list);
-    }
-  }
   const viewer = await getActiveAppUser();
   const viewerIsBoss = viewer ? isAdminLike(viewer.role) : false;
 
@@ -540,8 +599,10 @@ export async function SubscriptionsScreen({
     .sort((a, b) => a.name.localeCompare(b.name, "ru"))
     .map((c) => ({ ...c, member: memberIds.has(c.id) }));
 
-  // Балансы и история — двумя батч-запросами на весь список сразу.
-  const [usedRes, adjRes] = ids.length
+  // Балансы и история — батч-запросами на весь список сразу. Продления (0062)
+  // идут в историю справкой: деньги продлений считают денежные экраны через
+  // lib/subscriptionExtensions.
+  const [usedRes, adjRes, extRes] = ids.length
     ? await Promise.all([
         supabase
           .from("sessions")
@@ -551,8 +612,12 @@ export async function SubscriptionsScreen({
           .from("subscription_adjustments")
           .select("subscription_id, delta_minutes, comment, created_at, author:users!created_by(name)")
           .in("subscription_id", ids),
+        supabase
+          .from("subscription_extensions")
+          .select("subscription_id, paid_at, price, seller:users!sold_by(name)")
+          .in("subscription_id", ids),
       ])
-    : [{ data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }];
 
   const usedBySub = new Map<string, number>();
   const historyBySub = new Map<string, HistoryItem[]>();
@@ -584,6 +649,15 @@ export async function SubscriptionsScreen({
       minutes: delta,
       who: author,
       comment: (r.comment as string | null) ?? null,
+    });
+  }
+  for (const r of extRes.data ?? []) {
+    push(r.subscription_id as string, {
+      at: r.paid_at as string,
+      kind: "extend",
+      minutes: 0,
+      who: (r.seller as unknown as { name: string } | null)?.name ?? "—",
+      price: Number(r.price ?? 0),
     });
   }
   for (const items of historyBySub.values()) {
@@ -713,7 +787,6 @@ export async function SubscriptionsScreen({
             paymentName={paymentBySub.get(s.id)}
             paymentMethods={paymentMethods}
             claim={claimBySub.get(s.id)}
-            extensions={extensionsBySub.get(s.id) ?? []}
             viewerIsBoss={viewerIsBoss}
           />
         ))}
