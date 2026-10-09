@@ -45,12 +45,15 @@ export function ServicePicker({
   value,
   onChange,
   discountFor,
+  discountRowKey = "agentDiscountRow",
 }: {
   services: ServiceOption[];
   value: string;
   onChange: (id: string) => void;
-  /** Скидка по ссылке агента для этой услуги, в донгах. 0 — скидки нет. */
+  /** Скидка по ссылке (агента или друга) для этой услуги, ₫. 0 — скидки нет. */
   discountFor?: (service: ServiceOption) => number;
+  /** Подпись под услугой со скидкой: по ссылке агента или друга. */
+  discountRowKey?: "agentDiscountRow" | "friendDiscountRow";
 }) {
   const t = useTranslations("Booking");
   // Названия групп («Обучение», «Аренда», …) берём из переводов, а не из
@@ -167,7 +170,7 @@ export function ServicePicker({
                           </span>
                           {discount > 0 && (
                             <span className="block text-xs font-semibold text-accent-strong">
-                              {t("agentDiscountRow", {
+                              {t(discountRowKey, {
                               amount: formatPrice(locale, discount, tCommon("onRequest")),
                             })}
                             </span>

@@ -23,7 +23,8 @@ export default async function DonePage({
     date?: string;
     claim?: string;
     until?: string;
-    bonus?: string;
+    refReward?: string;
+    friendDiscount?: string;
   }>;
 }) {
   const p = await searchParams;
@@ -47,8 +48,10 @@ export default async function DonePage({
       }`,
       otherDay ? `Дата занятия: ${otherDay} (не сегодня)` : "Сессия записана на вас.",
     ];
-    // Новый гость по ссылке члена клуба (0063): ему положено дольше на воде.
-    if (p.bonus) details.push(`+${p.bonus} мин к занятию — гостя пригласил член клуба.`);
+    // Новый гость по ссылке члена клуба: тому, кто пригласил, начислены минуты.
+    if (p.refReward) {
+      details.push(`Гостя пригласил член клуба — ему +${p.refReward} бонусных мин.`);
+    }
   } else if (p.type === "subscription") {
     title = "Абонемент продан";
     details = [
@@ -61,7 +64,11 @@ export default async function DonePage({
             "Оплата не отмечена: админ проверит и подтвердит. Минуты списывать можно уже сейчас."
           : "Оплата не отмечена — админ отметит позже, тогда 15% пойдут в общий котёл.",
     ];
-    if (p.bonus) details.push(`+${p.bonus} мин к абонементу — гостя пригласил член клуба.`);
+    if (Number(p.friendDiscount ?? 0) > 0) {
+      details.push(
+        `Скидка ${vnd(Number(p.friendDiscount))} — гостя пригласил член клуба.`,
+      );
+    }
     nextHref = "/instructor/subscription";
     nextLabel = "Продать ещё";
   } else if (p.type === "writeoff") {

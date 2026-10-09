@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { recordClientAction, type ActionState } from "../actions";
 import { agentDiscountFor, DEFAULT_AGENT_PLAN, type AgentPlan } from "@/lib/agentTerms";
 import { vnd } from "@/lib/stats";
-import { BONUS_SERVICE_CODE, FRIEND_BONUS_MINUTES } from "@/lib/referralTerms";
+import { BONUS_SERVICE_CODE } from "@/lib/referralTerms";
 import { PhoneField } from "@/components/cabinet/PhoneField";
 import { PaymentMethodField } from "@/components/cabinet/PaymentMethodField";
 import { ChannelField } from "@/components/cabinet/ChannelField";
@@ -24,7 +24,7 @@ export interface RecordPrefill {
   serviceId?: string;
   refCode?: string | null;
   refIsAgent?: boolean; // код агента (скидка) или инструктора (без скидки)
-  // Код клиента — члена клуба (0063): новому гостю +10 минут к обучению.
+  // Код клиента — члена клуба (0063): за нового гостя рефу бонусные минуты.
   refIsClient?: boolean;
   // Положена ли скидка ЭТОМУ гостю: она даётся за первое базовое обучение,
   // и повторному клиенту по той же ссылке её уже не будет.
@@ -120,9 +120,9 @@ export function RecordForm({
           )
         ) : prefill.refIsClient ? (
           <p className="rounded-xl bg-accent/10 px-4 py-3 text-sm font-medium text-accent-strong">
-            Гостя пригласил член клуба. Если человек у нас впервые — на обучение
-            ему +{FRIEND_BONUS_MINUTES} минут (к абонементу добавятся сами), а
-            пригласившему система начислит бонусные минуты.
+            Гостя пригласил член клуба. Если человек у нас впервые и берёт
+            взрослое базовое или взрослый тандем — пригласившему система сама
+            начислит бонусные минуты. Скидки на занятия по этой ссылке нет.
           </p>
         ) : (
           <p className="rounded-xl bg-line/40 px-4 py-3 text-sm text-muted">

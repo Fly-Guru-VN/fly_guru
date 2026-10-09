@@ -2,8 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/serviceText";
-import { agentDiscountFor } from "@/lib/agentTerms";
-import { useAgentRef } from "./useAgentRef";
+import { refDiscountFor, refDiscountRowKey, useRefOffer } from "./useRefOffer";
 
 // Цена услуги, которая сама показывает агентскую скидку.
 //
@@ -15,7 +14,8 @@ import { useAgentRef } from "./useAgentRef";
 //
 // Скидка есть не у всех услуг: условия лежат в lib/agentTerms, у остальных
 // вернётся 0 и карточка останется обычной. Размер зависит от тарифа агента —
-// useAgentRef отдаёт именно его (у одного партнёра свои проценты).
+// useRefOffer отдаёт именно его (у одного партнёра свои проценты). С 09.10.2026
+// так же показывается скидка друга члена клуба — только на абонемент.
 export function AgentPrice({
   price,
   code,
@@ -30,8 +30,8 @@ export function AgentPrice({
   const locale = useLocale();
   const t = useTranslations("Common");
   const money = (v: number | null) => formatPrice(locale, v, t("onRequest"));
-  const plan = useAgentRef();
-  const discount = plan ? agentDiscountFor(code, price, plan) : 0;
+  const offer = useRefOffer();
+  const discount = refDiscountFor(code, price, offer);
 
   if (price === null || discount <= 0) {
     return <span className={className}>{money(price)}</span>;
@@ -61,12 +61,12 @@ export function AgentDiscountNote({
   const t = useTranslations("Booking");
   const locale = useLocale();
   const tCommon = useTranslations("Common");
-  const plan = useAgentRef();
-  const discount = plan ? agentDiscountFor(code, price, plan) : 0;
+  const offer = useRefOffer();
+  const discount = refDiscountFor(code, price, offer);
   if (discount <= 0) return null;
   return (
     <span className={className}>
-      {t("agentDiscountRow", {
+      {t(refDiscountRowKey(offer), {
         amount: formatPrice(locale, discount, tCommon("onRequest")),
       })}
     </span>

@@ -14,7 +14,10 @@ import {
   parseTimeText,
 } from "@/lib/bookingWindow";
 import type { MemberData } from "@/lib/memberCabinet";
-import { FRIEND_BONUS_MINUTES, REFERRER_REWARD_MINUTES } from "@/lib/referralTerms";
+import {
+  FRIEND_SUBSCRIPTION_DISCOUNT,
+  REFERRER_REWARD_BY_SERVICE,
+} from "@/lib/referralTerms";
 import { vnDay } from "@/lib/dates";
 import { bookAction, cancelAction, loadCabinetAction } from "./actions";
 
@@ -717,7 +720,8 @@ function InviteScreen({ data }: { data: MemberData }) {
   const { referral } = data;
   const [copied, setCopied] = useState(false);
 
-  const shareText = `Покатайся на электрофойле во FlyGuru — по моей ссылке тебе +${FRIEND_BONUS_MINUTES} минут к обучению или абонементу 🌊`;
+  const discount = FRIEND_SUBSCRIPTION_DISCOUNT.toLocaleString("ru-RU");
+  const shareText = `Покатайся на электрофойле во FlyGuru 🌊 По моей ссылке абонемент дешевле на ${discount} ₫`;
 
   const copy = async () => {
     if (!referral.link) return;
@@ -742,10 +746,28 @@ function InviteScreen({ data }: { data: MemberData }) {
       <h1 className="text-xl font-bold">Пригласить друга</h1>
 
       <div className={card}>
+        {/* Условия с 09.10.2026 (lib/referralTerms): награду решает первая
+            покупка нового друга, другу — скидка только на абонемент. */}
         <p className="text-base">
-          За каждого нового друга, который придёт по вашей ссылке и оплатит первое
-          занятие, — <b>+{REFERRER_REWARD_MINUTES} бонусных минут</b> вам. Другу —{" "}
-          <b>+{FRIEND_BONUS_MINUTES} минут</b> к обучению или абонементу.
+          Новый друг пришёл по вашей ссылке и оплатил — вам бонусные минуты:
+        </p>
+        <ul className="mt-2 space-y-1 text-base">
+          <li>
+            абонемент — <b>+{REFERRER_REWARD_BY_SERVICE.subscription} мин</b>
+          </li>
+          <li>
+            базовое обучение — <b>+{REFERRER_REWARD_BY_SERVICE["basic-adult"]} мин</b>
+          </li>
+          <li>
+            тандем — <b>+{REFERRER_REWARD_BY_SERVICE["tandem-adult"]} мин</b>
+          </li>
+        </ul>
+        <p className="mt-2 text-base">
+          Другу — <b>−{discount} ₫</b> на абонемент, если он сразу берёт абонемент.
+        </p>
+        <p className="mt-2 text-sm text-muted">
+          Считается первая запись друга: детские занятия, прокат и экскурсии
+          минут не дают.
         </p>
       </div>
 
@@ -802,9 +824,9 @@ function InviteScreen({ data }: { data: MemberData }) {
                   </span>
                 </span>
                 <span
-                  className={`shrink-0 text-sm ${f.rewarded ? "font-semibold text-accent-strong" : "text-muted"}`}
+                  className={`shrink-0 text-sm ${f.rewardMinutes > 0 ? "font-semibold text-accent-strong" : "text-muted"}`}
                 >
-                  {f.rewarded ? `+${REFERRER_REWARD_MINUTES} мин` : "ещё не оплатил"}
+                  {f.rewardMinutes > 0 ? `+${f.rewardMinutes} мин` : "пока без минут"}
                 </span>
               </li>
             ))}

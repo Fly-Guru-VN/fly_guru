@@ -62,6 +62,8 @@
     "serviceChoose": "Elige un servicio",
     "agentDiscountRow": "−{amount} con el enlace del agente",
     "agentDiscountNote": "El descuento del enlace del agente se aplica a la primera clase básica.",
+    "friendDiscountRow": "−{amount} con el enlace de tu amigo",
+    "friendDiscountNote": "El descuento con el enlace de un amigo se aplica al abono si es tu primera reserva con nosotros.",
     "date": "Fecha preferida",
     "comment": "Comentario",
     "submit": "Reservar",

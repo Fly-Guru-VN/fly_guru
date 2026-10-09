@@ -62,6 +62,8 @@
     "serviceChoose": "Leistung auswählen",
     "agentDiscountRow": "−{amount} über den Agenten-Link",
     "agentDiscountNote": "Der Rabatt über den Agenten-Link gilt für die erste Basisstunde.",
+    "friendDiscountRow": "−{amount} über den Link eines Freundes",
+    "friendDiscountNote": "Der Rabatt über den Link eines Freundes gilt für ein Abo, wenn es Ihre erste Buchung bei uns ist.",
     "date": "Wunschtermin",
     "comment": "Anmerkung",
     "submit": "Jetzt buchen",

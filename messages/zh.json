@@ -62,6 +62,8 @@
     "serviceChoose": "请选择服务",
     "agentDiscountRow": "代理链接优惠 −{amount}",
     "agentDiscountNote": "代理链接优惠适用于首次基础课程。",
+    "friendDiscountRow": "通过朋友链接 −{amount}",
+    "friendDiscountNote": "朋友链接优惠适用于首次预订即购买的会员卡。",
     "date": "希望的日期",
     "comment": "备注",
     "submit": "立即预约",

@@ -129,8 +129,8 @@ export default async function RecordPage({
           ]);
           prefill.refDiscount = known.get(booking.phone as string);
         } else {
-          // Не агент — может, ссылка члена клуба (0063): тогда новому гостю
-          // +10 минут к обучению, и инструктор должен знать это ДО занятия.
+          // Не агент — может, ссылка члена клуба (0063): тогда за нового гостя
+          // рефу минуты, и инструктор должен знать это ДО занятия.
           prefill.refIsClient = Boolean(
             await memberReferrerFor(createAdminClient(), booking.ref_code),
           );

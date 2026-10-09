@@ -62,6 +62,8 @@
     "serviceChoose": "Choose a service",
     "agentDiscountRow": "−{amount} with your agent link",
     "agentDiscountNote": "The agent link discount applies to your first basic lesson.",
+    "friendDiscountRow": "−{amount} with your friend's link",
+    "friendDiscountNote": "The friend link discount applies to a membership if it's your first booking with us.",
     "date": "Preferred date",
     "comment": "Comment",
     "submit": "Book now",

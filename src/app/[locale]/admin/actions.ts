@@ -41,7 +41,7 @@ import {
 } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
 import {
-  addFriendBonusMinutes,
+  confirmReferralReward,
   grantReferralReward,
   isClubMember,
   memberReferrerFor,
@@ -51,8 +51,8 @@ import { isTour, parsePeople, tourTotal, TOURS_MAX_PEOPLE } from "@/lib/tours";
 import { linkParticipants, readParticipants } from "@/lib/tourParticipants";
 import {
   BONUS_SERVICE_CODE,
-  FRIEND_BONUS_NOTE,
-  friendBonusApplies,
+  friendSubscriptionPrice,
+  referrerRewardFor,
 } from "@/lib/referralTerms";
 import { normalizeCertificateCode, randomCertificateCode } from "@/lib/certificateCode";
 import { releaseCertificate } from "@/lib/certificates";
@@ -658,9 +658,12 @@ export async function createSessionAction(
   if ("error" in clientRes) return clientRes;
   const clientId = clientRes.id;
 
-  // +10 минут приглашённому: новый клиент по ссылке члена клуба, обучение.
-  const friendBonus =
-    Boolean(memberReferrerId) && clientRes.created === true && friendBonusApplies(service.category);
+  // Друг члена клуба по ссылке, и это его первая покупка (карточка заведена
+  // этой записью): рефу минуты по услуге (lib/referralTerms, 09.10.2026).
+  const friendReward =
+    memberReferrerId && clientRes.created === true
+      ? referrerRewardFor(service.code as string | null, service.category as string | null)
+      : 0;
 
   // Заработал ли агент на этом занятии: только первое базовое обучение
   // клиента (в т.ч. парное) — то же правило, что в кабинете инструктора.
@@ -756,10 +759,7 @@ export async function createSessionAction(
     ...(paidOn ? { paid_on: paidOn } : {}),
     // Число людей пишем только туру: у занятий оно всегда 1 (default в 0066).
     ...(isTourService ? { people } : {}),
-    note:
-      [friendBonus ? FRIEND_BONUS_NOTE : "", String(formData.get("note") ?? "").trim()]
-        .filter(Boolean)
-        .join(" · ") || null,
+    note: String(formData.get("note") ?? "").trim() || null,
     created_by: user.id,
   };
   const { data: session, error: insError } = await supabase
@@ -814,8 +814,15 @@ export async function createSessionAction(
     if (rewardError) console.error("[admin] reward insert error:", rewardError.message);
   }
 
-  // Друг члена клуба оплатил занятие — пригласившему бонусные минуты (0063).
-  await grantReferralReward(createAdminClient(), clientId);
+  // Друг члена клуба оплатил первое занятие — пригласившему бонусные минуты.
+  if (memberReferrerId && friendReward > 0) {
+    await grantReferralReward(createAdminClient(), {
+      referrerId: memberReferrerId,
+      clientId,
+      minutes: friendReward,
+      paid: true,
+    });
+  }
 
   // Начальник записал занятие на СЕБЯ = он в этот день был на пляже: открываем
   // ему смену, чтобы 15% дня делились между ним и напарником. Флаг autoShift
@@ -1082,7 +1089,7 @@ export async function adminSellSubscriptionAction(
   // От двух устройств сразу это не спасает — для этого захват ниже.
   const bookingId = String(formData.get("bookingId") ?? "") || null;
   let bookingBefore: BookingClaimState | null = null;
-  // Друг члена клуба по ссылке (0063): +10 минут к абонементу.
+  // Друг члена клуба по ссылке: −1 млн на абонемент и +30 минут рефу.
   let memberReferrerId: string | null = null;
   if (bookingId) {
     const { data: booking } = await supabase
@@ -1116,8 +1123,13 @@ export async function adminSellSubscriptionAction(
   // Цену без ручной правки ставит членство: клиенту из клуба — 5 млн. Смотрим
   // уже по найденному клиенту, а не по выбору в форме: «новый клиент» с
   // телефоном члена клуба — тот же человек.
+  //
+  // Новый друг по ссылке члена клуба, абонемент — его первая покупка: −1 млн
+  // (условия 09.10.2026). Своя цена босса — уже окончательная, её не трогаем.
+  const friendFirstBuy = Boolean(memberReferrerId) && clientRes.created === true;
+  const basePrice = subscriptionPriceFor(await isClubMember(createAdminClient(), clientId));
   const price =
-    customPrice ?? subscriptionPriceFor(await isClubMember(createAdminClient(), clientId));
+    customPrice ?? (friendFirstBuy ? friendSubscriptionPrice(basePrice) : basePrice);
 
   // Минуты живут 3 месяца С ДАТЫ ПРОДАЖИ (в т.ч. прошлой). paid_at — только
   // при полученной оплате: от месяца оплаты зависят выручка и комиссия.
@@ -1183,12 +1195,16 @@ export async function adminSellSubscriptionAction(
     await linkBookingResult(supabase, bookingId, { subscription_id: sub.id as string });
   }
 
-  // Новый клиент по ссылке члена клуба: +10 минут к абонементу поправкой, а
-  // пригласившему — бонусные минуты, как только абонемент оплачен (0063).
-  if (memberReferrerId && clientRes.created === true) {
-    await addFriendBonusMinutes(createAdminClient(), sub.id as string, user.id);
+  // Пригласившему +30 минут: сразу, если абонемент оплачен, иначе награда
+  // ждёт отметки оплаты (togglePaidAction).
+  if (memberReferrerId && friendFirstBuy) {
+    await grantReferralReward(createAdminClient(), {
+      referrerId: memberReferrerId,
+      clientId,
+      minutes: referrerRewardFor(null, "subscription"),
+      paid: Boolean(paidAt),
+    });
   }
-  if (paidAt) await grantReferralReward(createAdminClient(), clientId);
 
   revalidatePath("/", "layout");
   officeRedirect(user, "/subscriptions");
@@ -1229,9 +1245,8 @@ export async function togglePaidAction(formData: FormData) {
   const { error } = await supabase.from("subscriptions").update(patch).eq("id", id);
   failIfError(error, "не удалось изменить отметку оплаты");
 
-  // Абонемент оплачен — если его купил друг члена клуба, пригласившему
-  // бонусные минуты (0063). Снятая потом отметка минуты не забирает: за одного
-  // друга награда одна, и повторная отметка её не задвоит.
+  // Абонемент оплачен — если это первая покупка друга члена клуба, ждущая
+  // награда рефа подтверждается. Снятая потом отметка минуты не забирает.
   if (paidAt) {
     const admin = createAdminClient();
     const { data: sub } = await admin
@@ -1239,7 +1254,7 @@ export async function togglePaidAction(formData: FormData) {
       .select("client_id")
       .eq("id", id)
       .maybeSingle();
-    if (sub?.client_id) await grantReferralReward(admin, sub.client_id as string);
+    if (sub?.client_id) await confirmReferralReward(admin, sub.client_id as string);
   }
   revalidatePath("/", "layout");
 }

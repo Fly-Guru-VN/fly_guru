@@ -6,9 +6,8 @@ import { useRouter } from "@/i18n/navigation";
 import { trackEvent } from "@/lib/analytics";
 import { forgetRefCode, getAttributionForBooking } from "@/lib/attribution";
 import { isValidPhone } from "@/lib/phone";
-import { agentDiscountFor } from "@/lib/agentTerms";
 import { type ServiceCategory } from "@/content/services";
-import { useAgentRef } from "./useAgentRef";
+import { refDiscountFor, refDiscountRowKey, useRefOffer } from "./useRefOffer";
 import { ServicePicker } from "./ServicePicker";
 import { Spinner } from "./Spinner";
 
@@ -74,11 +73,10 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
   const [status, setStatus] = useState<Status>("idle");
   const [phone, setPhone] = useState("");
 
-  // Пришёл ли гость по ссылке живого агента и по чьей именно: от тарифа агента
-  // зависит размер скидки на карточках услуг (у одного партнёра свои проценты).
-  // Инструкторская ссылка скидки не даёт — проверяет сервер. null = не агент.
-  const agentPlan = useAgentRef(refCode);
-  const byAgent = agentPlan !== null;
+  // По чьей ссылке пришёл гость: от тарифа агента зависит размер скидки на
+  // карточках услуг, ссылка члена клуба даёт −1 млн на абонемент новому гостю.
+  // Инструкторская ссылка скидки не даёт — проверяет сервер. null = скидки нет.
+  const refOffer = useRefOffer(refCode);
 
   // Какая услуга выбрана. Раньше это был обычный <select> и состояние не было
   // нужно; теперь выбор — карточки, и подсветить надо ту, на которую нажали.
@@ -377,16 +375,15 @@ export function BookingForm({ services, defaultServiceId, refCode, onSuccess }: 
           services={services}
           value={serviceId}
           onChange={setServiceId}
-          discountFor={(s) =>
-            agentPlan ? agentDiscountFor(s.code, s.price ?? null, agentPlan) : 0
-          }
+          discountFor={(s) => refDiscountFor(s.code, s.price ?? null, refOffer)}
+          discountRowKey={refDiscountRowKey(refOffer)}
         />
-        {byAgent && (
-          // Честная оговорка: скидка даётся за ПЕРВОЕ базовое обучение. Гость,
-          // который у нас уже учился, заплатит полную цену — обещать её всем
-          // подряд нельзя (то же правило проверяется при оформлении).
+        {refOffer && (
+          // Честная оговорка: скидка только для ПЕРВОЙ покупки. Гость, который
+          // у нас уже был, заплатит полную цену — обещать её всем подряд нельзя
+          // (то же правило проверяется при оформлении).
           <p className="mt-2 text-xs text-muted">
-            {t("agentDiscountNote")}
+            {t(refOffer.kind === "client" ? "friendDiscountNote" : "agentDiscountNote")}
           </p>
         )}
       </div>

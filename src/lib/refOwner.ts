@@ -1,7 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { failIfReadError } from "@/lib/dbError";
-import { FRIEND_BONUS_MINUTES } from "@/lib/referralTerms";
+import { FRIEND_SUBSCRIPTION_DISCOUNT } from "@/lib/referralTerms";
 
 // «Кто привёл гостя» — расшифровка реф-кода заявки в живого человека.
 //
@@ -12,9 +12,9 @@ import { FRIEND_BONUS_MINUTES } from "@/lib/referralTerms";
 //     награду агенту за приведённого клиента (суммы — в lib/agentTerms);
 //   • личный код инструктора (users.ref_code, миграция 0011) — скидки НЕ даёт,
 //     это просто «человек записался напрямую к этому инструктору»;
-//   • код клиента — члена клуба (clients.ref_code, 0063): скидки нет, новому
-//     гостю +10 минут к обучению или абонементу, пригласившему бонусные минуты
-//     (lib/referralTerms).
+//   • код клиента — члена клуба (clients.ref_code, 0063): новому гостю −1 млн
+//     на абонемент, пригласившему бонусные минуты (условия с 09.10.2026 —
+//     lib/referralTerms).
 // Поэтому в заявке показываем имя владельца ссылки и говорим про скидку только
 // там, где она реально есть (пачка правок №5, п.4/5).
 
@@ -117,7 +117,7 @@ export function refOwnerLabel(
   // условии, а не обещаем: уже катавшийся у нас бонуса не получит.
   if (owner.kind === "client") {
     return owner.active
-      ? `Пригласил клиент: ${owner.name} · новому гостю +${FRIEND_BONUS_MINUTES} мин к обучению или абонементу`
+      ? `Пригласил клиент: ${owner.name} · новому гостю −${FRIEND_SUBSCRIPTION_DISCOUNT.toLocaleString("ru-RU")} ₫ на абонемент`
       : `Пригласил клиент: ${owner.name} (не в клубе — бонусов нет)`;
   }
   if (!owner.active) return `Агент: ${owner.name} (отключён — скидки нет)`;

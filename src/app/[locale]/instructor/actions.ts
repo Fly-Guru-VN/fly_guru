@@ -38,7 +38,6 @@ import {
 } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
 import {
-  addFriendBonusMinutes,
   grantReferralReward,
   isClubMember,
   memberReferrerFor,
@@ -49,9 +48,8 @@ import { isTour, parsePeople, tourTotal, TOURS_MAX_PEOPLE } from "@/lib/tours";
 import { linkParticipants, readParticipants } from "@/lib/tourParticipants";
 import {
   BONUS_SERVICE_CODE,
-  FRIEND_BONUS_MINUTES,
-  FRIEND_BONUS_NOTE,
-  friendBonusApplies,
+  friendSubscriptionPrice,
+  referrerRewardFor,
 } from "@/lib/referralTerms";
 import { pickChannel } from "@/lib/channels";
 import {
@@ -437,14 +435,14 @@ export async function recordClientAction(
   if ("error" in clientResult) return { error: clientResult.error };
   const clientId = clientResult.id;
 
-  // +10 минут приглашённому: только новому клиенту (карточка заведена этой
-  // записью) и только на обучение. Минуты — это время на воде, в чек они не
-  // входят; инструктор видит их в заметке занятия и на экране «Готово».
-  const friendBonus =
-    Boolean(memberReferrerId) && clientResult.created === true && friendBonusApplies(service.category);
-  const typedNote = String(formData.get("note") ?? "").trim();
-  const sessionNote =
-    [friendBonus ? FRIEND_BONUS_NOTE : "", typedNote].filter(Boolean).join(" · ") || null;
+  // Друг члена клуба по ссылке, и это его первая покупка (карточка заведена
+  // этой записью): рефу минуты по услуге (lib/referralTerms, 09.10.2026).
+  // Другу на занятия больше ничего не положено — скидка только на абонемент.
+  const friendReward =
+    memberReferrerId && clientResult.created === true
+      ? referrerRewardFor(service.code as string | null, service.category as string | null)
+      : 0;
+  const sessionNote = String(formData.get("note") ?? "").trim() || null;
 
   // Заработал ли агент на этом занятии: только первое базовое обучение
   // клиента (в т.ч. парное). Личный код инструктора скидки и награды не даёт —
@@ -572,9 +570,15 @@ export async function recordClientAction(
     }
   }
 
-  // Друг члена клуба оплатил занятие — пригласившему бонусные минуты. Функция
-  // сама проверит, что клиент пришёл по ссылке, и не начислит дважды.
-  await grantReferralReward(createAdminClient(), clientId);
+  // Друг члена клуба оплатил первое занятие — пригласившему бонусные минуты.
+  if (memberReferrerId && friendReward > 0) {
+    await grantReferralReward(createAdminClient(), {
+      referrerId: memberReferrerId,
+      clientId,
+      minutes: friendReward,
+      paid: true,
+    });
+  }
 
   // Заявка уже закрыта захватом выше — там же ей проставлены клиент и способ
   // оплаты, которым он расплатился (админу видно прямо в ленте заявок).
@@ -595,7 +599,7 @@ export async function recordClientAction(
   // Не флаг, а сумма: скидка теперь разная у базового и парного занятия, и
   // «со скидкой» без числа инструктору ничего не говорит.
   if (discounted && discount > 0) params.set("discount", String(discount));
-  if (friendBonus) params.set("bonus", String(FRIEND_BONUS_MINUTES));
+  if (friendReward > 0) params.set("refReward", String(friendReward));
   // Записали не сегодняшним числом — проговариваем это на экране «Готово»:
   // промах в дате иначе всплывёт только в конце месяца, в чужой ЗП.
   if (date !== vnToday()) params.set("date", date);
@@ -752,8 +756,8 @@ export async function sellSubscriptionAction(
     };
     refCode = (booking.ref_code as string | null) ?? null;
   }
-  // Агентских условий у абонемента нет, а вот друг члена клуба получает +10
-  // минут к абонементу, пригласивший — бонусные минуты (lib/referrals).
+  // Агентских условий у абонемента нет, а вот новый друг члена клуба получает
+  // −1 млн, пригласивший — +30 бонусных минут (lib/referralTerms).
   const memberReferrerId = await memberReferrerFor(createAdminClient(), refCode);
 
   const clientResult = await findOrCreateClient(supabase, user, {
@@ -769,8 +773,13 @@ export async function sellSubscriptionAction(
   // total_minutes (300) задан default'ом в схеме. Цену без ручной правки босса
   // ставит членство: 6 млн, члену клуба 5 млн (lib/subscriptionPrice).
   // Клиента нашли по телефону выше — так член клуба узнаётся и у инструктора.
+  //
+  // Новый друг по ссылке члена клуба, абонемент — его первая покупка: −1 млн
+  // (условия 09.10.2026). Своя цена босса — уже окончательная, её не трогаем.
+  const friendFirstBuy = Boolean(memberReferrerId) && clientResult.created === true;
+  const basePrice = subscriptionPriceFor(await isClubMember(createAdminClient(), clientId));
   const finalPrice =
-    price ?? subscriptionPriceFor(await isClubMember(createAdminClient(), clientId));
+    price ?? (friendFirstBuy ? friendSubscriptionPrice(basePrice) : basePrice);
   // Минуты живут 3 месяца с продажи. paid_at пишем только при полученной
   // оплате — от него зависит комиссия инструктора (см. 0002).
   //
@@ -842,20 +851,23 @@ export async function sellSubscriptionAction(
     await linkBookingResult(admin, bookingId, { subscription_id: sub.id as string });
   }
 
-  // Новый клиент по ссылке члена клуба: +10 минут к абонементу — поправкой с
-  // комментарием, её видно в истории и остаток её учитывает (lib/subscriptions).
-  // Пригласившему — бонусные минуты, но только за оплаченный абонемент; иначе
-  // их начислит «Отметить оплату» у админа.
-  const friendBonus = Boolean(memberReferrerId) && clientResult.created === true;
-  if (friendBonus) {
-    await addFriendBonusMinutes(admin, sub.id as string, user.id);
+  // Пригласившему +30 бонусных минут: сразу, если абонемент оплачен, иначе
+  // награда ждёт «Отметить оплату» у админа.
+  if (memberReferrerId && friendFirstBuy) {
+    await grantReferralReward(admin, {
+      referrerId: memberReferrerId,
+      clientId,
+      minutes: referrerRewardFor(null, "subscription"),
+      paid,
+    });
   }
-  if (paid) await grantReferralReward(admin, clientId);
 
   revalidatePath("/", "layout"); // см. комментарий в recordClientAction
 
   const params = new URLSearchParams({ type: "subscription", name });
-  if (friendBonus) params.set("bonus", String(FRIEND_BONUS_MINUTES));
+  if (memberReferrerId && friendFirstBuy && price === null) {
+    params.set("friendDiscount", String(basePrice - finalPrice));
+  }
   if (paid) params.set("paid", "1");
   if (claim) params.set("claim", claim);
   if (clientResult.existingName) params.set("existing", clientResult.existingName);

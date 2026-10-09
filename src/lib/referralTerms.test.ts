@@ -1,24 +1,44 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  FRIEND_BONUS_MINUTES,
-  FRIEND_BONUS_NOTE,
-  REFERRER_REWARD_MINUTES,
-  friendBonusApplies,
+  FRIEND_SUBSCRIPTION_DISCOUNT,
+  REFERRER_REWARD_MAX,
+  friendSubscriptionPrice,
+  referrerRewardFor,
 } from "@/lib/referralTerms";
 
-// Рефералы клиентов (0063). Запуск: npm test
+// Рефералы клиентов, условия с 09.10.2026. Запуск: npm test
 
-test("числа условий — как решил начальник", () => {
-  assert.equal(REFERRER_REWARD_MINUTES, 20);
-  assert.equal(FRIEND_BONUS_MINUTES, 10);
-  assert.equal(FRIEND_BONUS_NOTE, "+10 мин по приглашению");
+test("рефу: тандем 10, базовое 20, абонемент 30 — только взрослые", () => {
+  assert.equal(referrerRewardFor("tandem-adult", "tandem"), 10);
+  assert.equal(referrerRewardFor("basic-adult", "training"), 20);
+  assert.equal(referrerRewardFor("subscription", "subscription"), 30);
+  // Продажа абонемента идёт без кода услуги — узнаём по категории.
+  assert.equal(referrerRewardFor(null, "subscription"), 30);
+  assert.equal(REFERRER_REWARD_MAX, 30);
 });
 
-test("+10 минут другу — только обучение и абонемент", () => {
-  assert.equal(friendBonusApplies("training"), true);
-  assert.equal(friendBonusApplies("subscription"), true);
-  for (const other of ["tandem", "rental", "tour", "extra", null, undefined, ""]) {
-    assert.equal(friendBonusApplies(other), false, String(other));
+test("за остальное рефу ничего", () => {
+  for (const code of [
+    "tandem-kid",
+    "basic-kid",
+    "basic-duo",
+    "individual-training",
+    "rental",
+    "excursion",
+    "safari",
+    "video",
+    "bonus-minutes",
+    null,
+    undefined,
+    "",
+  ]) {
+    assert.equal(referrerRewardFor(code, "training"), 0, String(code));
   }
+});
+
+test("другу −1 млн на абонемент, не ниже нуля", () => {
+  assert.equal(FRIEND_SUBSCRIPTION_DISCOUNT, 1_000_000);
+  assert.equal(friendSubscriptionPrice(6_000_000), 5_000_000);
+  assert.equal(friendSubscriptionPrice(500_000), 0);
 });

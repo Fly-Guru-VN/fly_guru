@@ -1,10 +1,5 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { failIfReadError } from "@/lib/dbError";
-import {
-  FRIEND_BONUS_MINUTES,
-  FRIEND_BONUS_NOTE,
-  REFERRER_REWARD_MINUTES,
-} from "@/lib/referralTerms";
 import { resolveRefOwners } from "@/lib/refOwner";
 
 // Рефералы — клиенты, которые приглашают друзей (миграция 0063). Условия
@@ -119,44 +114,41 @@ export async function bonusMinutesLeft(admin: Admin, clientId: string): Promise<
 }
 
 /**
- * Начислить пригласившему минуты за этого клиента, если он пришёл по ссылке
- * члена клуба. Вызывать, когда клиент ОПЛАТИЛ: занятие записано или абонемент
- * отмечен оплаченным. Повторный вызов безопасен — вторую строку не пустит
- * уникальный индекс, это не ошибка.
+ * Награда рефу за друга (условия 09.10.2026, lib/referralTerms). Вызывать ТОЛЬКО
+ * там, где карточка друга заведена этой же записью по ссылке члена клуба
+ * (created === true) — это и есть его первая покупка. Решение принимается один
+ * раз: если первая услуга без награды, строку не пишем вовсе, и следующие
+ * покупки друга рефу уже ничего не дадут — так решил начальник.
+ *
+ * paid — деньги уже получены. Занятие записывают оплаченным, а абонемент могут
+ * продать в долг: тогда награда ждёт (pending) и подтверждается отметкой оплаты
+ * (confirmReferralReward). Остаток бонусных минут считает только confirmed.
  *
  * Ошибку не бросаем: оплата уже записана, и ронять из-за минут оформление
- * нельзя. Пропущенную награду видно — у друга в карточке пригласивший есть, а
- * в кабинете пригласившего он «ещё не оплатил».
+ * нельзя. Повтор безопасен — вторую строку не пустит уникальный индекс (0063).
  */
 export async function grantReferralReward(
   admin: Admin,
-  referredClientId: string,
+  {
+    referrerId,
+    clientId,
+    minutes,
+    paid,
+  }: { referrerId: string; clientId: string; minutes: number; paid: boolean },
 ): Promise<boolean> {
-  const { data: client, error } = await admin
-    .from("clients")
-    .select("referrer_type, referrer_id")
-    .eq("id", referredClientId)
-    .maybeSingle();
-  if (error) {
-    console.error("[referrals] referred client read error:", error.message);
-    return false;
-  }
-  if (client?.referrer_type !== "member" || !client.referrer_id) return false;
-  // Себя пригласить нельзя: карточка друга создаётся новой, но проверим явно.
-  if (client.referrer_id === referredClientId) return false;
-
-  const { error: insError } = await admin.from("referral_rewards").insert({
+  if (minutes <= 0 || referrerId === clientId) return false;
+  const { error } = await admin.from("referral_rewards").insert({
     referrer_type: "member",
-    referrer_id: client.referrer_id,
-    client_id: referredClientId,
+    referrer_id: referrerId,
+    client_id: clientId,
     reward_type: "minutes",
-    amount: REFERRER_REWARD_MINUTES,
-    status: "confirmed",
-    confirmed_at: new Date().toISOString(),
+    amount: minutes,
+    status: paid ? "confirmed" : "pending",
+    confirmed_at: paid ? new Date().toISOString() : null,
   });
-  if (insError) {
-    if (insError.code !== "23505") {
-      console.error("[referrals] reward insert error:", insError.message);
+  if (error) {
+    if (error.code !== "23505") {
+      console.error("[referrals] reward insert error:", error.message);
     }
     return false;
   }
@@ -164,31 +156,31 @@ export async function grantReferralReward(
 }
 
 /**
- * +10 минут приглашённому к только что проданному абонементу. Пишем
- * поправкой (subscription_adjustments) с комментарием: остаток её учитывает,
- * в истории абонемента видно, откуда минуты. Стандартные 300 не трогаем.
- * Абонемент уже продан, поэтому сбой только логируем — минуты админ добавит.
+ * Друг оплатил абонемент, проданный в долг, — ждущая награда рефа становится
+ * настоящей. Нет ждущей строки (друг не по ссылке, или награда уже
+ * подтверждена) — ничего не происходит. Снятая потом отметка оплаты минуты не
+ * забирает, как и раньше.
  */
-export async function addFriendBonusMinutes(
+export async function confirmReferralReward(
   admin: Admin,
-  subscriptionId: string,
-  actorId: string,
+  clientId: string,
 ): Promise<void> {
-  const { error } = await admin.from("subscription_adjustments").insert({
-    subscription_id: subscriptionId,
-    delta_minutes: FRIEND_BONUS_MINUTES,
-    comment: FRIEND_BONUS_NOTE,
-    created_by: actorId,
-  });
-  if (error) console.error("[referrals] friend bonus insert error:", error.message);
+  const { error } = await admin
+    .from("referral_rewards")
+    .update({ status: "confirmed", confirmed_at: new Date().toISOString() })
+    .eq("referrer_type", "member")
+    .eq("client_id", clientId)
+    .eq("status", "pending");
+  if (error) console.error("[referrals] reward confirm error:", error.message);
 }
 
 export interface InvitedFriend {
   name: string;
   /** Когда карточка друга появилась у нас. */
   since: string;
-  /** Оплатил ли он первое занятие (то есть начислены ли за него минуты). */
-  rewarded: boolean;
+  /** Сколько минут начислено за него рефу; 0 — пока ничего (не оплатил или
+   *  первая услуга была без награды). */
+  rewardMinutes: number;
 }
 
 /**
@@ -209,17 +201,20 @@ export async function loadInvitedFriends(
       .limit(100),
     admin
       .from("referral_rewards")
-      .select("client_id")
+      .select("client_id, amount")
       .eq("referrer_type", "member")
+      .eq("status", "confirmed")
       .eq("referrer_id", referrerId),
   ]);
   failIfReadError(friendsRes.error, "не удалось прочитать приглашённых");
   failIfReadError(rewardsRes.error, "не удалось прочитать награды за приглашения");
-  const rewarded = new Set((rewardsRes.data ?? []).map((r) => r.client_id as string));
+  const rewardOf = new Map(
+    (rewardsRes.data ?? []).map((r) => [r.client_id as string, Number(r.amount ?? 0)]),
+  );
   return (friendsRes.data ?? []).map((f) => ({
     name: (f.name as string | null) ?? "Гость",
     since: f.created_at as string,
-    rewarded: rewarded.has(f.id as string),
+    rewardMinutes: rewardOf.get(f.id as string) ?? 0,
   }));
 }
 

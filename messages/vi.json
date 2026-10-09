@@ -62,6 +62,8 @@
     "serviceChoose": "Chọn dịch vụ",
     "agentDiscountRow": "−{amount} theo liên kết đại lý",
     "agentDiscountNote": "Ưu đãi theo liên kết đại lý áp dụng cho buổi học cơ bản đầu tiên.",
+    "friendDiscountRow": "−{amount} qua liên kết của bạn bè",
+    "friendDiscountNote": "Giảm giá qua liên kết của bạn bè áp dụng cho gói thành viên nếu đây là lần đặt đầu tiên của bạn.",
     "date": "Ngày mong muốn",
     "comment": "Ghi chú",
     "submit": "Đặt lịch",
