@@ -110,6 +110,9 @@ export async function MaterialsScreen() {
         </div>
       </section>
 
+      {/* Агентов больше нет (09.10.2026, все выключены) — блок появится сам,
+          только если агента снова включат. */}
+      {agents.length > 0 && (
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-bold">Ссылки агентов</h2>
         <p className="mt-1 text-xs text-muted">
@@ -117,9 +120,6 @@ export async function MaterialsScreen() {
           обучение: 100 000 ₫ на базовое, 200 000 ₫ на парное. Записаться можно
           на любую услугу — на остальных цена обычная.
         </p>
-        {agents.length === 0 && (
-          <p className="mt-3 text-sm text-muted">Активных агентов нет.</p>
-        )}
         <div className="mt-3 space-y-3">
           {agents.map((a) => (
             <div key={a.id}>
@@ -131,6 +131,7 @@ export async function MaterialsScreen() {
           ))}
         </div>
       </section>
+      )}
     </div>
   );
 }

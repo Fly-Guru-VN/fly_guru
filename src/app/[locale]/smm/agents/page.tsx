@@ -1,8 +1,6 @@
-import type { Metadata } from "next";
-import { AgentsScreen } from "@/app/[locale]/admin/agents/AgentsScreen";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "СММ · Агенты" };
-
+// Агентов больше нет (09.10.2026) — см. admin/agents/page.tsx.
 export default function SmmAgentsPage() {
-  return <AgentsScreen />;
+  redirect("/smm/referrals");
 }

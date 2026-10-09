@@ -45,7 +45,7 @@ const GROUPS: CabinetNavGroup[] = [
     items: [
       { href: "/smm/clients", label: "Клиенты" },
       { href: "/smm/subscriptions", label: "Абонементы" },
-      { href: "/smm/agents", label: "Агенты" },
+      { href: "/smm/referrals", label: "Рефералы" },
     ],
   },
   {
