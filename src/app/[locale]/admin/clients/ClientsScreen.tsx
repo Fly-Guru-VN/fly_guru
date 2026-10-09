@@ -5,9 +5,12 @@ import Link from "next/link";
 import { momentDay } from "@/lib/dates";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { loadAllClients } from "@/lib/clients";
-import { loadAllSessions } from "@/lib/sessions";
-import { phoneDigits } from "@/lib/phone";
+import {
+  loadClientList,
+  selectIn,
+  SOURCE_LABEL,
+  type ClientListRow,
+} from "@/lib/clientList";
 import { vnd } from "@/lib/stats";
 import { updateClientAction } from "../actions";
 import { SaveForm } from "../SaveForm";
@@ -23,30 +26,7 @@ import {
 // абонементами и внутренней заметкой. Клиенты появляются сами — из
 // оформлений инструктора и продаж; руками их создавать не нужно.
 
-interface ClientRow {
-  id: string;
-  name: string;
-  phone: string | null;
-  source: string;
-  referrer_type: string | null;
-  referrer_id: string | null;
-  internal_note: string | null;
-  age: number | null;
-  city: string | null;
-  tour_approved: boolean;
-  telegram_username: string | null;
-  photo_path: string | null;
-  // Legacy до 0052: используем только для извлечения пути, наружу не отдаём.
-  photo_url: string | null;
-  created_at: string;
-}
-
-// Три поля сессии, из которых считаются занятия, траты и последний визит.
-interface SessionRow {
-  client_id: string | null;
-  amount: number | null;
-  date: string;
-}
+type ClientRow = ClientListRow;
 
 // Сортировки списка. Ключ — значение ?sort=, подпись — текст чипса.
 const SORTS = [
@@ -57,13 +37,7 @@ const SORTS = [
   { key: "age", label: "По возрасту" },
 ] as const;
 
-const SOURCE_LABEL: Record<string, string> = {
-  site: "с сайта",
-  offline: "офлайн",
-  agent: "от агента",
-  member: "по рекомендации члена клуба",
-};
-
+// Сколько клиентов на экране сразу и сколько добавляет «Показать ещё».
 const PAGE_SIZE = 50;
 
 const inputClass =
@@ -327,79 +301,39 @@ export async function ClientsScreen({
   searchParams,
   base,
 }: {
-  searchParams: Promise<{ q?: string; sort?: string }>;
+  searchParams: Promise<{ q?: string; sort?: string; limit?: string }>;
   /** Кабинет, из которого открыт экран: «/admin» или «/smm». */
   base: string;
 }) {
-  const { q = "", sort = "" } = await searchParams;
+  const { q = "", sort = "", limit: limitParam } = await searchParams;
   const supabase = await createClient();
 
-  // Сессии тянем по ВСЕМ клиентам сразу (не по показанным): сортировка по
-  // занятиям/тратам/визиту должна ранжировать весь список, а не первые 50.
-  const [{ rows: allClients }, { rows: allSessions }] = await Promise.all([
-    // Постранично (lib/clients): .limit(1000) молча обрезал бы базу клиентов —
-    // поиск переставал бы находить всех, кто не попал в первую тысячу.
-    loadAllClients<ClientRow>(
-      supabase,
-      "id, name, phone, source, referrer_type, referrer_id, internal_note, age, city, tour_approved, telegram_username, photo_path, photo_url, created_at",
-    ),
-    // Тоже постранично (lib/sessions): .limit(10000) молча занизил бы
-    // и число занятий, и сумму трат у клиентов.
-    loadAllSessions<SessionRow>(supabase, "client_id, amount, date"),
-  ]);
-  // Загрузчик отдаёт по id — восстанавливаем прежний порядок «новые сверху».
-  const all = [...allClients].sort((a, b) =>
-    b.created_at.localeCompare(a.created_at),
+  // «Показать ещё» — та же страница с ?limit= больше на PAGE_SIZE. Через адрес,
+  // а не состояние в браузере: поиск, сортировка и раскрытая порция
+  // переживают обновление страницы и возврат «назад».
+  const limit = Math.max(
+    PAGE_SIZE,
+    Math.floor(Number(limitParam) / PAGE_SIZE) * PAGE_SIZE || PAGE_SIZE,
   );
 
-  // Поиск в JS: телефоны в базе разноформатные, сравниваем цифры с цифрами,
-  // имя — без учёта регистра. На сотнях клиентов это дешевле индексов.
-  const needle = q.trim().toLowerCase();
-  const needleDigits = phoneDigits(needle);
-  const found = needle
-    ? all.filter(
-        (c) =>
-          c.name.toLowerCase().includes(needle) ||
-          (needleDigits.length >= 3 &&
-            phoneDigits(c.phone ?? "").includes(needleDigits)),
-      )
-    : all;
+  const { all, sorted, visits } = await loadClientList(supabase, { q, sort });
+  const found = sorted;
 
   const statsById = new Map<string, ClientStats>();
   const stat = (id: string): ClientStats => {
     let s = statsById.get(id);
     if (!s) {
-      s = { sessions: 0, spent: 0, lastVisit: null, activeSubs: 0, member: false, referrerName: null, bonusLeft: null };
+      s = { ...visits(id), activeSubs: 0, member: false, referrerName: null, bonusLeft: null };
       statsById.set(id, s);
     }
     return s;
   };
-  for (const r of allSessions) {
-    const s = stat(r.client_id as string);
-    s.sessions += 1;
-    s.spent += (r.amount as number) ?? 0;
-    const d = r.date as string;
-    if (!s.lastVisit || d > s.lastVisit) s.lastVisit = d;
-  }
 
-  // Сортировка. «Новые» — как пришло из базы (created_at desc). Метрики — по
-  // убыванию; клиенты без значения (нет визитов / возраст не указан) — в конце.
-  const sorted = [...found];
-  if (sort === "sessions") {
-    sorted.sort((a, b) => stat(b.id).sessions - stat(a.id).sessions);
-  } else if (sort === "spent") {
-    sorted.sort((a, b) => stat(b.id).spent - stat(a.id).spent);
-  } else if (sort === "visit") {
-    sorted.sort((a, b) =>
-      (stat(b.id).lastVisit ?? "").localeCompare(stat(a.id).lastVisit ?? ""),
-    );
-  } else if (sort === "age") {
-    sorted.sort((a, b) => (b.age ?? -1) - (a.age ?? -1));
-  }
-  const shown = sorted.slice(0, PAGE_SIZE);
+  const shown = sorted.slice(0, limit);
   const ids = shown.map((c) => c.id);
 
-  // Остальные агрегаты (бейджи) — батчами только по показанным клиентам.
+  // Остальные агрегаты (бейджи) — только по показанным клиентам, пачками
+  // (selectIn): после нескольких «Показать ещё» id сотни.
   const agentIds = shown
     .filter((c) => c.referrer_type === "agent" && c.referrer_id)
     .map((c) => c.referrer_id as string);
@@ -413,67 +347,64 @@ export async function ClientsScreen({
     ]),
   );
 
-  const [
-    subsRes,
-    membersRes,
-    agentsRes,
-    photoUrls,
-    referrersRes,
-    bonusEarnedRes,
-    bonusSpentRes,
-  ] = await Promise.all([
-    ids.length
-      ? supabase
+  const [subs, members, agents, photoUrls, referrers, bonusEarned, bonusSpent] =
+    await Promise.all([
+      selectIn<{ client_id: string; status: string }>(ids, (chunk) =>
+        supabase
           .from("subscriptions")
           .select("client_id, status")
-          .in("client_id", ids)
-      : Promise.resolve({ data: [] }),
-    ids.length
-      ? supabase.from("memberships").select("client_id").in("client_id", ids)
-      : Promise.resolve({ data: [] }),
-    agentIds.length
-      ? supabase
-          .from("agents")
-          .select("id, ref_code, user:users!user_id(name)")
-          .in("id", agentIds)
-      : Promise.resolve({ data: [] }),
-    createPrivatePhotoUrls("clients", [...photoPathByClient.values()]),
-    // Рефералы (0063): кто пригласил, сколько минут начислено и потрачено.
-    // Та же формула, что у функции базы bonus_minutes_left, только пачкой.
-    memberReferrerIds.length
-      ? supabase.from("clients").select("id, name").in("id", memberReferrerIds)
-      : Promise.resolve({ data: [] }),
-    ids.length
-      ? supabase
+          .in("client_id", chunk),
+      ),
+      selectIn<{ client_id: string }>(ids, (chunk) =>
+        supabase.from("memberships").select("client_id").in("client_id", chunk),
+      ),
+      selectIn<{ id: string; ref_code: string; user: unknown }>(
+        agentIds,
+        (chunk) =>
+          supabase
+            .from("agents")
+            .select("id, ref_code, user:users!user_id(name)")
+            .in("id", chunk),
+      ),
+      createPrivatePhotoUrls("clients", [...photoPathByClient.values()]),
+      // Рефералы (0063): кто пригласил, сколько минут начислено и потрачено.
+      // Та же формула, что у функции базы bonus_minutes_left, только пачкой.
+      selectIn<{ id: string; name: string | null }>(memberReferrerIds, (chunk) =>
+        supabase.from("clients").select("id, name").in("id", chunk),
+      ),
+      selectIn<{ referrer_id: string; amount: number | null }>(ids, (chunk) =>
+        supabase
           .from("referral_rewards")
           .select("referrer_id, amount")
           .eq("referrer_type", "member")
           .eq("reward_type", "minutes")
           .eq("status", "confirmed")
-          .in("referrer_id", ids)
-      : Promise.resolve({ data: [] }),
-    ids.length
-      ? supabase
-          .from("sessions")
-          .select("client_id, minutes_used, services!inner(code)")
-          .eq("services.code", BONUS_SERVICE_CODE)
-          .in("client_id", ids)
-      : Promise.resolve({ data: [] }),
-  ]);
-  for (const r of subsRes.data ?? []) {
+          .in("referrer_id", chunk),
+      ),
+      selectIn<{ client_id: string; minutes_used: number | null }>(
+        ids,
+        (chunk) =>
+          supabase
+            .from("sessions")
+            .select("client_id, minutes_used, services!inner(code)")
+            .eq("services.code", BONUS_SERVICE_CODE)
+            .in("client_id", chunk),
+      ),
+    ]);
+  for (const r of subs) {
     if (r.status === "active") stat(r.client_id as string).activeSubs += 1;
   }
-  for (const r of membersRes.data ?? []) {
+  for (const r of members) {
     stat(r.client_id as string).member = true;
   }
   const agentById = new Map(
-    (agentsRes.data ?? []).map((a) => [
+    agents.map((a) => [
       a.id as string,
       `${(a.user as unknown as { name: string } | null)?.name ?? "агент"} (${a.ref_code})`,
     ]),
   );
   const memberById = new Map(
-    (referrersRes.data ?? []).map((r) => [r.id as string, `${r.name ?? "клиент"} (клиент)`]),
+    referrers.map((r) => [r.id as string, `${r.name ?? "клиент"} (клиент)`]),
   );
   for (const c of shown) {
     if (c.referrer_type === "agent" && c.referrer_id) {
@@ -482,14 +413,22 @@ export async function ClientsScreen({
       stat(c.id).referrerName = memberById.get(c.referrer_id) ?? null;
     }
   }
-  for (const r of bonusEarnedRes.data ?? []) {
+  for (const r of bonusEarned) {
     const st = stat(r.referrer_id as string);
     st.bonusLeft = (st.bonusLeft ?? 0) + Number(r.amount ?? 0);
   }
-  for (const r of bonusSpentRes.data ?? []) {
+  for (const r of bonusSpent) {
     const st = stat(r.client_id as string);
     st.bonusLeft = (st.bonusLeft ?? 0) - Number(r.minutes_used ?? 0);
   }
+
+  // Адрес с текущими поиском и сортировкой — для «Показать ещё» и выгрузки.
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (sort) params.set("sort", sort);
+  const moreParams = new URLSearchParams(params);
+  moreParams.set("limit", String(limit + PAGE_SIZE));
+  const xlsxQs = params.toString();
 
   return (
     <div>
@@ -541,12 +480,25 @@ export async function ClientsScreen({
       </div>
       </div>
 
-      <p className="mt-4 text-sm text-muted">
-        {found.length === all.length
-          ? `Всего: ${all.length}`
-          : `Найдено: ${found.length}`}
-        {found.length > PAGE_SIZE && ` · показаны первые ${PAGE_SIZE}`}
-      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <p className="text-sm text-muted">
+          {found.length === all.length
+            ? `Всего: ${all.length}`
+            : `Найдено: ${found.length}`}
+          {found.length > shown.length && ` · показаны ${shown.length}`}
+        </p>
+        {/* Выгрузка ВСЕХ найденных (не только показанных) — с теми же поиском
+            и сортировкой, что на экране. */}
+        {found.length > 0 && (
+          <a
+            href={`/api/admin/clients${xlsxQs ? `?${xlsxQs}` : ""}`}
+            download
+            className="rounded-full border border-primary px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white"
+          >
+            Скачать Excel
+          </a>
+        )}
+      </div>
 
       {shown.length === 0 && (
         <p className="mt-4 text-sm text-muted">Никого не нашли.</p>
@@ -565,6 +517,20 @@ export async function ClientsScreen({
           );
         })}
       </div>
+
+      {found.length > shown.length && (
+        <div className="mt-4 flex justify-center">
+          {/* scroll={false}: новая порция дописывается снизу, а экран
+              остаётся там, где человек дочитал. */}
+          <Link
+            href={`${base}/clients?${moreParams.toString()}`}
+            scroll={false}
+            className="rounded-full border border-line px-5 py-2 text-sm font-semibold text-muted transition-colors hover:border-primary hover:text-primary"
+          >
+            Показать ещё {Math.min(PAGE_SIZE, found.length - shown.length)}
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
