@@ -37,6 +37,16 @@ export interface StaffMember {
   hiredAt: string | null; // первый рабочий день, включительно
   leftAt: string | null; // последний рабочий день, включительно
   senior: boolean;
+  // Больничные (0069). Нет поля = больничных не было: так проще собирать
+  // StaffMember руками в тестах и на экранах, которым больничный не важен.
+  sickLeaves?: SickLeave[];
+}
+
+// Период больничного, обе границы включительно; to = null — болеет сейчас.
+export interface SickLeave {
+  id: string;
+  from: string;
+  to: string | null;
 }
 
 // Кто зарабатывает ПО-СМЕННОЙ формуле: 200 000 ₫ за выход по регламенту, доля
@@ -75,6 +85,33 @@ export function worksOn(m: StaffMember, day: string): boolean {
   if (m.hiredAt && day < m.hiredAt) return false;
   if (m.leftAt && day > m.leftAt) return false;
   return true;
+}
+
+// На больничном ли человек в этот день (решение David от 13.10.2026). В такой
+// день ему не идёт доля котла абонементов, и он не попадает в дележ 15% по
+// назначенным сменам (lib/salary). worksOn больничный НЕ трогает: человек
+// по-прежнему в штате, просто этот день ему не оплачивается.
+export function onSickLeave(m: Pick<StaffMember, "sickLeaves">, day: string): boolean {
+  return Boolean(
+    m.sickLeaves?.some((l) => day >= l.from && (l.to === null || day <= l.to)),
+  );
+}
+
+// Открытый больничный (без даты конца) или null.
+export function openSickLeave(m: Pick<StaffMember, "sickLeaves">): SickLeave | null {
+  return m.sickLeaves?.find((l) => l.to === null) ?? null;
+}
+
+// Проверка «болеет ли в этот день» по id — для расчётов, которым на вход
+// приходит список id, а не люди (lib/salary → getSessionShare).
+export function sickChecker(
+  staff: StaffMember[],
+): (id: string, day: string) => boolean {
+  const byId = new Map(staff.map((m) => [m.id, m]));
+  return (id, day) => {
+    const m = byId.get(id);
+    return m ? onSickLeave(m, day) : false;
+  };
 }
 
 // Уволен ли (по состоянию на сегодня). Дата увольнения может стоять в будущем —
@@ -128,7 +165,7 @@ export interface Employee extends StaffMember {
 export async function loadEmployees(client: Supabase): Promise<Employee[]> {
   const { data, error } = await client
     .from("users")
-    .select("id, name, role, senior, hired_at, left_at, auth_id")
+    .select(`id, name, role, senior, hired_at, left_at, auth_id, ${SICK_LEAVES_EMBED}`)
     .in("role", EMPLOYMENT_ROLES)
     .order("name");
   failIfReadError(error, "не удалось прочитать штат");
@@ -174,7 +211,7 @@ async function loadByRole(
   const roles = Array.isArray(role) ? role : [role];
   const { data, error } = await client
     .from("users")
-    .select("id, name, role, senior, hired_at, left_at")
+    .select(`id, name, role, senior, hired_at, left_at, ${SICK_LEAVES_EMBED}`)
     .in("role", roles)
     .order("name");
 
@@ -186,7 +223,16 @@ async function loadByRole(
   return rows.map(toMember);
 }
 
+// Больничные приезжают вместе со штатом одним запросом: их читают те же
+// расчёты, что и даты приёма-увольнения.
+const SICK_LEAVES_EMBED = "sick_leaves(id, starts_on, ends_on)";
+
 function toMember(r: Record<string, unknown>): StaffMember {
+  const leaves = (r.sick_leaves ?? []) as {
+    id: string;
+    starts_on: string;
+    ends_on: string | null;
+  }[];
   return {
     id: r.id as string,
     name: r.name as string,
@@ -194,6 +240,9 @@ function toMember(r: Record<string, unknown>): StaffMember {
     hiredAt: (r.hired_at as string | null) ?? null,
     leftAt: (r.left_at as string | null) ?? null,
     senior: Boolean(r.senior),
+    sickLeaves: leaves
+      .map((l) => ({ id: l.id, from: l.starts_on, to: l.ends_on }))
+      .sort((a, b) => (a.from < b.from ? -1 : 1)),
   };
 }
 

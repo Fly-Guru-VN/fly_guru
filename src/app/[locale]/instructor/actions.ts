@@ -1434,6 +1434,21 @@ export interface ShiftPhotoState {
   closed?: boolean;
 }
 
+// Болеет ли сотрудник сегодня (0069). service_role: проверка не должна
+// зависеть от того, что RLS отдаст самому инструктору.
+async function isOnSickLeaveToday(userId: string): Promise<boolean> {
+  const today = vnToday();
+  const { data, error } = await createAdminClient()
+    .from("sick_leaves")
+    .select("id")
+    .eq("user_id", userId)
+    .lte("starts_on", today)
+    .or(`ends_on.is.null,ends_on.gte.${today}`)
+    .limit(1);
+  failIfError(error, "не удалось проверить больничный");
+  return (data ?? []).length > 0;
+}
+
 // Смена инструктора на сегодня; заводим на лету, если её нет. Незапланированный
 // выход помечаем planned=false — босс отличит его от согласованной смены.
 // Пишем service_role-клиентом (см. блок выше): прямую запись в shifts у
@@ -1522,6 +1537,18 @@ export async function addShiftPhotoAction(
   }
   const checked = await checkPhoto(photo);
   if (checked.error) return { error: checked.error };
+
+  // На больничном смену не открыть (решение David от 13.10.2026, 0069): иначе
+  // человек получил бы выход и 15% дня, но не долю котла, и расчёт запутался
+  // бы. Вышел раньше — админ закрывает больничный в «Настройках», и смена
+  // открывается как обычно. Проверяем до ensureTodayShift: на больничный день
+  // не должно оставаться даже пустой строки смены.
+  if (await isOnSickLeaveToday(user.id)) {
+    return {
+      error:
+        "У вас открыт больничный — смену открыть нельзя. Если вы вышли на работу, попросите админа закрыть больничный.",
+    };
+  }
 
   const supabase = await createClient();
   const shift = await ensureTodayShift(user);

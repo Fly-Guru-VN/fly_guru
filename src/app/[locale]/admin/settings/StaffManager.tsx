@@ -1,11 +1,15 @@
 import {
+  closeSickLeaveAction,
+  deleteSickLeaveAction,
   deleteStaffLoginAction,
   fireInstructorAction,
+  openSickLeaveAction,
   rehireInstructorAction,
   setHiredAtAction,
   setSeniorAction,
 } from "../actions";
 import type { AppRole } from "@/lib/auth";
+import type { SickLeave } from "@/lib/staff";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { ConfirmSubmit } from "../ConfirmSubmit";
 
@@ -40,6 +44,7 @@ export interface StaffRow {
   fired: boolean; // уволен по состоянию на сегодня
   label: string | null; // «уволен 5 авг» / «с 12 авг»
   hasLogin: boolean; // жив ли логин в Supabase Auth
+  sickLeaves: SickLeave[]; // больничные (0069), по возрастанию даты начала
 }
 
 const TITLE = { instructor: "Инструкторы", smm: "СММ", mechanic: "Механик" };
@@ -55,6 +60,12 @@ const NOBODY = {
   smm: "Работающего СММщика нет.",
   mechanic: "Работающего механика нет.",
 };
+
+const shortDay = (day: string) =>
+  new Date(`${day}T00:00:00`).toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "short",
+  });
 
 const dateClass = `${NATIVE_PICKER} rounded-lg border border-line bg-surface px-2 py-1 text-xs outline-none focus:border-primary`;
 const linkClass =
@@ -95,6 +106,11 @@ export function StaffManager({
                   )}
                   {s.label && (
                     <span className="ml-2 text-[11px] text-muted">{s.label}</span>
+                  )}
+                  {openLeave(s) && (
+                    <span className="ml-2 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-600">
+                      на больничном с {shortDay(openLeave(s)!.from)}
+                    </span>
                   )}
                 </span>
                 {withSenior && (
@@ -154,6 +170,8 @@ export function StaffManager({
                   </ConfirmSubmit>
                 </form>
               </div>
+
+              {kind === "instructor" && <SickLeaveControls s={s} today={today} />}
             </li>
           ))}
         </ul>
@@ -213,4 +231,102 @@ export function StaffManager({
       )}
     </section>
   );
+}
+
+const openLeave = (s: StaffRow) => s.sickLeaves.find((l) => l.to === null) ?? null;
+
+// Больничный (0069, решение David от 13.10.2026). Только у инструкторов.
+// Открывают датой начала — когда человек выздоровеет, заранее неизвестно. С
+// этого дня ему не идёт доля котла абонементов, и смену он открыть не может.
+// Закрывают днём, когда он ВЫШЕЛ на работу: этот день уже рабочий.
+function SickLeaveControls({ s, today }: { s: StaffRow; today: string }) {
+  const open = openLeave(s);
+  const past = s.sickLeaves.filter((l) => l.to !== null);
+  // Новый больничный не может начаться раньше конца прошлого.
+  const lastEnd = past.length > 0 ? past[past.length - 1].to! : null;
+
+  return (
+    <div className="mt-2 border-t border-line/60 pt-2">
+      {open ? (
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+          <form action={closeSickLeaveAction} className="flex items-end gap-1.5">
+            <input type="hidden" name="leaveId" value={open.id} />
+            <label className="text-[11px] text-muted">
+              Вышел на работу
+              <input
+                type="date"
+                name="backDay"
+                defaultValue={today}
+                min={open.from}
+                required
+                className={`mt-0.5 block ${dateClass}`}
+              />
+            </label>
+            <button type="submit" className={`${linkClass} pb-1.5`}>
+              Закрыть больничный
+            </button>
+          </form>
+          <form action={deleteSickLeaveAction}>
+            <input type="hidden" name="leaveId" value={open.id} />
+            <ConfirmSubmit
+              message={`Удалить больничный ${s.name} целиком? Все его дни снова станут рабочими, и доля с абонементов за них вернётся. Нужно, только если больничный открыли по ошибке.`}
+              className={`${linkClass} pb-1.5 hover:text-red-600`}
+            >
+              Удалить
+            </ConfirmSubmit>
+          </form>
+        </div>
+      ) : (
+        <form action={openSickLeaveAction} className="flex items-end gap-1.5">
+          <input type="hidden" name="id" value={s.id} />
+          <label className="text-[11px] text-muted">
+            Больничный с
+            <input
+              type="date"
+              name="from"
+              defaultValue={today}
+              min={lastEnd ? nextDay(lastEnd) : undefined}
+              required
+              className={`mt-0.5 block ${dateClass}`}
+            />
+          </label>
+          <ConfirmSubmit
+            message={`Открыть больничный ${s.name}? С этой даты и до закрытия больничного ему не идёт доля с абонементов (её делят остальные), и он не сможет открыть смену.`}
+            className={`${linkClass} pb-1.5`}
+          >
+            Открыть больничный
+          </ConfirmSubmit>
+        </form>
+      )}
+
+      {past.length > 0 && (
+        <p className="mt-1.5 text-[11px] text-muted">
+          Больничные:{" "}
+          {past.map((l, i) => (
+            <span key={l.id}>
+              {i > 0 && ", "}
+              {l.from === l.to
+                ? shortDay(l.from)
+                : `${shortDay(l.from)} – ${shortDay(l.to!)}`}
+              <form action={deleteSickLeaveAction} className="inline">
+                <input type="hidden" name="leaveId" value={l.id} />
+                <ConfirmSubmit
+                  message={`Удалить больничный ${s.name}? Его дни снова станут рабочими, и доля с абонементов за них вернётся.`}
+                  className="ml-1 text-[11px] text-muted hover:text-red-600"
+                >
+                  ×
+                </ConfirmSubmit>
+              </form>
+            </span>
+          ))}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function nextDay(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
 }

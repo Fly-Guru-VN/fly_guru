@@ -19,7 +19,7 @@ import {
   normalizeTelegram,
   PHONE_ERROR,
 } from "@/lib/phone";
-import { subscriptionExpiry, vnIsoAt, vnToday } from "@/lib/dates";
+import { subscriptionExpiry, vnIsoAt, vnShiftDays, vnToday } from "@/lib/dates";
 import { minutesLeft } from "@/lib/subscriptions";
 import { writeOffSubscription } from "@/lib/subscriptionWriteOff";
 import { extendSubscription } from "@/lib/subscriptionExtensions";
@@ -2383,6 +2383,99 @@ export async function deleteStaffLoginAction(formData: FormData) {
     .eq("id", id)
     .eq("auth_id", row.auth_id);
   failIfError(unlinkError, "не удалось отвязать вход");
+  revalidatePath("/", "layout");
+}
+
+// ── Больничный инструктора (0069, решение David от 13.10.2026) ──────────────
+//
+// Открывается датой начала: когда человек выздоровеет, заранее не знает никто.
+// С этого дня ему не идёт доля котла абонементов, а смену он открыть не может
+// (lib/salary, instructor/actions). Пишем service_role, как и увольнение.
+//
+// Пока только инструкторам: у СММщика и механика фиксы, их больничный не
+// трогает (решение David).
+async function isInstructor(
+  admin: ReturnType<typeof createAdminClient>,
+  id: string,
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from("users")
+    .select("id")
+    .eq("id", id)
+    .eq("role", "instructor")
+    .maybeSingle();
+  failIfError(error, "не удалось найти инструктора");
+  return Boolean(data);
+}
+
+export async function openSickLeaveAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const from = String(formData.get("from") ?? "").trim();
+  if (!id || !DAY_RE.test(from)) return;
+
+  const admin = createAdminClient();
+  if (!(await isInstructor(admin, id))) return;
+
+  // Больничные не пересекаются: открытый уже есть или прошлый заходит на
+  // выбранную дату — второй период ничего не добавит, только запутает историю.
+  const { data: clash, error: clashError } = await admin
+    .from("sick_leaves")
+    .select("id")
+    .eq("user_id", id)
+    .or(`ends_on.is.null,ends_on.gte.${from}`)
+    .limit(1);
+  failIfError(clashError, "не удалось проверить больничные");
+  if ((clash ?? []).length > 0) return;
+
+  const { error } = await admin
+    .from("sick_leaves")
+    .insert({ user_id: id, starts_on: from });
+  failIfError(error, "не удалось открыть больничный");
+  revalidatePath("/", "layout");
+}
+
+// Закрыть больничный: админ указывает день, когда человек ВЫШЕЛ на работу, а
+// хранится последний день болезни — накануне. Вышел в тот же день, что и
+// заболел (открыли по ошибке), — больничных дней не было, строку удаляем.
+export async function closeSickLeaveAction(formData: FormData) {
+  await requireAdmin();
+  const leaveId = String(formData.get("leaveId") ?? "");
+  const backDay = String(formData.get("backDay") ?? "").trim();
+  if (!leaveId || !DAY_RE.test(backDay)) return;
+
+  const admin = createAdminClient();
+  const { data: leave, error: readError } = await admin
+    .from("sick_leaves")
+    .select("starts_on")
+    .eq("id", leaveId)
+    .is("ends_on", null)
+    .maybeSingle();
+  failIfError(readError, "не удалось найти больничный");
+  if (!leave) return;
+
+  const lastSickDay = vnShiftDays(backDay, -1);
+  const { error } =
+    lastSickDay < (leave.starts_on as string)
+      ? await admin.from("sick_leaves").delete().eq("id", leaveId)
+      : await admin
+          .from("sick_leaves")
+          .update({ ends_on: lastSickDay })
+          .eq("id", leaveId);
+  failIfError(error, "не удалось закрыть больничный");
+  revalidatePath("/", "layout");
+}
+
+// Удалить больничный целиком — если открыли по ошибке. Все дни снова
+// считаются рабочими, и доля котла за них вернётся человеку.
+export async function deleteSickLeaveAction(formData: FormData) {
+  await requireAdmin();
+  const leaveId = String(formData.get("leaveId") ?? "");
+  if (!leaveId) return;
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("sick_leaves").delete().eq("id", leaveId);
+  failIfError(error, "не удалось удалить больничный");
   revalidatePath("/", "layout");
 }
 

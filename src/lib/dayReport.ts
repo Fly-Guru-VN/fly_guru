@@ -1,7 +1,7 @@
 import type { createClient } from "@/lib/supabase/server";
 import { vnPeriod } from "@/lib/dates";
 import { MARINA_RATE, netSessionsBase } from "@/lib/finance";
-import { loadDayShareBosses, loadShiftCrew } from "@/lib/staff";
+import { loadDayShareBosses, loadShiftCrew, sickChecker } from "@/lib/staff";
 import { failIfReadError } from "@/lib/dbError";
 import { loadPaidSubscriptionMoney } from "@/lib/subscriptionExtensions";
 import { isTour } from "@/lib/tours";
@@ -258,7 +258,7 @@ export async function getDayReport(
   // ту же функцию.
   const [shiftPay, sessionShare, subsShares, tourPay] = await Promise.all([
     getShiftPay(admin, range, crewIds),
-    getSessionShare(admin, range, crewIds, bossIds),
+    getSessionShare(admin, range, crewIds, bossIds, sickChecker(staff)),
     getSubsShares(admin, range, staff),
     getTourPay(admin, range, crewIds),
   ]);

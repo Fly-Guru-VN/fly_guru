@@ -18,6 +18,7 @@ import {
   inShiftCrew,
   loadDayShareBosses,
   loadShiftCrew,
+  sickChecker,
   type StaffMember,
 } from "@/lib/staff";
 import type { AppRole } from "@/lib/auth";
@@ -157,7 +158,7 @@ export async function loadPayInputs(
   const [subsShares, shiftPay, sessionShare, tourPay] = await Promise.all([
     getSubsShares(supabase, range, staff),
     getShiftPay(payClient, range, crewIds),
-    getSessionShare(payClient, range, crewIds, bossIds),
+    getSessionShare(payClient, range, crewIds, bossIds, sickChecker(staff)),
     getTourPay(payClient, range, crewIds),
   ]);
 

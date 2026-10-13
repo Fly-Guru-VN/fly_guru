@@ -28,6 +28,7 @@ async function loadStaff(
     fired: isFired(m, today),
     label: employmentLabel(m, today),
     hasLogin: m.hasLogin,
+    sickLeaves: m.sickLeaves ?? [],
   }));
 }
 

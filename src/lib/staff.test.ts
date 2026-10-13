@@ -6,6 +6,8 @@ import {
   employedSpan,
   employmentLabel,
   isFired,
+  onSickLeave,
+  openSickLeave,
   worksOn,
   type StaffMember,
 } from "@/lib/staff";
@@ -81,4 +83,21 @@ test("принят и уволен внутри месяца — оба края
     fromDay: "2026-08-10",
     lastDay: "2026-08-20",
   });
+});
+
+test("больничный: открытый тянется до закрытия, закрытый — включительно", () => {
+  const open = member({ sickLeaves: [{ id: "l1", from: "2026-10-05", to: null }] });
+  assert.equal(onSickLeave(open, "2026-10-04"), false);
+  assert.equal(onSickLeave(open, "2026-10-05"), true);
+  assert.equal(onSickLeave(open, "2026-12-31"), true);
+  assert.equal(openSickLeave(open)?.id, "l1");
+  // Больничный не увольняет: в штате человек остаётся.
+  assert.equal(worksOn(open, "2026-10-06"), true);
+
+  const closed = member({ sickLeaves: [{ id: "l2", from: "2026-10-05", to: "2026-10-09" }] });
+  assert.equal(onSickLeave(closed, "2026-10-09"), true);
+  assert.equal(onSickLeave(closed, "2026-10-10"), false);
+  assert.equal(openSickLeave(closed), null);
+
+  assert.equal(onSickLeave(member(), "2026-10-05"), false);
 });

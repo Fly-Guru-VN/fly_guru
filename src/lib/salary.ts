@@ -4,7 +4,7 @@ import { vnDay, vnShiftDays, vnToday } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
 import { loadPaidSubscriptionMoney } from "@/lib/subscriptionExtensions";
 import { closeStatus, openStatus } from "@/lib/shiftRules";
-import { staffOn, type StaffMember } from "@/lib/staff";
+import { onSickLeave, staffOn, type StaffMember } from "@/lib/staff";
 import { isTour, tourPayFor } from "@/lib/tours";
 
 // Как школа платит за работу на пляже (пачка правок №9, пак 2 — новые правила
@@ -287,11 +287,17 @@ function bossDaysFrom(
 //
 // bossIds — начальники (роль admin): они попадают в дележ только за дни своих
 // открытых смен, см. блок выше.
+//
+// isSick — больничный (0069, lib/staff → sickChecker): назначенная, но не
+// открытая смена больного в дележ не идёт. Открытую смену учитываем как есть:
+// сам инструктор открыть её на больничном не может, а если время выхода руками
+// поставил админ — значит, человек всё-таки работал.
 export async function getSessionShare(
   client: Supabase,
   range: StatsRange,
   crewIds: string[],
   bossIds: string[] = [],
+  isSick: (id: string, day: string) => boolean = () => false,
 ): Promise<Map<string, SessionShare>> {
   const [sessionsRes, shifts] = await Promise.all([
     client
@@ -340,6 +346,7 @@ export async function getSessionShare(
   const dayPlanned = new Map<string, Set<string>>();
   for (const s of shifts) {
     if (!worksThatDay(s.instructor_id, s.date)) continue;
+    if (!s.opened_at && isSick(s.instructor_id, s.date)) continue;
     const target = s.opened_at ? dayOpened : dayPlanned;
     const set = target.get(s.date) ?? new Set<string>();
     set.add(s.instructor_id);
@@ -723,8 +730,11 @@ export async function getSubsShares(
     // 5-го» считается по местному календарю, а не по UTC.
     const day = vnDay(raw.paid_at);
     const opened = openedByDay.get(day);
+    // Больной в этот день доли не получает: абонемент делят остальные
+    // (решение David от 13.10.2026, 0069).
     const crew = staffOn(staff, day).filter(
-      (m) => m.role === "instructor" || opened?.has(m.id),
+      (m) =>
+        !onSickLeave(m, day) && (m.role === "instructor" || opened?.has(m.id)),
     );
     if (crew.length === 0) {
       // Делить не с кем. У полевой продажи такого быть не должно (продавец сам

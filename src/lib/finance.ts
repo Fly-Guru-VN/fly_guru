@@ -2,7 +2,13 @@ import type { createClient } from "@/lib/supabase/server";
 import type { StatsRange } from "@/lib/stats";
 import { getSessionShare, getShiftPay, getSubsShares, getTourPay } from "@/lib/salary";
 import { isTour } from "@/lib/tours";
-import { employedSpan, loadDayShareBosses, loadShiftCrew, type StaffMember } from "@/lib/staff";
+import {
+  employedSpan,
+  loadDayShareBosses,
+  loadShiftCrew,
+  sickChecker,
+  type StaffMember,
+} from "@/lib/staff";
 import { vnPeriod, vnShiftDays } from "@/lib/dates";
 import { loadAllSessions } from "@/lib/sessions";
 import { failIfReadError } from "@/lib/dbError";
@@ -358,7 +364,7 @@ export async function getFinance(
       getShiftPay(supabase, range, crewIds),
       getSubsShares(supabase, range, staff),
       loadPaidOut(supabase, range, crewIds),
-      getSessionShare(supabase, range, crewIds, bossIds),
+      getSessionShare(supabase, range, crewIds, bossIds, sickChecker(staff)),
       getTourPay(supabase, range, crewIds),
     ]);
 

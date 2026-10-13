@@ -14,7 +14,7 @@ import {
   shiftPayStatus,
 } from "@/lib/salary";
 import { vnPeriod, vnToday } from "@/lib/dates";
-import type { StaffMember } from "@/lib/staff";
+import { sickChecker, type StaffMember } from "@/lib/staff";
 
 // Тесты денежных формул. Запуск: npm test
 //
@@ -210,6 +210,34 @@ test("15% дня делятся между открывшими смену, а �
   assert.equal(share.get("a")?.amount, 75_000);
   assert.equal(share.get("b")?.amount, 75_000);
   assert.equal(share.get("a")?.sharedDays, 1);
+});
+
+test("назначенная смена больного в дележ 15% не идёт", async () => {
+  // Смену 10-го никто не открыл, делят назначенные. «b» на больничном —
+  // всё уходит «a».
+  const crew = [
+    staff("a"),
+    staff("b", { sickLeaves: [{ id: "l1", from: "2026-08-09", to: null }] }),
+  ];
+  const db = fakeDb({
+    sessions: [
+      { date: "2026-08-10", amount: 1_000_000, agent_commission: 0, instructor_id: "a" },
+    ],
+    shifts: [
+      { date: "2026-08-10", instructor_id: "a", opened_at: null, closed_at: null },
+      { date: "2026-08-10", instructor_id: "b", opened_at: null, closed_at: null },
+    ],
+  });
+
+  const share = await getSessionShare(
+    db,
+    vnPeriod("2026-08-10", "2026-08-10"),
+    ["a", "b"],
+    [],
+    sickChecker(crew),
+  );
+  assert.equal(share.get("a")?.amount, 150_000);
+  assert.equal(share.get("b"), undefined);
 });
 
 test("в день без смен каждый берёт 15% со своих чеков", async () => {
@@ -418,6 +446,47 @@ test("абонемент делится по составу штата на де
   assert.equal(shares.sharedCount.get("misha"), 1);
   assert.equal(shares.sharedCount.get("b"), 2);
   assert.equal(shares.sharedCount.get("a"), 2);
+});
+
+test("больному абонемент не делится — его долю делят остальные", async () => {
+  // Решение David от 13.10.2026: «b» заболел 5-го, больничный ещё открыт.
+  // Абонемент 4-го делится на троих, 6-го — на двоих: больной в штате, но
+  // доли с абонементов, оплаченных в дни болезни, не получает.
+  const crew = [
+    staff("a"),
+    staff("b", { sickLeaves: [{ id: "l1", from: "2026-08-05", to: null }] }),
+    staff("c"),
+  ];
+  const db = fakeDb({
+    subscriptions: [
+      { price: 6_000_000, paid_at: "2026-08-04T03:00:00Z", sold_by: "a" },
+      { price: 6_000_000, paid_at: "2026-08-06T03:00:00Z", sold_by: "a" },
+    ],
+  });
+
+  const shares = await getSubsShares(db, vnPeriod("2026-08-01", "2026-08-10"), crew);
+  assert.equal(shares.pool, 1_800_000); // деньги не пропадают
+  assert.equal(shares.shares.get("b"), 300_000); // только за 4-е
+  assert.equal(shares.shares.get("c"), 300_000 + 450_000);
+  assert.equal(shares.sharedCount.get("b"), 1);
+});
+
+test("закрытый больничный: после выхода доля снова идёт", async () => {
+  // Болел 5–6-го, вышел 7-го.
+  const crew = [
+    staff("a"),
+    staff("b", { sickLeaves: [{ id: "l1", from: "2026-08-05", to: "2026-08-06" }] }),
+  ];
+  const db = fakeDb({
+    subscriptions: [
+      { price: 6_000_000, paid_at: "2026-08-06T03:00:00Z", sold_by: "a" },
+      { price: 6_000_000, paid_at: "2026-08-07T03:00:00Z", sold_by: "a" },
+    ],
+  });
+
+  const shares = await getSubsShares(db, vnPeriod("2026-08-01", "2026-08-10"), crew);
+  assert.equal(shares.shares.get("a"), 900_000 + 450_000);
+  assert.equal(shares.shares.get("b"), 450_000); // только за 7-е
 });
 
 test("абонемент, проданный админом, делят инструкторы и без галочки", async () => {
