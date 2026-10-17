@@ -2,6 +2,7 @@ import type { createClient } from "@/lib/supabase/server";
 import { loadAllClients } from "@/lib/clients";
 import { loadAllSessions } from "@/lib/sessions";
 import { phoneDigits } from "@/lib/phone";
+import { failIfReadError } from "@/lib/dbError";
 
 // Список клиентов с поиском и сортировкой — общий для экрана «Клиенты» (админ и
 // СММщик) и его выгрузки в Excel. Считается в одном месте, чтобы файл не мог
@@ -38,11 +39,51 @@ export const SOURCE_LABEL: Record<string, string> = {
 const CLIENT_COLUMNS =
   "id, name, phone, source, referrer_type, referrer_id, internal_note, age, city, tour_approved, telegram_username, photo_path, photo_url, created_at";
 
-// Три поля сессии, из которых считаются занятия, траты и последний визит.
+// Поля сессии, из которых считаются занятия, траты, последний визит и группа
+// клиента. Категория услуги пустая у списаний минут абонемента.
 interface SessionRow {
   client_id: string | null;
   amount: number | null;
   date: string;
+  service: { category: string | null } | null;
+}
+
+/**
+ * Группы клиентов — фильтр над списком (просьба начальника от 17.10.2026).
+ * Группы пересекаются: член клуба почти всегда ещё и возвратник.
+ */
+export const SEGMENTS = [
+  { key: "", label: "Все" },
+  { key: "club", label: "Клубники" },
+  { key: "trained", label: "Прошли обучение" },
+  { key: "returning", label: "Возвратники" },
+  { key: "tandem", label: "Только тандем" },
+] as const;
+
+export type SegmentKey = (typeof SEGMENTS)[number]["key"];
+
+interface SegmentFacts {
+  member: boolean;
+  trained: boolean; // было хотя бы одно занятие «Обучение»
+  days: Set<string>; // разные дни, когда человек у нас был
+  tandemOnly: boolean; // занятия были, и все до одного — тандем
+}
+
+// Кто в какую группу попадает. Возвратник — был у нас в два и больше разных
+// дня (решение David от 17.10.2026), что бы ни брал.
+function inSegment(seg: string, f: SegmentFacts): boolean {
+  switch (seg) {
+    case "club":
+      return f.member;
+    case "trained":
+      return f.trained;
+    case "returning":
+      return f.days.size >= 2;
+    case "tandem":
+      return f.tandemOnly;
+    default:
+      return true;
+  }
 }
 
 export interface VisitStats {
@@ -59,20 +100,31 @@ export interface VisitStats {
  */
 export async function loadClientList(
   supabase: Supabase,
-  { q, sort }: { q: string; sort: string },
+  { q, sort, seg = "" }: { q: string; sort: string; seg?: string },
 ): Promise<{
   all: ClientListRow[];
   sorted: ClientListRow[];
   visits: (id: string) => VisitStats;
+  /** Сколько найденных поиском в каждой группе — число на кнопке фильтра. */
+  segCounts: Record<string, number>;
 }> {
-  const [{ rows: allClients }, { rows: allSessions }] = await Promise.all([
+  const [{ rows: allClients }, { rows: allSessions }, membersRes] = await Promise.all([
     // Постранично (lib/clients): .limit(1000) молча обрезал бы базу клиентов —
     // поиск переставал бы находить всех, кто не попал в первую тысячу.
     loadAllClients<ClientListRow>(supabase, CLIENT_COLUMNS),
     // Тоже постранично (lib/sessions): .limit(10000) молча занизил бы
     // и число занятий, и сумму трат у клиентов.
-    loadAllSessions<SessionRow>(supabase, "client_id, amount, date"),
+    loadAllSessions<SessionRow>(
+      supabase,
+      "client_id, amount, date, service:services(category)",
+    ),
+    // Членов клуба десятки — одним запросом.
+    supabase.from("memberships").select("client_id"),
   ]);
+  failIfReadError(membersRes.error, "не удалось прочитать членов клуба");
+  const memberIds = new Set(
+    ((membersRes.data ?? []) as { client_id: string }[]).map((m) => m.client_id),
+  );
   // Загрузчик отдаёт по id — восстанавливаем прежний порядок «новые сверху».
   const all = [...allClients].sort((a, b) =>
     b.created_at.localeCompare(a.created_at),
@@ -100,16 +152,39 @@ export async function loadClientList(
     }
     return s;
   };
+  const factsById = new Map<string, SegmentFacts>();
+  const facts = (id: string): SegmentFacts => {
+    let f = factsById.get(id);
+    if (!f) {
+      f = { member: memberIds.has(id), trained: false, days: new Set(), tandemOnly: false };
+      factsById.set(id, f);
+    }
+    return f;
+  };
+  const nonTandem = new Set<string>();
   for (const r of allSessions) {
     const s = visits(r.client_id as string);
     s.sessions += 1;
     s.spent += (r.amount as number) ?? 0;
     if (!s.lastVisit || r.date > s.lastVisit) s.lastVisit = r.date;
+
+    const f = facts(r.client_id as string);
+    const category = r.service?.category ?? null;
+    f.days.add(r.date);
+    if (category === "training") f.trained = true;
+    if (category !== "tandem") nonTandem.add(r.client_id as string);
   }
+  for (const [id, f] of factsById) f.tandemOnly = f.days.size > 0 && !nonTandem.has(id);
+
+  const segCounts: Record<string, number> = {};
+  for (const { key } of SEGMENTS) {
+    segCounts[key] = found.filter((c) => inSegment(key, facts(c.id))).length;
+  }
+  const inSeg = found.filter((c) => inSegment(seg, facts(c.id)));
 
   // Сортировка. «Новые» — как пришло из базы (created_at desc). Метрики — по
   // убыванию; клиенты без значения (нет визитов / возраст не указан) — в конце.
-  const sorted = [...found];
+  const sorted = [...inSeg];
   if (sort === "sessions") {
     sorted.sort((a, b) => visits(b.id).sessions - visits(a.id).sessions);
   } else if (sort === "spent") {
@@ -122,7 +197,7 @@ export async function loadClientList(
     sorted.sort((a, b) => (b.age ?? -1) - (a.age ?? -1));
   }
 
-  return { all, sorted, visits };
+  return { all, sorted, visits, segCounts };
 }
 
 // Сколько id за раз кладём в .in(...): список уходит прямо в адрес запроса, и

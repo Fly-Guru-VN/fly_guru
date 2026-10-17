@@ -5,7 +5,7 @@ import { vnDay, vnToday } from "@/lib/dates";
 import { loadClientList, selectIn, SOURCE_LABEL } from "@/lib/clientList";
 import { buildXlsx, xlsxHeaders } from "@/lib/xlsx";
 
-// Excel со списком клиентов: /api/admin/clients?q&sort. Поиск и сортировка —
+// Excel со списком клиентов: /api/admin/clients?q&seg&sort. Поиск, группа и сортировка —
 // те же, что на экране «Клиенты» (общий lib/clientList), но в файл идут ВСЕ
 // найденные, а не только показанная порция. /api не проходит через proxy.ts
 // (см. matcher), поэтому роль проверяем сами.
@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
   const { all, sorted, visits } = await loadClientList(supabase, {
     q: p.get("q") ?? "",
     sort: p.get("sort") ?? "",
+    seg: p.get("seg") ?? "",
   });
   const ids = sorted.map((c) => c.id);
   const agentIds = sorted

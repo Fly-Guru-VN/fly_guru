@@ -7,6 +7,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import {
   loadClientList,
+  SEGMENTS,
   selectIn,
   SOURCE_LABEL,
   type ClientListRow,
@@ -301,11 +302,13 @@ export async function ClientsScreen({
   searchParams,
   base,
 }: {
-  searchParams: Promise<{ q?: string; sort?: string; limit?: string }>;
+  searchParams: Promise<{ q?: string; sort?: string; seg?: string; limit?: string }>;
   /** Кабинет, из которого открыт экран: «/admin» или «/smm». */
   base: string;
 }) {
-  const { q = "", sort = "", limit: limitParam } = await searchParams;
+  const { q = "", sort = "", seg: segParam = "", limit: limitParam } = await searchParams;
+  // Неизвестная группа из адреса — как «Все», а не пустой список.
+  const seg = SEGMENTS.some((s) => s.key === segParam) ? segParam : "";
   const supabase = await createClient();
 
   // «Показать ещё» — та же страница с ?limit= больше на PAGE_SIZE. Через адрес,
@@ -316,7 +319,11 @@ export async function ClientsScreen({
     Math.floor(Number(limitParam) / PAGE_SIZE) * PAGE_SIZE || PAGE_SIZE,
   );
 
-  const { all, sorted, visits } = await loadClientList(supabase, { q, sort });
+  const { all, sorted, visits, segCounts } = await loadClientList(supabase, {
+    q,
+    sort,
+    seg,
+  });
   const found = sorted;
 
   const statsById = new Map<string, ClientStats>();
@@ -422,9 +429,11 @@ export async function ClientsScreen({
     st.bonusLeft = (st.bonusLeft ?? 0) - Number(r.minutes_used ?? 0);
   }
 
-  // Адрес с текущими поиском и сортировкой — для «Показать ещё» и выгрузки.
+  // Адрес с текущими поиском, группой и сортировкой — для «Показать ещё» и
+  // выгрузки.
   const params = new URLSearchParams();
   if (q) params.set("q", q);
+  if (seg) params.set("seg", seg);
   if (sort) params.set("sort", sort);
   const moreParams = new URLSearchParams(params);
   moreParams.set("limit", String(limit + PAGE_SIZE));
@@ -448,6 +457,7 @@ export async function ClientsScreen({
           placeholder="Имя или телефон…"
           className={inputClass}
         />
+        {seg && <input type="hidden" name="seg" value={seg} />}
         {sort && <input type="hidden" name="sort" value={sort} />}
         <button
           type="submit"
@@ -461,6 +471,7 @@ export async function ClientsScreen({
         {SORTS.map((s) => {
           const params = new URLSearchParams();
           if (q) params.set("q", q);
+          if (seg) params.set("seg", seg);
           if (s.key) params.set("sort", s.key);
           const qs = params.toString();
           return (
@@ -478,6 +489,32 @@ export async function ClientsScreen({
           );
         })}
       </div>
+      </div>
+
+      {/* Группы клиентов. Число на кнопке — сколько людей в группе среди
+          найденных поиском; сортировка при переключении сохраняется. */}
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {SEGMENTS.map((g) => {
+          const params = new URLSearchParams();
+          if (q) params.set("q", q);
+          if (g.key) params.set("seg", g.key);
+          if (sort) params.set("sort", sort);
+          const qs = params.toString();
+          return (
+            <Link
+              key={g.key}
+              href={qs ? `${base}/clients?${qs}` : `${base}/clients`}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                seg === g.key
+                  ? "bg-ink text-white"
+                  : "border border-line text-muted hover:border-primary hover:text-primary"
+              }`}
+            >
+              {g.label}{" "}
+              <span className="tabular-nums opacity-70">{segCounts[g.key] ?? 0}</span>
+            </Link>
+          );
+        })}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">

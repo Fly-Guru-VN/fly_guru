@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "СММ · Клиенты" };
 export default function SmmClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; sort?: string; limit?: string }>;
+  searchParams: Promise<{ q?: string; sort?: string; seg?: string; limit?: string }>;
 }) {
   return <ClientsScreen searchParams={searchParams} base="/smm" />;
 }
