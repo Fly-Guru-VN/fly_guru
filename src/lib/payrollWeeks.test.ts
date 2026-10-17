@@ -130,3 +130,36 @@ test("неделя без заработка и выплат — пустая, �
   assert.equal(weeks[0].status, "empty");
   assert.equal(weeks.filter(isUnderpaid).length, 0);
 });
+
+test("«Как считалось»: части недели раскладываются по своим неделям и дают earned", () => {
+  const partsByDay = {
+    sessions: new Map([
+      ["2026-10-10", 85_000],
+      ["2026-10-16", 40_000],
+      ["2026-10-17", 70_000], // суббота — уже следующая неделя
+    ]),
+    shifts: new Map([
+      ["2026-10-10", 200_000],
+      ["2026-10-16", 200_000],
+    ]),
+    subs: new Map([["2026-10-12", 45_000]]),
+    tours: new Map<string, number>(),
+  };
+  const earnedByDay = new Map<string, number>();
+  for (const byDay of Object.values(partsByDay)) {
+    for (const [d, v] of byDay) earnedByDay.set(d, (earnedByDay.get(d) ?? 0) + v);
+  }
+  const weeks = buildPayWeeks({
+    epoch: "2026-10-10",
+    today: "2026-10-17",
+    earnedByDay,
+    partsByDay,
+    payouts: [],
+  });
+  assert.equal(weeks.length, 2);
+  const [w] = weeks;
+  assert.deepEqual(w.parts, { sessions: 125_000, shifts: 400_000, subs: 45_000, tours: 0 });
+  const sum = Object.values(w.parts).reduce((s, v) => s + v, 0);
+  assert.equal(sum, w.earned);
+  assert.equal(weeks[1].parts.sessions, 70_000);
+});

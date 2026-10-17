@@ -4,6 +4,7 @@ import {
   loadPayInputs,
   salaryByDay,
   salaryFrom,
+  salaryPartsByDay,
   type InstructorStats,
   type StatsRange,
 } from "@/lib/stats";
@@ -1117,6 +1118,7 @@ export async function getInstructorCard(
       epoch: PAYROLL_EPOCH,
       today: balanceLastDay,
       earnedByDay: salaryByDay(balanceInputs, member.id),
+      partsByDay: salaryPartsByDay(balanceInputs, member.id),
       payouts: payouts.map((p) => ({
         id: p.id,
         amount: p.amount,

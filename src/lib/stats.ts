@@ -189,23 +189,43 @@ export function salaryFrom(
   };
 }
 
+/** Слагаемые ЗП по дням: день → сколько начислено по этой части. */
+export interface SalaryPartsByDay {
+  sessions: Map<string, number>;
+  shifts: Map<string, number>;
+  subs: Map<string, number>;
+  tours: Map<string, number>;
+}
+
 /**
- * Те же три слагаемых, разложенные по дням: день → сколько начислено. Сумма
- * по всем дням равна salaryFrom(...).total — карточка инструктора собирает из
- * этого недели и сверяет их с выплатами.
+ * Те же слагаемые, что в salaryFrom, каждое по дням. Карточка инструктора
+ * раскладывает их по неделям для «Как считалось».
+ */
+export function salaryPartsByDay(
+  inputs: PayInputs,
+  instructorId: string,
+): SalaryPartsByDay {
+  return {
+    sessions: inputs.sessionShare.get(instructorId)?.byDay ?? new Map(),
+    shifts: inputs.shiftPay.get(instructorId)?.byDay ?? new Map(),
+    subs: inputs.subsShares.sharesByDay.get(instructorId) ?? new Map(),
+    tours: inputs.tourPay.get(instructorId)?.byDay ?? new Map(),
+  };
+}
+
+/**
+ * Все слагаемые одной суммой по дням. Сумма по всем дням равна
+ * salaryFrom(...).total — карточка инструктора собирает из этого недели и
+ * сверяет их с выплатами.
  */
 export function salaryByDay(
   inputs: PayInputs,
   instructorId: string,
 ): Map<string, number> {
   const days = new Map<string, number>();
-  const add = (byDay: Map<string, number> | undefined) => {
-    for (const [day, v] of byDay ?? []) days.set(day, (days.get(day) ?? 0) + v);
-  };
-  add(inputs.sessionShare.get(instructorId)?.byDay);
-  add(inputs.shiftPay.get(instructorId)?.byDay);
-  add(inputs.subsShares.sharesByDay.get(instructorId));
-  add(inputs.tourPay.get(instructorId)?.byDay);
+  for (const byDay of Object.values(salaryPartsByDay(inputs, instructorId))) {
+    for (const [day, v] of byDay) days.set(day, (days.get(day) ?? 0) + v);
+  }
   return days;
 }
 

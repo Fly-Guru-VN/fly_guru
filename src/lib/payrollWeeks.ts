@@ -1,4 +1,5 @@
 import { vnShiftDays } from "@/lib/dates";
+import type { SalaryPartsByDay } from "@/lib/stats";
 
 // Карточка инструктора: заработок по неделям рядом с выплатами за них.
 //
@@ -52,6 +53,11 @@ export type PayWeekStatus =
   | "short"
   | "over";
 
+/** Из чего сложился заработок недели — для «Как считалось» (17.10.2026). */
+export type PayWeekParts = Record<keyof SalaryPartsByDay, number>;
+
+const NO_PARTS: PayWeekParts = { sessions: 0, shifts: 0, subs: 0, tours: 0 };
+
 export interface PayWeek {
   fromDay: string; // суббота
   lastDay: string; // пятница, включительно
@@ -59,6 +65,8 @@ export interface PayWeek {
   // Округляет только экран — тогда сумма diff по неделям ровно равна
   // «осталось выдать», а не расходится на пару донгов.
   earned: number;
+  /** earned по слагаемым; сумма частей = earned. */
+  parts: PayWeekParts;
   paid: number;
   payouts: WeekPayout[];
   /** earned − paid: плюс — не довыдали, минус — выдали лишнего. */
@@ -87,11 +95,14 @@ export function buildPayWeeks({
   epoch,
   today,
   earnedByDay,
+  partsByDay,
   payouts,
 }: {
   epoch: string;
   today: string;
   earnedByDay: Map<string, number>;
+  // Те же деньги, что в earnedByDay, но по слагаемым. Не передали — части нули.
+  partsByDay?: SalaryPartsByDay;
   payouts: WeekPayout[];
 }): PayWeek[] {
   if (today < epoch) return [];
@@ -101,11 +112,21 @@ export function buildPayWeeks({
     starts.push(d);
   }
 
+  const weekOf = (day: string): number =>
+    day < epoch || day > today ? -1 : starts.indexOf(payWeekStart(day));
+
   const earned = starts.map(() => 0);
   for (const [day, v] of earnedByDay) {
-    if (day < epoch || day > today) continue;
-    const i = starts.indexOf(payWeekStart(day));
+    const i = weekOf(day);
     if (i >= 0) earned[i] += v;
+  }
+
+  const parts = starts.map((): PayWeekParts => ({ ...NO_PARTS }));
+  for (const key of Object.keys(NO_PARTS) as (keyof PayWeekParts)[]) {
+    for (const [day, v] of partsByDay?.[key] ?? []) {
+      const i = weekOf(day);
+      if (i >= 0) parts[i][key] += v;
+    }
   }
 
   const byWeek: WeekPayout[][] = starts.map(() => []);
@@ -130,6 +151,7 @@ export function buildPayWeeks({
       fromDay,
       lastDay,
       earned: earned[i],
+      parts: parts[i],
       paid,
       payouts: list,
       diff: earned[i] - paid,

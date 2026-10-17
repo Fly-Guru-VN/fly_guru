@@ -63,6 +63,34 @@ function Tile({
   );
 }
 
+// «Как считалось» (просьба David от 17.10.2026): из каких частей сложилось
+// «заработал» за неделю — те же строки, что в «Сводке за месяц», только за 7
+// дней. Части считаются из тех же начислений, поэтому итог равен «заработал».
+function WeekBreakdown({ w }: { w: PayWeek }) {
+  const { sessions, shifts, subs, tours } = w.parts;
+  const shiftsCount = Math.round(shifts / SHIFT_PAY);
+  return (
+    <details className="group mt-2 text-sm">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 font-semibold text-primary [&::-webkit-details-marker]:hidden">
+        Как считалось
+        <span className="transition-transform group-open:rotate-180">▾</span>
+      </summary>
+      <div className="mt-1 rounded-xl border border-line bg-surface p-3">
+        <DetailLine label="Доля 15% с занятий дня" value={sessions} />
+        <DetailLine
+          label={`Выходы · ${shiftsCount} × ${vnd(SHIFT_PAY)}`}
+          value={shifts}
+        />
+        <DetailLine label="Доля котла абонементов" value={subs} />
+        {Math.round(tours) !== 0 && (
+          <DetailLine label="Экскурсии и сафари" value={tours} />
+        )}
+        <DetailLine label="Итого заработал" value={w.earned} strong />
+      </div>
+    </details>
+  );
+}
+
 function WeekRow({ w, payee }: { w: PayWeek; payee: string }) {
   const status = STATUS[w.status];
   const label = weekLabel(w);
@@ -107,6 +135,8 @@ function WeekRow({ w, payee }: { w: PayWeek; payee: string }) {
           )
         )}
       </div>
+
+      {Math.round(w.earned) !== 0 && <WeekBreakdown w={w} />}
 
       {isUnderpaid(w) && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
