@@ -1018,11 +1018,15 @@ export async function getMonthlyPayroll(
     .filter(
       (r) => !(r.fired && r.accrued === 0 && r.paid === 0 && (r.left ?? 0) <= 0),
     )
-    // Сначала те, кому ещё не выдали, и по убыванию суммы: экран отвечает на
-    // вопрос «кому отдать сегодня». Равные суммы — по имени, чтобы не прыгало.
+    // Уволенные — в самом низу, чтобы не маячили среди работающих (просьба
+    // David от 17.10.2026). Внутри каждой группы сначала те, кому ещё не
+    // выдали, по убыванию суммы: экран отвечает на вопрос «кому отдать
+    // сегодня». Равные суммы — по имени, чтобы не прыгало.
     .sort(
       (a, b) =>
-        (b.left ?? 0) - (a.left ?? 0) || a.name.localeCompare(b.name, "ru"),
+        Number(a.fired) - Number(b.fired) ||
+        (b.left ?? 0) - (a.left ?? 0) ||
+        a.name.localeCompare(b.name, "ru"),
     );
 
   const payableRows = visibleRows.filter((r) => r.payee);

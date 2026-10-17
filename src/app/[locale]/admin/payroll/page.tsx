@@ -176,7 +176,20 @@ function DueCard({
           </div>
         )}
 
-        {row.payee && !row.upcoming && row.accrued > 0 && (
+        {/* Уволенный: заработка за выбранные дни у него обычно нет, а
+            остаток есть — кнопка подставляет весь остаток, чтобы
+            рассчитаться одним нажатием (17.10.2026: у уволенных кнопки не
+            было вовсе). */}
+        {row.payee && !row.upcoming && row.fired && row.left !== null && row.left > 0 && (
+          <div className="w-full sm:ml-auto sm:w-auto">
+            <PayButton
+              payee={`${row.payee.kind}:${row.payee.id}`}
+              amount={row.left}
+            />
+          </div>
+        )}
+
+        {row.payee && !row.upcoming && !(row.fired && (row.left ?? 0) > 0) && row.accrued > 0 && (
           <div className="w-full sm:ml-auto sm:w-auto">
             <PayButton
               payee={`${row.payee.kind}:${row.payee.id}`}
