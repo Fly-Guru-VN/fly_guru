@@ -6,6 +6,7 @@ import {
   openSickLeaveAction,
   rehireInstructorAction,
   setHiredAtAction,
+  setNoSubsShareAction,
   setSeniorAction,
 } from "../actions";
 import type { AppRole } from "@/lib/auth";
@@ -45,6 +46,7 @@ export interface StaffRow {
   label: string | null; // «уволен 5 авг» / «с 12 авг»
   hasLogin: boolean; // жив ли логин в Supabase Auth
   sickLeaves: SickLeave[]; // больничные (0069), по возрастанию даты начала
+  noSubsShareFrom: string | null; // без доли котла абонементов с этого дня (0070)
 }
 
 const TITLE = { instructor: "Инструкторы", smm: "СММ", mechanic: "Механик" };
@@ -106,6 +108,11 @@ export function StaffManager({
                   )}
                   {s.label && (
                     <span className="ml-2 text-[11px] text-muted">{s.label}</span>
+                  )}
+                  {s.noSubsShareFrom && (
+                    <span className="ml-2 rounded-full bg-line/60 px-2 py-0.5 text-[11px] font-semibold text-muted">
+                      без доли с абонементов
+                    </span>
                   )}
                   {openLeave(s) && (
                     <span className="ml-2 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-600">
@@ -172,6 +179,7 @@ export function StaffManager({
               </div>
 
               {kind === "instructor" && <SickLeaveControls s={s} today={today} />}
+              {kind === "instructor" && <SubsShareControls s={s} today={today} />}
             </li>
           ))}
         </ul>
@@ -320,6 +328,53 @@ function SickLeaveControls({ s, today }: { s: StaffRow; today: string }) {
             </span>
           ))}
         </p>
+      )}
+    </div>
+  );
+}
+
+// Без доли котла абонементов (0070, решение David от 20.10.2026). Условия
+// человека, а не событие: с выбранного дня абонементы делятся без него, ему
+// остаются только свои выходы. Дата нужна, чтобы не пересчитать задним числом
+// уже выплаченные недели.
+function SubsShareControls({ s, today }: { s: StaffRow; today: string }) {
+  return (
+    <div className="mt-2 border-t border-line/60 pt-2">
+      {s.noSubsShareFrom ? (
+        <form action={setNoSubsShareAction} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <input type="hidden" name="id" value={s.id} />
+          <input type="hidden" name="from" value="" />
+          <span className="text-[11px] text-muted">
+            Без доли с абонементов с {shortDay(s.noSubsShareFrom)}: получает
+            только за свои выходы
+          </span>
+          <ConfirmSubmit
+            message={`Вернуть ${s.name} долю с абонементов? Расчёт станет как у всех, в том числе за дни с ${shortDay(s.noSubsShareFrom)}: если эти недели уже выплачены, суммы в них изменятся.`}
+            className={linkClass}
+          >
+            Вернуть долю
+          </ConfirmSubmit>
+        </form>
+      ) : (
+        <form action={setNoSubsShareAction} className="flex items-end gap-1.5">
+          <input type="hidden" name="id" value={s.id} />
+          <label className="text-[11px] text-muted">
+            Без доли с абонементов с
+            <input
+              type="date"
+              name="from"
+              defaultValue={today}
+              required
+              className={`mt-0.5 block ${dateClass}`}
+            />
+          </label>
+          <ConfirmSubmit
+            message={`${s.name} больше не получает долю с абонементов? С этой даты 15% с абонементов делят остальные, а ему идут только свои выходы: 200 000 ₫ за смену и 15% с занятий дня.`}
+            className={`${linkClass} pb-1.5`}
+          >
+            Не давать долю с абонементов
+          </ConfirmSubmit>
+        </form>
       )}
     </div>
   );

@@ -489,6 +489,38 @@ test("закрытый больничный: после выхода доля с
   assert.equal(shares.shares.get("b"), 450_000); // только за 7-е
 });
 
+test("без доли с абонементов: с даты условий абонемент делят остальные", async () => {
+  // Решение David от 20.10.2026 (0070): Руслана вернули без доли котла, ему
+  // только свои выходы. До даты новых условий доля остаётся — выплаченные
+  // недели задним числом не пересчитываются.
+  const crew = [staff("a"), staff("r", { noSubsShareFrom: "2026-08-05" })];
+  const db = fakeDb({
+    subscriptions: [
+      { price: 6_000_000, paid_at: "2026-08-04T03:00:00Z", sold_by: "a" },
+      { price: 6_000_000, paid_at: "2026-08-06T03:00:00Z", sold_by: "r" },
+    ],
+  });
+
+  const shares = await getSubsShares(db, vnPeriod("2026-08-01", "2026-08-10"), crew);
+  assert.equal(shares.pool, 1_800_000);
+  assert.equal(shares.shares.get("r"), 450_000); // только за 4-е
+  assert.equal(shares.shares.get("a"), 450_000 + 900_000);
+  assert.equal(shares.soldCount.get("r"), 1); // «продал сам» считается как прежде
+});
+
+test("без доли с абонементов: в день, когда делить не с кем, продавцу не идёт", async () => {
+  const crew = [staff("r", { noSubsShareFrom: "2026-08-01" })];
+  const db = fakeDb({
+    subscriptions: [
+      { price: 6_000_000, paid_at: "2026-08-06T03:00:00Z", sold_by: "r" },
+    ],
+  });
+
+  const shares = await getSubsShares(db, vnPeriod("2026-08-01", "2026-08-10"), crew);
+  assert.equal(shares.pool, 0);
+  assert.equal(shares.shares.get("r"), undefined);
+});
+
 test("абонемент, проданный админом, делят инструкторы и без галочки", async () => {
   // С 06.10.2026 в котёл идёт любой оплаченный абонемент: делится он как
   // инструкторский — между теми, кто был в штате в день ОПЛАТЫ, а сам босс

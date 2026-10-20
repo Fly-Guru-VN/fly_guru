@@ -63,10 +63,18 @@ function Tile({
   );
 }
 
+const shortDay = (day: string) =>
+  new Date(`${day}T00:00:00`).toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "short",
+  });
+
 // «Как считалось» (просьба David от 17.10.2026): из каких частей сложилось
 // «заработал» за неделю — те же строки, что в «Сводке за месяц», только за 7
 // дней. Части считаются из тех же начислений, поэтому итог равен «заработал».
-function WeekBreakdown({ w }: { w: PayWeek }) {
+// noSubsFrom — с какого дня человек без доли котла абонементов (0070): в
+// неделе после этой даты рядом с долей стоит пояснение, откуда там ноль.
+function WeekBreakdown({ w, noSubsFrom }: { w: PayWeek; noSubsFrom: string | null }) {
   const { sessions, shifts, subs, tours } = w.parts;
   const shiftsCount = Math.round(shifts / SHIFT_PAY);
   return (
@@ -81,7 +89,15 @@ function WeekBreakdown({ w }: { w: PayWeek }) {
           label={`Выходы · ${shiftsCount} × ${vnd(SHIFT_PAY)}`}
           value={shifts}
         />
-        <DetailLine label="Доля котла абонементов" value={subs} />
+        <DetailLine
+          label="Доля котла абонементов"
+          hint={
+            noSubsFrom && w.lastDay >= noSubsFrom
+              ? `без доли с ${shortDay(noSubsFrom)}`
+              : undefined
+          }
+          value={subs}
+        />
         {Math.round(tours) !== 0 && (
           <DetailLine label="Экскурсии и сафари" value={tours} />
         )}
@@ -91,7 +107,15 @@ function WeekBreakdown({ w }: { w: PayWeek }) {
   );
 }
 
-function WeekRow({ w, payee }: { w: PayWeek; payee: string }) {
+function WeekRow({
+  w,
+  payee,
+  noSubsFrom,
+}: {
+  w: PayWeek;
+  payee: string;
+  noSubsFrom: string | null;
+}) {
   const status = STATUS[w.status];
   const label = weekLabel(w);
   return (
@@ -136,7 +160,7 @@ function WeekRow({ w, payee }: { w: PayWeek; payee: string }) {
         )}
       </div>
 
-      {Math.round(w.earned) !== 0 && <WeekBreakdown w={w} />}
+      {Math.round(w.earned) !== 0 && <WeekBreakdown w={w} noSubsFrom={noSubsFrom} />}
 
       {isUnderpaid(w) && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -209,6 +233,8 @@ export default async function InstructorCardPage({
           hint={[
             member.senior ? "старший инструктор" : "инструктор",
             card.employmentLabel,
+            member.noSubsShareFrom &&
+              `без доли с абонементов с ${shortDay(member.noSubsShareFrom)}`,
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -351,7 +377,12 @@ export default async function InstructorCardPage({
         </p>
         <div className="mt-3 space-y-2">
           {monthWeeks.map((w) => (
-            <WeekRow key={w.fromDay} w={w} payee={payee} />
+            <WeekRow
+              key={w.fromDay}
+              w={w}
+              payee={payee}
+              noSubsFrom={member.noSubsShareFrom ?? null}
+            />
           ))}
           {monthWeeks.length === 0 && (
             <p className="text-sm text-muted">В этом месяце недель нет.</p>

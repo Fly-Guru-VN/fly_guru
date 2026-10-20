@@ -4,7 +4,7 @@ import { vnDay, vnShiftDays, vnToday } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
 import { loadPaidSubscriptionMoney } from "@/lib/subscriptionExtensions";
 import { closeStatus, openStatus } from "@/lib/shiftRules";
-import { onSickLeave, staffOn, type StaffMember } from "@/lib/staff";
+import { onSickLeave, staffOn, subsShareOn, type StaffMember } from "@/lib/staff";
 import { isTour, tourPayFor } from "@/lib/tours";
 
 // Как школа платит за работу на пляже (пачка правок №9, пак 2 — новые правила
@@ -731,17 +731,21 @@ export async function getSubsShares(
     const day = vnDay(raw.paid_at);
     const opened = openedByDay.get(day);
     // Больной в этот день доли не получает: абонемент делят остальные
-    // (решение David от 13.10.2026, 0069).
+    // (решение David от 13.10.2026, 0069). Так же — тот, кто работает без доли
+    // с абонементов (0070, с 20.10.2026 Руслан): ему только свои выходы.
     const crew = staffOn(staff, day).filter(
       (m) =>
-        !onSickLeave(m, day) && (m.role === "instructor" || opened?.has(m.id)),
+        !onSickLeave(m, day) &&
+        subsShareOn(m, day) &&
+        (m.role === "instructor" || opened?.has(m.id)),
     );
     if (crew.length === 0) {
       // Делить не с кем. У полевой продажи такого быть не должно (продавец сам
       // был в штате в день оплаты), и если даты выставили криво — деньги не
       // растворяются, а остаются продавцу. А вот продажу босса в такой день
       // просто не делим: отдать её ему же значит записать боссу долю котла.
-      if (fromCrew) {
+      // Продавцу без доли с абонементов (0070) её тоже не отдаём.
+      if (fromCrew && subsShareOn(byId.get(seller)!, day)) {
         pool += cut;
         add(seller, cut, day);
       }

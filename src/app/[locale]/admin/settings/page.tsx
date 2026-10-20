@@ -29,6 +29,7 @@ async function loadStaff(
     label: employmentLabel(m, today),
     hasLogin: m.hasLogin,
     sickLeaves: m.sickLeaves ?? [],
+    noSubsShareFrom: m.noSubsShareFrom ?? null,
   }));
 }
 

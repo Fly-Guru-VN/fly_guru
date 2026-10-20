@@ -40,6 +40,9 @@ export interface StaffMember {
   // Больничные (0069). Нет поля = больничных не было: так проще собирать
   // StaffMember руками в тестах и на экранах, которым больничный не важен.
   sickLeaves?: SickLeave[];
+  // С этого дня (включительно) без доли котла абонементов (0070). Нет поля или
+  // null = обычные условия.
+  noSubsShareFrom?: string | null;
 }
 
 // Период больничного, обе границы включительно; to = null — болеет сейчас.
@@ -91,6 +94,15 @@ export function worksOn(m: StaffMember, day: string): boolean {
 // день ему не идёт доля котла абонементов, и он не попадает в дележ 15% по
 // назначенным сменам (lib/salary). worksOn больничный НЕ трогает: человек
 // по-прежнему в штате, просто этот день ему не оплачивается.
+// Получает ли человек долю котла абонементов в этот день (0070, решение David
+// от 20.10.2026: Руслана вернули без доли с абонементов, только свои выходы).
+export function subsShareOn(
+  m: Pick<StaffMember, "noSubsShareFrom">,
+  day: string,
+): boolean {
+  return !m.noSubsShareFrom || day < m.noSubsShareFrom;
+}
+
 export function onSickLeave(m: Pick<StaffMember, "sickLeaves">, day: string): boolean {
   return Boolean(
     m.sickLeaves?.some((l) => day >= l.from && (l.to === null || day <= l.to)),
@@ -165,7 +177,7 @@ export interface Employee extends StaffMember {
 export async function loadEmployees(client: Supabase): Promise<Employee[]> {
   const { data, error } = await client
     .from("users")
-    .select(`id, name, role, senior, hired_at, left_at, auth_id, ${SICK_LEAVES_EMBED}`)
+    .select(`id, name, role, senior, hired_at, left_at, no_subs_share_from, auth_id, ${SICK_LEAVES_EMBED}`)
     .in("role", EMPLOYMENT_ROLES)
     .order("name");
   failIfReadError(error, "не удалось прочитать штат");
@@ -211,7 +223,7 @@ async function loadByRole(
   const roles = Array.isArray(role) ? role : [role];
   const { data, error } = await client
     .from("users")
-    .select(`id, name, role, senior, hired_at, left_at, ${SICK_LEAVES_EMBED}`)
+    .select(`id, name, role, senior, hired_at, left_at, no_subs_share_from, ${SICK_LEAVES_EMBED}`)
     .in("role", roles)
     .order("name");
 
@@ -240,6 +252,7 @@ function toMember(r: Record<string, unknown>): StaffMember {
     hiredAt: (r.hired_at as string | null) ?? null,
     leftAt: (r.left_at as string | null) ?? null,
     senior: Boolean(r.senior),
+    noSubsShareFrom: (r.no_subs_share_from as string | null) ?? null,
     sickLeaves: leaves
       .map((l) => ({ id: l.id, from: l.starts_on, to: l.ends_on }))
       .sort((a, b) => (a.from < b.from ? -1 : 1)),

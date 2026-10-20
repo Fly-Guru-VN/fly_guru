@@ -2479,6 +2479,29 @@ export async function deleteSickLeaveAction(formData: FormData) {
   revalidatePath("/", "layout");
 }
 
+// ── Без доли котла абонементов (0070, решение David от 20.10.2026) ─────────
+//
+// Руслана вернули в штат на других условиях: только свои выходы (200 000 ₫ и
+// 15% с занятий дня, когда он открыл смену), а с абонементов доли нет. Храним
+// дату, с которой действуют условия: прошлые недели не пересчитываются.
+// Пустая дата («Вернуть долю») = обычные условия. Только инструкторам: у
+// СММщика доля котла и так идёт лишь за дни, когда он открыл смену.
+export async function setNoSubsShareAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const raw = String(formData.get("from") ?? "").trim();
+  if (!id || (raw && !DAY_RE.test(raw))) return;
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("users")
+    .update({ no_subs_share_from: raw || null })
+    .eq("id", id)
+    .eq("role", "instructor");
+  failIfError(error, "не удалось сохранить условия по абонементам");
+  revalidatePath("/", "layout");
+}
+
 // Первый рабочий день. Нужен новичкам: доля с абонементов должна идти с даты
 // приёма, а не с начала месяца. Пусто = «работал всегда» (так у всех, кто был
 // заведён до 0036).
