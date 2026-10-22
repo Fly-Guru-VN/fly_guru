@@ -679,7 +679,7 @@
       },
       "membership": {
         "q": "¿Qué da ser miembro del club?",
-        "a": "La membresía se abre cuando terminas tu primer bono. Significa acceso al canal de Telegram del club, salidas con el equipo y volar con gente que ya se maneja bien sobre el ala."
+        "a": "La membresía se abre al comprar tu primer bono. Significa acceso al canal de Telegram del club, salidas con el equipo y volar con gente que ya se maneja bien sobre el ala."
       },
       "where": {
         "q": "¿Dónde voláis?",
@@ -733,9 +733,9 @@
       "subscriptionMeta": "{minutes} minutos",
       "subscriptionTitle": "El bono",
       "subscriptionText": "Compras un bono de minutos y vuelas cuando te viene bien: el minuto sale un {percent}% más barato que en alquiler suelto.",
-      "clubMeta": "tras tu primer bono",
+      "clubMeta": "con tu primer bono",
       "clubTitle": "Ya estás en el club",
-      "clubText": "La membresía se abre cuando terminas tu primer bono: el canal del club, salidas con el equipo y tu propia gente en el agua."
+      "clubText": "La membresía se abre al comprar tu primer bono: el canal del club, salidas con el equipo y tu propia gente en el agua."
     },
     "perks": {
       "channel": "Canal del club",

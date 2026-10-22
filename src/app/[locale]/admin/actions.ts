@@ -23,6 +23,7 @@ import { subscriptionExpiry, vnIsoAt, vnShiftDays, vnToday } from "@/lib/dates";
 import { minutesLeft } from "@/lib/subscriptions";
 import { writeOffSubscription } from "@/lib/subscriptionWriteOff";
 import { extendSubscription } from "@/lib/subscriptionExtensions";
+import { ensureMembership } from "@/lib/memberships";
 import { parseRiders, writeOffNote } from "@/lib/riders";
 import { sendInstructorsBookingAlert } from "@/lib/telegram";
 import { pickChannel } from "@/lib/channels";
@@ -1206,6 +1207,13 @@ export async function adminSellSubscriptionAction(
     });
   }
 
+  // Покупка абонемента принимает клиента в клуб (просьба начальника 22.10.2026,
+  // вместо «за откатанный абонемент» из 0061). Отсюда и звезда в «Клиентах».
+  // Дата вступления — день ПРОДАЖИ: абонемент, внесённый задним числом, не
+  // должен писать «в клубе с сегодня». Ошибку функция гасит сама — продажа
+  // из-за неё не срывается (см. lib/memberships).
+  await ensureMembership(createAdminClient(), clientId, soldAt);
+
   revalidatePath("/", "layout");
   officeRedirect(user, "/subscriptions");
 }
@@ -1716,8 +1724,8 @@ export async function renameAgentAction(formData: FormData) {
 // набора прав, из которых поддерживали и проверяли только один. Таблица
 // invite_tokens в базе оставлена: удалять данные ради чистоты кода незачем.
 
-// Принять в клуб вручную — исключение, а не основной путь: с 22.09.2026
-// членство выдаёт списание последней минуты абонемента (миграция 0061). Кнопка нужна
+// Принять в клуб вручную — исключение, а не основной путь: с 22.10.2026
+// членство выдаёт сама продажа абонемента (lib/memberships). Кнопка нужна
 // для тех, кого надо впустить без покупки, и для старых карточек.
 export async function addMemberAction(formData: FormData) {
   await requireAdmin();

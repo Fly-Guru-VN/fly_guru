@@ -23,6 +23,7 @@ import { checkRecordDate } from "@/lib/recordDate";
 import { isPaymentClaim } from "@/lib/paymentClaim";
 import { minutesLeft } from "@/lib/subscriptions";
 import { writeOffSubscription } from "@/lib/subscriptionWriteOff";
+import { ensureMembership } from "@/lib/memberships";
 import { extendSubscription } from "@/lib/subscriptionExtensions";
 import { parseRiders, writeOffNote } from "@/lib/riders";
 import { parseVnd } from "@/lib/money";
@@ -861,6 +862,11 @@ export async function sellSubscriptionAction(
       paid,
     });
   }
+
+  // Покупка абонемента принимает клиента в клуб — то же правило, что у
+  // продажи админа. Дата вступления — день продажи, а не «сейчас»: инструктор
+  // оформляет и вчерашние продажи (±7 дней).
+  await ensureMembership(admin, clientId, soldAt);
 
   revalidatePath("/", "layout"); // см. комментарий в recordClientAction
 

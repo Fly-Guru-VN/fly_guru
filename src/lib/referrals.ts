@@ -33,7 +33,7 @@ function randomRefCode(): string {
   return Array.from(bytes, (b) => REF_ALPHABET[b % REF_ALPHABET.length]).join("");
 }
 
-/** Член клуба = есть строка в memberships (её заводит откатанный абонемент, 0061). */
+/** Член клуба = есть строка в memberships (её заводит покупка абонемента, lib/memberships). */
 export async function isClubMember(admin: Admin, clientId: string): Promise<boolean> {
   const { data, error } = await admin
     .from("memberships")
