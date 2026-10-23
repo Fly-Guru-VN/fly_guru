@@ -21,6 +21,7 @@ import { SaveForm } from "../SaveForm";
 import { getActiveDict, getChannelNames } from "@/lib/dictionaries";
 import { BookingCreateForm } from "./BookingCreateForm";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { MemberLinkBar } from "@/components/cabinet/MemberLinkBar";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { sortServicesByType } from "@/lib/serviceOrder";
 import { failIfReadError } from "@/lib/dbError";
@@ -763,6 +764,7 @@ export async function BookingsScreen({
   const refDiscounts = await firstBasicTrainingByPhone(supabase, agentPhones);
 
   const freshCount = all.filter((b) => b.status === "new").length;
+  const activeFilter = FILTERS.find((f) => f.key && f.key === filter);
 
   // Занятия последних двух недель — из них выбирают «в каком занятии учтён»
   // второй человек парной записи. Две недели, а не вся история: привязывают
@@ -795,6 +797,7 @@ export async function BookingsScreen({
 
   return (
     <div>
+      <MemberLinkBar />
       {/* Живое обновление ленты и бейджа — в layout кабинета (BookingsBadgeRefresh). */}
       <PageHeader
         title="Актуальные заявки"
@@ -810,20 +813,48 @@ export async function BookingsScreen({
           её содержимое. Раньше форма стояла отдельным блоком над фильтрами и
           отодвигала сами заявки вниз. */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-1.5">
-          {FILTERS.map((f) => (
-            <Link
-              key={f.key}
-              href={f.key ? `${base}/bookings?status=${f.key}` : `${base}/bookings`}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                filter === f.key
+        <div className="flex items-center gap-1.5">
+          <Link
+            href={`${base}/bookings`}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+              filter === ""
+                ? "bg-primary text-white"
+                : "border border-line text-muted hover:border-primary hover:text-primary"
+            }`}
+          >
+            Все
+          </Link>
+          {/* Остальные срезы — в выпадающем списке за значком: семь чипсов
+              занимали на телефоне три строки над лентой. key={filter}: после
+              выбора список пересоздаётся и закрывается сам. */}
+          <details key={filter} className="relative">
+            <summary
+              aria-label="Сортировка заявок"
+              className={`flex cursor-pointer list-none items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors [&::-webkit-details-marker]:hidden ${
+                activeFilter
                   ? "bg-primary text-white"
                   : "border border-line text-muted hover:border-primary hover:text-primary"
               }`}
             >
-              {f.label}
-            </Link>
-          ))}
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
+                <path d="M3 5h14M6 10h8M9 15h2" />
+              </svg>
+              {activeFilter?.label}
+            </summary>
+            <div className="absolute left-0 top-full z-20 mt-1 min-w-44 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-lg">
+              {FILTERS.filter((f) => f.key).map((f) => (
+                <Link
+                  key={f.key}
+                  href={`${base}/bookings?status=${f.key}`}
+                  className={`block px-3 py-2 text-sm transition-colors hover:bg-primary/5 ${
+                    filter === f.key ? "font-bold text-primary" : "text-ink"
+                  }`}
+                >
+                  {f.label}
+                </Link>
+              ))}
+            </div>
+          </details>
         </div>
         <BookingCreateForm
           services={services}
@@ -832,19 +863,6 @@ export async function BookingsScreen({
           channels={channels}
         />
       </div>
-
-      {/* Порядок работы держим под рукой, но свёрнутым: читают его один раз,
-          а место занимало всегда. */}
-      <details className="mt-3">
-        <summary className="cursor-pointer list-none text-xs font-semibold text-muted transition-colors hover:text-primary [&::-webkit-details-marker]:hidden">
-          Как работать с заявкой ▾
-        </summary>
-        <p className="mt-1 text-sm text-muted">
-          Клик по заявке раскрывает карточку. Созвонились → внесите время,
-          возраст, вес → «Подтвердить»: запись увидят инструкторы. Позвонили или
-          написали напрямую — заведите заявку сами кнопкой «Новая заявка».
-        </p>
-      </details>
 
       {bookings.length === 0 && (
         <p className="mt-6 text-sm text-muted">Здесь пока пусто.</p>

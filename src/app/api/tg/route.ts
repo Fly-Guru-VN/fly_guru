@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { linkTelegramAccount } from "@/lib/memberCabinet";
+import { parseLinkStart, redeemMemberLinkCode } from "@/lib/memberLink";
 import { verifyWebhookSecret } from "@/lib/tgAuth";
 import {
   CABINET_KEYBOARD,
@@ -16,6 +17,8 @@ import {
 //   2. человек нажал кнопку → запоминаем связь «телеграм ↔ клиент» и даём
 //      постоянную кнопку «Кабинет»;
 //   3. всё остальное → напоминаем, что делать.
+// Плюс вход по личной ссылке сотрудника (/start link_<код>, 0071) — для тех,
+// чей Telegram заведён не на тот номер, что в карточке.
 //
 // После успешной проверки секрета отвечаем 200 даже на исключение обработки:
 // на другой код Telegram присылает то же обновление снова и снова. Ошибки при
@@ -83,7 +86,7 @@ export async function POST(req: NextRequest) {
         chatId,
         clientName
           ? `Готово, ${clientName}. Кабинет открывается кнопкой «Кабинет» внизу — там остаток минут, запись и история.`
-          : "Номер записал. Пока не нахожу вас среди наших гостей — если вы уже катались с нами, напишите в поддержку, свяжем вручную: " +
+          : "Номер записал, но не нахожу вас среди наших гостей. Если вы уже катались с нами, попросите у инструктора личную ссылку для входа. Вопросы: " +
             SUPPORT_URL,
         CABINET_KEYBOARD,
       );
@@ -92,6 +95,25 @@ export async function POST(req: NextRequest) {
 
     // ── /start и всё остальное ───────────────────────────────────────────────
     const text = (msg.text ?? "").trim();
+    // Личная ссылка от сотрудника (0071): привязываем без номера.
+    const linkCode = parseLinkStart(text);
+    if (linkCode) {
+      const res = await redeemMemberLinkCode({
+        code: linkCode,
+        telegramId: fromId,
+        username: msg.from?.username ?? null,
+        firstName: msg.from?.first_name ?? null,
+      });
+      await sendClientMessage(
+        chatId,
+        res.ok
+          ? `Готово, ${res.clientName}. Кабинет открывается кнопкой «Кабинет» внизу: там остаток минут, запись и история.`
+          : "Эта ссылка уже использована или устарела. Попросите у инструктора новую. Если Telegram заведён на тот же номер, что вы оставляли при записи, можно просто поделиться номером.",
+        res.ok ? CABINET_KEYBOARD : SHARE_PHONE_KEYBOARD,
+      );
+      return ok();
+    }
+
     if (text.startsWith("/start")) {
       await sendClientMessage(
         chatId,

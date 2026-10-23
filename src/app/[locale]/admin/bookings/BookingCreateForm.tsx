@@ -53,9 +53,6 @@ export function BookingCreateForm({
         className="w-full rounded-2xl bg-accent px-5 py-3 text-center text-white shadow-sm transition-colors hover:bg-accent-strong sm:w-auto sm:rounded-full sm:py-2"
       >
         <span className="block text-base font-bold sm:text-sm">+ Новая заявка</span>
-        <span className="mt-0.5 block text-xs font-medium text-white/80 sm:hidden">
-          звонок · мессенджер · пришёл сам
-        </span>
       </button>
     );
   }

@@ -137,6 +137,21 @@ export async function linkTelegramAccount(input: {
 }): Promise<{ clientId: string | null; clientName: string | null }> {
   const supabase = createAdminClient();
   const phone = input.phone.trim();
+
+  // Аккаунт уже привязан сотрудником по личной ссылке (0071) — это решение
+  // сильнее номера: номер у такого человека как раз и не совпадает. Если он
+  // потом всё же нажмёт «Поделиться номером», связь не сбрасываем.
+  const { data: existing, error: existingError } = await supabase
+    .from("client_telegram")
+    .select("client_id, link_source, clients(name)")
+    .eq("telegram_id", input.telegramId)
+    .maybeSingle();
+  failIfReadError(existingError, "не удалось прочитать связь Telegram с клиентом");
+  if (existing?.link_source === "code" && existing.client_id) {
+    const linked = existing.clients as unknown as { name: string | null } | null;
+    return { clientId: existing.client_id as string, clientName: linked?.name ?? "Гость" };
+  }
+
   const client = phone ? await findClientByPhone(supabase, phone) : null;
 
   const { error: linkError } = await supabase.from("client_telegram").upsert(
@@ -144,6 +159,7 @@ export async function linkTelegramAccount(input: {
       telegram_id: input.telegramId,
       client_id: client?.id ?? null,
       phone,
+      link_source: "phone",
       username: input.username ?? null,
       first_name: input.firstName ?? null,
       linked_at: client ? new Date().toISOString() : null,
@@ -167,12 +183,21 @@ export async function resolveMember(
 ): Promise<{ clientId: string; clientName: string } | MemberState> {
   const { data: link, error: linkError } = await supabase
     .from("client_telegram")
-    .select("client_id, phone")
+    .select("client_id, phone, link_source, clients(name)")
     .eq("telegram_id", telegramId)
     .maybeSingle();
   failIfReadError(linkError, "не удалось прочитать связь Telegram с клиентом");
 
   if (!link) return { state: "no_phone" };
+
+  // Привязка по личной ссылке сотрудника (0071): тут client_id — не кэш, а
+  // само доказательство, номер не сверяем. Карточку удалили — связь пуста,
+  // человек начинает заново из бота.
+  if (link.link_source === "code") {
+    if (!link.client_id) return { state: "no_phone" };
+    const linked = link.clients as unknown as { name: string | null } | null;
+    return { clientId: link.client_id as string, clientName: linked?.name ?? "Гость" };
+  }
 
   // client_id — кэш, НЕ доказательство владения. Перепроверяем и старые связи:
   // раньше они могли появиться по совпадению хвоста; телефон карточки также

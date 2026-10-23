@@ -42,6 +42,22 @@ test("полное совпадение заменяет ошибочный кэ
   });
 });
 
+test("связь по личной ссылке не сверяется с номером", async () => {
+  const query: Record<string, unknown> = {};
+  for (const method of ["select", "eq", "maybeSingle"]) query[method] = () => query;
+  query.then = (resolve: (value: unknown) => unknown) => Promise.resolve({
+    data: { client_id: "linked", phone: null, link_source: "code", clients: { name: "Клиент" } },
+    error: null,
+  }).then(resolve);
+  const supabase = {
+    from: () => query,
+    rpc: async () => assert.fail("номер для связи по ссылке проверять не должны"),
+  } as unknown as Parameters<typeof resolveMember>[0];
+  assert.deepEqual(await resolveMember(supabase, 123), {
+    clientId: "linked", clientName: "Клиент",
+  });
+});
+
 test("сбой поиска номера не разрешает использовать старый client_id", async () => {
   await assert.rejects(resolveMember(identityDb([], { message: "lookup unavailable" }), 123), /lookup unavailable/);
 });

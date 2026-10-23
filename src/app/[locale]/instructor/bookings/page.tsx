@@ -5,6 +5,7 @@ import { getAppUser } from "@/lib/auth";
 import { vnToday } from "@/lib/dates";
 import { acceptBookingAction, coverBookingAction, declineBookingAction } from "../actions";
 import { PageHeader } from "@/components/cabinet/PageHeader";
+import { MemberLinkBar } from "@/components/cabinet/MemberLinkBar";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { vnd } from "@/lib/stats";
 
@@ -103,6 +104,7 @@ export default async function InstructorBookingsPage() {
 
   return (
     <div>
+      <MemberLinkBar />
       {/* Шапка как во всех кабинетах: заголовок с красным счётчиком свободных
           записей и оранжевая кнопка записи справа. На телефоне кнопка занимает
           40% строки и до неё дотягивается большой палец. Пояснительный текст
