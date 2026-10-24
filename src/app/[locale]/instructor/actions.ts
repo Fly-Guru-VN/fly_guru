@@ -30,11 +30,14 @@ import { parseVnd } from "@/lib/money";
 import { checkPhoto, isShiftPhotoStoragePath } from "@/lib/photos";
 import { replacePrivateClientPhoto } from "@/lib/privateStorage";
 import {
+  activeAgentByCode,
   agentCommissionFor,
   agentRewardApplies,
+  agentSubscriptionDeal,
   applyRefDiscount,
   asAgentPlan,
   DEFAULT_AGENT_PLAN,
+  grantAgentSubscriptionReward,
   type AgentPlan,
 } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
@@ -757,16 +760,23 @@ export async function sellSubscriptionAction(
     };
     refCode = (booking.ref_code as string | null) ?? null;
   }
-  // Агентских условий у абонемента нет, а вот новый друг члена клуба получает
-  // −1 млн, пригласивший — +30 бонусных минут (lib/referralTerms).
-  const memberReferrerId = await memberReferrerFor(createAdminClient(), refCode);
+  // Ссылка агента (0072): скидка и награда по его тарифу — у «Варианта 1»
+  // абонемент в условиях есть. Иначе, может быть, новый друг члена клуба:
+  // ему −1 млн, пригласившему +30 бонусных минут (lib/referralTerms).
+  // У заявки один ref_code, и агент при совпадении главнее.
+  const agent = await activeAgentByCode(createAdminClient(), refCode);
+  const memberReferrerId = agent ? null : await memberReferrerFor(createAdminClient(), refCode);
 
   const clientResult = await findOrCreateClient(supabase, user, {
     name,
     phone,
     telegram: normalizeTelegram(formData.get("telegramUsername") as string),
     source: bookingId ? "site" : "offline",
-    referrer: memberReferrerId ? { type: "member", id: memberReferrerId } : null,
+    referrer: agent
+      ? { type: "agent", id: agent.id }
+      : memberReferrerId
+        ? { type: "member", id: memberReferrerId }
+        : null,
   });
   if ("error" in clientResult) return { error: clientResult.error };
   const clientId = clientResult.id;
@@ -779,8 +789,16 @@ export async function sellSubscriptionAction(
   // (условия 09.10.2026). Своя цена босса — уже окончательная, её не трогаем.
   const friendFirstBuy = Boolean(memberReferrerId) && clientResult.created === true;
   const basePrice = subscriptionPriceFor(await isClubMember(createAdminClient(), clientId));
-  const finalPrice =
-    price ?? (friendFirstBuy ? friendSubscriptionPrice(basePrice) : basePrice);
+  // Считаем ДО вставки абонемента: «новый ли клиент» смотрит на прошлые покупки.
+  const deal = await agentSubscriptionDeal(createAdminClient(), {
+    agent,
+    clientId,
+    listPrice: basePrice,
+    customPrice: price,
+  });
+  const finalPrice = agent
+    ? deal.price
+    : (price ?? (friendFirstBuy ? friendSubscriptionPrice(basePrice) : basePrice));
   // Минуты живут 3 месяца с продажи. paid_at пишем только при полученной
   // оплате — от него зависит комиссия инструктора (см. 0002).
   //
@@ -820,6 +838,8 @@ export async function sellSubscriptionAction(
     // админ (см. форму в /admin/subscriptions).
     paid_at: paid ? soldAt : null,
     payment_method_id: paymentMethodId,
+    agent_commission: deal.commission,
+    agent_base_cut: deal.baseCut,
     // Кто именно оставил заявление — видно админу: спрашивать «а кто это
     // написал» через неделю бессмысленно.
     payment_claim: claim,
@@ -862,6 +882,15 @@ export async function sellSubscriptionAction(
       paid,
     });
   }
+  // Агенту — сразу, если оплачен, иначе награда ждёт «Отметить оплату».
+  if (agent && deal.rewarded) {
+    await grantAgentSubscriptionReward(admin, {
+      agentId: agent.id,
+      clientId,
+      commission: deal.commission,
+      paidAt: paid ? soldAt : null,
+    });
+  }
 
   // Покупка абонемента принимает клиента в клуб — то же правило, что у
   // продажи админа. Дата вступления — день продажи, а не «сейчас»: инструктор
@@ -873,6 +902,9 @@ export async function sellSubscriptionAction(
   const params = new URLSearchParams({ type: "subscription", name });
   if (memberReferrerId && friendFirstBuy && price === null) {
     params.set("friendDiscount", String(basePrice - finalPrice));
+  }
+  if (deal.rewarded && price === null && basePrice > finalPrice) {
+    params.set("discount", String(basePrice - finalPrice));
   }
   if (paid) params.set("paid", "1");
   if (claim) params.set("claim", claim);

@@ -2,7 +2,16 @@ import type { createClient } from "@/lib/supabase/server";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { phonesMatch } from "@/lib/phone";
 import { loadAllClients } from "@/lib/clients";
-import { hasAgentTerms, DEFAULT_AGENT_PLAN, type AgentPlan } from "@/lib/agentTerms";
+import {
+  AGENT_PLANS,
+  agentBaseCutFor,
+  agentCommissionFor,
+  applyRefDiscount,
+  asAgentPlan,
+  hasAgentTerms,
+  DEFAULT_AGENT_PLAN,
+  type AgentPlan,
+} from "@/lib/agentTerms";
 
 // Когда агент зарабатывает на приведённом клиенте (пачка правок №6, п.5).
 //
@@ -60,6 +69,28 @@ async function hasEarlierBasicTraining(
 }
 
 /**
+ * Покупал ли клиент у нас хоть что-то: занятие любого вида или абонемент.
+ * Правило тарифов с newClientsOnly («Вариант 1», 24.10.2026): агенту платим
+ * только за нового клиента. Ошибку запроса трактуем как «покупал» — по той же
+ * причине, что и выше.
+ */
+async function hasEarlierPurchase(
+  supabase: Supabase,
+  clientId: string,
+): Promise<boolean> {
+  const [sessions, subs] = await Promise.all([
+    supabase.from("sessions").select("id").eq("client_id", clientId).limit(1),
+    supabase.from("subscriptions").select("id").eq("client_id", clientId).limit(1),
+  ]);
+  const error = sessions.error ?? subs.error;
+  if (error) {
+    console.error("[agentReward] previous purchase check failed:", error.message);
+    return true;
+  }
+  return (sessions.data ?? []).length > 0 || (subs.data ?? []).length > 0;
+}
+
+/**
  * Итог для одного оформления: положены ли агенту награда и комиссия, а
  * клиенту — скидка. Всё это одно и то же событие, поэтому и решение одно.
  *
@@ -83,7 +114,171 @@ export async function agentRewardApplies(
   },
 ): Promise<boolean> {
   if (!hasAgent || !hasAgentTerms(serviceCode, plan)) return false;
+  if (AGENT_PLANS[plan].newClientsOnly) {
+    return !(await hasEarlierPurchase(supabase, clientId));
+  }
   return !(await hasEarlierBasicTraining(supabase, clientId));
+}
+
+/**
+ * Живой агент по реф-коду заявки. null — кода нет, агент выключен или это
+ * ссылка члена клуба. Нужен продаже абонемента: у занятий тот же запрос
+ * исторически написан на месте.
+ */
+export async function activeAgentByCode(
+  supabase: Supabase,
+  refCode: string | null | undefined,
+): Promise<{ id: string; plan: AgentPlan } | null> {
+  if (!refCode) return null;
+  const { data, error } = await supabase
+    .from("agents")
+    .select("id, terms_plan")
+    .eq("ref_code", refCode)
+    .eq("active", true)
+    .maybeSingle();
+  if (error) console.error("[agentReward] agent lookup failed:", error.message);
+  return data ? { id: data.id as string, plan: asAgentPlan(data.terms_plan) } : null;
+}
+
+/** services.code абонемента — ключ условий агента на нём. */
+export const SUBSCRIPTION_CODE = "subscription";
+
+/** Что агентская ссылка меняет в продаже абонемента. */
+export interface AgentSubscriptionDeal {
+  /** Агенту положена награда (тариф её даёт, клиент новый). */
+  rewarded: boolean;
+  /** Итоговая цена абонемента. */
+  price: number;
+  /** Сколько должны агенту (subscriptions.agent_commission). */
+  commission: number;
+  /** Сколько снять с цены перед процентами школы (subscriptions.agent_base_cut). */
+  baseCut: number;
+}
+
+/**
+ * Продажа абонемента по ссылке агента («Вариант 1», 24.10.2026): клиенту
+ * −300 000 ₫, агенту 600 000 ₫, проценты школы с цены минус 700 000 ₫.
+ *
+ * Своя цена босса окончательная: скидку на неё не накладываем, но агенту всё
+ * равно 600 000 — «не важно каким образом продан» (David, 24.10.2026). Вызывать
+ * ДО вставки абонемента: иначе проверка «новый ли клиент» найдёт его самого.
+ */
+export async function agentSubscriptionDeal(
+  supabase: Supabase,
+  {
+    agent,
+    clientId,
+    listPrice,
+    customPrice,
+  }: {
+    agent: { id: string; plan: AgentPlan } | null;
+    clientId: string;
+    /** Цена без агента: 6 млн (члену клуба 5 млн, lib/subscriptionPrice). */
+    listPrice: number;
+    /** Своя цена босса; null — не ставил. */
+    customPrice: number | null;
+  },
+): Promise<AgentSubscriptionDeal> {
+  const plan = agent?.plan ?? DEFAULT_AGENT_PLAN;
+  const rewarded = await agentRewardApplies(supabase, {
+    hasAgent: Boolean(agent),
+    serviceCode: SUBSCRIPTION_CODE,
+    clientId,
+    plan,
+  });
+  const price = customPrice ?? applyRefDiscount(listPrice, SUBSCRIPTION_CODE, rewarded, plan);
+  if (!rewarded) return { rewarded, price, commission: 0, baseCut: 0 };
+  return {
+    rewarded,
+    price,
+    commission: agentCommissionFor(SUBSCRIPTION_CODE, price, plan),
+    baseCut: agentBaseCutFor(SUBSCRIPTION_CODE, price, plan),
+  };
+}
+
+/**
+ * Награда агенту за проданный абонемент. Оплачен — сразу заработана датой
+ * оплаты; в долг — ждёт «Отметить оплату» (confirmAgentReward). Ошибку не
+ * кидаем: абонемент уже создан, и «не сохранилось» толкнуло бы продать его
+ * второй раз. Пропущенную награду админ увидит по пустой истории агента.
+ */
+export async function grantAgentSubscriptionReward(
+  supabase: Supabase,
+  {
+    agentId,
+    clientId,
+    commission,
+    paidAt,
+  }: { agentId: string; clientId: string; commission: number; paidAt: string | null },
+): Promise<void> {
+  const { error } = await supabase.from("referral_rewards").insert({
+    referrer_type: "agent",
+    referrer_id: agentId,
+    client_id: clientId,
+    reward_type: "money",
+    amount: commission,
+    status: paidAt ? "confirmed" : "pending",
+    confirmed_at: paidAt,
+  });
+  if (error) console.error("[agentReward] subscription reward insert error:", error.message);
+}
+
+/**
+ * Подсказка над формой продажи абонемента из заявки по ссылке агента: чтобы
+ * продавец не удивлялся цене 5,7 млн вместо 6. null — ссылка не агентская или
+ * тариф агента абонемента не касается.
+ */
+export async function agentSubscriptionNote(
+  supabase: Supabase,
+  refCode: string | null | undefined,
+  listPrice: number,
+): Promise<string | null> {
+  const agent = await activeAgentByCode(supabase, refCode);
+  if (!agent || !hasAgentTerms(SUBSCRIPTION_CODE, agent.plan)) return null;
+  const discount = listPrice - applyRefDiscount(listPrice, SUBSCRIPTION_CODE, true, agent.plan);
+  const rule = AGENT_PLANS[agent.plan].newClientsOnly
+    ? "если клиент у нас ничего раньше не покупал"
+    : "если клиент ещё не учился у нас";
+  return `Заявка по ссылке агента: скидка ${discount.toLocaleString("ru-RU")} ₫ ${rule} — сервер поставит её сам.`;
+}
+
+/**
+ * Абонемент агента отменили или удалили — награда за него не заработана.
+ * Награда привязана к клиенту, а не к абонементу (как и у занятий, см.
+ * removeSessionReward в admin/actions): ищем по клиенту и сумме. Клиент у
+ * агента новый, поэтому подходящая строка одна.
+ */
+export async function removeAgentSubscriptionReward(
+  supabase: Supabase,
+  sub: { client_id?: string | null; agent_commission?: number | null } | null,
+): Promise<void> {
+  const commission = Number(sub?.agent_commission ?? 0);
+  if (!sub?.client_id || commission <= 0) return;
+  const { error } = await supabase
+    .from("referral_rewards")
+    .delete()
+    .eq("referrer_type", "agent")
+    .eq("client_id", sub.client_id)
+    .eq("amount", commission);
+  if (error) console.error("[agentReward] subscription reward delete error:", error.message);
+}
+
+/**
+ * Абонемент, проданный в долг, оплатили: награда агента за него (pending)
+ * становится заработанной датой оплаты — как выручка этого абонемента.
+ */
+export async function confirmAgentReward(
+  supabase: Supabase,
+  clientId: string,
+  paidAt: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("referral_rewards")
+    .update({ status: "confirmed", confirmed_at: paidAt })
+    .eq("referrer_type", "agent")
+    .eq("client_id", clientId)
+    .eq("status", "pending");
+  if (error) console.error("[agentReward] reward confirm error:", error.message);
 }
 
 /**
@@ -148,9 +343,10 @@ export async function firstBasicTrainingByPhone(
 // пробрасываем их дальше, чтобы место оформления импортировало один модуль.
 export {
   applyRefDiscount,
+  agentBaseCutFor,
   agentCommissionFor,
   agentDiscountFor,
-  asAgentPlan,
   DEFAULT_AGENT_PLAN,
   type AgentPlan,
 } from "@/lib/agentTerms";
+export { asAgentPlan };

@@ -1,6 +1,9 @@
 // Экран «Абонементы» — общий для админа и СММщика (кабинет /smm).
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { agentSubscriptionNote } from "@/lib/agentReward";
+import { SUBSCRIPTION_PRICE } from "@/lib/subscriptionPrice";
 import { loadAllClients } from "@/lib/clients";
 import { momentDay, vnToday } from "@/lib/dates";
 import { vnd } from "@/lib/stats";
@@ -504,15 +507,22 @@ export async function SubscriptionsScreen({
   // тянем контакты клиента, чтобы форма открылась уже заполненной, а продажа
   // закрыла заявку. Так продажа с сайта не проваливается мимо минут/оплаты.
   let bookingPrefill: SubscriptionPrefill | undefined;
+  // Заявка по ссылке агента (0072) — предупредим о скидке словами.
+  let agentNote: string | null = null;
   if (bookingId) {
     const { data: b } = await supabase
       .from("bookings")
       .select(
-        "id, status, client_name, phone, telegram_username, client_id, payment_method_id, payment:payment_methods(name)",
+        "id, status, client_name, phone, telegram_username, client_id, ref_code, payment_method_id, payment:payment_methods(name)",
       )
       .eq("id", bookingId)
       .maybeSingle();
     if (b && !["done", "cancelled", "archived"].includes(b.status)) {
+      agentNote = await agentSubscriptionNote(
+        createAdminClient(),
+        b.ref_code,
+        SUBSCRIPTION_PRICE,
+      );
       bookingPrefill = {
         bookingId: b.id,
         name: b.client_name,
@@ -736,6 +746,7 @@ export async function SubscriptionsScreen({
             {bookingPrefill && (
               <p className="mb-3 rounded-xl bg-primary/10 px-3 py-2 text-xs text-primary">
                 Заявка на абонемент от <b>{bookingPrefill.name}</b> — продажа закроет её.
+                {agentNote && <span className="mt-1 block">{agentNote}</span>}
               </p>
             )}
             <SellSubscriptionForm

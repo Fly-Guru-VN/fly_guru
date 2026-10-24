@@ -69,6 +69,9 @@ export default async function DonePage({
         `Скидка ${vnd(Number(p.friendDiscount))} — гостя пригласил член клуба.`,
       );
     }
+    if (Number(p.discount ?? 0) > 0) {
+      details.push(`Скидка ${vnd(Number(p.discount))} по агентской ссылке.`);
+    }
     nextHref = "/instructor/subscription";
     nextLabel = "Продать ещё";
   } else if (p.type === "writeoff") {

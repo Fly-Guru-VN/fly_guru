@@ -9,6 +9,10 @@
 //              агенту 200 000 ₫ и 300 000 ₫ (условия всех агентов школы)
 //   pct-20   — гостю −5%, агенту 20% с чека (личная договорённость начальника
 //              с одним партнёром)
+//   variant-1 — с 24.10.2026: клиенту −300 000 ₫ на базовое, парное и
+//              абонемент, агенту 200 000 / 300 000 / 600 000 ₫, и только за
+//              нового клиента. Следующему агенту на своих условиях — свой
+//              «Вариант 2» рядом.
 //
 // Проценты считаются от ФАКТИЧЕСКОГО чека: сперва гостю снимают скидку, и уже с
 // того, что человек реально заплатил, агенту идут 20%. Если админ вписал сумму
@@ -23,16 +27,23 @@
 // функции: ни базы, ни supabase-клиентов. Правило «кому скидка положена»
 // (первое обучение, живой агент) живёт в lib/agentReward — оно требует базы.
 
-/** Имя тарифа. Ровно эти значения разрешает check в базе (миграция 0046). */
-export type AgentPlan = "standard" | "pct-20";
+/** Имя тарифа. Ровно эти значения разрешает check в базе (0046, 0072). */
+export type AgentPlan = "standard" | "pct-20" | "variant-1";
 
-/** Тариф агентов школы: у нового агента он же, пока не выбрали другой. */
+/** Тариф агентов школы: на нём считаем, если тариф неизвестен или не задан. */
 export const DEFAULT_AGENT_PLAN: AgentPlan = "standard";
+
+/** Что предлагает форма «Новый агент» (с 24.10.2026 агенты идут на «Варианте 1»). */
+export const NEW_AGENT_PLAN: AgentPlan = "variant-1";
 
 /** Фиксированные суммы в донгах. */
 interface FixedTerms {
   discount: number; // сколько снимаем с цены услуги
   commission: number; // сколько получает агент за такую запись
+  // Сколько снять с чека, прежде чем считать 35% Marina, 15% и 2% CRM. Не
+  // задано — ровно комиссия агента (так у всех занятий). У абонемента
+  // «Варианта 1» договорились иначе: «Марине с 5 млн» при чеке 5,7 млн.
+  baseCut?: number;
 }
 
 /** Доли от чека в процентах. */
@@ -54,6 +65,12 @@ interface AgentPlanDef {
   note: string;
   /** Услуга (services.code) → условия. */
   services: Readonly<Record<string, AgentServiceTerms>>;
+  /**
+   * Платим только за нового клиента — того, кто раньше у нас ничего не
+   * покупал (ни занятия, ни абонемента). Без флага действует старое правило:
+   * за первое базовое обучение (lib/agentReward).
+   */
+  newClientsOnly?: boolean;
 }
 
 /**
@@ -77,6 +94,17 @@ export const AGENT_PLANS: Readonly<Record<AgentPlan, AgentPlanDef>> = {
       "basic-adult": { discountPct: 5, commissionPct: 20 },
       "basic-duo": { discountPct: 5, commissionPct: 20 },
     },
+  },
+  "variant-1": {
+    label: "Вариант 1",
+    note: "клиенту −300 000 ₫ на базовое, парное и абонемент; агенту 200 000 / 300 000 / 600 000 ₫; только новые клиенты",
+    services: {
+      "basic-adult": { discount: 300_000, commission: 200_000 },
+      "basic-duo": { discount: 300_000, commission: 300_000 },
+      // 600 000 = 10% от полной цены 6 млн, а проценты школы — с 5 млн.
+      subscription: { discount: 300_000, commission: 600_000, baseCut: 700_000 },
+    },
+    newClientsOnly: true,
   },
 };
 
@@ -154,6 +182,21 @@ export function agentCommissionFor(
   if (!isPercent(terms)) return terms.commission;
   if (amount === null || amount === undefined) return 0;
   return roundVnd((amount * terms.commissionPct) / 100);
+}
+
+/**
+ * Сколько снять с чека перед процентами школы (35% Marina, 15%, 2% CRM).
+ * Обычно это и есть комиссия агента; у абонемента «Варианта 1» — больше.
+ * Вызывать только там, где награда агенту положена: иначе вычитать нечего.
+ */
+export function agentBaseCutFor(
+  code: string | null | undefined,
+  amount: number | null | undefined,
+  plan: AgentPlan = DEFAULT_AGENT_PLAN,
+): number {
+  const terms = termsFor(code, plan);
+  if (terms && !isPercent(terms) && terms.baseCut !== undefined) return terms.baseCut;
+  return agentCommissionFor(code, amount, plan);
 }
 
 /**

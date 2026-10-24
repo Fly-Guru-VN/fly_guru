@@ -7,8 +7,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveServices, getSiteServices, pickService } from "@/lib/services";
 import { getService, formatVnd } from "@/content/services";
 import {
+  AGENT_PLANS,
   agentDiscountFor,
   asAgentPlan,
+  hasAgentTerms,
   DEFAULT_AGENT_PLAN,
   type AgentPlan,
 } from "@/lib/agentTerms";
@@ -90,6 +92,7 @@ export default async function ReferralLandingPage({
   const site = await getSiteServices();
   const basic = pickService(site, "basic-adult");
   const duo = pickService(site, "basic-duo");
+  const subscription = pickService(site, "subscription");
   // Скидка по тарифу ЭТОГО агента: у стандартного она фиксированная, у
   // процентного считается от цены услуги.
   const discountFor = (price: number | null, serviceCode: string) =>
@@ -194,9 +197,22 @@ export default async function ReferralLandingPage({
                   {formatVnd(discounted(duo.price, "basic-duo"))}
                 </span>
               </p>
+              {/* Абонемент — только у тарифов, где он в условиях («Вариант 1»). */}
+              {hasAgentTerms("subscription", plan) && (
+                <p className="mt-2 text-sm text-muted">
+                  Абонемент на {subscription.durationMin} минут — дешевле на{" "}
+                  {formatVnd(discountFor(subscription.price, "subscription"))}:{" "}
+                  <span className="line-through">{formatVnd(subscription.price)}</span>{" "}
+                  <span className="font-semibold text-accent-strong">
+                    {formatVnd(discounted(subscription.price, "subscription"))}
+                  </span>
+                </p>
+              )}
               <p className="mt-3 text-sm text-muted">
-                Скидка действует по этой ссылке на первое обучение. Записаться
-                можно и на любую другую услугу — по обычной цене.
+                {AGENT_PLANS[plan].newClientsOnly
+                  ? "Скидка действует по этой ссылке на первую покупку в FlyGuru."
+                  : "Скидка действует по этой ссылке на первое обучение."}{" "}
+                Записаться можно и на любую другую услугу — по обычной цене.
               </p>
               <div className="mt-8">
                 <BookBtn refCode={code} serviceId={defaultServiceId} place="ref-bottom" size="lg">

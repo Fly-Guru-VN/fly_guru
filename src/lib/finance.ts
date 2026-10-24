@@ -79,12 +79,34 @@ interface SessionMoneyRowWithService extends SessionMoneyRow {
 /**
  * База доли Marina: база процентов без туров. С экскурсий и сафари площадке
  * не идёт ничего (lib/tours); 2% CRM и всё прочее считаются с полной базы.
+ * subsBase — уже посчитанная netSubsBase.
  */
 export function marinaBase(
   rows: SessionMoneyRowWithService[],
-  paidSubsRevenue: number,
+  subsBase: number,
 ): number {
-  return netSessionsBase(rows.filter((r) => !isTour(r.service?.category))) + paidSubsRevenue;
+  return netSessionsBase(rows.filter((r) => !isTour(r.service?.category))) + subsBase;
+}
+
+/** Строка оплаченного абонемента или продления для базы процентов. */
+export interface SubsMoneyRow {
+  price: number | null;
+  agent_base_cut: number | null;
+}
+
+/** Колонки, которые нужны netSubsBase, — для loadPaidSubscriptionMoney. */
+export const SUBS_MONEY_COLUMNS = "price, agent_base_cut";
+
+/**
+ * База процентов по абонементам: цена минус вычет агента (0072), по каждой
+ * продаже отдельно. Без агента вычет 0 — абонемент идёт в базу целиком, как
+ * раньше. С агентом «Варианта 1»: 5,7 млн − 700 000 = 5 млн («Марине с 5»).
+ */
+export function netSubsBase(rows: SubsMoneyRow[]): number {
+  return rows.reduce(
+    (s, r) => s + Math.max(0, Number(r.price ?? 0) - Number(r.agent_base_cut ?? 0)),
+    0,
+  );
 }
 
 /**
@@ -112,7 +134,7 @@ export const CRM_RATE = 0.02; // Дэвид + СММщик — с сессий +
 export const CRM_PARTNERS = ["Дэвид", "СММ"] as const; // делят CRM_RATE поровну
 
 export interface CrmPayout {
-  revenue: number; // база: сессии (минус комиссии агентов) + оплаченные абонементы
+  revenue: number; // база: сессии (минус комиссии агентов) + абонементы (минус вычет агента)
   total: number; // 2% с неё — общая сумма на двоих
   each: number; // доля одного (по 1%)
   partners: readonly string[];
@@ -134,15 +156,13 @@ export async function getCrmPayout(
       by: "money",
     }),
     // Абонементы вместе с продлениями (0062): 2% берутся и с них.
-    loadPaidSubscriptionMoney<{ price: number | null }>(supabase, "price", range),
+    loadPaidSubscriptionMoney<SubsMoneyRow>(supabase, SUBS_MONEY_COLUMNS, range),
   ]);
 
   failIfReadError(sessions.error, "не удалось прочитать занятия для расчёта CRM");
 
   // Комиссию агента вычитаем ДО процента — как у Marina и у инструкторов.
-  const revenue =
-    netSessionsBase(sessions.rows) +
-    subs.reduce((s, r) => s + Number(r.price ?? 0), 0);
+  const revenue = netSessionsBase(sessions.rows) + netSubsBase(subs);
   const total = revenue * CRM_RATE;
 
   return {
@@ -211,7 +231,7 @@ export interface Finance {
   instructorShiftsUnpaid: number; // выходы, срезанные регламентом (справка)
   instructorPaidOut: number; // из этой ЗП уже отдано на руки
   owedInstructors: number; // начислено − выдано, но не меньше нуля
-  agentCommissions: number; // комиссии агентов по сессиям периода (пак D)
+  agentCommissions: number; // комиссии агентов: занятия периода + абонементы, оплаченные в нём
   crmCut: number; // 2% с percentBase
   crmEach: number; // доля одного (Дэвид / СММ) — половина crmCut
 }
@@ -311,7 +331,7 @@ export async function getFinance(
   //  • moneySessions — что оплачено в этом периоде: выручка школы;
   //  • workSessions — что откатано в этом периоде: с них 15% и комиссии агентов.
   // У занятия без paid_on обе даты совпадают, и наборы одинаковы — как раньше.
-  const [moneySessions, workSessions, subs, expensesRes, staff, bosses] =
+  const [moneySessions, workSessions, subs, agentSubsRes, expensesRes, staff, bosses] =
     await Promise.all([
       loadAllSessions<SessionMoneyRowWithService>(
         supabase,
@@ -324,7 +344,14 @@ export async function getFinance(
         { fromDay: range.fromDay, toDay: range.toDay },
       ),
       // Продления (0062) — та же продажа абонемента: в выручке и в базе процентов.
-      loadPaidSubscriptionMoney<{ price: number | null }>(supabase, "price", range),
+      loadPaidSubscriptionMoney<SubsMoneyRow>(supabase, SUBS_MONEY_COLUMNS, range),
+      // Комиссии агентов с абонементов (0072) — по дню оплаты, как и выручка.
+      supabase
+        .from("subscriptions")
+        .select("agent_commission")
+        .gt("agent_commission", 0)
+        .gte("paid_at", range.fromIso)
+        .lt("paid_at", range.toIso),
       supabase
         .from("expenses")
         .select(
@@ -339,6 +366,7 @@ export async function getFinance(
   failIfReadError(moneySessions.error, "не удалось прочитать оплаченные занятия");
   failIfReadError(workSessions.error, "не удалось прочитать проведённые занятия");
   failIfReadError(expensesRes.error, "не удалось прочитать расходы");
+  failIfReadError(agentSubsRes.error, "не удалось прочитать комиссии агентов с абонементов");
 
   // Полевой состав: инструкторы и СММщик, который тоже выходит на смену
   // (см. staff → SHIFT_CREW_ROLES). Механик и босс сюда не входят.
@@ -374,16 +402,16 @@ export async function getFinance(
   );
   const paidSubsRevenue = subs.reduce((s, r) => s + Number(r.price ?? 0), 0);
   const revenue = sessionsRevenue + paidSubsRevenue;
-  // База всех процентов: та же выручка, но с занятий сперва снята комиссия
-  // агента. Абонементы в ней целиком — агентов там не бывает.
-  const percentBase = netSessionsBase(moneySessions.rows) + paidSubsRevenue;
+  // База всех процентов: та же выручка, но сперва снят вычет агента — с
+  // занятия его комиссия, с абонемента agent_base_cut (0072).
+  const subsBase = netSubsBase(subs);
+  const percentBase = netSessionsBase(moneySessions.rows) + subsBase;
 
   // Все комиссии агентов за период — отдельная статья расхода школы: агент
   // забирает их «сверху» чека, из прибыли босса это надо вычесть.
-  const agentCommissions = workSessions.rows.reduce(
-    (s, r) => s + Number(r.agent_commission ?? 0),
-    0,
-  );
+  const agentCommissions =
+    workSessions.rows.reduce((s, r) => s + Number(r.agent_commission ?? 0), 0) +
+    (agentSubsRes.data ?? []).reduce((s, r) => s + Number(r.agent_commission ?? 0), 0);
   let instructorShifts = 0;
   let instructorShiftsUnpaid = 0;
   let instructorShiftPay = 0;
@@ -393,7 +421,7 @@ export async function getFinance(
     instructorShiftPay += info.amount;
   }
 
-  const baseForMarina = marinaBase(moneySessions.rows, paidSubsRevenue);
+  const baseForMarina = marinaBase(moneySessions.rows, subsBase);
   const marina = baseForMarina * MARINA_RATE;
   // 15% с занятий — не «база × 15%», а СУММА готовых долей полевого состава из
   // дележа дня. Разница появилась вместе с выходами начальника: его чеки в базу

@@ -33,11 +33,16 @@ import { parseVnd } from "@/lib/money";
 import { checkPhoto } from "@/lib/photos";
 import { replacePrivateClientPhoto } from "@/lib/privateStorage";
 import {
+  activeAgentByCode,
   agentCommissionFor,
   agentRewardApplies,
+  agentSubscriptionDeal,
   applyRefDiscount,
   asAgentPlan,
+  confirmAgentReward,
   DEFAULT_AGENT_PLAN,
+  grantAgentSubscriptionReward,
+  removeAgentSubscriptionReward,
   type AgentPlan,
 } from "@/lib/agentReward";
 import { loadAllClients } from "@/lib/clients";
@@ -1092,6 +1097,8 @@ export async function adminSellSubscriptionAction(
   let bookingBefore: BookingClaimState | null = null;
   // Друг члена клуба по ссылке: −1 млн на абонемент и +30 минут рефу.
   let memberReferrerId: string | null = null;
+  // Или ссылка агента (0072): скидка клиенту и награда агенту по его тарифу.
+  let agent: { id: string; plan: AgentPlan } | null = null;
   if (bookingId) {
     const { data: booking } = await supabase
       .from("bookings")
@@ -1110,10 +1117,11 @@ export async function adminSellSubscriptionAction(
       client_id: (booking.client_id as string | null) ?? null,
       payment_method_id: (booking.payment_method_id as string | null) ?? null,
     };
-    memberReferrerId = await memberReferrerFor(
-      createAdminClient(),
-      booking.ref_code as string | null,
-    );
+    // У заявки один ref_code: агент при совпадении главнее члена клуба.
+    agent = await activeAgentByCode(createAdminClient(), booking.ref_code as string | null);
+    memberReferrerId = agent
+      ? null
+      : await memberReferrerFor(createAdminClient(), booking.ref_code as string | null);
   }
 
   // created_at клиента = дате продажи: абонемент, проданный задним числом, не
@@ -1129,8 +1137,17 @@ export async function adminSellSubscriptionAction(
   // (условия 09.10.2026). Своя цена босса — уже окончательная, её не трогаем.
   const friendFirstBuy = Boolean(memberReferrerId) && clientRes.created === true;
   const basePrice = subscriptionPriceFor(await isClubMember(createAdminClient(), clientId));
-  const price =
-    customPrice ?? (friendFirstBuy ? friendSubscriptionPrice(basePrice) : basePrice);
+  // По ссылке агента цену и вычет решает его тариф (lib/agentReward). Считаем
+  // ДО вставки абонемента: «новый ли клиент» смотрит на его прошлые покупки.
+  const deal = await agentSubscriptionDeal(createAdminClient(), {
+    agent,
+    clientId,
+    listPrice: basePrice,
+    customPrice,
+  });
+  const price = agent
+    ? deal.price
+    : (customPrice ?? (friendFirstBuy ? friendSubscriptionPrice(basePrice) : basePrice));
 
   // Минуты живут 3 месяца С ДАТЫ ПРОДАЖИ (в т.ч. прошлой). paid_at — только
   // при полученной оплате: от месяца оплаты зависят выручка и комиссия.
@@ -1176,6 +1193,8 @@ export async function adminSellSubscriptionAction(
     expires_at: subscriptionExpiry(new Date(soldAt)).toISOString(),
     paid_at: paidAt,
     payment_method_id: paymentMethodId,
+    agent_commission: deal.commission,
+    agent_base_cut: deal.baseCut,
   };
   // payment_method_id (0025) в боевой базе есть. Повтор вставки без него убран
   // 16.08.2026: абонемент сохранялся без способа оплаты, и в кассе появлялась
@@ -1204,6 +1223,15 @@ export async function adminSellSubscriptionAction(
       clientId,
       minutes: referrerRewardFor(null, "subscription"),
       paid: Boolean(paidAt),
+    });
+  }
+  // Агенту 600 000 — так же: оплачен сразу или ждёт отметки оплаты.
+  if (agent && deal.rewarded) {
+    await grantAgentSubscriptionReward(createAdminClient(), {
+      agentId: agent.id,
+      clientId,
+      commission: deal.commission,
+      paidAt,
     });
   }
 
@@ -1262,7 +1290,11 @@ export async function togglePaidAction(formData: FormData) {
       .select("client_id")
       .eq("id", id)
       .maybeSingle();
-    if (sub?.client_id) await confirmReferralReward(admin, sub.client_id as string);
+    if (sub?.client_id) {
+      await confirmReferralReward(admin, sub.client_id as string);
+      // Абонемент агента, проданный в долг: награда заработана датой оплаты.
+      await confirmAgentReward(admin, sub.client_id as string, paidAt);
+    }
   }
   revalidatePath("/", "layout");
 }
@@ -1410,11 +1442,16 @@ export async function cancelSubscriptionAction(formData: FormData) {
       .eq("id", id);
     failIfError(error, "не удалось вернуть абонемент из отменённых");
   } else {
-    const { error } = await supabase
+    const { data: sub, error } = await supabase
       .from("subscriptions")
       .update({ status: "cancelled", paid_at: null })
-      .eq("id", id);
+      .eq("id", id)
+      .select("client_id, agent_commission")
+      .maybeSingle();
     failIfError(error, "не удалось отменить абонемент");
+    // Отменённый абонемент агенту не оплачиваем (0072). Вернули из отменённых —
+    // награду при необходимости вносит админ: оплата тоже ставится заново.
+    await removeAgentSubscriptionReward(createAdminClient(), sub);
   }
 
   revalidatePath("/", "layout");
@@ -1429,6 +1466,11 @@ export async function deleteSubscriptionAction(formData: FormData) {
   if (!id) return;
 
   const supabase = await officeClient(user);
+  const { data: sub } = await supabase
+    .from("subscriptions")
+    .select("client_id, agent_commission")
+    .eq("id", id)
+    .maybeSingle();
   const { error: sessionsError } = await supabase
     .from("sessions")
     .delete()
@@ -1436,6 +1478,7 @@ export async function deleteSubscriptionAction(formData: FormData) {
   failIfError(sessionsError, "не удалось удалить списания абонемента");
   const { error } = await supabase.from("subscriptions").delete().eq("id", id);
   failIfError(error, "не удалось удалить абонемент");
+  await removeAgentSubscriptionReward(createAdminClient(), sub);
   revalidatePath("/", "layout");
 }
 

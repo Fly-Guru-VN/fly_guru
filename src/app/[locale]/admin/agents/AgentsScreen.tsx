@@ -1,8 +1,15 @@
 // Экран «Агенты» — общий для админа и СММщика (кабинет /smm): партнёры,
 // реф-ссылки, награды и выплаты.
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getActiveAppUser, isOffice } from "@/lib/auth";
 import { vnd } from "@/lib/stats";
 import { AGENT_PLANS, asAgentPlan, type AgentPlan } from "@/lib/agentTerms";
+import { loadAgentRewardHistory, type AgentRewardRow } from "@/lib/agentHistory";
+import { getSiteServices } from "@/lib/services";
+import type { Service } from "@/content/services";
+import { AgentRewardHistory, AgentTermsTable } from "@/components/cabinet/AgentTerms";
 import {
   deleteAgentPayoutAction,
   renameAgentAction,
@@ -65,12 +72,16 @@ function AgentCard({
   a,
   stats,
   payouts,
+  history,
+  services,
   methods,
   today,
 }: {
   a: AgentRow;
   stats: AgentStats;
   payouts: PayoutRow[];
+  history: AgentRewardRow[];
+  services: Service[];
   methods: DictItem[];
   today: string;
 }) {
@@ -182,9 +193,20 @@ function AgentCard({
             <span className="font-bold text-ink">{vnd(stats.confirmedSum)}</span>
             {stats.confirmedCount > 0 && ` (${stats.confirmedCount})`}
           </p>
-          {/* Не из колонки commission_fixed (она в базе осталась, но ни на что
-              не влияет): условия задаёт ТАРИФ агента, числа — в lib/agentTerms. */}
-          <p>Условия: {AGENT_PLANS[plan].note}</p>
+        </div>
+
+        {/* Правила подсчёта и история «по формуле» (24.10.2026). Условия задаёт
+            ТАРИФ агента, числа — в lib/agentTerms; колонка commission_fixed в
+            базе осталась, но ни на что не влияет. */}
+        <div className="rounded-2xl border border-line/70 p-3">
+          <p className="text-xs font-semibold text-ink">Правила подсчёта</p>
+          <div className="mt-2">
+            <AgentTermsTable plan={plan} services={services} showBase />
+          </div>
+          <p className="mt-4 text-xs font-semibold text-ink">История начислений</p>
+          <div className="mt-1">
+            <AgentRewardHistory rows={history} showBase />
+          </div>
         </div>
 
         {/* Деньги: сколько заработал, сколько отдали, сколько должны (п.7).
@@ -323,6 +345,11 @@ function AgentCard({
 }
 
 export async function AgentsScreen() {
+  // История начислений читается service-role клиентом (lib/agentHistory) —
+  // поэтому роль проверяем здесь сами, а не надеемся на RLS.
+  const viewer = await getActiveAppUser();
+  if (!viewer || !isOffice(viewer.role)) redirect("/login");
+
   const supabase = await createClient();
   const today = vnToday();
   // Способы выплаты берём из общего справочника форматов оплаты.
@@ -332,6 +359,13 @@ export async function AgentsScreen() {
     .from("agents")
     .select("id, ref_code, active, terms_plan, user:users!user_id(name, phone)");
   const agents = (agentsData ?? []) as unknown as AgentRow[];
+  const [historyByAgent, services] = await Promise.all([
+    loadAgentRewardHistory(
+      createAdminClient(),
+      agents.map((a) => a.id),
+    ),
+    getSiteServices(),
+  ]);
 
   // Метрики тремя запросами на всех агентов сразу (не по одному на карточку),
   // агрегация в JS — на масштабе школы это дешевле и проще group by.
@@ -433,6 +467,8 @@ export async function AgentsScreen() {
             a={a}
             stats={statsById.get(a.id) ?? EMPTY_STATS}
             payouts={payoutsByAgent.get(a.id) ?? []}
+            history={historyByAgent.get(a.id) ?? []}
+            services={services}
             methods={methods}
             today={today}
           />

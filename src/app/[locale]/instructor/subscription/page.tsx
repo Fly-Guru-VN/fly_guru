@@ -2,6 +2,8 @@ import { Link } from "@/i18n/navigation";
 import { formatVnd } from "@/content/services";
 import { getSiteServices, pickService } from "@/lib/services";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { agentSubscriptionNote } from "@/lib/agentReward";
 import { getActiveDict, embeddedName } from "@/lib/dictionaries";
 import { getActiveAppUser, isAdminLike } from "@/lib/auth";
 import { EnteredBadge } from "@/components/cabinet/EnteredBadge";
@@ -10,7 +12,7 @@ import { loadPaymentClaims } from "@/lib/subscriptions";
 import { vnToday } from "@/lib/dates";
 import { SubscriptionForm, type SubscriptionPrefill } from "./SubscriptionForm";
 import { PageHeader } from "@/components/cabinet/PageHeader";
-import { MEMBER_SUBSCRIPTION_PRICE } from "@/lib/subscriptionPrice";
+import { MEMBER_SUBSCRIPTION_PRICE, SUBSCRIPTION_PRICE } from "@/lib/subscriptionPrice";
 
 // Продажа абонемента: 300 минут / 6 млн ₫, минуты живут 3 месяца.
 // Создаёт subscription (sold_by = инструктор). Членом клуба клиент при этом
@@ -31,16 +33,19 @@ export default async function SubscriptionPage({
   // тянем контакты клиента, чтобы форма открылась заполненной, а продажа
   // закрыла заявку (пачка №5, п.11).
   let prefill: SubscriptionPrefill | undefined;
+  // Заявка по ссылке агента (0072) — предупредим о скидке словами.
+  let agentNote: string | null = null;
   if (bookingId) {
     const supabase = await createClient();
     const { data: b } = await supabase
       .from("bookings")
       .select(
-        "id, status, client_name, phone, telegram_username, payment_method_id, payment:payment_methods(name)",
+        "id, status, client_name, phone, telegram_username, ref_code, payment_method_id, payment:payment_methods(name)",
       )
       .eq("id", bookingId)
       .maybeSingle();
     if (b && !["done", "cancelled", "archived"].includes(b.status)) {
+      agentNote = await agentSubscriptionNote(createAdminClient(), b.ref_code, SUBSCRIPTION_PRICE);
       prefill = {
         bookingId: b.id,
         name: b.client_name,
@@ -125,6 +130,7 @@ export default async function SubscriptionPage({
       {prefill && (
         <p className="mt-3 rounded-xl bg-primary/10 px-3 py-2 text-sm text-primary">
           Заявка от <b>{prefill.name}</b> — продажа закроет её.
+          {agentNote && <span className="mt-1 block">{agentNote}</span>}
         </p>
       )}
       <div className="mt-6">

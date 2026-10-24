@@ -1,12 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  agentBaseCutFor,
   agentCommissionFor,
   agentDiscountFor,
   applyRefDiscount,
   asAgentPlan,
 } from "@/lib/agentTerms";
-import { netSessionsBase, MARINA_RATE, CRM_RATE } from "@/lib/finance";
+import { netSessionsBase, netSubsBase, MARINA_RATE, CRM_RATE } from "@/lib/finance";
 import { SESSION_RATE } from "@/lib/salary";
 
 // Тесты агентской схемы (решение David от 16.08.2026). Запуск: npm test
@@ -129,4 +130,55 @@ test("минус на одном занятии не съедает соседн
 
 test("списание минут с абонемента в базу не идёт", () => {
   assert.equal(netSessionsBase([{ amount: null, agent_commission: null }]), 0);
+});
+
+// ── «Вариант 1» (начальник, 24.10.2026) ─────────────────────────────────────
+// Цифры дословно из его сообщения: клиент платит 1,7 / 3,2 / 5,7 млн, агенту
+// 200 / 300 / 600 тысяч, проценты школы с 1,5 / 2,9 / 5 млн.
+
+test("Вариант 1: клиент платит 1,7 / 3,2 / 5,7 млн", () => {
+  assert.equal(applyRefDiscount(2_000_000, "basic-adult", true, "variant-1"), 1_700_000);
+  assert.equal(applyRefDiscount(3_500_000, "basic-duo", true, "variant-1"), 3_200_000);
+  assert.equal(applyRefDiscount(6_000_000, "subscription", true, "variant-1"), 5_700_000);
+  // Остальное — по обычной цене.
+  assert.equal(applyRefDiscount(1_500_000, "basic-kid", true, "variant-1"), 1_500_000);
+  assert.equal(applyRefDiscount(2_500_000, "tandem-adult", true, "variant-1"), 2_500_000);
+});
+
+test("Вариант 1: агенту 200 000 / 300 000 / 600 000", () => {
+  assert.equal(agentCommissionFor("basic-adult", 1_700_000, "variant-1"), 200_000);
+  assert.equal(agentCommissionFor("basic-duo", 3_200_000, "variant-1"), 300_000);
+  assert.equal(agentCommissionFor("subscription", 5_700_000, "variant-1"), 600_000);
+  // Своя цена босса на абонемент — агенту всё равно 600 000.
+  assert.equal(agentCommissionFor("subscription", 4_000_000, "variant-1"), 600_000);
+  assert.equal(agentCommissionFor("tandem-adult", 2_500_000, "variant-1"), 0);
+});
+
+test("Вариант 1: проценты школы с 1,5 / 2,9 / 5 млн", () => {
+  const base = (code: string, check: number) =>
+    check - agentBaseCutFor(code, check, "variant-1");
+  assert.equal(base("basic-adult", 1_700_000), 1_500_000);
+  assert.equal(base("basic-duo", 3_200_000), 2_900_000);
+  assert.equal(base("subscription", 5_700_000), 5_000_000);
+});
+
+test("абонемент агента в базе процентов идёт с вычетом, обычный — целиком", () => {
+  const subs = [
+    { price: 5_700_000, agent_base_cut: 700_000 }, // по ссылке агента
+    { price: 6_000_000, agent_base_cut: 0 }, // обычная продажа
+    { price: 1_000_000, agent_base_cut: null }, // продление: колонки нет в выборке
+  ];
+  assert.equal(netSubsBase(subs), 5_000_000 + 6_000_000 + 1_000_000);
+  // Цену опустили ниже вычета — в минус не уходим.
+  assert.equal(netSubsBase([{ price: 500_000, agent_base_cut: 700_000 }]), 0);
+});
+
+test("у старых тарифов вычет = комиссия агента, как раньше", () => {
+  assert.equal(agentBaseCutFor("basic-adult", 1_900_000), 200_000);
+  assert.equal(agentBaseCutFor("basic-adult", 1_900_000, "pct-20"), 380_000);
+  assert.equal(agentBaseCutFor("subscription", 6_000_000), 0);
+});
+
+test("тариф variant-1 из базы распознаётся", () => {
+  assert.equal(asAgentPlan("variant-1"), "variant-1");
 });

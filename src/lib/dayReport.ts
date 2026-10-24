@@ -1,6 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { vnPeriod } from "@/lib/dates";
-import { MARINA_RATE, netSessionsBase } from "@/lib/finance";
+import { MARINA_RATE, netSessionsBase, netSubsBase } from "@/lib/finance";
 import { loadDayShareBosses, loadShiftCrew, sickChecker } from "@/lib/staff";
 import { failIfReadError } from "@/lib/dbError";
 import { loadPaidSubscriptionMoney } from "@/lib/subscriptionExtensions";
@@ -179,9 +179,10 @@ export async function getDayReport(
     // Продления (0062) — те же деньги абонемента: с них 35% Марине и котёл.
     loadPaidSubscriptionMoney<{
       price: number | null;
+      agent_base_cut: number | null;
       sold_by: string | null;
       payment_methods: { name: string } | null;
-    }>(admin, "price, sold_by, payment_methods(name)", range),
+    }>(admin, "price, agent_base_cut, sold_by, payment_methods(name)", range),
     loadDayShifts(admin, date),
     loadShiftCrew(admin),
     loadDayShareBosses(admin),
@@ -240,11 +241,11 @@ export async function getDayReport(
   }
   const revenue = sessionsRevenue + subsRevenue;
   // 35% Марине считаются с выручки за вычетом комиссий агентов — той же базы,
-  // что и 15% инструкторам и 2% CRM (см. lib/finance). Абонементы входят
-  // целиком: агентов в них не бывает. Туры (экскурсии, сафари) — мимо Марины,
-  // с них ей не идёт ничего (lib/tours).
+  // что и 15% инструкторам и 2% CRM (см. lib/finance). С абонемента снимается
+  // вычет агента (0072), без агента он 0. Туры (экскурсии, сафари) — мимо
+  // Марины, с них ей не идёт ничего (lib/tours).
   const marina =
-    (netSessionsBase(sessions.filter((s) => !isTour(s.services?.category))) + subsRevenue) *
+    (netSessionsBase(sessions.filter((s) => !isTour(s.services?.category))) + netSubsBase(subs)) *
     MARINA_RATE;
 
   // ЗП за день — теми же тремя слагаемыми, что в кабинете и в «Расчёте месяца»

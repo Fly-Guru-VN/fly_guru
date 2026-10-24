@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { createAgentAction } from "../actions";
 import { Spinner } from "@/components/Spinner";
-import { AGENT_PLANS, DEFAULT_AGENT_PLAN, type AgentPlan } from "@/lib/agentTerms";
+import { AGENT_PLANS, NEW_AGENT_PLAN, type AgentPlan } from "@/lib/agentTerms";
 
 // Форма «новый агент»: клиентский компонент ради ошибки валидации без
 // перезагрузки (useActionState). Реф-код генерируется на сервере.
@@ -29,12 +29,12 @@ export function AgentCreateForm() {
         </label>
       </div>
 
-      {/* Условия агента (0046). По умолчанию — стандартные школьные; личные
-          проценты выбираем только тем, с кем начальник договорился отдельно.
+      {/* Условия агента (0046). С 24.10.2026 предлагаем «Вариант 1»; для
+          агента на других условиях начальник заводит новый вариант в коде.
           Поменять их можно и потом, в карточке агента. */}
       <label className="block text-xs text-muted">
         Условия
-        <select name="termsPlan" defaultValue={DEFAULT_AGENT_PLAN} className={`mt-1 ${inputClass}`}>
+        <select name="termsPlan" defaultValue={NEW_AGENT_PLAN} className={`mt-1 ${inputClass}`}>
           {(Object.keys(AGENT_PLANS) as AgentPlan[]).map((key) => (
             <option key={key} value={key}>
               {AGENT_PLANS[key].label}

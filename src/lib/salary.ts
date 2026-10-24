@@ -637,6 +637,7 @@ export interface SubsShares {
 
 interface PoolSubRow {
   price: number | null;
+  agent_base_cut: number | null; // вычет агента перед процентами (0072)
   paid_at: string | null;
   sold_by: string | null;
 }
@@ -679,7 +680,7 @@ export async function getSubsShares(
   const [data, shifts] = await Promise.all([
     loadPaidSubscriptionMoney<PoolSubRow>(
       client,
-      "price, paid_at, sold_by",
+      "price, agent_base_cut, paid_at, sold_by",
       range,
     ),
     loadShifts(client, range),
@@ -723,7 +724,10 @@ export async function getSubsShares(
     // инструктор рядом со своей долей. Босса в этих списках нет.
     // Продление — не новый абонемент: в деньгах оно считается, в счётчике нет.
     if (fromCrew && !raw.extension) soldCount.set(seller, (soldCount.get(seller) ?? 0) + 1);
-    const cut = Number(raw.price ?? 0) * SUBS_RATE;
+    // С абонемента агента 15% берутся с цены минус его вычет (0072) — та же
+    // база, что у Marina и CRM (lib/finance → netSubsBase).
+    const cut =
+      Math.max(0, Number(raw.price ?? 0) - Number(raw.agent_base_cut ?? 0)) * SUBS_RATE;
     if (cut <= 0) continue;
 
     // День оплаты по вьетнамскому времени: paid_at — timestamptz, а «в штате

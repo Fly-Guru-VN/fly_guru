@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { getAppUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getAgentProfile } from "@/lib/agentCabinet";
-import { AGENT_PLANS } from "@/lib/agentTerms";
+import { loadAgentRewardHistory } from "@/lib/agentHistory";
+import { getSiteServices } from "@/lib/services";
+import { AgentRewardHistory, AgentTermsTable } from "@/components/cabinet/AgentTerms";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { PageNote } from "@/components/cabinet/PageNote";
 import { CopyLink } from "../../admin/CopyLink";
@@ -23,7 +26,11 @@ export default async function AgentLinkPage() {
   const profile = await getAgentProfile(supabase, user.id);
   if (!profile) return <NoAgentProfile />;
 
-  const plan = AGENT_PLANS[profile.plan];
+  // История — под service_role (см. lib/agentHistory), строго по своему agentId.
+  const [history, services] = await Promise.all([
+    loadAgentRewardHistory(createAdminClient(), [profile.id]),
+    getSiteServices(),
+  ]);
 
   return (
     <div>
@@ -70,12 +77,16 @@ export default async function AgentLinkPage() {
 
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-bold">Мои условия</h2>
-        <p className="mt-1 text-sm font-semibold text-primary">{plan.label}</p>
-        <p className="mt-1 text-sm text-muted">{plan.note}</p>
-        <p className="mt-3 text-sm text-muted">
-          Скидка и награда действуют на обучение — базовое и парное. На прокат,
-          тандем и экскурсии ссылка работает, но по обычной цене и без награды.
-        </p>
+        <div className="mt-2">
+          <AgentTermsTable plan={profile.plan} services={services} showBase={false} />
+        </div>
+      </section>
+
+      <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
+        <h2 className="font-bold">История начислений</h2>
+        <div className="mt-2">
+          <AgentRewardHistory rows={history.get(profile.id) ?? []} showBase={false} />
+        </div>
       </section>
 
       <section className="mt-4 rounded-2xl border border-line bg-surface p-4">
@@ -86,7 +97,7 @@ export default async function AgentLinkPage() {
             записывается.
           </li>
           <li>
-            <b className="text-ink">2.</b> Он приезжает и оплачивает занятие —
+            <b className="text-ink">2.</b> Он оплачивает занятие или абонемент —
             в этот момент вам начисляется награда.
           </li>
           <li>
