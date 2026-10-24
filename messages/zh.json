@@ -60,6 +60,7 @@
     "certificateError": "无法核对编号，请再试一次。",
     "service": "服务项目",
     "serviceChoose": "请选择服务",
+    "discountGroup": "链接优惠",
     "agentDiscountRow": "代理链接优惠 −{amount}",
     "agentDiscountNote": "代理链接优惠适用于首次基础课程。",
     "friendDiscountRow": "通过朋友链接 −{amount}",

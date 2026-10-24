@@ -60,6 +60,7 @@
     "certificateError": "Die Nummer konnte nicht geprüft werden. Bitte versuchen Sie es erneut.",
     "service": "Leistung",
     "serviceChoose": "Leistung auswählen",
+    "discountGroup": "Mit Rabatt über den Link",
     "agentDiscountRow": "−{amount} über den Agenten-Link",
     "agentDiscountNote": "Der Rabatt über den Agenten-Link gilt für die erste Basisstunde.",
     "friendDiscountRow": "−{amount} über den Link eines Freundes",

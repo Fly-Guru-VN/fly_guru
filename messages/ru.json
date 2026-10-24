@@ -60,6 +60,7 @@
     "certificateError": "Не удалось проверить номер. Попробуйте ещё раз.",
     "service": "Услуга",
     "serviceChoose": "Выберите услугу",
+    "discountGroup": "Со скидкой по ссылке",
     "agentDiscountRow": "−{amount} по ссылке агента",
     "agentDiscountNote": "Скидка по ссылке агента — на первое базовое обучение.",
     "friendDiscountRow": "−{amount} по ссылке друга",

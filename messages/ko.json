@@ -60,6 +60,7 @@
     "certificateError": "번호를 확인하지 못했습니다. 다시 시도해 주세요.",
     "service": "서비스",
     "serviceChoose": "서비스를 선택하세요",
+    "discountGroup": "링크 할인",
     "agentDiscountRow": "에이전트 링크 할인 −{amount}",
     "agentDiscountNote": "에이전트 링크 할인은 첫 기본 강습에 적용됩니다.",
     "friendDiscountRow": "친구 링크로 −{amount}",

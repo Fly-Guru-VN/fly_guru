@@ -19,13 +19,17 @@ import type { ServiceOption } from "./BookingForm";
 // заголовки групп — по местам, где сменилась категория. Отсортируй мы список
 // заново, порядок разошёлся бы с остальными формами системы.
 //
+// Одно исключение (David, 24.10.2026): гость пришёл по ссылке со скидкой —
+// услуги со скидкой отдельной группой в самом верху, дальше обычные группы
+// уже без них. Внутри обеих частей порядок прежний.
+//
 // Внутри — настоящие radio. Список остаётся в разметке и свёрнутым (его прячет
 // та же связка grid-rows + visibility + inert, что и меню в шапке), поэтому
 // клавиатура и скринридеры видят обычный набор переключателей, а форма — свой
 // выбор.
 
 interface Group {
-  cat: ServiceCategory | "other";
+  cat: ServiceCategory | "other" | "discount";
   items: ServiceOption[];
 }
 
@@ -70,7 +74,14 @@ export function ServicePicker({
   const rootRef = useRef<HTMLFieldSetElement>(null);
 
   const chosen = services.find((s) => s.id === value) ?? services[0] ?? null;
-  const groups = groupInOrder(services);
+  const discounted = services.filter((s) => (discountFor?.(s) ?? 0) > 0);
+  const groups: Group[] =
+    discounted.length > 0
+      ? [
+          { cat: "discount", items: discounted },
+          ...groupInOrder(services.filter((s) => !discounted.includes(s))),
+        ]
+      : groupInOrder(services);
 
   // Закрываем по Esc и по нажатию мимо списка — как ведёт себя любой
   // выпадающий список: иначе он остаётся раскрытым на пол-формы.
@@ -140,7 +151,7 @@ export function ServicePicker({
             {groups.map((g) => (
               <div key={g.cat}>
                 <p className="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
-                  {tCategory(g.cat)}
+                  {g.cat === "discount" ? t("discountGroup") : tCategory(g.cat)}
                 </p>
                 <div className="space-y-1">
                   {g.items.map((s) => {

@@ -60,6 +60,7 @@
     "certificateError": "We could not check the number. Please try again.",
     "service": "Service",
     "serviceChoose": "Choose a service",
+    "discountGroup": "Discounted with your link",
     "agentDiscountRow": "−{amount} with your agent link",
     "agentDiscountNote": "The agent link discount applies to your first basic lesson.",
     "friendDiscountRow": "−{amount} with your friend's link",

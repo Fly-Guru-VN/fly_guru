@@ -60,6 +60,7 @@
     "certificateError": "No hemos podido comprobar el número. Inténtalo de nuevo.",
     "service": "Servicio",
     "serviceChoose": "Elige un servicio",
+    "discountGroup": "Con descuento por el enlace",
     "agentDiscountRow": "−{amount} con el enlace del agente",
     "agentDiscountNote": "El descuento del enlace del agente se aplica a la primera clase básica.",
     "friendDiscountRow": "−{amount} con el enlace de tu amigo",

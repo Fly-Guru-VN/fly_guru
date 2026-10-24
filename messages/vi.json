@@ -60,6 +60,7 @@
     "certificateError": "Không kiểm tra được mã. Vui lòng thử lại.",
     "service": "Dịch vụ",
     "serviceChoose": "Chọn dịch vụ",
+    "discountGroup": "Giảm giá theo liên kết",
     "agentDiscountRow": "−{amount} theo liên kết đại lý",
     "agentDiscountNote": "Ưu đãi theo liên kết đại lý áp dụng cho buổi học cơ bản đầu tiên.",
     "friendDiscountRow": "−{amount} qua liên kết của bạn bè",
