@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useActionState } from "react";
+import { unstable_rethrow } from "next/navigation";
 import {
   addShiftPhotoAction,
   deleteShiftPhotoAction,
@@ -11,6 +12,7 @@ import {
 import type { InstructorShift, PhotoKind, PhotoPhase, ShiftPhoto } from "@/lib/shifts";
 import type { EquipmentItem } from "@/lib/equipment";
 import { photoLabel, PHOTO_KIND_LABEL } from "@/lib/shiftRules";
+import { PHOTO_MAX_BYTES } from "@/lib/photos";
 import { vnTimeLabel } from "@/lib/dates";
 import { Spinner } from "@/components/Spinner";
 import { PhotoInput } from "./PhotoInput";
@@ -54,9 +56,35 @@ function PhotoUploader({
   // обязательный кадр не просто загрузился — он открыл или закрыл смену. Сама
   // форма после успеха перемонтируется, надпись внутри неё исчезла бы раньше,
   // чем её увидят; ToastHost живёт в макете кабинета.
+  //
+  // Два сбоя ловим здесь же, под полем, а не красным экраном на весь кабинет
+  // (instructor/error.tsx пишет «проверьте интернет», и 24.10.2026 Дмитрий
+  // с рабочим интернетом так и не смог закрыть смену):
+  //  • кадр не сжался в браузере (тяжёлый снимок, не хватило памяти) — тогда
+  //    уходил оригинал на 8–15 МБ, и Vercel обрывал запрос ещё до сервера
+  //    (лимит тела 4,5 МБ). Такой файл не отправляем вовсе;
+  //  • запрос всё равно не дошёл — говорим, что именно случилось.
   const [state, formAction, pending] = useActionState<ShiftPhotoState, FormData>(
     async (prev, formData) => {
-      const result = await addShiftPhotoAction(prev, formData);
+      const photo = formData.get("photo");
+      if (photo instanceof File && photo.size > PHOTO_MAX_BYTES) {
+        const mb = (photo.size / 1024 / 1024).toFixed(1);
+        return {
+          error: `Фото не сжалось (${mb} МБ) и не отправлено. Переснимите кадр: закройте другие приложения или снимите в меньшем разрешении камеры.`,
+        };
+      }
+      let result: ShiftPhotoState;
+      try {
+        result = await addShiftPhotoAction(prev, formData);
+      } catch (err) {
+        // Редирект на логин и прочие служебные «ошибки» Next — пропускаем.
+        unstable_rethrow(err);
+        console.error("[shift] photo upload failed", err);
+        return {
+          error:
+            "Фото не дошло до сервера. Обновите страницу и снимите ещё раз. Если повторится — пусть админ закроет смену.",
+        };
+      }
       if (!result.error) {
         showToast(
           result.opened
