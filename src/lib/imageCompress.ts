@@ -74,6 +74,32 @@ async function decode(file: File): Promise<Decoded | null> {
   }
 }
 
+// Запасной путь, когда обычное декодирование не справилось. Кадр на 50–108 Мп
+// в полном размере занимает в памяти 200–400 МБ, и слабый телефон его не
+// разворачивает — тогда compressImage отдавал оригинал на 8–15 МБ, Vercel
+// отбивал запрос по лимиту тела, а инструктор видел «проверьте интернет»
+// (Дмитрий, 24.10.2026). Здесь браузер раскладывает кадр СРАЗУ уменьшенным до
+// MAX_SIDE по ширине: памяти нужно в разы меньше. Высота считается по
+// пропорции; если кадр портретный и выйдет выше MAX_SIDE, его дожмёт canvas.
+async function decodeScaled(file: File): Promise<Decoded | null> {
+  if (typeof createImageBitmap !== "function") return null;
+  try {
+    const bitmap = await createImageBitmap(file, {
+      resizeWidth: MAX_SIDE,
+      resizeQuality: "high",
+      imageOrientation: "from-image",
+    });
+    return {
+      width: bitmap.width,
+      height: bitmap.height,
+      draw: (ctx, w, h) => ctx.drawImage(bitmap, 0, 0, w, h),
+      release: () => bitmap.close(),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
 }
@@ -95,7 +121,11 @@ export async function compressImage(file: File): Promise<File> {
   // Маленький кадр не трогаем: перекодирование только испортит качество.
   const alreadySmall = file.size <= TARGET_BYTES;
 
-  const decoded = await decode(file);
+  let decoded = await decode(file);
+  if (!decoded || !decoded.width || !decoded.height) {
+    decoded?.release();
+    decoded = await decodeScaled(file);
+  }
   if (!decoded || !decoded.width || !decoded.height) return file;
 
   try {
