@@ -1,8 +1,8 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import { AgentsScreen } from "./AgentsScreen";
 
-// Агентов больше нет (решение начальника, 09.10.2026): вкладку заменили
-// «Рефералы». Экран AgentsScreen оставлен в коде — «пока что не нужен»; старые
-// закладки ведут на новую вкладку.
+export const metadata: Metadata = { title: "Админка · Агенты" };
+
 export default function AdminAgentsPage() {
-  redirect("/admin/referrals");
+  return <AgentsScreen />;
 }
