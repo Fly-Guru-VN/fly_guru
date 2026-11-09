@@ -8,7 +8,6 @@ import {
   cabinetBase,
   getActiveAppUser,
   isAdminLike,
-  isLeftStaff,
   isOffice,
   type AppRole,
 } from "@/lib/auth";
@@ -2404,9 +2403,9 @@ export async function rehireInstructorAction(formData: FormData) {
 // каскадом снесло его смены и отметки выплат. auth.users ни одна таблица не
 // ссылается, так что удаление логина ничего за собой не тянет.
 //
-// Только после последнего рабочего дня: «последний день пятница» не должен
-// отрезать человека от кабинета раньше времени. Вернуть вход потом можно лишь
-// заведя новый логин — «Вернуть в штат» его не восстанавливает.
+// До 09.11.2026 — только у уволенных. Теперь у любого сотрудника; вернуть
+// вход можно кнопкой «Создать вход» (settings/accountActions), «Вернуть в
+// штат» его сам не восстанавливает.
 export async function deleteStaffLoginAction(formData: FormData) {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");
@@ -2415,12 +2414,15 @@ export async function deleteStaffLoginAction(formData: FormData) {
   const admin = createAdminClient();
   const { data: row, error } = await admin
     .from("users")
-    .select("auth_id, left_at")
+    .select("auth_id")
     .eq("id", id)
     .in("role", EMPLOYMENT_ROLES)
     .maybeSingle();
   failIfError(error, "не удалось найти сотрудника");
-  if (!row?.auth_id || !isLeftStaff(row)) return;
+  // С 09.11.2026 вход можно удалить и у работающего (решение David): кабинет
+  // закрывается сразу, getActiveAppUser ищет человека по auth_id. Вернуть —
+  // «Создать вход» в той же карточке.
+  if (!row?.auth_id) return;
 
   // 404 = логин уже удалили руками в Supabase: связь всё равно обнуляем.
   const del = await admin.auth.admin.deleteUser(row.auth_id);

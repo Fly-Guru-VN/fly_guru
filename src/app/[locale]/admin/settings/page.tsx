@@ -6,6 +6,8 @@ import { SettingsForm } from "@/app/[locale]/instructor/settings/SettingsForm";
 import { DictionaryManager } from "./DictionaryManager";
 import { EquipmentManager } from "./EquipmentManager";
 import { StaffManager, type StaffRow } from "./StaffManager";
+import { AddStaffForm } from "./AccountControls";
+import { loginLabel } from "@/lib/staffAccount";
 import { employmentLabel, isFired, loadEmployees } from "@/lib/staff";
 import { vnToday } from "@/lib/dates";
 import { PageHeader } from "@/components/cabinet/PageHeader";
@@ -28,6 +30,8 @@ async function loadStaff(
     fired: isFired(m, today),
     label: employmentLabel(m, today),
     hasLogin: m.hasLogin,
+    login: loginLabel(m.phone, m.email),
+    phone: m.phone,
     sickLeaves: m.sickLeaves ?? [],
     noSubsShareFrom: m.noSubsShareFrom ?? null,
   }));
@@ -73,8 +77,20 @@ export default async function AdminSettingsPage() {
         />
       </div>
 
+      {/* Штат: новый сотрудник одним нажатием — строка и вход в кабинет
+          (09.11.2026, раньше только скриптом из терминала). */}
+      <div className="mt-8">
+        <h2 className="text-xl font-bold text-ink">Штат</h2>
+        <p className="mt-1 text-sm text-slate-700">
+          Инструкторы, СММ и механик. Добавить человека, выдать вход, уволить.
+        </p>
+        <div className="mt-3">
+          <AddStaffForm today={today} />
+        </div>
+      </div>
+
       {instructors.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-4">
           <StaffManager kind="instructor" staff={instructors} today={today} />
         </div>
       )}

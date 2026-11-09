@@ -170,6 +170,8 @@ export const EMPLOYMENT_ROLES: AppRole[] = ["instructor", "smm", "mechanic"];
 // остаётся — см. deleteStaffLoginAction.
 export interface Employee extends StaffMember {
   hasLogin: boolean;
+  phone: string | null; // логин в кабинет (см. lib/staffAccount → loginLabel)
+  email: string | null;
 }
 
 // Штат для экрана «Настройки»: инструкторы, СММщики и механик, включая
@@ -177,13 +179,18 @@ export interface Employee extends StaffMember {
 export async function loadEmployees(client: Supabase): Promise<Employee[]> {
   const { data, error } = await client
     .from("users")
-    .select(`id, name, role, senior, hired_at, left_at, no_subs_share_from, auth_id, ${SICK_LEAVES_EMBED}`)
+    .select(`id, name, role, senior, hired_at, left_at, no_subs_share_from, auth_id, phone, email, ${SICK_LEAVES_EMBED}`)
     .in("role", EMPLOYMENT_ROLES)
     .order("name");
   failIfReadError(error, "не удалось прочитать штат");
 
   const rows = (data ?? []) as unknown as Record<string, unknown>[];
-  return rows.map((r) => ({ ...toMember(r), hasLogin: Boolean(r.auth_id) }));
+  return rows.map((r) => ({
+    ...toMember(r),
+    hasLogin: Boolean(r.auth_id),
+    phone: (r.phone as string | null) ?? null,
+    email: (r.email as string | null) ?? null,
+  }));
 }
 
 // Механик и админ зарплату НЕ зарабатывают по формуле — им платят фиксом, о
