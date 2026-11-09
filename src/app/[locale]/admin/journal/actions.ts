@@ -320,11 +320,11 @@ export async function saveJournalPostAction(input: SavePostInput): Promise<SaveP
   return { id: post.id, slug, status, savedAt: now };
 }
 
-// ── Удаление черновика ───────────────────────────────────────────────────────
-// Удалить можно только черновик: опубликованный пост сначала скрывают. Так
-// случайное нажатие не уничтожит статью, на которую уже ведут ссылки.
-// Фото черновика удаляются вместе с ним.
-export async function deleteJournalDraftAction(id: string): Promise<{ error: string | null }> {
+// ── Удаление поста ───────────────────────────────────────────────────────────
+// Удалить можно черновик или скрытый пост: опубликованный сначала скрывают. Так
+// случайное нажатие не уничтожит статью, которая сейчас висит на сайте.
+// Фото поста удаляются вместе с ним.
+export async function deleteJournalPostAction(id: string): Promise<{ error: string | null }> {
   await requireOffice();
   if (!isUuid(id)) return { error: "Пост не найден." };
 
@@ -336,25 +336,25 @@ export async function deleteJournalDraftAction(id: string): Promise<{ error: str
     .maybeSingle();
   if (readError) return { error: `Не удалось прочитать пост: ${readError.message}` };
   if (!post) return { error: null };
-  if (post.status !== "draft") {
-    return { error: "Опубликованный пост не удаляется — его можно скрыть." };
+  if (post.status === "published") {
+    return { error: "Опубликованный пост сначала скройте с сайта, потом удалите." };
   }
 
   const { error } = await admin
     .from("journal_posts")
     .delete()
     .eq("id", id)
-    .eq("status", "draft");
+    .in("status", ["draft", "hidden"]);
   if (error) return { error: `Не удалось удалить: ${error.message}` };
 
   const photos = parseBody(post.body)
     .map((block) => (block.type === "photo" ? block.path : null))
     .filter(isJournalPhotoPath);
   if (photos.length > 0) {
-    // Не удалилось фото — не беда: черновика уже нет, а файл без ссылок на
+    // Не удалилось фото — не беда: поста уже нет, а файл без ссылок на
     // него никому не виден. Пишем в лог и не пугаем пользователя.
     const { error: removeError } = await admin.storage.from(JOURNAL_BUCKET).remove(photos);
-    if (removeError) console.error("[journal] фото черновика не удалены:", removeError.message);
+    if (removeError) console.error("[journal] фото удалённого поста не удалены:", removeError.message);
   }
 
   return { error: null };

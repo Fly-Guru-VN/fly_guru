@@ -22,7 +22,7 @@ import { JournalArticle } from "@/components/journal/JournalArticle";
 import { JournalVideo } from "@/components/journal/JournalVideo";
 import { showToast } from "@/components/cabinet/Toast";
 import {
-  deleteJournalDraftAction,
+  deleteJournalPostAction,
   saveJournalPostAction,
   uploadJournalPhotoAction,
   type SavePostInput,
@@ -570,17 +570,18 @@ export function JournalEditor({
     });
   }
 
-  function removeDraft() {
-    if (!id || !window.confirm("Удалить черновик вместе с фото? Это нельзя отменить.")) return;
+  function removePost() {
+    const what = status === "hidden" ? "пост" : "черновик";
+    if (!id || !window.confirm(`Удалить ${what} вместе с фото? Это нельзя отменить.`)) return;
     startTransition(async () => {
-      const result = await deleteJournalDraftAction(id);
+      const result = await deleteJournalPostAction(id);
       if (result.error) {
         setError(result.error);
         return;
       }
       dropBackup(id);
       setSaved(current); // чтобы уход со страницы не переспрашивал
-      showToast("Черновик удалён");
+      showToast(status === "hidden" ? "Пост удалён" : "Черновик удалён");
       router.push(`${base}/journal`);
     });
   }
@@ -970,21 +971,21 @@ export function JournalEditor({
             </ActionButton>
           </>
         )}
-        {status === "draft" && id && (
+        {status !== "published" && id && (
           <button
             type="button"
-            onClick={removeDraft}
+            onClick={removePost}
             disabled={busy}
             className="ml-auto text-sm font-semibold text-red-600 hover:underline disabled:opacity-50"
           >
-            Удалить черновик
+            {status === "hidden" ? "Удалить пост" : "Удалить черновик"}
           </button>
         )}
       </div>
       {status === "published" && (
         <p className="mt-3 text-xs text-muted">
           Правка появится на сайте через несколько секунд после сохранения, а внизу поста —
-          пометка «изменено».
+          пометка «изменено». Чтобы удалить пост, сначала скройте его с сайта.
         </p>
       )}
     </div>
