@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildPayWeeks, isUnderpaid, payWeekStart } from "@/lib/payrollWeeks";
+import { buildPayDays, buildPayWeeks, isUnderpaid, payWeekStart } from "@/lib/payrollWeeks";
 
 // Недели карточки инструктора. Запуск: npm test
 //
@@ -162,4 +162,44 @@ test("«Как считалось»: части недели раскладыв�
   const sum = Object.values(w.parts).reduce((s, v) => s + v, 0);
   assert.equal(sum, w.earned);
   assert.equal(weeks[1].parts.sessions, 70_000);
+});
+
+test("разбор недели по дням: слагаемые, выходной пропущен, свежие сверху", () => {
+  const partsByDay = {
+    sessions: new Map([
+      ["2026-11-14", 300_000],
+      ["2026-11-15", 150_000],
+    ]),
+    shifts: new Map([["2026-11-14", 200_000]]),
+    subs: new Map([["2026-11-15", 75_000]]),
+    tours: new Map<string, number>(),
+  };
+  const days = buildPayDays({
+    fromDay: "2026-11-14",
+    lastDay: "2026-11-20",
+    today: "2026-11-17",
+    partsByDay,
+    sessionDays: new Map([
+      ["2026-11-14", { base: 4_000_000, crew: 2 }],
+      ["2026-11-15", { base: 1_000_000, crew: 1 }],
+    ]),
+    shiftRows: [
+      { date: "2026-11-14", status: "paid", comment: null },
+      { date: "2026-11-15", status: "lateOpen", comment: null },
+    ],
+  });
+
+  // 16-е — выходной без смены и денег, 18-е и дальше ещё не наступили.
+  assert.deepEqual(
+    days.map((d) => d.day),
+    ["2026-11-15", "2026-11-14"],
+  );
+  const [sun, sat] = days;
+  assert.equal(sat.total, 500_000);
+  assert.equal(sat.sessionCrew, 2);
+  assert.equal(sat.shiftStatus, "paid");
+  // Смена не зачтена: денег за выход нет, но причина видна.
+  assert.equal(sun.shift, 0);
+  assert.equal(sun.shiftStatus, "lateOpen");
+  assert.equal(sun.total, 225_000);
 });

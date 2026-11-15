@@ -6,6 +6,7 @@ import {
   salaryFrom,
   salaryPartsByDay,
   type InstructorStats,
+  type SalaryPartsByDay,
   type StatsRange,
 } from "@/lib/stats";
 import { buildPayWeeks, type PayWeek } from "@/lib/payrollWeeks";
@@ -13,12 +14,11 @@ import { getCrmPayout, getCrmShare, type CrmPayout } from "@/lib/finance";
 import { dayShort, monthName, vnMonth, vnPeriod, vnShiftDays, vnToday } from "@/lib/dates";
 import { failIfReadError } from "@/lib/dbError";
 import {
-  DEV_WEEK_PAY,
   getMonthlyFixedPay,
   getSmmFixedPay,
-  getWeeklyFixedPay,
   MECHANIC_MONTH_PAY,
   smmWeekPayOn,
+  type ShiftPayRow,
   type WeeklyFixedPay,
 } from "@/lib/salary";
 import {
@@ -97,13 +97,7 @@ const PAGE_SIZE = 1000;
 /** Кому платим: штат живёт в salary_payouts, агенты — в agent_payouts (0023). */
 export type PayeeKind = "staff" | "agent";
 
-export type DueKind =
-  | "instructor"
-  | "smm"
-  | "dev"
-  | "mechanic"
-  | "agent"
-  | "crm";
+export type DueKind = "instructor" | "smm" | "mechanic" | "agent";
 
 export interface DueDetail {
   label: string;
@@ -128,6 +122,14 @@ export interface DueRow {
   paidToDate: number; // выдано с PAYROLL_EPOCH по сегодня
   /** Сальдо: accruedToDate − paidToDate. null — ставки нет, долг не считаем. */
   left: number | null;
+  /**
+   * К выплате сейчас (плашка-профиль, 15.11.2026). У инструктора это left БЕЗ
+   * идущей недели: за неё платят в субботу, а не сегодня. У остальных = left.
+   */
+  due: number | null;
+  /** Инструктор: сколько заработал за идущую неделю (сб–пт) и когда выплата. */
+  thisWeek?: { earned: number; fromDay: string; payday: string };
+  photoUrl: string | null;
   employmentLabel: string | null;
   /** Уволен на сегодня. Рассчитавшийся уволенный из списка убирается. */
   fired: boolean;
@@ -184,6 +186,8 @@ export interface MonthlyPayroll {
   accruedToDateTotal: number; // с PAYROLL_EPOCH по сегодня
   paidToDateTotal: number;
   leftTotal: number; // сумма положительных сальдо — «сколько отдать сегодня»
+  /** Сумма положительных «к выплате» без оклада механика за идущий месяц. */
+  dueTotal: number;
   crmMonthLabel: string;
   crmInTotal: boolean;
   /** Точка отсчёта долга — экран подписывает ею накопительные цифры. */
@@ -202,7 +206,7 @@ function lastDayOf(range: StatsRange): string {
 // выдают и почему её нет в «осталось выдать».
 function crmHint(monthOpen: boolean, inTotal: boolean): string | undefined {
   if (monthOpen) {
-    return "выплачивается в конце месяца, в «осталось выдать» не входит";
+    return "выплачивается в конце месяца, в «к выплате» пока не входит";
   }
   return inTotal ? undefined : "в начисление за этот период не входит";
 }
@@ -504,7 +508,7 @@ export async function getMonthlyPayroll(
   const crmInTotal =
     range.fromDay === crmMonth.fromDay && range.toDay === crmMonth.toDay;
   // Месяц ещё идёт: его 1% не в «осталось выдать», а в напоминалке у ника.
-  // Закрытый месяц напоминалки не получает — он уже сидит в сальдо (crmToDate),
+  // Закрытый месяц напоминалки не получает — он уже сидит в сальдо,
   // и чип рядом с «осталось выдать» читался бы как вторая, отдельная сумма.
   const crmMonthOpen = crmMonth.toDay > today;
 
@@ -539,16 +543,13 @@ export async function getMonthlyPayroll(
       getClosedCrmMonths(supabase, balanceLastDay),
       loadAgentRewards(supabase, range),
       loadAgentRewards(supabase, balanceRange),
-      supabase.from("agents").select("id, active, user:users!user_id(name)"),
+      supabase.from("agents").select("id, active, user:users!user_id(name, photo_url)"),
       // Общие для всех инструкторов части расчёта ЗП (штат, котёл абонементов,
       // смены, дележ 15%) — читаем один раз на период, а не на каждого.
       loadPayInputs(supabase, range),
     ]);
 
   failIfReadError(agentsRes.error, "не удалось прочитать агентов для расчёта выплат");
-
-  // Разработчику — все закрытые месяцы целиком: он в штате с самого начала.
-  const crmToDate = crmClosed.reduce((sum, c) => sum + c.payout.each, 0);
 
   // То же самое за накопительный период — им считается «осталось выдать».
   // Выбран ровно он — второй раз не читаем.
@@ -594,6 +595,17 @@ export async function getMonthlyPayroll(
         : salaryFrom(balanceInputs, u.id).total;
       const paid = paidTo("staff", u.id);
       const paidAll = paidToDate("staff", u.id);
+      // Идущая неделя сб–пт: тот же расчёт, что в профиле (lib/payrollWeeks).
+      // Её заработок выплачивают в субботу, поэтому из «к выплате» он вычтен.
+      const running = buildPayWeeks({
+        epoch: PAYROLL_EPOCH,
+        today: balanceLastDay,
+        earnedByDay: salaryByDay(balanceInputs, u.id),
+        payouts: staffPaidToDate
+          .filter((p) => p.payeeId === u.id)
+          .map((p) => ({ id: p.id, amount: p.amount, paidOn: p.paidOn, comment: p.comment })),
+      }).find((w) => w.status === "running");
+      const left = salaryToDate - paidAll;
       return {
         key: `staff-${u.id}`,
         payee: { kind: "staff" as const, id: u.id },
@@ -603,7 +615,16 @@ export async function getMonthlyPayroll(
         paid,
         accruedToDate: salaryToDate,
         paidToDate: paidAll,
-        left: salaryToDate - paidAll,
+        left,
+        due: left - (running?.diff ?? 0),
+        thisWeek: running
+          ? {
+              earned: running.earned,
+              fromDay: running.fromDay,
+              payday: vnShiftDays(running.lastDay, 1),
+            }
+          : undefined,
+        photoUrl: u.photoUrl ?? null,
         employmentLabel: employmentLabel(u),
         fired: isFired(u),
         details: [
@@ -686,6 +707,8 @@ export async function getMonthlyPayroll(
       accruedToDate,
       paidToDate: paidAll,
       left: accruedToDate - paidAll,
+      due: accruedToDate - paidAll,
+      photoUrl: u.photoUrl ?? null,
       employmentLabel: employmentLabel(u),
       fired: isFired(u),
       monthly:
@@ -732,62 +755,21 @@ export async function getMonthlyPayroll(
     });
   }
 
-  // ── Разработчик ────────────────────────────────────────────────────────────
-  // Считается ровно как СММщик, только ставка своя: 2,5 млн за полную неделю
-  // плюс тот же 1% с оборота (вторая половина доли CRM). Раньше эта половина
-  // висела справочной строкой «Дэвид · 1%» без получателя — выплатить её было
-  // некому, потому что аккаунта у него не было.
-  const devs = allDevs.filter(inScope);
-  for (const u of devs) {
-    const fix = getWeeklyFixedPay(DEV_WEEK_PAY, range.fromDay, lastDay, u);
-    const accrued = fix.amount + (crmInTotal ? crm.each : 0);
-    const fixToDate = getWeeklyFixedPay(
-      DEV_WEEK_PAY,
-      PAYROLL_EPOCH,
-      balanceLastDay,
-      u,
-    );
-    const accruedToDate = fixToDate.amount + crmToDate;
-    const paid = paidTo("staff", u.id);
-    const paidAll = paidToDate("staff", u.id);
-    rows.push({
-      key: `staff-${u.id}`,
-      payee: { kind: "staff", id: u.id },
-      kind: "dev",
-      name: u.name,
-      accrued,
-      paid,
-      accruedToDate,
-      paidToDate: paidAll,
-      left: accruedToDate - paidAll,
-      employmentLabel: employmentLabel(u),
-      fired: isFired(u),
-      monthly:
-        crmMonthOpen && crm.each > 0
-          ? { label: monthName(crmMonth.fromDay), amount: crm.each }
-          : undefined,
-      details: [
-        {
-          label: fixLabel(() => DEV_WEEK_PAY, fix),
-          value: fix.amount,
-          hint: isFired(u)
-            ? undefined
-            : `следующая — в сб, ${dayShort(fix.nextPayday)}`,
-        },
-        {
-          label: `1% с выручки · ${crmMonth.label}`,
-          value: crm.each,
-          hint: crmHint(crmMonthOpen, crmInTotal),
-        },
-      ],
-    });
-  }
+  // Разработчика здесь нет (15.11.2026, решение David перед передачей
+  // проекта): школа ему ничего не должна, а его недельный фикс и 1% продолжали
+  // бы копить «осталось выдать». Прошлые выплаты ему остаются в истории.
 
   // ── Агенты ─────────────────────────────────────────────────────────────────
   const agentName = new Map(
     (agentsRes.data ?? []).map((a) => [
       a.id as string,
       (a.user as unknown as { name: string } | null)?.name ?? "агент",
+    ]),
+  );
+  const agentPhoto = new Map(
+    (agentsRes.data ?? []).map((a) => [
+      a.id as string,
+      (a.user as unknown as { photo_url: string | null } | null)?.photo_url ?? null,
     ]),
   );
   for (const [id, name] of agentName) {
@@ -808,6 +790,8 @@ export async function getMonthlyPayroll(
       accruedToDate: rewardToDate.sum,
       paidToDate: paidAll,
       left: rewardToDate.sum - paidAll,
+      due: rewardToDate.sum - paidAll,
+      photoUrl: agentPhoto.get(id) ?? null,
       employmentLabel: null,
       fired: false,
       details: [
@@ -850,6 +834,8 @@ export async function getMonthlyPayroll(
       accruedToDate: fixToDate.amount + fixToDate.current,
       paidToDate: paidAll,
       left: fixToDate.amount + fixToDate.current - paidAll,
+      due: fixToDate.amount + fixToDate.current - paidAll,
+      photoUrl: u.photoUrl ?? null,
       employmentLabel: employmentLabel(u),
       fired: isFired(u),
       upcoming:
@@ -876,7 +862,11 @@ export async function getMonthlyPayroll(
   // деньги им выдавали: иначе строка «осталось 0» просто шумит. Долг у такой
   // строки не считается вовсе (left = null): начислять школе нечего, и «минус
   // выданное» показало бы вечную переплату.
-  const known = new Set(rows.map((r) => r.payee?.id).filter(Boolean));
+  // Разработчик сюда тоже не попадает: выплаты ему были, но строки нет.
+  const known = new Set<string>([
+    ...rows.map((r) => r.payee?.id).filter((v): v is string => Boolean(v)),
+    ...allDevs.map((u) => u.id),
+  ]);
   const names = await loadNames(supabase);
   for (const p of staffPaidToDate) {
     if (known.has(p.payeeId)) continue;
@@ -891,38 +881,11 @@ export async function getMonthlyPayroll(
       accruedToDate: 0,
       paidToDate: paidToDate("staff", p.payeeId),
       left: null,
+      due: null,
+      photoUrl: null,
       employmentLabel: null,
       fired: false,
       details: [],
-    });
-  }
-
-  // ── Доля Дэвида ────────────────────────────────────────────────────────────
-  // Справочная строка: 1% с выручки школа сама себе не выдаёт, это его же
-  // деньги. В «Итого» не входит, кнопки выплаты у неё нет.
-  //
-  // Нужна, только пока у разработчика нет своего аккаунта: с ним доля попадает
-  // в его собственную строку выше, вместе с фиксом, и её уже можно выплатить.
-  if (crm.each > 0 && devs.length === 0) {
-    rows.push({
-      key: "crm-david",
-      payee: null,
-      kind: "crm",
-      name: `${crm.partners[0]} · 1% с выручки`,
-      accrued: crm.each,
-      paid: 0,
-      accruedToDate: crm.each,
-      paidToDate: 0,
-      left: null,
-      employmentLabel: null,
-      fired: false,
-      details: [
-        {
-          label: `база · ${crmMonth.label}`,
-          value: crm.revenue,
-          hint: "занятия месяца плюс оплаченные абонементы",
-        },
-      ],
     });
   }
 
@@ -940,11 +903,9 @@ export async function getMonthlyPayroll(
       ? "Инструкторы"
       : kind === "smm"
         ? "СММ"
-        : kind === "dev"
-          ? "Разработчик"
-          : kind === "agent"
-            ? "Агенты"
-            : "Штат";
+        : kind === "agent"
+          ? "Агенты"
+          : "Штат";
 
   const payees: Payee[] = [
     ...allInstructors.map((u) => ({
@@ -960,14 +921,6 @@ export async function getMonthlyPayroll(
       id: u.id,
       name: u.name,
       group: groupOf("smm"),
-      fired: isFired(u),
-      suggested: suggestedFor.get(`staff-${u.id}`) ?? 0,
-    })),
-    ...allDevs.map((u) => ({
-      kind: "staff" as const,
-      id: u.id,
-      name: u.name,
-      group: groupOf("dev"),
       fired: isFired(u),
       suggested: suggestedFor.get(`staff-${u.id}`) ?? 0,
     })),
@@ -1026,7 +979,7 @@ export async function getMonthlyPayroll(
     .sort(
       (a, b) =>
         Number(a.fired) - Number(b.fired) ||
-        (b.left ?? 0) - (a.left ?? 0) ||
+        (b.due ?? 0) - (a.due ?? 0) ||
         a.name.localeCompare(b.name, "ru"),
     );
 
@@ -1044,6 +997,10 @@ export async function getMonthlyPayroll(
     // Переплата одному человеку не гасит долг другому: в «отдать сегодня»
     // складываем только положительные сальдо.
     leftTotal: payableRows.reduce((s, r) => s + debtOf(r), 0),
+    dueTotal: payableRows.reduce(
+      (s, r) => s + Math.max(0, (r.due ?? 0) - (r.upcoming?.amount ?? 0)),
+      0,
+    ),
     crmMonthLabel: crmMonth.label,
     crmInTotal,
     epoch: PAYROLL_EPOCH,
@@ -1071,6 +1028,10 @@ export interface InstructorCard {
   /** Сводка за выбранный месяц: занятия, выходы, из чего сложилась ЗП. */
   month: StatsRange & { lastDay: string };
   stats: InstructorStats;
+  /** Для разбора недели по дням (lib/payrollWeeks → buildPayDays). */
+  partsByDay: SalaryPartsByDay;
+  sessionDays: Map<string, { base: number; crew: number }>;
+  shiftRows: ShiftPayRow[];
 }
 
 export async function getInstructorCard(
@@ -1129,5 +1090,8 @@ export async function getInstructorCard(
     payouts,
     month,
     stats,
+    partsByDay: salaryPartsByDay(balanceInputs, member.id),
+    sessionDays: balanceInputs.sessionShare.get(member.id)?.dayInfo ?? new Map(),
+    shiftRows: balanceInputs.shiftPay.get(member.id)?.rows ?? [],
   };
 }

@@ -43,6 +43,9 @@ export interface StaffMember {
   // С этого дня (включительно) без доли котла абонементов (0070). Нет поля или
   // null = обычные условия.
   noSubsShareFrom?: string | null;
+  // Аватарка (users.photo_url, публичный бакет avatars). Нет поля = не нужна
+  // экрану; null = фото не ставили.
+  photoUrl?: string | null;
 }
 
 // Период больничного, обе границы включительно; to = null — болеет сейчас.
@@ -230,7 +233,7 @@ async function loadByRole(
   const roles = Array.isArray(role) ? role : [role];
   const { data, error } = await client
     .from("users")
-    .select(`id, name, role, senior, hired_at, left_at, no_subs_share_from, ${SICK_LEAVES_EMBED}`)
+    .select(`id, name, role, senior, hired_at, left_at, no_subs_share_from, photo_url, ${SICK_LEAVES_EMBED}`)
     .in("role", roles)
     .order("name");
 
@@ -260,6 +263,7 @@ function toMember(r: Record<string, unknown>): StaffMember {
     leftAt: (r.left_at as string | null) ?? null,
     senior: Boolean(r.senior),
     noSubsShareFrom: (r.no_subs_share_from as string | null) ?? null,
+    photoUrl: (r.photo_url as string | null | undefined) ?? null,
     sickLeaves: leaves
       .map((l) => ({ id: l.id, from: l.starts_on, to: l.ends_on }))
       .sort((a, b) => (a.from < b.from ? -1 : 1)),

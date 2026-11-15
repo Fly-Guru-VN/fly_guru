@@ -206,6 +206,9 @@ export interface SessionShare {
   sharedDays: number; // дни, где сумма делилась со сменщиками
   ownDays: number; // дни без смен — 15% со своих чеков
   byDay: Map<string, number>; // amount по дням — карточка раскладывает ЗП по неделям
+  // Откуда доля дня (профиль сотрудника, 15.11.2026): база дня и на сколько
+  // человек её делили. Без дележа (смен не было) база = свои чеки, делили на 1.
+  dayInfo: Map<string, { base: number; crew: number }>;
 }
 
 // Кто делит 15% за конкретный день: сначала открывшие смену, если таких нет —
@@ -357,7 +360,13 @@ export async function getSessionShare(
   const share = (id: string): SessionShare => {
     let entry = result.get(id);
     if (!entry) {
-      entry = { amount: 0, sharedDays: 0, ownDays: 0, byDay: new Map() };
+      entry = {
+        amount: 0,
+        sharedDays: 0,
+        ownDays: 0,
+        byDay: new Map(),
+        dayInfo: new Map(),
+      };
       result.set(id, entry);
     }
     return entry;
@@ -373,6 +382,7 @@ export async function getSessionShare(
         entry.amount += each;
         entry.sharedDays += 1;
         entry.byDay.set(date, (entry.byDay.get(date) ?? 0) + each);
+        entry.dayInfo.set(date, { base, crew: crew.size });
       }
     } else {
       for (const [id, net] of dayOwn.get(date) ?? []) {
@@ -380,6 +390,7 @@ export async function getSessionShare(
         entry.amount += net * SESSION_RATE;
         entry.ownDays += 1;
         entry.byDay.set(date, (entry.byDay.get(date) ?? 0) + net * SESSION_RATE);
+        entry.dayInfo.set(date, { base: net, crew: 1 });
       }
     }
   }

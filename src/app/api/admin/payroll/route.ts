@@ -18,10 +18,8 @@ import { buildXlsx, xlsxHeaders } from "@/lib/xlsx";
 const KIND: Record<DueRow["kind"], string> = {
   instructor: "инструктор",
   smm: "СММ",
-  dev: "разработчик",
   mechanic: "штат",
   agent: "агент",
-  crm: "справка",
 };
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;

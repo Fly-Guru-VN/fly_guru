@@ -1,5 +1,6 @@
 import { vnShiftDays } from "@/lib/dates";
 import type { SalaryPartsByDay } from "@/lib/stats";
+import type { ShiftPayRow, ShiftPayStatus } from "@/lib/salary";
 
 // Карточка инструктора: заработок по неделям рядом с выплатами за них.
 //
@@ -159,4 +160,69 @@ export function buildPayWeeks({
       status: statusOf(Math.round(earned[i]), paid, lastDay >= today),
     };
   });
+}
+
+// ── Разбор недели по дням (профиль сотрудника, 15.11.2026) ──────────────────
+//
+// Вопрос начальника звучит так: «а как сегодня посчитали зарплату?». Ответ —
+// день по слагаемым: 15% с выручки дня (и на сколько человек её делили), выход
+// и почему он не зачтён, доля котла абонементов, туры. Это те же byDay, из
+// которых собраны недели, поэтому сумма дней = «заработал» недели.
+
+export interface PayDay {
+  day: string;
+  total: number;
+  sessions: number;
+  /** Выручка дня, с которой взяли 15%, и на сколько человек её поделили. */
+  sessionBase: number | null;
+  sessionCrew: number | null;
+  shift: number;
+  /** Вердикт по выходу; null — смены в этот день не было. */
+  shiftStatus: ShiftPayStatus | null;
+  subs: number;
+  tours: number;
+}
+
+export function buildPayDays({
+  fromDay,
+  lastDay,
+  today,
+  partsByDay,
+  sessionDays,
+  shiftRows,
+}: {
+  fromDay: string;
+  lastDay: string; // включительно
+  today: string; // дни после сегодня не показываем
+  partsByDay: SalaryPartsByDay;
+  sessionDays?: Map<string, { base: number; crew: number }>;
+  shiftRows?: ShiftPayRow[];
+}): PayDay[] {
+  const end = lastDay < today ? lastDay : today;
+  const days: PayDay[] = [];
+  for (let d = fromDay; d <= end; d = vnShiftDays(d, 1)) {
+    const sessions = partsByDay.sessions.get(d) ?? 0;
+    const shift = partsByDay.shifts.get(d) ?? 0;
+    const subs = partsByDay.subs.get(d) ?? 0;
+    const tours = partsByDay.tours.get(d) ?? 0;
+    const shiftRow = shiftRows?.find((r) => r.date === d) ?? null;
+    const info = sessionDays?.get(d) ?? null;
+    const total = sessions + shift + subs + tours;
+    // Пустой день без смены — выходной, его не показываем. День со сменой без
+    // денег показываем: там как раз и вопрос «почему ноль».
+    if (Math.round(total) === 0 && !shiftRow) continue;
+    days.push({
+      day: d,
+      total,
+      sessions,
+      sessionBase: info?.base ?? null,
+      sessionCrew: info?.crew ?? null,
+      shift,
+      shiftStatus: shiftRow?.status ?? null,
+      subs,
+      tours,
+    });
+  }
+  // Свежие сверху: первым смотрят «сегодня».
+  return days.reverse();
 }
