@@ -7,12 +7,9 @@ import { dayLabel, vnToday } from "@/lib/dates";
 import {
   confirmBookingAction,
   saveBookingAction,
-  togglePinAction,
   setStatusAction,
-  rescheduleAction,
   coverBookingAction,
 } from "../actions";
-import { ConfirmSubmit } from "../ConfirmSubmit";
 import { vnd } from "@/lib/stats";
 import { channelLabel } from "@/lib/channels";
 import { resolveRefOwners, refOwnerLabel, type RefOwner } from "@/lib/refOwner";
@@ -20,6 +17,7 @@ import { firstBasicTrainingByPhone } from "@/lib/agentReward";
 import { SaveForm } from "../SaveForm";
 import { getActiveDict, getChannelNames } from "@/lib/dictionaries";
 import { BookingCreateForm } from "./BookingCreateForm";
+import { PaidFields } from "./PaidFields";
 import { PageHeader } from "@/components/cabinet/PageHeader";
 import { MemberLinkBar } from "@/components/cabinet/MemberLinkBar";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
@@ -132,7 +130,9 @@ function rank(b: BookingRow): number {
   if (TERMINAL.includes(b.status)) return 100;
   if (b.pinned) return 0;
   if (b.status === "new") return 1;
-  if (b.status === "contacted") return 2;
+  // «В обработке» (contacted) из ленты убран 16.11.2026; старые такие
+  // заявки стоят рядом с новыми — им нужно то же действие.
+  if (b.status === "contacted") return 1;
   if (b.status === "confirmed" && !b.accepted) return 3;
   return 4;
 }
@@ -148,7 +148,6 @@ const btnAccent =
 function BookingCard({
   b,
   today,
-  hasPendingReward,
   refOwner,
   refDiscount,
   paymentMethods,
@@ -157,7 +156,6 @@ function BookingCard({
 }: {
   b: BookingRow;
   today: string;
-  hasPendingReward: boolean;
   // Владелец реф-ссылки заявки: агент (скидка + награда) или инструктор
   // (просто «записался к нему»). undefined — код есть, а владельца не нашли.
   refOwner: RefOwner | undefined;
@@ -281,7 +279,7 @@ function BookingCard({
           // «Записать клиента»: способ оплаты там никто не спрашивает. Раньше
           // в этом случае не было видно НИЧЕГО, и пустота читалась как «такого
           // поля нет». Теперь видно, что данные не внесли, — а поправить можно
-          // в списке «Формат оплаты» ниже.
+          // в поле «Чем оплатил» ниже.
           isClosedDeal(b) && (
             <p className="mt-2 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-bold text-amber-600">
               <span aria-hidden>💵</span>
@@ -335,7 +333,9 @@ function BookingCard({
 
         {/* Атрибуция: откуда пришёл клиент */}
         {(b.src || b.city || b.ref_code || utmEntries.length > 0) && (
-          <div className="mt-2 space-y-0.5 rounded-xl bg-line/30 px-3 py-2 text-xs text-muted">
+          // break-all: метки рекламы (fbclid и т.п.) — строки без пробелов до
+          // ~1000 px, на телефоне они распирали страницу вбок.
+          <div className="mt-2 space-y-0.5 break-all rounded-xl bg-line/30 px-3 py-2 text-xs text-muted">
             {b.src && <p>Канал записи: {channelLabel(b.src)}</p>}
             {/* Города нет у заявок с сайта и у всех старых — там строки просто
                 не будет, а вписать город можно в полях ниже. */}
@@ -351,18 +351,34 @@ function BookingCard({
           </div>
         )}
 
-        {/* Поля созвона + основные действия. Кнопки статусов ниже идут через
-            свой formAction — мимо SaveForm: у них обратная связь своя, меняется
-            бейдж карточки. SaveForm подтверждает именно «Сохранить». */}
+        {/* Одна форма на всю карточку (16.11.2026). Раньше их было три (поля,
+            перенос, «учтён в занятии») и до восьми кнопок в ряд; начальник
+            терялся, что тут главное. Теперь главная кнопка одна и зависит от
+            статуса, редкие действия свёрнуты в «Ещё». Кнопки статусов идут
+            через свой formAction мимо SaveForm: у них обратная связь своя,
+            меняется бейдж карточки. SaveForm подтверждает именно сохранение. */}
         <SaveForm
           action={b.status === "new" ? confirmBookingAction : saveBookingAction}
           className="mt-3"
         >
           <input type="hidden" name="id" value={b.id} />
-          <input type="hidden" name="pinned" value={b.pinned ? "1" : "0"} />
+          {/* Прежняя дата: по ней сервер понимает, что дату сменили, и ставит
+              бейдж «Перенесена» (бывшая форма «Перенести на»). */}
+          <input type="hidden" name="prevDate" value={b.preferred_date ?? ""} />
 
-          <div className="grid grid-cols-3 gap-2">
-            <label className="text-xs text-muted">
+          <div className="grid grid-cols-2 items-end gap-2">
+            {/* min-w-0: иначе нативный датапикер не даёт ячейке ужаться и
+                выталкивает соседнее поле за экран (см. NATIVE_PICKER). */}
+            <label className="min-w-0 text-xs text-muted">
+              Дата
+              <input
+                type="date"
+                name="preferredDate"
+                defaultValue={b.preferred_date ?? ""}
+                className={`mt-1 ${NATIVE_PICKER} ${inputClass}`}
+              />
+            </label>
+            <label className="min-w-0 text-xs text-muted">
               Время прихода
               <input
                 type="text"
@@ -372,6 +388,8 @@ function BookingCard({
                 className={`mt-1 ${inputClass}`}
               />
             </label>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
             <label className="text-xs text-muted">
               Возраст
               <input
@@ -393,69 +411,8 @@ function BookingCard({
               />
             </label>
           </div>
-          {/* Город: у заявок с сайта его нет (гость не указывает), у ручных он
-              приходит из формы. Здесь дописывают или правят. */}
-          <label className="mt-2 block text-xs text-muted">
-            Город
-            <input
-              type="text"
-              name="city"
-              defaultValue={b.city ?? ""}
-              placeholder="Nha Trang"
-              className={`mt-1 ${inputClass}`}
-            />
-          </label>
-          {/* Формат оплаты можно проставить руками (договорились по телефону)
-              или поправить — сам он приезжает при проведении заявки. */}
-          <label className="mt-2 block text-xs text-muted">
-            Формат оплаты
-            <select
-              name="paymentMethodId"
-              defaultValue={b.payment_method_id ?? ""}
-              className={`mt-1 ${inputClass}`}
-            >
-              <option value="">— не указан —</option>
-              {paymentMethods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-              {/* Способ мог быть скрыт в справочнике уже после оплаты — иначе
-                  select не нашёл бы своё значение и сохранение затёрло бы его. */}
-              {b.payment_method_id &&
-                !paymentMethods.some((p) => p.id === b.payment_method_id) && (
-                  <option value={b.payment_method_id}>
-                    {b.payment?.name ?? "прежний способ"}
-                  </option>
-                )}
-            </select>
-          </label>
-          {/* «Уже оплатил» (0036): гость перевёл деньги при переписке, а
-              катается позже. Инструктор увидит отметку в карточке и не станет
-              спрашивать деньги второй раз. На выручку не влияет — она
-              считается по занятию. */}
-          <label className="mt-2 flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="paidMark"
-              defaultChecked={Boolean(b.paid)}
-              className="h-4 w-4 accent-primary"
-            />
-            Клиент уже оплатил
-          </label>
-          {/* Дата оплаты (0042): нужна, когда деньги пришли не в день занятия —
-              «перевёл в июле, катается в августе». Она переедет в занятие, и
-              чек ляжет в кассу и в прибыль ТОГО месяца, когда заплатили. ЗП
-              инструктора это не двигает — её считают по дню занятия. */}
-          <label className="mt-2 block text-xs text-muted">
-            Дата оплаты (если платили не в день занятия)
-            <input
-              type="date"
-              name="paidOn"
-              defaultValue={b.paid_on ?? ""}
-              className={`mt-1 ${NATIVE_PICKER} ${inputClass}`}
-            />
-          </label>
+          {/* Города в карточке больше нет (16.11.2026): у заявок его почти не
+              заполняли, а спрашивает его «Записать клиента». */}
           <label className="mt-2 block text-xs text-muted">
             Заметка (пожелания клиента, договорённости — видна инструкторам)
             <textarea
@@ -465,191 +422,144 @@ function BookingCard({
               className={`mt-1 ${inputClass}`}
             />
           </label>
+          {/* «Уже оплатил» (0036) и поля оплаты за ним. У закрытой заявки способ
+              проставило занятие, его можно поправить и без галочки. */}
+          <div className="mt-2 space-y-2">
+            <PaidFields
+              paymentMethods={paymentMethods}
+              defaultPaid={Boolean(b.paid)}
+              defaultMethodId={b.payment_method_id}
+              defaultMethodName={b.payment?.name ?? null}
+              defaultPaidOn={b.paid_on}
+              showMethod={isClosedDeal(b)}
+            />
+          </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {/* Главное действие. Новую заявку подтверждают — она уходит в
+                записи и к инструкторам. Подтверждённую доводят до занятия
+                («Записать клиента») или продажи абонемента: это закрывает
+                заявку и считает выручку и 15% инструктору. */}
             {(b.status === "new" || b.status === "contacted") && (
               <button type="submit" formAction={confirmBookingAction} className={btnAccent}>
                 Подтвердить → в записи
               </button>
             )}
-            {b.status === "new" && (
-              <button
-                formAction={setStatusAction.bind(null, "contacted")}
-                className={btnGhost}
-              >
-                В обработку
-              </button>
-            )}
-            {/* Кнопка есть и у закрытых заявок. Поля карточки (дата оплаты,
-                способ, город, заметка) у них отрисованы и правятся, а сохранить
-                было нечем: форма без кнопки submit, и введённое молча пропадало
-                при перерисовке. Статус кнопка не трогает — заявка как была
-                выполненной или в архиве, так и останется. У «новой» своя кнопка
-                («Подтвердить → в записи»), поэтому она сюда не попадает. */}
-            {b.status !== "new" && (
-              <button type="submit" className={btnGhost}>
-                Сохранить
-              </button>
-            )}
-            {b.status === "confirmed" && (
-              <>
-                {/* «Выполнена» закрывает заявку БЕЗ занятия: сессия не пишется,
-                    деньги и 15% инструктору не считаются. Кнопка выглядела как
-                    обычное «готово», и ею закрывали проведённых клиентов — в
-                    отчётах их потом не было. Правильный путь — «Записать
-                    клиента» рядом; для второго человека из парного занятия —
-                    «Учтена в занятии» ниже. */}
-                <ConfirmSubmit
-                  message={
-                    "Закрыть заявку БЕЗ занятия?\n\nВыручка и 15% инструктору по ней не посчитаются.\n\nЕсли клиент катался — нажмите «Записать клиента».\nЕсли он уже внутри чужого занятия (парное обучение) — «Учтена в занятии»."
-                  }
-                  formAction={setStatusAction.bind(null, "done")}
-                  className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-700"
-                >
-                  Выполнена
-                </ConfirmSubmit>
-                <button formAction={togglePinAction} className={btnGhost}>
-                  {b.pinned ? "Открепить" : "Закрепить"}
-                </button>
-              </>
-            )}
             {!terminal && (
-              // Провести заявку. Абонемент — не сессия: ведём на форму продажи
-              // абонемента (там минуты/членство/оплата), иначе на «Запись
-              // клиента». В обоих случаях сохранение закроет заявку (done).
               <Link
                 href={
                   b.services?.category === "subscription"
                     ? `${base}/subscriptions?booking=${b.id}`
                     : `${base}/record?booking=${b.id}`
                 }
-                className={btnGhost}
+                className={b.status === "confirmed" ? btnAccent : btnGhost}
               >
                 {b.services?.category === "subscription" ? "Продать абонемент" : "Записать клиента"}
               </Link>
             )}
-            {!terminal && (
-              <button
-                formAction={setStatusAction.bind(null, "cancelled")}
-                className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-red-500 hover:text-red-500"
-              >
-                Отменить
-              </button>
-            )}
-            {b.status === "done" && hasPendingReward && (
-              <button
-                formAction={setStatusAction.bind(null, "done")}
-                className={btnAccent}
-              >
-                Подтвердить реф-награду
-              </button>
-            )}
-            {(b.status === "done" || b.status === "cancelled") && (
-              <button
-                formAction={setStatusAction.bind(null, "archived")}
-                className={btnGhost}
-              >
-                В архив
-              </button>
-            )}
-            {/* Обратный ход. Архив был билетом в один конец: у архивной заявки
-                не оставалось ни одной кнопки, а живой случай есть — гость
-                оплатил, не пришёл и перезаписался на другой день (заявка 81,
-                Алекс Гогун). Провести её в занятие было нельзя.
-                Куда возвращаем: заявку, за которой уже стоит занятие или
-                абонемент, — обратно в «Выполнена» (она отработана, ей нужно
-                только выйти из архива). Остальные — в «Подтверждена», откуда
-                снова доступно «Записать клиента». */}
-            {b.status === "archived" && (
-              <button
-                formAction={setStatusAction.bind(
-                  null,
-                  b.session || b.subscription_id ? "done" : "confirmed",
-                )}
-                className={btnGhost}
-              >
-                Вернуть из архива
+            {/* «Сохранить» есть и у закрытых заявок: их поля (способ и дата
+                оплаты, заметка) правятся, а без кнопки введённое молча
+                пропадало. Статус кнопка не трогает. У новой своя кнопка выше. */}
+            {b.status !== "new" && b.status !== "contacted" && (
+              <button type="submit" className={btnGhost}>
+                Сохранить
               </button>
             )}
           </div>
+
+          {/* Кнопки «Выполнена» здесь больше нет (16.11.2026): она закрывала
+              заявку БЕЗ занятия, выручка и 15% инструктору не считались, и ею
+              закрывали откатавших клиентов. Правильные пути — «Записать
+              клиента» и «Клиент учтён в другом занятии» в «Ещё».
+              «Закрепить» убран: по базе им не пользовались ни разу. «В
+              обработку» убран по решению David: новую заявку сразу
+              подтверждают. */}
+          {(() => {
+            const canCover =
+              b.status !== "new" &&
+              (!terminal || b.status === "cancelled" || isDealWithoutSession(b)) &&
+              coverCandidates.length > 0;
+            const hasMore =
+              !terminal || b.status === "done" || b.status === "cancelled" ||
+              b.status === "archived" || canCover;
+            if (!hasMore) return null;
+            return (
+              <details className="mt-3 rounded-xl border border-line bg-line/10 p-3">
+                <summary className="cursor-pointer text-xs font-semibold text-muted">
+                  Ещё
+                </summary>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {!terminal && (
+                    <button
+                      formAction={setStatusAction.bind(null, "cancelled")}
+                      className="rounded-full border border-line px-4 py-2 text-xs font-semibold text-muted transition-colors hover:border-red-500 hover:text-red-500"
+                    >
+                      Отменить заявку
+                    </button>
+                  )}
+                  {(b.status === "done" || b.status === "cancelled") && (
+                    <button formAction={setStatusAction.bind(null, "archived")} className={btnGhost}>
+                      В архив
+                    </button>
+                  )}
+                  {/* Обратный ход из архива: гость оплатил, не пришёл и
+                      перезаписался на другой день (заявка 81). Заявку, за
+                      которой уже стоит занятие или абонемент, — в «Выполнена»,
+                      остальные — в «Подтверждена», откуда снова доступно
+                      «Записать клиента». */}
+                  {b.status === "archived" && (
+                    <button
+                      formAction={setStatusAction.bind(
+                        null,
+                        b.session || b.subscription_id ? "done" : "confirmed",
+                      )}
+                      className={btnGhost}
+                    >
+                      Вернуть из архива
+                    </button>
+                  )}
+                </div>
+
+                {/* «Учтена в занятии» (0038). Парное обучение — одна сессия на
+                    двоих, а заявок две. Заявка встаёт «Выполнена» и указывает
+                    на то же занятие; денег это не добавляет — выручка живёт на
+                    сессии. Отменённым блок тоже нужен: заявку-спутника раньше
+                    закрывали «Отменить» (заявка 76 от 11.08), исправляют здесь. */}
+                {canCover && (
+                  <div className="mt-3 border-t border-line/70 pt-3">
+                    <p className="text-xs font-semibold text-muted">
+                      Клиент учтён в другом занятии
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-end gap-2">
+                      <label className="min-w-0 flex-1 text-xs text-muted">
+                        Занятие
+                        <select name="sessionId" className={`mt-1 ${inputClass}`}>
+                          {coverCandidates.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {[
+                                s.clients?.name ?? "клиент",
+                                s.services?.name ?? "услуга",
+                                s.date,
+                                vnd(s.amount ?? 0),
+                              ].join(" · ")}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button formAction={coverBookingAction} className={btnGhost}>
+                        Учтена
+                      </button>
+                    </div>
+                    <p className="mt-2 text-[11px] text-muted">
+                      Для второго человека из парного занятия: заявка закроется как
+                      выполненная, второй раз деньги не посчитаются.
+                    </p>
+                  </div>
+                )}
+              </details>
+            );
+          })()}
         </SaveForm>
-
-        {/* «Учтена в занятии» (0038). Парное обучение — это одна сессия на
-            двоих, а заявок две. Вторую раньше оставалось только отменить, и
-            человек, который реально катался, оказывался в CRM отказом. Теперь
-            она встаёт «Выполнена» и указывает на то же занятие; денег это не
-            добавляет — выручка живёт на сессии, а сессия одна.
-            Свёрнуто в details: нужно это редко, а место в карточке дорогое. */}
-        {/* Отменённым блок тоже нужен, и это главный случай: заявку-спутника
-            до сих пор закрывали именно «Отменить» (заявка 76 от 11.08 —
-            дочка, которая каталась в парном занятии мамы). Такую отмену
-            исправляют здесь: заявка станет выполненной и укажет на занятие. */}
-        {b.status !== "new" &&
-          (!terminal ||
-            b.status === "cancelled" ||
-            isDealWithoutSession(b)) &&
-          coverCandidates.length > 0 && (
-          <details className="mt-3 rounded-xl border border-line bg-line/10 p-3">
-            <summary className="cursor-pointer text-xs font-semibold text-muted">
-              Клиент учтён в другом занятии
-            </summary>
-            <form action={coverBookingAction} className="mt-2 flex flex-wrap items-end gap-2">
-              <input type="hidden" name="id" value={b.id} />
-              <label className="min-w-0 flex-1 text-xs text-muted">
-                Занятие
-                <select name="sessionId" required className={`mt-1 ${inputClass}`}>
-                  {coverCandidates.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {[
-                        s.clients?.name ?? "клиент",
-                        s.services?.name ?? "услуга",
-                        s.date,
-                        vnd(s.amount ?? 0),
-                      ].join(" · ")}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="submit" className={btnGhost}>
-                Учтена
-              </button>
-            </form>
-            <p className="mt-2 text-[11px] text-muted">
-              Для второго человека из парного занятия: заявка закроется как
-              выполненная, второй раз деньги не посчитаются.
-            </p>
-          </details>
-        )}
-
-      {/* Перенос: новая дата/время, статус остаётся живым */}
-        {!terminal && (
-          <form action={rescheduleAction} className="mt-3 flex items-end gap-2">
-            <input type="hidden" name="id" value={b.id} />
-            {/* min-w-0: иначе нативный датапикер не даёт ячейке ужаться и
-                выталкивает кнопку «Перенести» за экран (см. NATIVE_PICKER). */}
-            <label className="min-w-0 flex-1 text-xs text-muted">
-              Перенести на
-              <input
-                type="date"
-                name="newDate"
-                required
-                className={`mt-1 ${NATIVE_PICKER} ${inputClass}`}
-              />
-            </label>
-            <label className="w-24 text-xs text-muted">
-              Время
-              <input
-                type="text"
-                name="newTime"
-                placeholder="10:30"
-                className={`mt-1 ${inputClass}`}
-              />
-            </label>
-            <button type="submit" className={btnGhost}>
-              Перенести
-            </button>
-          </form>
-        )}
       </div>
     </details>
   );
@@ -659,7 +569,6 @@ function BookingCard({
 const FILTERS: { key: string; label: string }[] = [
   { key: "", label: "Все" },
   { key: "new", label: "Новые" },
-  { key: "contacted", label: "В обработке" },
   { key: "confirmed", label: "Подтверждены" },
   { key: "awaiting", label: "Ждут оплату" },
   { key: "done", label: "Выполнены" },
@@ -735,20 +644,6 @@ export async function BookingsScreen({
     if (TERMINAL.includes(a.status)) return 0;
     return (a.preferred_date ?? "9999").localeCompare(b.preferred_date ?? "9999");
   });
-
-  // У каких выполненных заявок ещё висит неподтверждённая награда агента.
-  const doneClientIds = bookings
-    .filter((b) => b.status === "done" && b.ref_code && b.client_id)
-    .map((b) => b.client_id as string);
-  let pendingRewardClients = new Set<string>();
-  if (doneClientIds.length > 0) {
-    const { data: rewards } = await supabase
-      .from("referral_rewards")
-      .select("client_id")
-      .eq("status", "pending")
-      .in("client_id", doneClientIds);
-    pendingRewardClients = new Set((rewards ?? []).map((r) => r.client_id as string));
-  }
 
   // Реф-коды видимых заявок → имена владельцев ссылок (агент или инструктор).
   const refOwners = await resolveRefOwners(
@@ -873,7 +768,6 @@ export async function BookingsScreen({
             key={b.id}
             b={b}
             today={today}
-            hasPendingReward={!!b.client_id && pendingRewardClients.has(b.client_id)}
             refOwner={b.ref_code ? refOwners.get(b.ref_code) : undefined}
             refDiscount={refDiscounts.get(b.phone)}
             paymentMethods={paymentMethods}

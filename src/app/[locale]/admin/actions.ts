@@ -150,8 +150,12 @@ function bookingFields(formData: FormData) {
     // Как договорились платить. Проставляется руками здесь и автоматически,
     // когда заявку доводят до занятия или абонемента (там способ оплаты
     // обязателен) — чтобы в ленте заявок было видно, чем реально заплатили.
-    payment_method_id:
-      String(formData.get("paymentMethodId") ?? "").trim() || null,
+    // Ключ только если поле пришло с формой: блок оплаты (PaidFields) не
+    // отправляет способ, когда его некому показывать, и тогда сохранённый
+    // способ не трогаем.
+    ...(formData.has("paymentMethodId")
+      ? { payment_method_id: String(formData.get("paymentMethodId") ?? "").trim() || null }
+      : {}),
     // Город правится из карточки заявки: у заявок с сайта его нет вовсе (гость
     // город не указывает), а знать, откуда гость, нужно. Ключ добавляем только
     // если поле реально пришло с формой — иначе форма без него стирала бы
@@ -293,7 +297,13 @@ export async function confirmBookingAction(formData: FormData) {
   const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await updateBooking(user, id, { ...bookingFields(formData), status: "confirmed" });
+  // Дату правят и при подтверждении (договорились на другой день), но
+  // переносом это не считается: записи до подтверждения ещё не было.
+  await updateBooking(user, id, {
+    ...bookingFields(formData),
+    ...rescheduleFields(formData, false),
+    status: "confirmed",
+  });
   await notifyInstructors(id).catch(() => {});
 }
 
@@ -306,7 +316,7 @@ export async function confirmBookingAction(formData: FormData) {
 export async function setStatusAction(status: string, formData: FormData) {
   const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
-  const allowed = ["contacted", "confirmed", "done", "cancelled", "archived"];
+  const allowed = ["confirmed", "done", "cancelled", "archived"];
   if (!id || !allowed.includes(status)) return;
 
   // Здесь жил вызов confirmPendingReward — он переводил награду агента из
@@ -1785,34 +1795,31 @@ export async function addMemberAction(formData: FormData) {
 
 // «Перенести»: новая дата/время, статус живой — в ленте появится бейдж
 // «Перенесена» (по rescheduled_at), но запись продолжает свой цикл.
-export async function rescheduleAction(formData: FormData) {
-  const user = await requireOffice();
-  const id = String(formData.get("id") ?? "");
-  const date = String(formData.get("newDate") ?? "").trim();
-  if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-  await updateBooking(user, id, {
-    preferred_date: date,
-    scheduled_time: String(formData.get("newTime") ?? "").trim() || null,
-    rescheduled_at: new Date().toISOString(),
-  });
-}
-
 // «Сохранить»: обновить поля уже подтверждённой записи, статус не трогаем.
 export async function saveBookingAction(formData: FormData) {
   const user = await requireOffice();
   const id = String(formData.get("id") ?? "");
   if (!id) return;
-  await updateBooking(user, id, bookingFields(formData));
+  await updateBooking(user, id, { ...bookingFields(formData), ...rescheduleFields(formData) });
+}
+
+// Дата занятия правится прямо в карточке (16.11.2026). Отдельная форма
+// «Перенести на» убрана: её почти не трогали, а место в карточке она
+// занимала всегда. Перенос теперь — это просто смена уже стоявшей даты: тогда
+// ставим rescheduled_at, и в ленте появляется бейдж «Перенесена». Первую дату
+// у заявки без даты переносом не считаем.
+function rescheduleFields(formData: FormData, markMoved = true): Record<string, unknown> {
+  if (!formData.has("preferredDate")) return {};
+  const raw = String(formData.get("preferredDate") ?? "").trim();
+  const date = DAY_RE.test(raw) ? raw : null;
+  const prev = String(formData.get("prevDate") ?? "").trim() || null;
+  return {
+    preferred_date: date,
+    ...(markMoved && prev && date && date !== prev ? { rescheduled_at: new Date().toISOString() } : {}),
+  };
 }
 
 // «Закрепить/Открепить»: закреплённые записи висят сверху у инструкторов.
-export async function togglePinAction(formData: FormData) {
-  const user = await requireOffice();
-  const id = String(formData.get("id") ?? "");
-  if (!id) return;
-  await updateBooking(user, id, { pinned: formData.get("pinned") !== "1" });
-}
-
 // ── Услуги (подэтап 4.10) ────────────────────────────────────────────────────
 // Справочник services — источник для форм записи, сессий и статистики.
 // Удаления нет: на услуги ссылаются bookings и sessions, вместо этого тумблер
