@@ -5,6 +5,7 @@ import { createBookingAction } from "../actions";
 import { ChannelField } from "@/components/cabinet/ChannelField";
 import { NATIVE_PICKER } from "@/components/cabinet/fieldClasses";
 import { Spinner } from "@/components/Spinner";
+import { PaidFields } from "./PaidFields";
 
 // Форма «Новая заявка»: клиент позвонил / написал / пришёл ногами. Заявку с
 // сайта создаёт публичная форма, а этот поток раньше в CRM не попадал вообще.
@@ -86,72 +87,19 @@ export function BookingCreateForm({
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        {/* Канал записи: список ведёт админ в «Настройках» (0041), по
-            умолчанию «Пляжи». Разовую точку можно вписать руками — пункт
-            «Другой…» в конце списка. */}
-        <ChannelField variant="compact" className={inputClass} channels={channels} />
-        <label className="text-xs text-muted">
-          Услуга
-          <select name="serviceId" className={`mt-1 ${inputClass}`}>
-            <option value="">— не выбрана —</option>
-            {services.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      {/* Город — обязательный: без него в базе не видно, откуда к нам едут.
-          Свободный текст, справочника нарочно нет. */}
+      {/* Порядок полей — как идёт разговор: кто → что → когда → откуда.
+          Города здесь нет (16.11.2026): его не читала ни одна выборка, а
+          обязательным полем он только тормозил запись. */}
       <label className="block text-xs text-muted">
-        Город *
-        <input
-          type="text"
-          name="city"
-          required
-          placeholder="Nha Trang"
-          className={`mt-1 ${inputClass}`}
-        />
-      </label>
-
-      {/* Формат оплаты (пак A, пункт 6) — здесь НЕобязателен: заявка это
-          договорённость, клиент ещё не платил. Заполняют, когда о способе
-          условились заранее (например, гость сказал «переведу на T-Bank»). */}
-      <label className="block text-xs text-muted">
-        Формат оплаты
-        <select name="paymentMethodId" className={`mt-1 ${inputClass}`}>
-          <option value="">— пока неизвестен —</option>
-          {paymentMethods.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
+        Услуга
+        <select name="serviceId" className={`mt-1 ${inputClass}`}>
+          <option value="">— не выбрана —</option>
+          {services.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
             </option>
           ))}
         </select>
-      </label>
-
-      {/* «Уже оплатил» (0036): человек написал в инстаграм и сразу перевёл
-          деньги, а катается послезавтра. Без этой отметки инструктор на пляже
-          спрашивал деньги второй раз. Выручка от галочки не меняется — она
-          считается по занятию, когда его запишут. */}
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          name="paidMark"
-          className="h-4 w-4 accent-primary"
-        />
-        Клиент уже оплатил
-      </label>
-
-      {/* Когда именно заплатил (0042). Пусто — значит в день занятия, и всё
-          считается как раньше. Заполняют, когда деньги пришли раньше, иногда в
-          прошлом месяце: дата переедет в занятие, и чек ляжет в кассу того
-          месяца, когда платили. */}
-      <label className="block text-xs text-muted">
-        Дата оплаты (если платили не в день занятия)
-        <input type="date" name="paidOn" className={`mt-1 ${nativeFieldClass}`} />
       </label>
 
       {/* Дата и время на телефоне налезали друг на друга. Лечится в двух местах:
@@ -177,6 +125,11 @@ export function BookingCreateForm({
         </label>
       </div>
 
+      {/* Канал записи: список ведёт админ в «Настройках» (0041), по
+          умолчанию «Пляжи». Разовую точку можно вписать руками — пункт
+          «Другой…» в конце списка. Нужен «Источникам» и «Статистике». */}
+      <ChannelField variant="compact" className={inputClass} channels={channels} />
+
       <div className="grid grid-cols-2 gap-2">
         <label className="text-xs text-muted">
           Возраст
@@ -198,15 +151,12 @@ export function BookingCreateForm({
         />
       </label>
 
-      {/* По умолчанию сразу «Подтверждена»: по телефону уже договорились, и
-          запись должна тут же попасть в календарь и к инструкторам. */}
-      <label className="block text-xs text-muted">
-        Статус
-        <select name="status" defaultValue="confirmed" className={`mt-1 ${inputClass}`}>
-          <option value="confirmed">Подтверждена — сразу в календарь</option>
-          <option value="new">Новая — ещё созвониться</option>
-        </select>
-      </label>
+      {/* «Уже оплатил» (0036) и поля оплаты за ним — общий блок с карточкой
+          заявки. Выручка от галочки не меняется: она считается по занятию. */}
+      <PaidFields paymentMethods={paymentMethods} />
+
+      {/* Статуса в форме нет: ручная заявка всегда уже согласована и сразу
+          уходит в календарь и к инструкторам. */}
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
 

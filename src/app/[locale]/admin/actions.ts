@@ -245,16 +245,11 @@ export async function createBookingAction(
   const channel = pickChannel(formData.get("channel"), formData.get("channelOther"));
   if (!channel) return { error: "Укажите канал записи." };
 
-  // Город обязателен: required в разметке — подсказка, правило здесь.
-  const city = String(formData.get("city") ?? "").trim();
-  if (!city) return { error: "Укажите город клиента." };
-
   const preferredDate = String(formData.get("preferredDate") ?? "").trim();
   if (preferredDate && !DAY_RE.test(preferredDate))
     return { error: "Дата — в формате ГГГГ-ММ-ДД." };
 
   const serviceId = String(formData.get("serviceId") ?? "");
-  const confirmed = formData.get("status") !== "new";
 
   // После проверки активной роли: механик и СММ пишут только заданные ниже
   // поля через сервер; прямые INSERT в PostgREST закрыты миграцией 0055.
@@ -264,13 +259,14 @@ export async function createBookingAction(
     phone,
     service_id: serviceId || null,
     preferred_date: preferredDate || null,
-    status: confirmed ? "confirmed" : "new",
+    // Ручную заявку заводят, когда с клиентом уже договорились, поэтому выбор
+    // «Новая / Подтверждена» из формы убран 16.11.2026.
+    status: "confirmed",
     src: channel,
     // Формат оплаты сюда приходит из bookingFields: в заявке он
     // необязателен — клиент ещё не платил (пак A). Оттуда же галочка «уже
     // оплачено» — она, наоборот, про «деньги получены до занятия» (0036).
     ...bookingFields(formData),
-    city,
   };
   const { data: created, error } = await supabase
     .from("bookings")
@@ -281,8 +277,8 @@ export async function createBookingAction(
     return { error: `Не удалось создать заявку: ${error?.message ?? "неизвестно"}` };
   }
 
-  // Инструкторам сообщаем только о том, что уже подтверждено — как и с сайта.
-  if (confirmed) await notifyInstructors(created.id as string).catch(() => {});
+  // Заявка сразу подтверждена — инструкторам сообщаем, как и о заявке с сайта.
+  await notifyInstructors(created.id as string).catch(() => {});
 
   revalidatePath("/", "layout");
   // У механика ленты заявок нет — возвращаем его на ту же форму с плашкой
